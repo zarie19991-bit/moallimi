@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>معلّمي | منصة معلم اللغة العربية</title>
+<meta name="theme-color" content="#0b3f3a">
+<meta name="description" content="منصة معلّمي لإدارة الفصول والمهارات والاستبانات والتدريب على نافس.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f4f7f8;--card:#fff;--text:#132029;--muted:#71808c;--brand:#0f766e;--soft:#e7f5f2;--border:#e2e8ec;--red:#b42318;--gold:#9a6700;--blue:#175cd3;--shadow:0 12px 30px rgba(15,23,42,.07)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Tahoma,Arial,sans-serif}button,input,select,textarea{font:inherit}.hidden{display:none!important}
@@ -19,15 +24,46 @@
 .student{min-height:100vh;padding:20px;background:radial-gradient(circle at 80% 5%,#dff7f2,transparent 30%),var(--bg)}.student .wrap{max-width:700px;margin:auto}.student .brandline{text-align:center;margin:12px 0 20px}.receipt{padding:13px;border-radius:13px;background:var(--soft);margin-top:12px}.toast{position:fixed;left:18px;bottom:18px;background:#101828;color:#fff;padding:11px 14px;border-radius:12px;z-index:99}.toast.bad{background:var(--red)}
 @media(max-width:1000px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){.shell{display:block}.side{display:none;position:fixed;inset:0 0 0 auto;width:min(310px,88vw);z-index:40;box-shadow:-12px 0 30px rgba(15,23,42,.18)}.side.open{display:block}.mobile-menu{display:inline-flex}.content{padding:14px}.g4,.g3,.g2{grid-template-columns:1fr}.top{padding:0 14px}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}.head{align-items:center}.item{align-items:flex-start;flex-direction:column}.actions{width:100%}.actions .btn{flex:1}}
+
+/* Professional visual system */
+:root{--bg:#f2f5f4;--card:#fff;--text:#102a2b;--muted:#657676;--brand:#0d6259;--brand2:#0b3f3a;--soft:#e8f4f1;--border:#dce6e3;--red:#b42318;--gold:#b7791f;--blue:#1f5f99;--shadow:0 10px 35px rgba(16,42,43,.07);--radius:18px}
+*{scrollbar-color:#b8cbc7 transparent}body{font-family:"Tajawal",Tahoma,Arial,sans-serif;letter-spacing:.01em}
+.auth{background:linear-gradient(135deg,#082f2c 0,#0d6259 45%,#eaf2ef 45%,#f4f7f6 100%);padding:30px}
+.auth-wrap{width:min(1020px,100%);display:grid;grid-template-columns:1.08fr .92fr;background:#fff;border-radius:28px;overflow:hidden;box-shadow:0 30px 80px rgba(5,38,35,.22)}
+.auth-intro{padding:54px;color:#fff;background:linear-gradient(155deg,#0d6259,#082f2c);position:relative;overflow:hidden}
+.auth-intro:after{content:"ض";position:absolute;left:-30px;bottom:-95px;font-size:330px;font-weight:900;color:rgba(255,255,255,.04);line-height:1}
+.auth-intro h2{font-size:34px;margin:22px 0 12px}.auth-intro p{color:#d8ebe7;text-align:right;line-height:1.9;margin:0 0 30px}.intro-points{display:grid;gap:14px;position:relative;z-index:1}.intro-point{display:flex;align-items:center;gap:12px;font-weight:700}.intro-point i{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.12);font-style:normal}
+.auth-card{width:auto;border:0;border-radius:0;box-shadow:none;padding:48px}.auth-card .logo{margin:0}.auth-card h1,.auth-card>p{text-align:right}.auth-card h1{font-size:30px;margin-top:20px}.auth-card .tabs{margin-top:22px}
+.logo{background:linear-gradient(145deg,#d0a536,#9a7018);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 8px 22px rgba(154,112,24,.24)}
+.shell{grid-template-columns:286px 1fr}.side{background:linear-gradient(180deg,#0b3f3a,#082f2c);border:0;padding:22px 14px;color:#fff}.brand{padding:0 10px 24px;border-bottom:1px solid rgba(255,255,255,.09);margin-bottom:16px}.brand b{font-size:21px}.brand small{color:#aed0ca}.brand .logo{box-shadow:none}.nav{gap:4px}.nav-group{color:#7fb1aa;font-size:11px;font-weight:800;padding:16px 13px 6px}.nav button{color:#bfd7d3;padding:11px 13px;display:flex;align-items:center;gap:11px;font-weight:700}.nav button:before{content:"";width:7px;height:7px;border-radius:3px;background:#6e9c96;transition:.2s}.nav button.active,.nav button:hover{background:rgba(255,255,255,.1);color:#fff}.nav button.active:before{background:#e6bf57;box-shadow:0 0 0 4px rgba(230,191,87,.12)}.sidefoot{border-color:rgba(255,255,255,.09);background:rgba(255,255,255,.05);color:#acd0ca;line-height:1.7}
+.top{height:76px;padding:0 28px;box-shadow:0 1px 0 var(--border);border:0}.top strong{font-size:14px}.content{padding:28px;max-width:1540px}.head{margin-bottom:20px}.head h2{font-size:24px;font-weight:900}.head p{font-size:13px;line-height:1.7}.card{border-radius:var(--radius);box-shadow:none;padding:20px}.card:hover{border-color:#cadbd7}.kpi{position:relative;overflow:hidden;min-height:124px}.kpi:after{content:"";position:absolute;width:72px;height:72px;border-radius:24px;background:var(--soft);left:-15px;bottom:-20px;transform:rotate(18deg)}.kpi strong{font-size:34px;color:var(--brand2);font-weight:900}.kpi span{font-size:13px;font-weight:700}.kpi small{display:block;color:#2f8176;margin-top:9px;font-weight:700}.btn{border-radius:11px;transition:.18s}.btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(16,42,43,.09)}.btn.primary{background:linear-gradient(135deg,var(--brand),var(--brand2));box-shadow:0 7px 18px rgba(13,98,89,.18)}.btn.gold{background:#fff8e7;border-color:#ead8a7;color:#805e12}.badge{font-size:11px;letter-spacing:.01em}.hero{background:linear-gradient(125deg,#0b3f3a,#0d6259);color:#fff;border:0;padding:27px;display:flex;justify-content:space-between;gap:22px;align-items:center;overflow:hidden;position:relative}.hero:after{content:"ض";position:absolute;left:30px;top:-58px;font-size:190px;font-weight:900;color:rgba(255,255,255,.05)}.hero h2{font-size:28px;margin:0 0 8px}.hero p{margin:0;color:#cfe4df;max-width:650px;line-height:1.8}.hero .actions{position:relative;z-index:1}.hero .btn{background:#fff;color:var(--brand2);border:0}.hero .btn.gold{background:#e8c96f;color:#4e3a08}
+.section-title{display:flex;align-items:center;justify-content:space-between;margin:25px 0 12px}.section-title h3{margin:0;font-size:18px}.section-title span{color:var(--muted);font-size:12px}.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.quick{display:flex;align-items:center;gap:13px;text-align:right;width:100%;border:1px solid var(--border);background:#fff;padding:15px;border-radius:15px;cursor:pointer}.quick:hover{border-color:#9fc5be;background:#fbfefd}.quick i{font-style:normal;width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:var(--soft);color:var(--brand);font-weight:900;font-size:18px}.quick b{display:block}.quick small{color:var(--muted)}
+.skill-toolbar{display:flex;gap:10px;align-items:center}.searchbox{min-width:280px;border:1px solid var(--border);background:#fff;border-radius:12px;padding:10px 13px;outline:none}.searchbox:focus{border-color:#75aaa2;box-shadow:0 0 0 3px #e4f2ef}.skill-groups{display:grid;gap:18px}.skill-group{background:#fff;border:1px solid var(--border);border-radius:18px;padding:18px}.skill-group-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.skill-group-head h3{margin:0;font-size:17px}.skill-count{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--soft);color:var(--brand);font-weight:900}.skill-list{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.skill-row{padding:13px;border:1px solid #e6ecea;border-radius:13px;background:#fbfcfc}.skill-row b{display:block;font-size:14px}.skill-row p{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.65}.source-note{display:inline-flex;gap:7px;align-items:center;padding:8px 11px;border-radius:10px;background:#fff8e7;color:#7e5e16;font-size:12px;font-weight:700}
+.survey-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.survey-card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:19px;position:relative;overflow:hidden}.survey-card:before{content:"";position:absolute;right:0;top:0;bottom:0;width:4px;background:var(--brand)}.survey-code{display:inline-flex;align-items:center;gap:8px;font-family:monospace;direction:ltr;font-weight:900;font-size:17px;background:#eef5f3;padding:7px 11px;border-radius:10px;color:var(--brand2)}.survey-card h3{margin:15px 0 4px}.survey-meta{color:var(--muted);font-size:12px;margin-bottom:14px}.result-bars{display:grid;gap:11px}.result-row{display:grid;grid-template-columns:80px 1fr 35px;gap:10px;align-items:center;font-size:12px}.bar{height:9px;background:#edf1f0;border-radius:99px;overflow:hidden}.bar span{display:block;height:100%;border-radius:99px;background:var(--brand)}.bar.auditory span{background:#3976a8}.bar.kinesthetic span{background:#d19f36}.result-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}.mini-kpi{background:#fff;border:1px solid var(--border);border-radius:15px;padding:15px}.mini-kpi b{font-size:24px;color:var(--brand2)}.mini-kpi span{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.portal-tabs{display:flex;gap:7px;padding:5px;background:#e9efed;border-radius:13px;margin-bottom:18px}.portal-tabs button{flex:1;border:0;background:transparent;padding:10px;border-radius:9px;font-weight:800;color:var(--muted);cursor:pointer}.portal-tabs button.active{background:#fff;color:var(--brand);box-shadow:0 4px 14px rgba(16,42,43,.07)}.portal-pane{display:none}.portal-pane.active{display:block}.survey-question{padding:17px;border:1px solid var(--border);border-radius:15px;margin-bottom:11px;background:#fff}.survey-question h4{margin:0 0 13px;font-size:14px;line-height:1.7}.likert{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;direction:rtl}.likert label{display:grid;place-items:center;min-height:44px;border:1px solid var(--border);border-radius:10px;cursor:pointer;font-size:11px;text-align:center;padding:4px}.likert input{display:none}.likert label:has(input:checked){background:var(--brand);color:#fff;border-color:var(--brand)}.survey-result{padding:24px;text-align:center;background:linear-gradient(145deg,#e8f4f1,#fff);border:1px solid #bed9d3;border-radius:18px}.survey-result strong{display:block;font-size:27px;color:var(--brand2);margin:5px}.student{background:radial-gradient(circle at 90% 0,#d6ebe6,transparent 35%),#f2f5f4}.student .wrap{max-width:820px}.student .brandline .logo{margin:auto}.student .brandline h1{margin:12px 0 2px}.student .card{box-shadow:0 20px 60px rgba(16,42,43,.1);padding:25px}
+.table th{font-weight:800}.table td{vertical-align:middle}.empty{background:#fbfdfc;padding:42px 18px}.empty:before{content:"• • •";display:block;color:#98b5b0;font-size:20px;margin-bottom:9px;letter-spacing:5px}
+@media(max-width:1050px){.shell{grid-template-columns:245px 1fr}.quick-grid,.result-summary{grid-template-columns:repeat(2,1fr)}.survey-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.auth{padding:14px;background:#eef4f2}.auth-wrap{display:block}.auth-intro{display:none}.auth-card{padding:30px 22px}.skill-list,.quick-grid,.result-summary{grid-template-columns:1fr}.skill-toolbar{width:100%}.searchbox{min-width:0;width:100%}.hero{display:block}.hero .actions{margin-top:18px}.likert{grid-template-columns:1fr}.likert label{min-height:auto;padding:10px}.student{padding:12px}.student .card{padding:17px}.survey-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
 <section id="authView" class="auth">
+ <div class="auth-wrap">
+  <div class="auth-intro">
+    <div class="logo" style="margin:0">ض</div>
+    <h2>كل أدوات معلم لغتي<br>في مساحة واحدة</h2>
+    <p>إدارة صفية، مهارات نافس من الدليل، استبانات للطلاب، تحليل نتائج، وخطط علاجية مبنية على بيانات حقيقية.</p>
+    <div class="intro-points">
+      <div class="intro-point"><i>١</i><span>أنشئ الاستبانة وشارك الرابط فورًا</span></div>
+      <div class="intro-point"><i>٢</i><span>تابع المهارات ومؤشرات الإتقان</span></div>
+      <div class="intro-point"><i>٣</i><span>احتفظ بأعمالك ونتائج طلابك بأمان</span></div>
+    </div>
+  </div>
   <div class="auth-card">
     <div class="logo">ض</div>
     <h1>معلّمي</h1>
-    <p>منصة معلم اللغة العربية في المرحلة المتوسطة</p>
+    <p>منصة العمل اليومية لمعلم اللغة العربية</p>
     <div class="tabs"><button id="loginTab" class="active">تسجيل الدخول</button><button id="signupTab">إنشاء حساب</button></div>
     <form id="authForm">
       <input type="hidden" name="mode" value="login">
@@ -35,9 +71,10 @@
       <div class="field"><label>كلمة المرور</label><input type="password" name="password" required minlength="6" autocomplete="current-password"></div>
       <button class="btn primary" id="authSubmit" style="width:100%">دخول</button>
     </form>
-    <button class="btn soft" id="openStudentStandalone" style="width:100%;margin-top:10px">بوابة الطالب</button>
-    <div style="margin-top:12px;color:var(--muted);font-size:11px;text-align:center">لا توجد بيانات تجريبية في هذه النسخة.</div>
+    <button class="btn soft" id="openStudentStandalone" style="width:100%;margin-top:10px">فتح بوابة الطالب</button>
+    <div style="margin-top:14px;color:var(--muted);font-size:11px;text-align:center">منصة متصلة ببياناتك الفعلية وليست نسخة تجريبية.</div>
   </div>
+ </div>
 </section>
 
 <section id="appView" class="hidden">
@@ -45,35 +82,48 @@
   <aside class="side">
     <div class="brand"><div class="logo">ض</div><div><b>معلّمي</b><small>لغتي الخالدة</small></div></div>
     <nav class="nav" id="nav">
+      <div class="nav-group">نظرة عامة</div>
       <button class="active" data-page="dashboard">لوحة التحكم</button>
+      <div class="nav-group">الإدارة الصفية</div>
       <button data-page="classes">الفصول والطلاب</button>
       <button data-page="assignments">المشاريع والتسليمات</button>
       <button data-page="plans">التخطيط الأسبوعي</button>
-      <button data-page="questions">بنك الأسئلة</button>
       <button data-page="achievement">التحصيل الدراسي</button>
       <button data-page="attendance">الحضور والمشاركة</button>
+      <div class="nav-group">القياس والتطوير</div>
       <button data-page="nafes">نافس والمهارات</button>
+      <button data-page="questions">بنك الأسئلة</button>
+      <button data-page="learning">الاستبانات والنتائج</button>
       <button data-page="remedial">الخطط العلاجية</button>
-      <button data-page="learning">أنماط التعلم</button>
       <button data-page="files">بنك الملفات والشواهد</button>
     </nav>
-    <div class="sidefoot">متصل مباشرة بقاعدة Supabase الخاصة بالمشروع. كل ما تضيفه هنا يُحفظ فعليًا.</div>
+    <div class="sidefoot"><b style="color:#fff">جاهز للعمل</b><br>كل ما تضيفه هنا يُحفظ مباشرة في حسابك.</div>
   </aside>
   <main class="main">
-    <header class="top"><div class="actions"><button class="btn mobile-menu" id="mobileMenuBtn" aria-label="فتح القائمة">☰</button><strong id="userLabel">حساب المعلم</strong></div><div class="actions"><button class="btn soft" id="studentPortalBtn">بوابة الطالب</button><button class="btn red" id="logoutBtn">خروج</button></div></header>
+    <header class="top"><div class="actions"><button class="btn mobile-menu" id="mobileMenuBtn" aria-label="فتح القائمة">☰</button><div><strong id="pageTitle">لوحة التحكم</strong><small id="userLabel" style="display:block;color:var(--muted)">حساب المعلم</small></div></div><div class="actions"><button class="btn gold" id="studentPortalBtn">بوابة الطالب</button><button class="btn red" id="logoutBtn">خروج</button></div></header>
     <div class="content">
 
       <section id="page-dashboard" class="page active">
-        <div class="head"><div><h2>لوحة التحكم</h2><p>هذه الأرقام من بياناتك الحقيقية فقط.</p></div></div>
-        <div class="grid g4">
-          <div class="card kpi"><strong id="dClasses">0</strong><span>الفصول</span></div>
-          <div class="card kpi"><strong id="dStudents">0</strong><span>الطلاب</span></div>
-          <div class="card kpi"><strong id="dAssignments">0</strong><span>المهام المفتوحة</span></div>
-          <div class="card kpi"><strong id="dSubmissions">0</strong><span>التسليمات</span></div>
+        <div class="card hero">
+          <div><span class="badge" style="background:rgba(255,255,255,.13);color:#fff">العام الدراسي 1448هـ</span><h2>مرحبًا بك في معلّمي</h2><p>أدر صفوفك، شارك الاستبانات، وتابع مهارات الصف الثالث المتوسط من لوحة واحدة مرتبة.</p></div>
+          <div class="actions"><button class="btn gold" onclick="navTo('learning')">إنشاء استبانة</button><button class="btn" onclick="navTo('nafes')">عرض المهارات</button></div>
         </div>
-        <div class="grid g2" style="margin-top:14px">
-          <div class="card"><h3>ابدأ من هنا</h3><div class="actions"><button class="btn primary" onclick="openClassModal()">إنشاء أول فصل</button><button class="btn soft" onclick="navTo('assignments')">إنشاء مهمة</button><button class="btn" onclick="navTo('questions')">إضافة سؤال</button></div></div>
-          <div class="card"><h3>حالة البيانات</h3><div id="dashboardStatus" class="empty"><b>لا توجد بيانات بعد</b>أضف فصلًا وطلابًا، وستظهر المؤشرات هنا تلقائيًا.</div></div>
+        <div class="section-title"><h3>ملخص اليوم</h3><span>بيانات حقيقية من حسابك</span></div>
+        <div class="grid g4">
+          <div class="card kpi"><strong id="dClasses">0</strong><span>الفصول</span><small>فصول نشطة</small></div>
+          <div class="card kpi"><strong id="dStudents">0</strong><span>الطلاب</span><small>في الفصل المحدد</small></div>
+          <div class="card kpi"><strong id="dSkills">0</strong><span>مهارات الدليل</span><small>الثالث المتوسط</small></div>
+          <div class="card kpi"><strong id="dSurveys">0</strong><span>الاستبانات</span><small id="dSurveyResponses">0 استجابة</small></div>
+        </div>
+        <div class="section-title"><h3>إجراءات سريعة</h3><span>أكثر الأدوات استخدامًا</span></div>
+        <div class="quick-grid">
+          <button class="quick" onclick="openClassModal()"><i>ف</i><span><b>إضافة فصل</b><small>فصل جديد وقائمة طلاب</small></span></button>
+          <button class="quick" onclick="openSurveyModal()"><i>س</i><span><b>إرسال استبانة</b><small>رابط مستقل ونتائج مباشرة</small></span></button>
+          <button class="quick" onclick="navTo('nafes')"><i>ن</i><span><b>مهارات نافس</b><small>مهارات الدليل ومؤشراتها</small></span></button>
+        </div>
+        <div class="grid g2" style="margin-top:18px">
+          <div class="card"><h3 style="margin-top:0">جاهزية المنصة</h3><div id="dashboardStatus" class="empty"><b>جارٍ التحقق</b>يتم تحميل بياناتك.</div></div>
+          <div class="card"><h3 style="margin-top:0">روابط الطلاب</h3><p style="color:var(--muted);line-height:1.8">كل مهمة أو استبانة تنشئها تولد كودًا ورابطًا مستقلًا. يستطيع الطالب الفتح من الجوال دون تسجيل دخول.</p><button class="btn soft" onclick="showStudent()">معاينة بوابة الطالب</button></div>
         </div>
       </section>
 
@@ -113,7 +163,8 @@
       </section>
 
       <section id="page-nafes" class="page">
-        <div class="head"><div><h2>نافس والمهارات</h2><p>أنشئ مهاراتك ومؤشرات نافس ثم استخدمها في التحليل والخطط.</p></div><button class="btn primary" onclick="openSkillModal()">+ مهارة</button></div>
+        <div class="head"><div><h2>مهارات نافس للصف الثالث المتوسط</h2><p>مؤشرات مجال القراءة مستخرجة من دليل ثالث متوسط 1448هـ ومقسمة حسب المسار المهاري.</p></div><div class="skill-toolbar"><input id="skillSearch" class="searchbox" placeholder="ابحث في المهارات والمؤشرات" oninput="renderSkills(this.value)"><button class="btn primary" onclick="openSkillModal()">+ مهارة</button></div></div>
+        <div class="source-note" style="margin-bottom:14px">✓ المصدر: دليل ثالث متوسط 1448هـ — مجال القراءة</div>
         <div id="skillsArea"></div>
       </section>
 
@@ -123,8 +174,18 @@
       </section>
 
       <section id="page-learning" class="page">
-        <div class="head"><div><h2>أنماط التعلم</h2><p>إنشاء استبانة مرتبطة بالفصل مع كود مستقل.</p></div><button class="btn primary" onclick="openSurveyModal()">+ استبانة</button></div>
+        <div class="head"><div><h2>الاستبانات وتحليل أنماط التعلم</h2><p>أنشئ رابطًا للطلاب، اجمع الإجابات، ثم راقب التوزيع البصري والسمعي والحركي.</p></div><button class="btn primary" onclick="openSurveyModal()">+ استبانة جديدة</button></div>
+        <div class="result-summary">
+          <div class="mini-kpi"><b id="svTotal">0</b><span>إجمالي الاستجابات</span></div>
+          <div class="mini-kpi"><b id="svVisual">0</b><span>نمط بصري</span></div>
+          <div class="mini-kpi"><b id="svAuditory">0</b><span>نمط سمعي</span></div>
+          <div class="mini-kpi"><b id="svKinesthetic">0</b><span>نمط حركي</span></div>
+        </div>
         <div id="surveysArea"></div>
+        <div class="card" style="margin-top:16px">
+          <div class="head" style="margin-bottom:12px"><div><h2 style="font-size:18px">آخر الاستجابات</h2><p>تظهر النتائج فور إكمال الطالب للاستبانة.</p></div></div>
+          <div id="surveyResultsArea"></div>
+        </div>
       </section>
 
       <section id="page-files" class="page">
@@ -141,15 +202,25 @@
  <div class="wrap">
    <div class="brandline"><div class="logo">ض</div><h1>بوابة الطالب</h1><p style="color:var(--muted)">تسليم المشاريع والواجبات</p></div>
    <div class="card">
-     <div class="head"><div><h2 style="font-size:20px">تسليم مهمة</h2><p>اكتب الكود وبياناتك وارفع الملف.</p></div><button class="btn" id="backBtn">عودة</button></div>
-     <form id="studentForm" class="formgrid">
-       <div class="field full"><label>كود المهمة</label><input name="code" id="studentCode" required style="text-transform:uppercase"></div>
-       <div class="field"><label>اسم الطالب</label><input name="student_name" required></div>
-       <div class="field"><label>رقم الطالب</label><input name="student_number"></div>
-       <div class="field full"><label>الملف</label><input type="file" name="file" required accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.webp"></div>
-       <button class="btn primary full" id="studentSubmit">تسليم</button>
-     </form>
-     <div id="receipt" class="receipt hidden"></div>
+     <div class="head"><div><h2 style="font-size:20px">خدمات الطالب</h2><p>اختر الخدمة ثم اكتب الكود الذي أرسله المعلم.</p></div><button class="btn" id="backBtn">عودة</button></div>
+     <div class="portal-tabs"><button class="active" data-portal="assignment">تسليم مهمة</button><button data-portal="survey">استبانة أنماط التعلم</button></div>
+     <div id="portal-assignment" class="portal-pane active">
+       <form id="studentForm" class="formgrid">
+         <div class="field full"><label>كود المهمة</label><input name="code" id="studentCode" required style="text-transform:uppercase"></div>
+         <div class="field"><label>اسم الطالب</label><input name="student_name" required></div>
+         <div class="field"><label>رقم الطالب</label><input name="student_number"></div>
+         <div class="field full"><label>الملف</label><input type="file" name="file" required accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.webp"></div>
+         <button class="btn primary full" id="studentSubmit">تسليم المهمة</button>
+       </form>
+       <div id="receipt" class="receipt hidden"></div>
+     </div>
+     <div id="portal-survey" class="portal-pane">
+       <form id="surveyLookupForm" class="formgrid">
+         <div class="field full"><label>كود الاستبانة</label><input name="code" id="surveyCode" required style="text-transform:uppercase" placeholder="مثال: HS3LE3"></div>
+         <button class="btn primary full" id="surveyLookupBtn">فتح الاستبانة</button>
+       </form>
+       <div id="studentSurveyArea"></div>
+     </div>
    </div>
  </div>
 </section>
@@ -157,8 +228,8 @@
 <div id="modalRoot"></div><div id="toast" class="toast hidden"></div>
 
 <script>
-const SB_URL='https://udznpifopbnrcgxtpzza.supabase.co', SB_KEY='sb_publishable_UIuOZaeLk3oz25yf1kd-PA_OF8vEu8N', EDGE=SB_URL+'/functions/v1/student-submit';
-const S={token:null,user:null,classes:[],students:[],assignments:[],submissions:[],plans:[],questions:[],gradeItems:[],attendance:[],skills:[],remedials:[],surveys:[],files:[],selectedClass:null};
+const SB_URL='https://udznpifopbnrcgxtpzza.supabase.co', SB_KEY='sb_publishable_UIuOZaeLk3oz25yf1kd-PA_OF8vEu8N', EDGE=SB_URL+'/functions/v1/student-submit', SURVEY_EDGE=SB_URL+'/functions/v1/survey-student';
+const S={token:null,user:null,classes:[],students:[],assignments:[],submissions:[],plans:[],questions:[],gradeItems:[],attendance:[],skills:[],remedials:[],surveys:[],surveyResults:[],files:[],selectedClass:null};
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 function toast(m,bad=false){const t=$('toast');t.textContent=m;t.className='toast'+(bad?' bad':'');t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),2800)}
 function rand(n=6){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:n},()=>c[Math.floor(Math.random()*c.length)]).join('')}
@@ -166,7 +237,8 @@ function headers(rep=false,json=true){const h={apikey:SB_KEY,Authorization:'Bear
 async function req(path,method='GET',body=null,rep=false){try{const r=await fetch(SB_URL+path,{method,headers:headers(rep),body:body?JSON.stringify(body):null});let d=null;try{d=await r.json()}catch{}return {ok:r.ok,status:r.status,data:d,msg:d?.message||d?.hint||d?.details||d?.error_description||d?.error}}catch(e){return{ok:false,msg:'تعذر الاتصال بالشبكة'}}}
 async function user(){const r=await fetch(SB_URL+'/auth/v1/user',{headers:{apikey:SB_KEY,Authorization:'Bearer '+S.token}});if(!r.ok)throw Error('انتهت جلسة الدخول');return r.json()}
 
-function navTo(p){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+p));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===p));document.querySelector('.side')?.classList.remove('open');}
+const pageNames={dashboard:'لوحة التحكم',classes:'الفصول والطلاب',assignments:'المشاريع والتسليمات',plans:'التخطيط الأسبوعي',questions:'بنك الأسئلة',achievement:'التحصيل الدراسي',attendance:'الحضور والمشاركة',nafes:'نافس والمهارات',remedial:'الخطط العلاجية',learning:'الاستبانات والنتائج',files:'بنك الملفات والشواهد'};
+function navTo(p){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+p));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===p));if($('pageTitle'))$('pageTitle').textContent=pageNames[p]||'معلّمي';document.querySelector('.side')?.classList.remove('open');}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>navTo(b.dataset.page));
 $('mobileMenuBtn').onclick=()=>document.querySelector('.side').classList.toggle('open');
 
@@ -183,7 +255,7 @@ async function enterApp(){if(!S.user)S.user=await user();$('userLabel').textCont
 $('logoutBtn').onclick=()=>{localStorage.removeItem('moallimi_live_token');location.reload()}
 
 async function loadAll(){
- await Promise.all([loadClasses(),loadAssignments(),loadPlans(),loadQuestions(),loadGradeItems(),loadSkills(),loadRemedials(),loadSurveys(),loadFiles()]);
+ await Promise.all([loadClasses(),loadAssignments(),loadPlans(),loadQuestions(),loadGradeItems(),loadSkills(),loadRemedials(),loadSurveys(),loadSurveyResults(),loadFiles()]);
  if(S.classes[0]&&!S.selectedClass)S.selectedClass=S.classes[0].id;
  if(S.selectedClass) await Promise.all([loadStudents(S.selectedClass),loadAttendance(S.selectedClass)]);
  await loadSubmissions();
@@ -200,11 +272,16 @@ async function loadAttendance(cid){let d=new Date().toISOString().slice(0,10),r=
 async function loadSkills(){let r=await req('/rest/v1/skills?select=*&order=created_at.desc');S.skills=r.ok?(r.data||[]):[]}
 async function loadRemedials(){let r=await req('/rest/v1/remedial_plans?select=*,classes(name),skills(name)&order=created_at.desc');S.remedials=r.ok?(r.data||[]):[]}
 async function loadSurveys(){let r=await req('/rest/v1/learning_style_surveys?select=*,classes(name)&order=created_at.desc');S.surveys=r.ok?(r.data||[]):[]}
+async function loadSurveyResults(){let r=await req('/rest/v1/learning_style_results?select=*&order=submitted_at.desc&limit=500');S.surveyResults=r.ok?(r.data||[]):[]}
 async function loadFiles(){let r=await req('/rest/v1/teacher_files?select=*&order=created_at.desc');S.files=r.ok?(r.data||[]):[]}
 
 function empty(msg,sub=''){return `<div class="empty"><b>${esc(msg)}</b>${esc(sub)}</div>`}
-function renderAll(){renderDash();renderClasses();renderStudents();renderAssignments();renderSubmissions();renderPlans();renderQuestions();renderGradeItems();renderAttendance();renderSkills();renderRemedials();renderSurveys();renderFiles()}
-function renderDash(){$('dClasses').textContent=S.classes.length;$('dStudents').textContent=S.students.length;$('dAssignments').textContent=S.assignments.filter(a=>a.is_open).length;$('dSubmissions').textContent=S.submissions.length;$('dashboardStatus').innerHTML=(S.classes.length||S.assignments.length)?'<b>تم الاتصال بنجاح</b>المؤشرات المعروضة مأخوذة من بياناتك الحالية.':'<b>لا توجد بيانات بعد</b>أضف فصلًا وطلابًا، وستظهر المؤشرات هنا تلقائيًا.'}
+function renderAll(){renderDash();renderClasses();renderStudents();renderAssignments();renderSubmissions();renderPlans();renderQuestions();renderGradeItems();renderAttendance();renderSkills();renderRemedials();renderSurveys();renderSurveyResults();renderFiles()}
+function renderDash(){
+ $('dClasses').textContent=S.classes.length;$('dStudents').textContent=S.students.length;$('dSkills').textContent=S.skills.length;$('dSurveys').textContent=S.surveys.length;$('dSurveyResponses').textContent=S.surveyResults.length+' استجابة';
+ const ready=[S.classes.length>0,S.skills.length>0,S.surveys.length>0].filter(Boolean).length;
+ $('dashboardStatus').innerHTML=ready===3?'<b>المنصة جاهزة للطلاب</b>الفصول والمهارات والاستبانات متصلة وتعمل فعليًا.':`<b>اكتمل ${ready} من 3</b>أضف فصلًا واستبانة ليكتمل إعداد المنصة.`
+}
 function renderClasses(){$('classesList').innerHTML=S.classes.length?S.classes.map(c=>`<div class="card"><h3>${esc(c.name)}</h3><p style="color:var(--muted);font-size:12px">${esc(c.grade)} · ${esc(c.subject||'لغتي الخالدة')}</p><div class="badge">${esc(c.class_code)}</div><div class="actions" style="margin-top:12px"><button class="btn soft" onclick="selectClass('${c.id}')">فتح</button><button class="btn red" onclick="deleteClass('${c.id}')">حذف</button></div></div>`).join(''):empty('لا توجد فصول','أنشئ أول فصل لبدء الاستخدام.')}
 function renderStudents(){let c=S.classes.find(x=>x.id===S.selectedClass);$('selectedClassLabel').textContent=c?c.name:'اختر فصلًا أولًا.';$('studentsArea').innerHTML=!c?empty('لم يتم تحديد فصل'):S.students.length?`<div class="table-wrap"><table class="table"><thead><tr><th>الاسم</th><th>الرقم</th><th>إجراء</th></tr></thead><tbody>${S.students.map(s=>`<tr><td>${esc(s.full_name)}</td><td>${esc(s.student_number||'—')}</td><td><button class="btn red" onclick="deleteStudent('${s.id}')">حذف</button></td></tr>`).join('')}</tbody></table></div>`:empty('لا يوجد طلاب في هذا الفصل','أضف الطلاب يدويًا الآن.')}
 function renderAssignments(){$('assignmentsArea').innerHTML=S.assignments.length?`<div class="list">${S.assignments.map(a=>`<div class="item"><div><h4>${esc(a.title)}</h4><p>الكود: <b>${esc(a.assignment_code)}</b>${a.due_at?' · '+new Date(a.due_at).toLocaleString('ar-SA'):''}</p></div><div class="actions"><span class="badge ${a.is_open?'':'red'}">${a.is_open?'مفتوحة':'مغلقة'}</span><button class="btn soft" onclick="copyLink('${esc(a.assignment_code)}')">نسخ الرابط</button><button class="btn soft" onclick="showQr('${esc(a.assignment_code)}','${esc(a.title)}')">الباركود</button><button class="btn" onclick="toggleAssignment('${a.id}',${!a.is_open})">${a.is_open?'إغلاق':'فتح'}</button><button class="btn red" onclick="deleteAssignment('${a.id}')">حذف</button></div></div>`).join('')}</div>`:empty('لا توجد مهام','أنشئ مهمة ليتم توليد كود تسليم حقيقي.')}
@@ -213,9 +290,27 @@ function renderPlans(){$('plansArea').innerHTML=S.plans.length?`<div class="grid
 function renderQuestions(){$('questionsArea').innerHTML=S.questions.length?`<div class="grid g2">${S.questions.map(q=>`<div class="card"><div class="actions"><span class="badge">${esc(q.domain)}</span><span class="badge">${esc(q.difficulty)}</span></div><h3 style="font-size:16px">${esc(q.question_text)}</h3><p style="color:var(--muted);font-size:12px">${esc(q.nafes_indicator||'')}</p><button class="btn red" onclick="deleteRow('question_bank','${q.id}',loadQuestions)">حذف</button></div>`).join('')}</div>`:empty('بنك الأسئلة فارغ','أضف أسئلتك ومؤشراتك الفعلية.')}
 function renderGradeItems(){$('gradeItemsArea').innerHTML=S.gradeItems.length?`<div class="list">${S.gradeItems.map(g=>`<div class="item"><div><h4>${esc(g.title)}</h4><p>${esc(g.classes?.name||'')} · من ${esc(g.max_score)}</p></div><button class="btn red" onclick="deleteRow('grade_items','${g.id}',loadGradeItems)">حذف</button></div>`).join('')}</div>`:empty('لا توجد بنود درجات','أضف اختبارًا أو مشروعًا أو مشاركة.')}
 function renderAttendance(){let c=S.classes.find(x=>x.id===S.selectedClass);if(!c)return $('attendanceArea').innerHTML=empty('اختر فصلًا أولًا');if(!S.students.length)return $('attendanceArea').innerHTML=empty('لا يوجد طلاب في الفصل');let map=Object.fromEntries(S.attendance.map(a=>[a.student_id,a]));$('attendanceArea').innerHTML=`<div class="table-wrap"><table class="table"><thead><tr><th>الطالب</th><th>حالة اليوم</th><th>تغيير</th></tr></thead><tbody>${S.students.map(s=>{let a=map[s.id];return `<tr><td>${esc(s.full_name)}</td><td>${a?esc(a.status):'غير مسجل'}</td><td><div class="actions"><button class="btn soft" onclick="setAttendance('${s.id}','present')">حاضر</button><button class="btn" onclick="setAttendance('${s.id}','late')">متأخر</button><button class="btn red" onclick="setAttendance('${s.id}','absent')">غائب</button></div></td></tr>`}).join('')}</tbody></table></div>`}
-function renderSkills(){$('skillsArea').innerHTML=S.skills.length?`<div class="grid g2">${S.skills.map(s=>`<div class="card"><span class="badge">${esc(s.domain||s.category||'مهارة')}</span><h3>${esc(s.name)}</h3><p style="color:var(--muted)">${esc(s.nafes_indicator||'')}</p><button class="btn red" onclick="deleteRow('skills','${s.id}',loadSkills)">حذف</button></div>`).join('')}</div>`:empty('لا توجد مهارات','أضف مهارات نافس أو مهارات المقرر.')}
+function renderSkills(query=''){
+ const term=String(query||'').trim().toLowerCase(),items=S.skills.filter(s=>!term||[s.name,s.category,s.nafes_indicator].join(' ').toLowerCase().includes(term));
+ if(!items.length){$('skillsArea').innerHTML=empty(term?'لا توجد نتائج':'لا توجد مهارات',term?'جرّب عبارة بحث أخرى.':'أضف مهارات نافس أو مهارات المقرر.');return}
+ const groups={};items.forEach(s=>(groups[s.category||'مهارات أخرى']??=[]).push(s));
+ $('skillsArea').innerHTML=`<div class="skill-groups">${Object.entries(groups).map(([category,skills])=>`<section class="skill-group"><div class="skill-group-head"><h3>${esc(category)}</h3><span class="skill-count">${skills.length}</span></div><div class="skill-list">${skills.map(s=>`<article class="skill-row"><div class="actions"><span class="badge">${esc(s.grade_level||'الثالث المتوسط')}</span><span class="badge gold">${esc(s.bloom_level||'استدلال')}</span></div><b>${esc(s.name)}</b><p>${esc(s.nafes_indicator||s.description||'')}</p></article>`).join('')}</div></section>`).join('')}</div>`
+}
 function renderRemedials(){$('remedialArea').innerHTML=S.remedials.length?`<div class="grid g2">${S.remedials.map(r=>`<div class="card"><span class="badge">${esc(r.status)}</span><h3>${esc(r.title)}</h3><p style="color:var(--muted)">${esc(r.classes?.name||'')} ${r.skills?.name?'· '+esc(r.skills.name):''}</p><p>${esc(r.notes||'')}</p><button class="btn red" onclick="deleteRow('remedial_plans','${r.id}',loadRemedials)">حذف</button></div>`).join('')}</div>`:empty('لا توجد خطط علاجية','أنشئ خطة عند ظهور مهارة منخفضة الإتقان.')}
-function renderSurveys(){$('surveysArea').innerHTML=S.surveys.length?`<div class="list">${S.surveys.map(s=>`<div class="item"><div><h4>${esc(s.title)}</h4><p>${esc(s.classes?.name||'')} · الكود: <b>${esc(s.survey_code)}</b></p></div><div class="actions"><span class="badge">${s.is_open?'مفتوحة':'مغلقة'}</span><button class="btn red" onclick="deleteRow('learning_style_surveys','${s.id}',loadSurveys)">حذف</button></div></div>`).join('')}</div>`:empty('لا توجد استبانات','أنشئ استبانة نمط تعلم لفصل محدد.')}
+function surveyLink(code){return location.href.split('#')[0].split('?')[0]+'?view=survey&code='+encodeURIComponent(code)}
+function copySurveyLink(code){const link=surveyLink(code);navigator.clipboard?.writeText(link).then(()=>toast('تم نسخ رابط الاستبانة')).catch(()=>prompt('انسخ الرابط',link))}
+function showSurveyQr(code,title){const link=surveyLink(code),src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=14&data='+encodeURIComponent(link);modal('باركود الاستبانة',`<div style="text-align:center"><img src="${src}" alt="باركود ${esc(title)}" width="300" height="300" style="max-width:100%;height:auto;border:1px solid var(--border);border-radius:16px"><h3>${esc(title)}</h3><div class="survey-code">${esc(code)}</div><p style="color:var(--muted)">يمسح الطالب الباركود ويفتح الاستبانة مباشرة.</p><button class="btn primary" onclick="copySurveyLink('${esc(code)}')">نسخ الرابط</button></div>`)}
+async function toggleSurvey(id,isOpen){let r=await req('/rest/v1/learning_style_surveys?id=eq.'+id,'PATCH',{is_open:isOpen},true);if(!r.ok)return toast(r.msg||'تعذر تحديث الاستبانة',true);await loadSurveys();renderSurveys();toast(isOpen?'تم فتح الاستبانة':'تم إغلاق الاستبانة')}
+function renderSurveys(){
+ $('surveysArea').innerHTML=S.surveys.length?`<div class="survey-grid">${S.surveys.map(s=>{const count=S.surveyResults.filter(r=>r.survey_id===s.id).length;return `<article class="survey-card"><div class="actions" style="justify-content:space-between"><span class="survey-code">${esc(s.survey_code)}</span><span class="badge ${s.is_open?'':'red'}">${s.is_open?'مفتوحة':'مغلقة'}</span></div><h3>${esc(s.title)}</h3><div class="survey-meta">${esc(s.classes?.name||'بدون فصل')} · ${count} استجابة</div><div class="actions"><button class="btn primary" onclick="copySurveyLink('${esc(s.survey_code)}')">نسخ الرابط</button><button class="btn soft" onclick="showSurveyQr('${esc(s.survey_code)}','${esc(s.title)}')">الباركود</button><button class="btn" onclick="toggleSurvey('${s.id}',${!s.is_open})">${s.is_open?'إغلاق':'فتح'}</button><button class="btn red" onclick="deleteRow('learning_style_surveys','${s.id}',async()=>{await loadSurveys();await loadSurveyResults()})">حذف</button></div></article>`}).join('')}</div>`:empty('لا توجد استبانات','أنشئ استبانة نمط تعلم لفصل محدد، ثم شارك الرابط مع الطلاب.')
+}
+function renderSurveyResults(){
+ const total=S.surveyResults.length,visual=S.surveyResults.filter(r=>r.dominant_style==='visual').length,auditory=S.surveyResults.filter(r=>r.dominant_style==='auditory').length,kinesthetic=S.surveyResults.filter(r=>r.dominant_style==='kinesthetic').length,mixed=total-visual-auditory-kinesthetic;
+ $('svTotal').textContent=total;$('svVisual').textContent=visual;$('svAuditory').textContent=auditory;$('svKinesthetic').textContent=kinesthetic;
+ if(!total){$('surveyResultsArea').innerHTML=empty('لا توجد استجابات بعد','انسخ رابط إحدى الاستبانات وأرسله للطلاب.');return}
+ const percent=n=>Math.round(n/total*100),styleName=s=>({visual:'بصري',auditory:'سمعي',kinesthetic:'حركي',mixed:'متوازن'}[s]||s);
+ $('surveyResultsArea').innerHTML=`<div class="grid g2"><div class="result-bars"><div class="result-row"><b>بصري</b><div class="bar"><span style="width:${percent(visual)}%"></span></div><strong>${percent(visual)}%</strong></div><div class="result-row"><b>سمعي</b><div class="bar auditory"><span style="width:${percent(auditory)}%"></span></div><strong>${percent(auditory)}%</strong></div><div class="result-row"><b>حركي</b><div class="bar kinesthetic"><span style="width:${percent(kinesthetic)}%"></span></div><strong>${percent(kinesthetic)}%</strong></div><div class="result-row"><b>متوازن</b><div class="bar"><span style="width:${percent(mixed)}%"></span></div><strong>${percent(mixed)}%</strong></div></div><div class="table-wrap"><table class="table" style="min-width:480px"><thead><tr><th>الطالب</th><th>النمط الغالب</th><th>الثقة</th><th>التاريخ</th></tr></thead><tbody>${S.surveyResults.slice(0,20).map(r=>`<tr><td>${esc(r.student_name_snapshot)}</td><td><span class="badge">${esc(styleName(r.dominant_style))}</span></td><td>${esc(r.confidence_percentage||'—')}%</td><td>${new Date(r.submitted_at).toLocaleDateString('ar-SA')}</td></tr>`).join('')}</tbody></table></div></div>`
+}
 function renderFiles(){$('filesArea').innerHTML=S.files.length?`<div class="grid g3">${S.files.map(f=>`<div class="card"><span class="badge">${esc(f.category||'ملف')}</span><h3>${esc(f.title)}</h3><p style="color:var(--muted);font-size:12px">${esc(f.original_file_name)}</p><div class="actions"><button class="btn soft" onclick="downloadTeacherFile('${encodeURIComponent(f.storage_path)}','${esc(f.original_file_name)}')">تنزيل</button><button class="btn red" onclick="deleteTeacherFile('${f.id}','${encodeURIComponent(f.storage_path)}')">حذف</button></div></div>`).join('')}</div>`:empty('بنك الملفات فارغ','ارفع أول ملف وسيحفظ في مساحة خاصة.')}
 async function selectClass(id){S.selectedClass=id;await Promise.all([loadStudents(id),loadAttendance(id)]);renderStudents();renderAttendance();renderDash();navTo('classes')}
 
@@ -261,11 +356,31 @@ async function deleteClass(id){if(!confirm('سيتم حذف الفصل وما ي
 async function deleteStudent(id){if(!confirm('حذف الطالب؟'))return;await deleteRow('students',id,async()=>{await loadStudents(S.selectedClass)});renderStudents();renderDash()}
 async function deleteRow(table,id,reload){if(!confirm('تأكيد الحذف؟'))return;let r=await req(`/rest/v1/${table}?id=eq.${id}`,'DELETE');if(!r.ok)return toast(r.msg||'تعذر الحذف',true);if(reload)await reload();renderAll();toast('تم الحذف')}
 
-function showStudent(){ $('authView').classList.add('hidden');$('appView').classList.add('hidden');$('studentView').classList.remove('hidden') }
-$('studentPortalBtn').onclick=showStudent;$('openStudentStandalone').onclick=showStudent;$('backBtn').onclick=()=>{if(S.token){$('studentView').classList.add('hidden');$('appView').classList.remove('hidden')}else{$('studentView').classList.add('hidden');$('authView').classList.remove('hidden')}}
-$('studentForm').onsubmit=async e=>{e.preventDefault();let b=$('studentSubmit'),rec=$('receipt');b.disabled=true;b.textContent='جارٍ الرفع...';rec.classList.add('hidden');try{let fd=new FormData(e.target);fd.set('code',String(fd.get('code')).trim().toUpperCase());let r=await fetch(EDGE,{method:'POST',headers:{apikey:SB_KEY},body:fd}),d=await r.json();if(!r.ok||!d.ok)throw Error(d.message||'تعذر التسليم');rec.innerHTML=`<b>تم التسليم بنجاح</b><br>المهمة: ${esc(d.assignment_title)}<br>رقم الاستلام: ${esc(d.submission_id)}`;rec.classList.remove('hidden');e.target.reset()}catch(x){rec.innerHTML=`<b>تعذر التسليم</b><br>${esc(x.message)}`;rec.classList.remove('hidden')}finally{b.disabled=false;b.textContent='تسليم'}}
+function activatePortal(mode){document.querySelectorAll('[data-portal]').forEach(b=>b.classList.toggle('active',b.dataset.portal===mode));document.querySelectorAll('.portal-pane').forEach(p=>p.classList.toggle('active',p.id==='portal-'+mode))}
+function showStudent(mode='assignment'){$('authView').classList.add('hidden');$('appView').classList.add('hidden');$('studentView').classList.remove('hidden');activatePortal(mode)}
+document.querySelectorAll('[data-portal]').forEach(button=>button.onclick=()=>activatePortal(button.dataset.portal));
+$('studentPortalBtn').onclick=()=>showStudent('assignment');$('openStudentStandalone').onclick=()=>showStudent('assignment');
+$('backBtn').onclick=()=>{history.replaceState({},'',location.href.split('?')[0].split('#')[0]);if(S.token){$('studentView').classList.add('hidden');$('appView').classList.remove('hidden')}else{$('studentView').classList.add('hidden');$('authView').classList.remove('hidden')}}
+$('studentForm').onsubmit=async e=>{e.preventDefault();let b=$('studentSubmit'),rec=$('receipt');b.disabled=true;b.textContent='جارٍ الرفع...';rec.classList.add('hidden');try{let fd=new FormData(e.target);fd.set('code',String(fd.get('code')).trim().toUpperCase());let r=await fetch(EDGE,{method:'POST',headers:{apikey:SB_KEY},body:fd}),d=await r.json();if(!r.ok||!d.ok)throw Error(d.message||'تعذر التسليم');rec.innerHTML=`<b>تم التسليم بنجاح</b><br>المهمة: ${esc(d.assignment_title)}<br>رقم الاستلام: ${esc(d.submission_id)}`;rec.classList.remove('hidden');e.target.reset()}catch(x){rec.innerHTML=`<b>تعذر التسليم</b><br>${esc(x.message)}`;rec.classList.remove('hidden')}finally{b.disabled=false;b.textContent='تسليم المهمة'}}
 
-(async()=>{let token=localStorage.getItem('moallimi_live_token');let params=new URLSearchParams(location.search);if(params.get('code'))$('studentCode').value=params.get('code').toUpperCase();if(location.hash==='#student'){showStudent();return}if(!token)return;S.token=token;try{S.user=await user();await enterApp()}catch{localStorage.removeItem('moallimi_live_token')}})();
+async function surveyRequest(payload){const response=await fetch(SURVEY_EDGE,{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw Error(data.message||'تعذر فتح الاستبانة');return data}
+async function loadStudentSurvey(code){
+ const cleanCode=String(code||'').trim().toUpperCase(),button=$('surveyLookupBtn'),area=$('studentSurveyArea');if(!cleanCode)return;
+ button.disabled=true;button.textContent='جارٍ الفتح...';area.innerHTML='';
+ try{const data=await surveyRequest({action:'load',code:cleanCode});$('surveyCode').value=cleanCode;
+  const labels=['لا ينطبق','قليلًا','أحيانًا','غالبًا','ينطبق جدًا'];
+  area.innerHTML=`<form id="studentSurveyForm" data-code="${esc(cleanCode)}"><div style="margin:22px 0 14px"><span class="badge">12 عبارة</span><h2 style="margin:9px 0 4px">${esc(data.title)}</h2><p style="color:var(--muted);margin:0">لا توجد إجابة صحيحة أو خاطئة. اختر ما يصف طريقة تعلمك فعلًا.</p></div><div class="formgrid"><div class="field"><label>اسم الطالب</label><input name="student_name" required minlength="3"></div><div class="field"><label>رقم الطالب</label><input name="student_number" inputmode="numeric"></div></div>${data.questions.map((q,index)=>`<div class="survey-question"><h4>${index+1}. ${esc(q.text)}</h4><div class="likert">${labels.map((label,i)=>`<label><input type="radio" name="q_${q.id}" value="${i+1}" required><span>${label}</span></label>`).join('')}</div></div>`).join('')}<button class="btn primary" id="studentSurveySubmit" style="width:100%;margin-top:8px">إرسال الاستبانة</button></form>`;
+  $('studentSurveyForm').onsubmit=submitStudentSurvey;
+ }catch(error){area.innerHTML=`<div class="receipt"><b>تعذر فتح الاستبانة</b><br>${esc(error.message)}</div>`}finally{button.disabled=false;button.textContent='فتح الاستبانة'}
+}
+$('surveyLookupForm').onsubmit=e=>{e.preventDefault();loadStudentSurvey(new FormData(e.target).get('code'))};
+async function submitStudentSurvey(e){
+ e.preventDefault();const form=e.target,button=$('studentSurveySubmit'),formData=new FormData(form),answers=[];for(let id=1;id<=12;id++){const value=formData.get('q_'+id);if(!value)return toast('أجب عن جميع العبارات',true);answers.push({id,value:Number(value)})}
+ button.disabled=true;button.textContent='جارٍ حفظ النتيجة...';
+ try{const data=await surveyRequest({action:'submit',code:form.dataset.code,student_name:formData.get('student_name'),student_number:formData.get('student_number'),answers});const scores=data.scores||{};$('studentSurveyArea').innerHTML=`<div class="survey-result"><span class="badge">تم الحفظ بنجاح</span><strong>نمطك الغالب: ${esc(data.dominant_label)}</strong><p style="color:var(--muted)">بصري ${esc(scores.visual)} · سمعي ${esc(scores.auditory)} · حركي ${esc(scores.kinesthetic)}</p><p>شكرًا لإكمالك الاستبانة. ستساعد النتيجة معلمك على تنويع طريقة عرض الدروس والأنشطة.</p></div>`}catch(error){toast(error.message,true);button.disabled=false;button.textContent='إرسال الاستبانة'}
+}
+
+(async()=>{let token=localStorage.getItem('moallimi_live_token');let params=new URLSearchParams(location.search),code=params.get('code')||'';if(params.get('view')==='survey'){showStudent('survey');if(code){$('surveyCode').value=code.toUpperCase();await loadStudentSurvey(code)}return}if(code)$('studentCode').value=code.toUpperCase();if(location.hash==='#student'){showStudent('assignment');return}if(!token)return;S.token=token;try{S.user=await user();await enterApp()}catch{localStorage.removeItem('moallimi_live_token')}})();
 </script>
 </body>
 </html>
