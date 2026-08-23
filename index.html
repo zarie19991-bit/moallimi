@@ -44,6 +44,86 @@
 .table th{font-weight:800}.table td{vertical-align:middle}.empty{background:#fbfdfc;padding:42px 18px}.empty:before{content:"• • •";display:block;color:#98b5b0;font-size:20px;margin-bottom:9px;letter-spacing:5px}
 @media(max-width:1050px){.shell{grid-template-columns:245px 1fr}.quick-grid,.result-summary{grid-template-columns:repeat(2,1fr)}.survey-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.auth{padding:14px;background:#eef4f2}.auth-wrap{display:block}.auth-intro{display:none}.auth-card{padding:30px 22px}.skill-list,.quick-grid,.result-summary{grid-template-columns:1fr}.skill-toolbar{width:100%}.searchbox{min-width:0;width:100%}.hero{display:block}.hero .actions{margin-top:18px}.likert{grid-template-columns:1fr}.likert label{min-height:auto;padding:10px}.student{padding:12px}.student .card{padding:17px}.survey-grid{grid-template-columns:1fr}}
+
+/* Glassmorphism layer */
+body{
+  background:
+    radial-gradient(circle at 8% 10%,rgba(46,148,134,.24),transparent 28%),
+    radial-gradient(circle at 92% 18%,rgba(216,170,66,.18),transparent 24%),
+    radial-gradient(circle at 68% 88%,rgba(42,111,151,.13),transparent 28%),
+    linear-gradient(145deg,#dceae7,#f2f6f5 48%,#d7e6e3);
+  background-attachment:fixed;
+}
+.auth{
+  position:relative;overflow:hidden;isolation:isolate;
+  background:
+    radial-gradient(circle at 18% 20%,rgba(35,135,122,.72),transparent 29%),
+    radial-gradient(circle at 88% 12%,rgba(231,190,83,.34),transparent 20%),
+    radial-gradient(circle at 76% 86%,rgba(71,130,165,.28),transparent 25%),
+    linear-gradient(145deg,#082f2c 0,#0d5d55 42%,#dcebe8 100%);
+}
+.auth:before,.auth:after{content:"";position:absolute;border-radius:50%;filter:blur(2px);z-index:-1;pointer-events:none}
+.auth:before{width:310px;height:310px;right:-75px;bottom:-95px;background:linear-gradient(135deg,rgba(255,255,255,.34),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.28)}
+.auth:after{width:190px;height:190px;left:7%;top:9%;background:rgba(230,191,87,.18);border:1px solid rgba(255,255,255,.2);box-shadow:0 0 80px rgba(230,191,87,.2)}
+.auth-wrap{
+  background:rgba(255,255,255,.20);
+  border:1px solid rgba(255,255,255,.38);
+  box-shadow:0 36px 100px rgba(4,32,29,.28),inset 0 1px 0 rgba(255,255,255,.42);
+  -webkit-backdrop-filter:blur(30px) saturate(145%);backdrop-filter:blur(30px) saturate(145%);
+}
+.auth-intro{background:linear-gradient(145deg,rgba(4,66,60,.72),rgba(4,45,42,.80));border-left:1px solid rgba(255,255,255,.18)}
+.auth-card{background:linear-gradient(145deg,rgba(255,255,255,.78),rgba(255,255,255,.54));-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px)}
+.auth-card .tabs{background:rgba(220,234,231,.55);border:1px solid rgba(255,255,255,.7)}
+.auth-card .tabs .active{background:rgba(255,255,255,.78);box-shadow:0 8px 24px rgba(16,42,43,.10),inset 0 1px 0 #fff}
+.field input,.field select,.field textarea,.searchbox{
+  background:rgba(255,255,255,.58);border-color:rgba(255,255,255,.8);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 5px 18px rgba(16,42,43,.035);
+}
+.field input:focus,.field select:focus,.field textarea:focus,.searchbox:focus{background:rgba(255,255,255,.82);border-color:rgba(63,139,128,.55);box-shadow:0 0 0 4px rgba(13,98,89,.10),inset 0 1px 0 #fff}
+.shell{background:transparent}.main{background:transparent}
+.side{
+  background:linear-gradient(180deg,rgba(6,63,58,.86),rgba(4,44,41,.90));
+  border-left:1px solid rgba(255,255,255,.16);
+  box-shadow:-10px 0 35px rgba(5,43,40,.12);
+  -webkit-backdrop-filter:blur(26px) saturate(135%);backdrop-filter:blur(26px) saturate(135%);
+}
+.nav button.active,.nav button:hover{background:rgba(255,255,255,.13);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.top{
+  background:rgba(255,255,255,.55);border-bottom:1px solid rgba(255,255,255,.74);
+  box-shadow:0 8px 28px rgba(16,42,43,.045),inset 0 1px 0 #fff;
+  -webkit-backdrop-filter:blur(24px) saturate(145%);backdrop-filter:blur(24px) saturate(145%);
+}
+.card,.skill-group,.survey-card,.quick,.mini-kpi,.item,.table-wrap{
+  background:linear-gradient(145deg,rgba(255,255,255,.70),rgba(255,255,255,.48));
+  border-color:rgba(255,255,255,.76);
+  box-shadow:0 16px 42px rgba(16,42,43,.075),inset 0 1px 0 rgba(255,255,255,.9);
+  -webkit-backdrop-filter:blur(20px) saturate(135%);backdrop-filter:blur(20px) saturate(135%);
+}
+.card:hover,.survey-card:hover,.quick:hover,.mini-kpi:hover{border-color:rgba(255,255,255,.96);box-shadow:0 20px 48px rgba(16,42,43,.095),inset 0 1px 0 #fff}
+.hero{background:linear-gradient(125deg,rgba(5,61,56,.88),rgba(13,98,89,.76));border:1px solid rgba(255,255,255,.18);box-shadow:0 22px 55px rgba(6,65,59,.18),inset 0 1px 0 rgba(255,255,255,.22)}
+.quick i,.skill-count{background:rgba(231,244,241,.72);border:1px solid rgba(255,255,255,.8);box-shadow:inset 0 1px 0 #fff}
+.skill-row,.empty,.survey-question{background:rgba(255,255,255,.46);border-color:rgba(255,255,255,.76);box-shadow:inset 0 1px 0 rgba(255,255,255,.82)}
+.table th{background:rgba(235,243,241,.72)}.table td{background:rgba(255,255,255,.22)}
+.modal-bg{background:rgba(3,31,29,.44);-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px)}
+.modal{background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(239,247,245,.74));border:1px solid rgba(255,255,255,.9);box-shadow:0 30px 90px rgba(3,34,31,.28);-webkit-backdrop-filter:blur(30px);backdrop-filter:blur(30px)}
+.student{
+  position:relative;overflow-x:hidden;isolation:isolate;
+  background:
+    radial-gradient(circle at 10% 12%,rgba(24,120,108,.34),transparent 26%),
+    radial-gradient(circle at 92% 8%,rgba(222,177,65,.27),transparent 20%),
+    radial-gradient(circle at 75% 92%,rgba(54,117,157,.18),transparent 26%),
+    linear-gradient(145deg,#d9e9e6,#f0f5f3 53%,#d5e5e2);
+}
+.student:before{content:"";position:fixed;width:360px;height:360px;border-radius:50%;left:-130px;bottom:-150px;background:linear-gradient(135deg,rgba(255,255,255,.5),rgba(255,255,255,.08));border:1px solid rgba(255,255,255,.65);z-index:-1}
+.student .card{background:linear-gradient(145deg,rgba(255,255,255,.70),rgba(255,255,255,.45));border:1px solid rgba(255,255,255,.86);box-shadow:0 28px 80px rgba(16,55,52,.16),inset 0 1px 0 #fff;-webkit-backdrop-filter:blur(28px) saturate(140%);backdrop-filter:blur(28px) saturate(140%)}
+.portal-tabs{background:rgba(225,237,234,.54);border:1px solid rgba(255,255,255,.72);box-shadow:inset 0 1px 0 #fff}
+.portal-tabs button.active{background:rgba(255,255,255,.72);box-shadow:0 9px 24px rgba(16,42,43,.09),inset 0 1px 0 #fff}
+.likert label{background:rgba(255,255,255,.52);border-color:rgba(255,255,255,.9);box-shadow:inset 0 1px 0 #fff}
+.likert label:hover{background:rgba(232,245,242,.82);border-color:rgba(98,164,154,.48)}
+.likert label:has(input:checked){background:linear-gradient(135deg,rgba(13,98,89,.92),rgba(6,65,59,.92));border-color:rgba(255,255,255,.45);box-shadow:0 8px 18px rgba(13,98,89,.19),inset 0 1px 0 rgba(255,255,255,.26)}
+.survey-result{background:linear-gradient(145deg,rgba(231,246,242,.78),rgba(255,255,255,.52));border-color:rgba(255,255,255,.9);box-shadow:0 18px 46px rgba(16,42,43,.08);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){.auth-wrap,.auth-card,.card,.skill-group,.survey-card,.quick,.mini-kpi,.item,.table-wrap,.top,.side,.student .card,.modal{background:#f8fbfa}}
+@media(max-width:760px){.auth{padding:14px;background:radial-gradient(circle at 20% 8%,rgba(38,135,122,.5),transparent 30%),linear-gradient(145deg,#0b4e48,#dbeae7)}.auth-card{background:rgba(255,255,255,.72)}.student{padding:12px}.student .brandline{margin:5px 0 14px}.student .brandline h1{font-size:25px}.student .card{border-radius:20px}.top{background:rgba(255,255,255,.72)}.side{background:linear-gradient(180deg,rgba(6,63,58,.94),rgba(4,44,41,.96))}}
 </style>
 </head>
 <body>
@@ -200,7 +280,7 @@
 
 <section id="studentView" class="student hidden">
  <div class="wrap">
-   <div class="brandline"><div class="logo">ض</div><h1>بوابة الطالب</h1><p style="color:var(--muted)">تسليم المشاريع والواجبات</p></div>
+   <div class="brandline"><div class="logo">ض</div><h1>بوابة الطالب</h1><p style="color:var(--muted)">المهام والاستبانات التعليمية</p></div>
    <div class="card">
      <div class="head"><div><h2 style="font-size:20px">خدمات الطالب</h2><p>اختر الخدمة ثم اكتب الكود الذي أرسله المعلم.</p></div><button class="btn" id="backBtn">عودة</button></div>
      <div class="portal-tabs"><button class="active" data-portal="assignment">تسليم مهمة</button><button data-portal="survey">استبانة أنماط التعلم</button></div>
@@ -367,12 +447,13 @@ async function surveyRequest(payload){const response=await fetch(SURVEY_EDGE,{me
 async function loadStudentSurvey(code){
  const cleanCode=String(code||'').trim().toUpperCase(),button=$('surveyLookupBtn'),area=$('studentSurveyArea');if(!cleanCode)return;
  button.disabled=true;button.textContent='جارٍ الفتح...';area.innerHTML='';
- try{const data=await surveyRequest({action:'load',code:cleanCode});$('surveyCode').value=cleanCode;
+ try{const data=await surveyRequest({action:'load',code:cleanCode});$('surveyCode').value=cleanCode;$('surveyLookupForm').classList.add('hidden');
   const labels=['لا ينطبق','قليلًا','أحيانًا','غالبًا','ينطبق جدًا'];
-  area.innerHTML=`<form id="studentSurveyForm" data-code="${esc(cleanCode)}"><div style="margin:22px 0 14px"><span class="badge">12 عبارة</span><h2 style="margin:9px 0 4px">${esc(data.title)}</h2><p style="color:var(--muted);margin:0">لا توجد إجابة صحيحة أو خاطئة. اختر ما يصف طريقة تعلمك فعلًا.</p></div><div class="formgrid"><div class="field"><label>اسم الطالب</label><input name="student_name" required minlength="3"></div><div class="field"><label>رقم الطالب</label><input name="student_number" inputmode="numeric"></div></div>${data.questions.map((q,index)=>`<div class="survey-question"><h4>${index+1}. ${esc(q.text)}</h4><div class="likert">${labels.map((label,i)=>`<label><input type="radio" name="q_${q.id}" value="${i+1}" required><span>${label}</span></label>`).join('')}</div></div>`).join('')}<button class="btn primary" id="studentSurveySubmit" style="width:100%;margin-top:8px">إرسال الاستبانة</button></form>`;
+  area.innerHTML=`<form id="studentSurveyForm" data-code="${esc(cleanCode)}"><div style="margin:22px 0 14px"><div class="actions" style="justify-content:space-between;align-items:center"><span class="badge">12 عبارة</span><button type="button" class="btn" onclick="resetStudentSurveyLookup()">تغيير الكود</button></div><h2 style="margin:9px 0 4px">${esc(data.title)}</h2><p style="color:var(--muted);margin:0">لا توجد إجابة صحيحة أو خاطئة. اختر ما يصف طريقة تعلمك فعلًا.</p></div><div class="formgrid"><div class="field"><label>اسم الطالب</label><input name="student_name" required minlength="3"></div><div class="field"><label>رقم الطالب</label><input name="student_number" inputmode="numeric"></div></div>${data.questions.map((q,index)=>`<div class="survey-question"><h4>${index+1}. ${esc(q.text)}</h4><div class="likert">${labels.map((label,i)=>`<label><input type="radio" name="q_${q.id}" value="${i+1}" required><span>${label}</span></label>`).join('')}</div></div>`).join('')}<button class="btn primary" id="studentSurveySubmit" style="width:100%;margin-top:8px">إرسال الاستبانة</button></form>`;
   $('studentSurveyForm').onsubmit=submitStudentSurvey;
- }catch(error){area.innerHTML=`<div class="receipt"><b>تعذر فتح الاستبانة</b><br>${esc(error.message)}</div>`}finally{button.disabled=false;button.textContent='فتح الاستبانة'}
+ }catch(error){$('surveyLookupForm').classList.remove('hidden');area.innerHTML=`<div class="receipt"><b>تعذر فتح الاستبانة</b><br>${esc(error.message)}</div>`}finally{button.disabled=false;button.textContent='فتح الاستبانة'}
 }
+function resetStudentSurveyLookup(){$('studentSurveyArea').innerHTML='';$('surveyLookupForm').classList.remove('hidden');$('surveyCode').focus()}
 $('surveyLookupForm').onsubmit=e=>{e.preventDefault();loadStudentSurvey(new FormData(e.target).get('code'))};
 async function submitStudentSurvey(e){
  e.preventDefault();const form=e.target,button=$('studentSurveySubmit'),formData=new FormData(form),answers=[];for(let id=1;id<=12;id++){const value=formData.get('q_'+id);if(!value)return toast('أجب عن جميع العبارات',true);answers.push({id,value:Number(value)})}
