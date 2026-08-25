@@ -90,19 +90,49 @@ drop policy if exists interactive_book_units_owner on public.interactive_book_un
 create policy interactive_book_units_owner on public.interactive_book_units
 for all to authenticated
 using (teacher_id = (select auth.uid()))
-with check (teacher_id = (select auth.uid()));
+with check (
+  teacher_id = (select auth.uid())
+  and exists (
+    select 1 from public.interactive_books b
+    where b.id = book_id and b.teacher_id = (select auth.uid())
+  )
+);
 
 drop policy if exists interactive_book_skills_owner on public.interactive_book_skills;
 create policy interactive_book_skills_owner on public.interactive_book_skills
 for all to authenticated
 using (teacher_id = (select auth.uid()))
-with check (teacher_id = (select auth.uid()));
+with check (
+  teacher_id = (select auth.uid())
+  and exists (
+    select 1 from public.interactive_books b
+    where b.id = book_id and b.teacher_id = (select auth.uid())
+  )
+  and (
+    unit_id is null or exists (
+      select 1 from public.interactive_book_units u
+      where u.id = unit_id and u.book_id = book_id and u.teacher_id = (select auth.uid())
+    )
+  )
+  and (
+    linked_skill_id is null or exists (
+      select 1 from public.skills s
+      where s.id = linked_skill_id and s.teacher_id = (select auth.uid())
+    )
+  )
+);
 
 drop policy if exists interactive_book_bookmarks_owner on public.interactive_book_bookmarks;
 create policy interactive_book_bookmarks_owner on public.interactive_book_bookmarks
 for all to authenticated
 using (teacher_id = (select auth.uid()))
-with check (teacher_id = (select auth.uid()));
+with check (
+  teacher_id = (select auth.uid())
+  and exists (
+    select 1 from public.interactive_books b
+    where b.id = book_id and b.teacher_id = (select auth.uid())
+  )
+);
 
 grant select, insert, update, delete on public.interactive_books to authenticated;
 grant select, insert, update, delete on public.interactive_book_units to authenticated;
