@@ -38,12 +38,14 @@ jobs:
           from pathlib import Path
           p = Path('_site/index.html')
           text = p.read_text(encoding='utf-8')
-          css = '<link rel="stylesheet" href="achievement-admin.css">'
-          js = '<script src="achievement-admin.js"></script>'
-          if css not in text:
-              text = text.replace('</head>', css + '\n</head>', 1)
-          if js not in text:
-              text = text.replace('</body>', js + '\n</body>', 1)
+          assets = [
+              ('</head>', '<link rel="stylesheet" href="achievement-admin.css">\n<link rel="stylesheet" href="achievement-v2.css">\n</head>'),
+              ('</body>', '<script src="achievement-admin.js"></script>\n<script src="achievement-v2.js"></script>\n</body>')
+          ]
+          if 'achievement-v2.css' not in text:
+              text = text.replace('</head>', assets[0][1], 1)
+          if 'achievement-v2.js' not in text:
+              text = text.replace('</body>', assets[1][1], 1)
           p.write_text(text, encoding='utf-8')
           PY
 
