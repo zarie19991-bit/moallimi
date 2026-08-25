@@ -1,0 +1,52 @@
+name: Fetch official Lugati 1448 books once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/fetch-lugati-1448.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-books-once:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download and verify the three official PDFs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p books
+          curl -kfsSL --retry 4 --retry-all-errors --connect-timeout 30 \
+            "https://iencontent.ien.edu.sa/books/1448-GE-ME-K07-SM1-ilng-part1.pdf" \
+            -o "books/lugati-1m-1448-f1.pdf"
+          curl -kfsSL --retry 4 --retry-all-errors --connect-timeout 30 \
+            "https://iencontent.ien.edu.sa/books/1448-GE-ME-K08-SM1-ILNG.pdf" \
+            -o "books/lugati-2m-1448-f1.pdf"
+          curl -kfsSL --retry 4 --retry-all-errors --connect-timeout 30 \
+            "https://iencontent.ien.edu.sa/books/1448-GE-ME-K09-SM1-ilng-part1.pdf" \
+            -o "books/lugati-3m-1448-f1.pdf"
+          for pdf in books/*.pdf; do
+            test "$(stat -c%s "$pdf")" -gt 10000000
+            test "$(head -c 5 "$pdf")" = "%PDF-"
+          done
+          ls -lh books/*.pdf
+
+      - name: Publish books and remove this one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add books/*.pdf
+          git rm .github/workflows/fetch-lugati-1448.yml
+          git commit -m "Add official Lugati 1448 semester-one books"
+          git push
