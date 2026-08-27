@@ -47,6 +47,15 @@ jobs:
           if(total!==270) throw new Error('Total indicators must equal 270');
           if(total*20!==5400) throw new Error('Each indicator must expose 20 test models');
           NODE
+      - name: Verify live exam engine and first math bank
+        shell: bash
+        run: |
+          RESPONSE=$(curl -fsS -X POST 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam' -H 'content-type: application/json' --data '{"action":"preview","subject":"math","outcome":"1-1-1-4-9","indicator":1,"model":1}')
+          echo "$RESPONSE"
+          APPROVED=$(node -e "const d=JSON.parse(process.argv[1]); console.log(d.approved||0)" "$RESPONSE")
+          READY=$(node -e "const d=JSON.parse(process.argv[1]); console.log(d.ready===true?'yes':'no')" "$RESPONSE")
+          test "$APPROVED" -ge 24
+          test "$READY" = "yes"
       - uses: actions/configure-pages@v5
         with:
           enablement: true
