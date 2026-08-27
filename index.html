@@ -1,5 +1,44 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>تم حذف المنصة</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Arial,sans-serif;background:#f6f5f0;color:#17324d}.box{text-align:center;padding:40px}.box h1{font-size:32px;margin:0 0 12px}.box p{color:#667985}</style></head>
-<body><main class="box"><h1>تم حذف منصة معلّمي</h1><p>أزيلت النسخة السابقة بالكامل.</p></main></body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f514c">
+<meta name="description" content="معلّمي — قسم نافس للصف الثالث المتوسط: القراءة والرياضيات والعلوم بجميع نواتج التعلم والمؤشرات.">
+<title>معلّمي | نافس — الثالث المتوسط</title>
+<link rel="stylesheet" href="styles.css?v=20260827-1">
+</head>
+<body>
+<div class="shell">
+<aside class="side">
+ <div class="brand"><div class="mark">م</div><div><b>معلّمي</b><small>بناء جديد من الصفر</small></div></div>
+ <nav class="nav"><p class="nav-title">الأقسام</p><button><span>ن</span><div><b>نافس</b><small>القراءة · الرياضيات · العلوم</small></div></button></nav>
+ <div class="side-note">هذه النسخة تبدأ بقسم نافس فقط. لا توجد أقسام شكلية أو وظائف غير مكتملة داخل القائمة.</div>
+</aside>
+<main class="main">
+ <header class="topbar"><div><span class="eyebrow">القسم العامل الآن</span><h1>نافس — الصف الثالث المتوسط</h1></div><div class="source-pill">نواتج التعلم والمؤشرات · 2026</div></header>
+ <section class="hero"><span class="tag">الاختبارات الوطنية</span><h2>كل المؤشرات في مكان واحد، دون اختصار</h2><p>تنظيم مباشر للغة العربية في مجال القراءة، والرياضيات، والعلوم: المجال ← المجال الفرعي ← ناتج التعلم ورمزه ← المؤشرات التفصيلية. لا تدريب ولا اختبارات وهمية في هذه المرحلة.</p></section>
+ <section id="summary" class="summary"></section>
+ <section id="subjects" class="subjects"></section>
+ <section class="workspace">
+  <aside class="filters">
+   <h3>البحث والتصفية</h3>
+   <div class="field"><label>ابحث في رمز أو ناتج أو مؤشر</label><input id="search" type="search" placeholder="مثال: فيثاغورس، الجذور، الخلية..."></div>
+   <div class="field"><label>المجال</label><select id="domain"></select></div>
+   <div class="toolbar"><button id="expandAll" class="small-btn">فتح الكل</button><button id="collapseAll" class="small-btn">إغلاق الكل</button></div>
+   <div class="filter-note">البحث يعمل داخل نص المؤشر نفسه، وليس في عنوان المجال فقط.</div>
+  </aside>
+  <section class="content">
+   <header class="content-head"><div><small>المادة الحالية</small><h3 id="contentTitle"></h3></div><div id="liveCount" class="live-count"></div></header>
+   <div id="content"></div>
+  </section>
+ </section>
+ <section class="source-box"><b>مصدر التنظيم والمحتوى</b><p>الملف المرفوع «ركاز التعليمي لرفع نواتج التعليم بمنطقة نجران» هو بوابة الأدلة الإجرائية للمرحلة المتوسطة ويعرض روابط اللغة العربية والرياضيات والعلوم. ولإظهار النص التفصيلي الكامل للمؤشرات داخل المنصة، استُخدمت وثيقة «نواتج التعلم للاختبارات الوطنية 2026» التابعة لهيئة تقويم التعليم والتدريب للصف التاسع.</p><div id="verification" class="verification"></div></section>
+</main>
+</div>
+<script src="nafes-reading.js?v=20260827-1"></script>
+<script src="nafes-math.js?v=20260827-1"></script>
+<script src="nafes-science.js?v=20260827-1"></script>
+<script src="app.js?v=20260827-1"></script>
+</body>
 </html>
