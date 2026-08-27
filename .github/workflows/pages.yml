@@ -40,6 +40,8 @@ jobs:
           text = p.read_text(encoding='utf-8')
 
           text = text.replace('id="authScreen" class="auth-screen hidden"', 'id="authScreen" class="auth-screen"', 1)
+          text = text.replace('nafes-section.css?v=20260827-1','nafes-section.css?v=20260827-4')
+          text = text.replace('nafes-section.js?v=20260827-1','nafes-section.js?v=20260827-4')
 
           css_items = [
               '<link rel="stylesheet" href="achievement-official.css?v=20260827-1">',
