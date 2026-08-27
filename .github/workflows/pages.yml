@@ -63,6 +63,21 @@ jobs:
               if name not in text:
                   text = text.replace('</body>', script + '\n</body>', 1)
           p.write_text(text, encoding='utf-8')
+
+          # Make it explicit that a second browser using the same student identity
+          # resumes the same attempt; different registered students get different models.
+          sp = Path('_site/student.html')
+          if sp.exists():
+              st = sp.read_text(encoding='utf-8')
+              st = st.replace(
+                  "if(session.resumed)toast('تم استكمال محاولتك السابقة والوقت مستمر من بدايتها.');",
+                  "if(session.resumed)toast('تم التعرف على الطالب نفسه؛ لذلك استكملت نفس المحاولة ونفس الأسئلة. الطلاب المختلفون المسجلون يحصلون على نماذج مختلفة.');"
+              )
+              st = st.replace(
+                  "${session.resumed?'محاولة مستكملة':'نموذج خاص بك'}",
+                  "${session.resumed?'نفس الطالب — نفس المحاولة':'نموذج مختلف لهذا الطالب'}"
+              )
+              sp.write_text(st, encoding='utf-8')
           PY
 
       - name: Upload site
