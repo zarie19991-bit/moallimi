@@ -50,7 +50,8 @@ jobs:
               '<script src="nafes-tests-plus.js?v=20260827-2"></script>',
               '<script src="nafes-models.js?v=20260827-1"></script>',
               '<script src="nafes-create-fix.js?v=20260827-1"></script>',
-              '<script src="achievement-official.js?v=20260827-1"></script>'
+              '<script src="achievement-official.js?v=20260827-1"></script>',
+              '<script src="accuracy-guard.js?v=20260827-1"></script>'
           ]
           for script in scripts:
               name = script.split('src="',1)[1].split('?',1)[0]
