@@ -39,18 +39,19 @@ jobs:
           const counts=Object.fromEntries(data.map(s=>[s.key,s.outcomes.reduce((n,o)=>n+o.indicators.length,0)]));
           const outcomes=Object.fromEntries(data.map(s=>[s.key,s.outcomes.length]));
           const total=Object.values(counts).reduce((a,b)=>a+b,0);
-          console.log({counts,outcomes,total,testModels:total*20});
+          const testsPerIndicator=30;
+          console.log({counts,outcomes,total,testModels:total*testsPerIndicator});
           if(counts.reading!==16) throw new Error('Reading indicators must equal 16');
           if(counts.math!==95) throw new Error('Math indicators must equal 95');
           if(counts.science!==159) throw new Error('Science indicators must equal 159');
           if(outcomes.reading!==3||outcomes.math!==25||outcomes.science!==48) throw new Error('Outcome counts do not match official framework');
           if(total!==270) throw new Error('Total indicators must equal 270');
-          if(total*20!==5400) throw new Error('Each indicator must expose 20 test models');
+          if(total*testsPerIndicator!==8100) throw new Error('Each indicator must expose at least 30 test models');
           NODE
-      - name: Verify live exam engine and first math bank
+      - name: Verify live exam engine and model 30
         shell: bash
         run: |
-          RESPONSE=$(curl -fsS -X POST 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam' -H 'content-type: application/json' --data '{"action":"preview","subject":"math","outcome":"1-1-1-4-9","indicator":1,"model":1}')
+          RESPONSE=$(curl -fsS -X POST 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam' -H 'content-type: application/json' --data '{"action":"preview","subject":"math","outcome":"1-1-1-4-9","indicator":1,"model":30}')
           echo "$RESPONSE"
           APPROVED=$(node -e "const d=JSON.parse(process.argv[1]); console.log(d.approved||0)" "$RESPONSE")
           READY=$(node -e "const d=JSON.parse(process.argv[1]); console.log(d.ready===true?'yes':'no')" "$RESPONSE")
