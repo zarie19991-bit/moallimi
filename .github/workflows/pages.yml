@@ -25,6 +25,11 @@ jobs:
           node --check nafes-math.js
           node --check nafes-science.js
           node --check app.js
+          node --check tests.js
+          node --check exam.js
+          test -f exam.html
+          test -f tests.css
+          test -f exam.css
           node - <<'NODE'
           global.window = {};
           require('./nafes-reading.js');
@@ -33,12 +38,14 @@ jobs:
           const data=[window.NAFES_READING,window.NAFES_MATH,window.NAFES_SCIENCE];
           const counts=Object.fromEntries(data.map(s=>[s.key,s.outcomes.reduce((n,o)=>n+o.indicators.length,0)]));
           const outcomes=Object.fromEntries(data.map(s=>[s.key,s.outcomes.length]));
-          console.log({counts,outcomes,total:Object.values(counts).reduce((a,b)=>a+b,0)});
+          const total=Object.values(counts).reduce((a,b)=>a+b,0);
+          console.log({counts,outcomes,total,testModels:total*20});
           if(counts.reading!==16) throw new Error('Reading indicators must equal 16');
           if(counts.math!==95) throw new Error('Math indicators must equal 95');
           if(counts.science!==159) throw new Error('Science indicators must equal 159');
           if(outcomes.reading!==3||outcomes.math!==25||outcomes.science!==48) throw new Error('Outcome counts do not match official framework');
-          if(Object.values(counts).reduce((a,b)=>a+b,0)!==270) throw new Error('Total indicators must equal 270');
+          if(total!==270) throw new Error('Total indicators must equal 270');
+          if(total*20!==5400) throw new Error('Each indicator must expose 20 test models');
           NODE
       - uses: actions/configure-pages@v5
         with:
