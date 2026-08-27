@@ -42,7 +42,6 @@ jobs:
           text = text.replace('id="authScreen" class="auth-screen hidden"', 'id="authScreen" class="auth-screen"', 1)
 
           css_items = [
-              '<link rel="stylesheet" href="nafes-models.css?v=20260827-2">',
               '<link rel="stylesheet" href="achievement-official.css?v=20260827-1">',
               '<link rel="stylesheet" href="achievement-upgrade.css?v=20260827-1">',
               '<link rel="stylesheet" href="learning-styles.css?v=20260827-1">'
@@ -53,12 +52,11 @@ jobs:
                   text = text.replace('</head>', css + '\n</head>', 1)
 
           scripts = [
-              '<script src="nafes-tests-plus.js?v=20260827-2"></script>',
-              '<script src="nafes-models.js?v=20260827-2"></script>',
-              '<script src="nafes-create-fix.js?v=20260827-2"></script>',
+              '<script src="nafes-tests-plus.js?v=20260827-3"></script>',
+              '<script src="nafes-create-fix.js?v=20260827-3"></script>',
               '<script src="achievement-official.js?v=20260827-1"></script>',
               '<script src="achievement-upgrade.js?v=20260827-1"></script>',
-              '<script src="accuracy-guard.js?v=20260827-1"></script>',
+              '<script src="accuracy-guard.js?v=20260827-2"></script>',
               '<script src="learning-styles.js?v=20260827-1"></script>'
           ]
           text = text.replace('<script src="assessment-controls.js?v=20260827-1"></script>\n', '')
@@ -68,8 +66,6 @@ jobs:
                   text = text.replace('</body>', script + '\n</body>', 1)
           p.write_text(text, encoding='utf-8')
 
-          # Make it explicit that a second browser using the same student identity
-          # resumes the same attempt; different registered students get different models.
           sp = Path('_site/student.html')
           if sp.exists():
               st = sp.read_text(encoding='utf-8')
