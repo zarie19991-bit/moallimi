@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f514c">
+<title>اختبار نافس | معلّمي</title>
+<link rel="stylesheet" href="exam.css?v=20260827-1">
+</head>
+<body>
+<header class="exam-top"><a href="./" class="brand"><span>م</span><div><b>معلّمي</b><small>اختبارات نافس</small></div></a><div id="modelCode" class="model-code"></div></header>
+<main class="exam-shell">
+<section id="intro" class="panel intro-panel">
+ <span class="kicker">نافس · الصف الثالث المتوسط</span>
+ <h1 id="examTitle">تحميل الاختبار...</h1>
+ <p id="indicatorText" class="indicator-text"></p>
+ <div id="readiness" class="readiness"></div>
+ <form id="startForm" class="student-form hidden">
+  <div><label>اسم الطالب الكامل</label><input id="studentName" required autocomplete="name" placeholder="اكتب الاسم كما هو في الكشف"></div>
+  <div><label>رقم الطالب / رقم مميز</label><input id="studentNo" required inputmode="numeric" placeholder="مثال: 12"></div>
+  <button type="submit">ابدأ الاختبار</button>
+ </form>
+</section>
+<section id="examArea" class="panel exam-panel hidden">
+ <div class="exam-head"><div><small id="questionMeta"></small><h2 id="questionTitle"></h2></div><div id="timer" class="timer">--:--</div></div>
+ <div id="progress" class="progress"></div>
+ <article id="questionCard" class="question-card"></article>
+ <div class="exam-nav"><button id="prevBtn" type="button">السابق</button><button id="reviewBtn" type="button">مراجعة الإجابات</button><button id="nextBtn" type="button">التالي</button></div>
+</section>
+<section id="result" class="panel result-panel hidden"></section>
+</main>
+<script src="nafes-reading.js?v=20260827-1"></script><script src="nafes-math.js?v=20260827-1"></script><script src="nafes-science.js?v=20260827-1"></script><script src="exam.js?v=20260827-1"></script>
+</body></html>
