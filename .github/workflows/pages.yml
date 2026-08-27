@@ -44,7 +44,8 @@ jobs:
           css_items = [
               '<link rel="stylesheet" href="nafes-models.css?v=20260827-2">',
               '<link rel="stylesheet" href="achievement-official.css?v=20260827-1">',
-              '<link rel="stylesheet" href="achievement-upgrade.css?v=20260827-1">'
+              '<link rel="stylesheet" href="achievement-upgrade.css?v=20260827-1">',
+              '<link rel="stylesheet" href="learning-styles.css?v=20260827-1">'
           ]
           for css in css_items:
               name = css.split('href="',1)[1].split('?',1)[0]
@@ -57,7 +58,8 @@ jobs:
               '<script src="nafes-create-fix.js?v=20260827-2"></script>',
               '<script src="achievement-official.js?v=20260827-1"></script>',
               '<script src="achievement-upgrade.js?v=20260827-1"></script>',
-              '<script src="accuracy-guard.js?v=20260827-1"></script>'
+              '<script src="accuracy-guard.js?v=20260827-1"></script>',
+              '<script src="learning-styles.js?v=20260827-1"></script>'
           ]
           text = text.replace('<script src="assessment-controls.js?v=20260827-1"></script>\n', '')
           for script in scripts:
