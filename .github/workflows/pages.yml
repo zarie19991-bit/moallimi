@@ -38,12 +38,9 @@ jobs:
           from pathlib import Path
           p = Path('_site/index.html')
           text = p.read_text(encoding='utf-8')
-          css = '<link rel="stylesheet" href="achievement-v2.css?v=20260825c">'
-          js = '<script src="achievement-v2-compat.js?v=20260825c"></script>\n<script src="achievement-v2.js?v=20260825c"></script>'
-          if 'achievement-v2.css' not in text:
-              text = text.replace('</head>', css + '\n</head>', 1)
-          if 'achievement-v2.js' not in text:
-              text = text.replace('</body>', js + '\n</body>', 1)
+          extra = '<script src="nafes-tests-plus.js?v=20260827-2"></script>'
+          if 'nafes-tests-plus.js' not in text:
+              text = text.replace('</body>', extra + '\n</body>', 1)
           p.write_text(text, encoding='utf-8')
           PY
 
