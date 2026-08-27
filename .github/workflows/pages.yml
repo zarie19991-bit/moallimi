@@ -39,11 +39,10 @@ jobs:
           p = Path('_site/index.html')
           text = p.read_text(encoding='utf-8')
 
-          # Never leave the whole site blank while authentication is restoring.
           text = text.replace('id="authScreen" class="auth-screen hidden"', 'id="authScreen" class="auth-screen"', 1)
 
           css_items = [
-              '<link rel="stylesheet" href="nafes-models.css?v=20260827-1">',
+              '<link rel="stylesheet" href="nafes-models.css?v=20260827-2">',
               '<link rel="stylesheet" href="achievement-official.css?v=20260827-1">'
           ]
           for css in css_items:
@@ -51,16 +50,13 @@ jobs:
               if name not in text:
                   text = text.replace('</head>', css + '\n</head>', 1)
 
-          # Keep the last stable frontend set. Timing remains enforced by the server,
-          # but the recently added control layer is removed until it is re-tested.
           scripts = [
               '<script src="nafes-tests-plus.js?v=20260827-2"></script>',
-              '<script src="nafes-models.js?v=20260827-1"></script>',
-              '<script src="nafes-create-fix.js?v=20260827-1"></script>',
+              '<script src="nafes-models.js?v=20260827-2"></script>',
+              '<script src="nafes-create-fix.js?v=20260827-2"></script>',
               '<script src="achievement-official.js?v=20260827-1"></script>',
               '<script src="accuracy-guard.js?v=20260827-1"></script>'
           ]
-          # Remove the risky layer if it was previously injected into the source page.
           text = text.replace('<script src="assessment-controls.js?v=20260827-1"></script>\n', '')
           for script in scripts:
               name = script.split('src="',1)[1].split('?',1)[0]
