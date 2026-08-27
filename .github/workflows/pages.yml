@@ -36,34 +36,34 @@ jobs:
           rsync -a --exclude '.git' --exclude '_site' ./ _site/
           python - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('_site/index.html')
           text = p.read_text(encoding='utf-8')
-
           text = text.replace('id="authScreen" class="auth-screen hidden"', 'id="authScreen" class="auth-screen"', 1)
-          # Force fresh versions of the two most frequently changing workspaces.
-          import re
-          text = re.sub(r'nafes-section\.css\?v=[^"\']+', 'nafes-section.css?v=20260827-2105', text)
-          text = re.sub(r'nafes-section\.js\?v=[^"\']+', 'nafes-section.js?v=20260827-2105', text)
+
+          # Force fresh versions so Android/browser caches do not keep an older broken workspace.
+          text = re.sub(r'nafes-section\.css\?v=[^"\']+', 'nafes-section.css?v=20260827-2115', text)
+          text = re.sub(r'nafes-section\.js\?v=[^"\']+', 'nafes-section.js?v=20260827-2115', text)
 
           css_items = [
-              '<link rel="stylesheet" href="achievement-official.css?v=20260827-2">',
-              '<link rel="stylesheet" href="achievement-upgrade.css?v=20260827-2">',
-              '<link rel="stylesheet" href="learning-styles.css?v=20260827-2">',
-              '<link rel="stylesheet" href="platform-structure.css?v=20260827-3">',
-              '<link rel="stylesheet" href="achievement-workspace.css?v=20260827-2105">'
+              '<link rel="stylesheet" href="achievement-official.css?v=20260827-3">',
+              '<link rel="stylesheet" href="achievement-upgrade.css?v=20260827-3">',
+              '<link rel="stylesheet" href="learning-styles.css?v=20260827-3">',
+              '<link rel="stylesheet" href="platform-structure.css?v=20260827-4">',
+              '<link rel="stylesheet" href="achievement-workspace.css?v=20260827-2115">'
           ]
           for css in css_items:
               name = css.split('href="',1)[1].split('?',1)[0]
-              # Remove any older reference to the same file, then inject the newest one.
               text = re.sub(r'<link[^>]+href="'+re.escape(name)+r'\?v=[^"]+"[^>]*>\s*', '', text)
               text = text.replace('</head>', css + '\n</head>', 1)
 
           scripts = [
-              '<script src="achievement-official.js?v=20260827-2"></script>',
-              '<script src="achievement-upgrade.js?v=20260827-2"></script>',
-              '<script src="learning-styles.js?v=20260827-2"></script>',
-              '<script src="platform-structure.js?v=20260827-3"></script>',
-              '<script src="achievement-workspace.js?v=20260827-2105"></script>'
+              '<script src="achievement-official.js?v=20260827-3"></script>',
+              '<script src="achievement-upgrade.js?v=20260827-3"></script>',
+              '<script src="learning-styles.js?v=20260827-3"></script>',
+              '<script src="platform-structure.js?v=20260827-4"></script>',
+              '<script src="achievement-workspace.js?v=20260827-2115"></script>'
           ]
           text = re.sub(r'<script src="assessment-controls\.js\?v=[^"]+"></script>\s*', '', text)
           for script in scripts:
@@ -71,6 +71,17 @@ jobs:
               text = re.sub(r'<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\s*', '', text)
               text = text.replace('</body>', script + '\n</body>', 1)
           p.write_text(text, encoding='utf-8')
+
+          # Repair the current achievement workspace source during build; the validation below
+          # prevents any future syntax error from reaching the public site.
+          wp = Path('_site/achievement-workspace.js')
+          if wp.exists():
+              wt = wp.read_text(encoding='utf-8')
+              wt = wt.replace(
+                  "toast('تم حفظ الدرجات وتحديث التحليل')}}})};",
+                  "toast('تم حفظ الدرجات وتحديث التحليل')}});};"
+              )
+              wp.write_text(wt, encoding='utf-8')
 
           sp = Path('_site/student.html')
           if sp.exists():
@@ -85,6 +96,13 @@ jobs:
               )
               sp.write_text(st, encoding='utf-8')
           PY
+
+          echo 'Checking deployed JavaScript syntax...'
+          for f in _site/*.js; do
+            node --check "$f"
+          done
+          grep -q 'nafes-section.js?v=20260827-2115' _site/index.html
+          grep -q 'achievement-workspace.js?v=20260827-2115' _site/index.html
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
