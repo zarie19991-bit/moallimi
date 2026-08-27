@@ -38,17 +38,24 @@ jobs:
           from pathlib import Path
           p = Path('_site/index.html')
           text = p.read_text(encoding='utf-8')
-          css = '<link rel="stylesheet" href="nafes-models.css?v=20260827-1">'
-          scripts = '<script src="nafes-tests-plus.js?v=20260827-2"></script>\n<script src="nafes-models.js?v=20260827-1"></script>\n<script src="nafes-create-fix.js?v=20260827-1"></script>'
-          if 'nafes-models.css' not in text:
-              text = text.replace('</head>', css + '\n</head>', 1)
-          if 'nafes-tests-plus.js' not in text:
-              text = text.replace('</body>', scripts + '\n</body>', 1)
-          else:
-              if 'nafes-models.js' not in text:
-                  text = text.replace('</body>', '<script src="nafes-models.js?v=20260827-1"></script>\n</body>', 1)
-              if 'nafes-create-fix.js' not in text:
-                  text = text.replace('</body>', '<script src="nafes-create-fix.js?v=20260827-1"></script>\n</body>', 1)
+          css_items = [
+              '<link rel="stylesheet" href="nafes-models.css?v=20260827-1">',
+              '<link rel="stylesheet" href="achievement-official.css?v=20260827-1">'
+          ]
+          for css in css_items:
+              name = css.split('href="',1)[1].split('?',1)[0]
+              if name not in text:
+                  text = text.replace('</head>', css + '\n</head>', 1)
+          scripts = [
+              '<script src="nafes-tests-plus.js?v=20260827-2"></script>',
+              '<script src="nafes-models.js?v=20260827-1"></script>',
+              '<script src="nafes-create-fix.js?v=20260827-1"></script>',
+              '<script src="achievement-official.js?v=20260827-1"></script>'
+          ]
+          for script in scripts:
+              name = script.split('src="',1)[1].split('?',1)[0]
+              if name not in text:
+                  text = text.replace('</body>', script + '\n</body>', 1)
           p.write_text(text, encoding='utf-8')
           PY
 
