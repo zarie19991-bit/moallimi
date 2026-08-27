@@ -3,25 +3,77 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>معلّمي</title>
+<title>معلّمي | منصة مترابطة للطلاب والمواد والتحصيل</title>
 <meta name="theme-color" content="#0f514c">
-<style>
-:root{--bg:#f4f5f2;--paper:#fffdf8;--ink:#17324d;--teal:#0f514c;--gold:#c6a04a;--muted:#6f7d84;--line:#dedbd1}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:Tahoma,Arial,sans-serif;background:radial-gradient(circle at 85% 0,#e5efec 0,transparent 34%),var(--bg);color:var(--ink)}
-main{min-height:100vh;display:grid;place-items:center;padding:24px}.shell{width:min(780px,100%);background:var(--paper);border:1px solid var(--line);border-radius:28px;padding:54px 34px;text-align:center;box-shadow:0 24px 70px rgba(23,50,77,.10)}
-.mark{width:78px;height:78px;border-radius:24px;margin:auto;display:grid;place-items:center;background:linear-gradient(145deg,var(--teal),#173d46);color:#fff;font-size:31px;font-weight:900;box-shadow:0 12px 28px rgba(15,81,76,.18)}
-h1{font-size:38px;margin:20px 0 8px}p{margin:0 auto;max-width:580px;line-height:2;color:var(--muted);font-size:15px}.rule{width:110px;height:3px;background:var(--gold);margin:24px auto}.status{display:inline-flex;align-items:center;gap:8px;margin-top:26px;padding:9px 14px;border-radius:999px;background:#edf4f2;color:var(--teal);font-weight:800;font-size:12px}.status:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold)}
-</style>
+<meta name="description" content="منصة معلّمي: الطلاب، المواد، المشاريع والواجبات، والتحصيل الدراسي في تجربة واحدة مترابطة.">
+<link rel="stylesheet" href="app.css?v=20260827-1">
 </head>
 <body>
-<main>
-  <section class="shell" aria-label="معلّمي">
-    <div class="mark">م</div>
-    <h1>معلّمي</h1>
-    <div class="rule"></div>
-    <p>تم حذف جميع الأقسام والواجهات السابقة من المنصة. هذه صفحة نظيفة فقط، وسيتم بناء التجربة الجديدة من الصفر بشكل مترابط وتفاعلي بدل الأقسام المنفصلة القديمة.</p>
-    <div class="status">واجهة نظيفة بدون أقسام</div>
-  </section>
-</main>
+<section id="authScreen" class="auth-screen hidden">
+  <div class="auth-art">
+    <div class="auth-art-inner">
+      <div class="brand-mark">م</div>
+      <h1>معلّمي</h1>
+      <p>ليست مجموعة أقسام منفصلة. كل اختبار وتسليم ودرجة ومهارة تبدأ من الطالب وتعود إلى ملفه والتحصيل الدراسي مباشرة.</p>
+      <div class="flow-preview"><span>الطالب</span><i>←</i><span>المادة</span><i>←</i><span>الاختبار / الواجب</span><i>←</i><span>النتيجة</span><i>←</i><span>التحصيل</span></div>
+    </div>
+  </div>
+  <div class="auth-side">
+    <form id="authForm" class="auth-card">
+      <h2>دخول المعلم</h2>
+      <p>ادخل بحسابك لفتح الفصول والطلاب والاختبارات والتسليمات المرتبطة ببعضها.</p>
+      <div class="field"><label>البريد الإلكتروني</label><input name="email" type="email" autocomplete="email" required></div>
+      <div class="field"><label>كلمة المرور</label><input name="password" type="password" autocomplete="current-password" required></div>
+      <button id="authBtn" class="btn primary wide">دخول المنصة</button>
+    </form>
+  </div>
+</section>
+
+<section id="app" class="app hidden">
+  <header class="app-top">
+    <div class="brandline"><div class="brand-mark">م</div><div><b>معلّمي</b><small>منصة مترابطة وليست صفحات منفصلة</small></div></div>
+    <div class="top-actions"><div class="user-pill"><div class="user-dot">م</div><span id="userEmail">المعلم</span></div><button id="logoutBtn" class="btn">خروج</button></div>
+  </header>
+  <main class="app-body">
+    <section class="hub-intro">
+      <div><h1>مركز العمل</h1><p>أربع مساحات فقط. البيانات تتحرك بينها تلقائيًا بدل أن تعيد إدخالها في كل قسم.</p></div>
+      <div class="connection-line"><span>طلاب</span><i>←</i><span>مواد</span><i>←</i><span>واجبات ومشاريع</span><i>←</i><span>تحصيل</span></div>
+    </section>
+
+    <nav class="primary-nav" aria-label="الأقسام الرئيسية">
+      <button class="nav-card active" data-section="students"><span class="nav-badge">١</span><span class="nav-icon">ط</span><h3>الطلاب</h3><p>أول وثاني وثالث متوسط، الفصول، أسماء الطلاب، التحليل والمستوى وملف كل طالب.</p></button>
+      <button class="nav-card" data-section="subjects"><span class="nav-badge">٢</span><span class="nav-icon">م</span><h3>المواد</h3><p>لغتي، الإنجليزية، العلوم، الرياضيات؛ اختبارات وتدريب وكود وQR حسب المرحلة.</p></button>
+      <button class="nav-card" data-section="tasks"><span class="nav-badge">٣</span><span class="nav-icon">✓</span><h3>المشاريع والواجبات</h3><p>تسليم الطالب بالملف، ومعرفة من سلّم ومن لم يسلّم والتاريخ والدرجة.</p></button>
+      <button class="nav-card" data-section="achievement"><span class="nav-badge">٤</span><span class="nav-icon">د</span><h3>التحصيل الدراسي</h3><p>دفتر تفاعلي جميل يجمع قياس المستوى والمهارات والتحسن والاختبارات.</p></button>
+    </nav>
+
+    <section class="workspace">
+      <article id="page-students" class="page active">
+        <div class="page-head"><div><h2>الطلاب والفصول</h2><p>ادخل المرحلة ثم الفصل؛ يظهر كل طالب مع مستواه وكل ما فعله في المنصة.</p></div><div class="actions"><button id="newClassBtn" class="btn">+ فصل</button><button id="newStudentBtn" class="btn primary">+ طالب</button></div></div>
+        <div id="studentsArea"></div>
+      </article>
+
+      <article id="page-subjects" class="page">
+        <div class="page-head"><div><h2>المواد الأربع</h2><p>الاختبار والتدريب ليسا صفحة معزولة؛ النتيجة ترجع مباشرة إلى الطالب والتحصيل.</p></div></div>
+        <div id="subjectsArea"></div>
+      </article>
+
+      <article id="page-tasks" class="page">
+        <div class="page-head"><div><h2>المشاريع والواجبات</h2><p>أنشئ المهمة وأرسل الكود أو QR. الطالب يرفع الملف، ثم يظهر عندك من سلّم ومن لم يسلّم ويمكنك رصد الدرجة فورًا.</p></div><button id="newAssignmentBtn" class="btn primary">+ واجب أو مشروع</button></div>
+        <div id="tasksArea"></div>
+      </article>
+
+      <article id="page-achievement" class="page">
+        <div class="page-head no-print"><div><h2>التحصيل الدراسي</h2><p>دفتر تفاعلي وليس لوحة جامدة: الصف، المادة، مستوى الطلاب، المهارات، الاختبارات والتحسن في مكان واحد.</p></div></div>
+        <div id="achievementArea"></div>
+      </article>
+    </section>
+  </main>
+</section>
+<div id="drawerRoot"></div>
+<div id="modalRoot"></div>
+<div id="toast" class="toast hidden"></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="app.js?v=20260827-1"></script>
 </body>
 </html>
