@@ -38,9 +38,14 @@ jobs:
           from pathlib import Path
           p = Path('_site/index.html')
           text = p.read_text(encoding='utf-8')
-          extra = '<script src="nafes-tests-plus.js?v=20260827-2"></script>'
+          css = '<link rel="stylesheet" href="nafes-models.css?v=20260827-1">'
+          scripts = '<script src="nafes-tests-plus.js?v=20260827-2"></script>\n<script src="nafes-models.js?v=20260827-1"></script>'
+          if 'nafes-models.css' not in text:
+              text = text.replace('</head>', css + '\n</head>', 1)
           if 'nafes-tests-plus.js' not in text:
-              text = text.replace('</body>', extra + '\n</body>', 1)
+              text = text.replace('</body>', scripts + '\n</body>', 1)
+          elif 'nafes-models.js' not in text:
+              text = text.replace('</body>', '<script src="nafes-models.js?v=20260827-1"></script>\n</body>', 1)
           p.write_text(text, encoding='utf-8')
           PY
 
