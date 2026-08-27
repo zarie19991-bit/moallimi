@@ -1,4 +1,4 @@
-name: Deploy deletion notice
+name: Deploy NAFES workspace
 on:
   push:
     branches: [main]
@@ -18,6 +18,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify NAFES data and JavaScript
+        shell: bash
+        run: |
+          node --check nafes-reading.js
+          node --check nafes-math.js
+          node --check nafes-science.js
+          node --check app.js
+          node - <<'NODE'
+          global.window = {};
+          require('./nafes-reading.js');
+          require('./nafes-math.js');
+          require('./nafes-science.js');
+          const data=[window.NAFES_READING,window.NAFES_MATH,window.NAFES_SCIENCE];
+          const counts=Object.fromEntries(data.map(s=>[s.key,s.outcomes.reduce((n,o)=>n+o.indicators.length,0)]));
+          const outcomes=Object.fromEntries(data.map(s=>[s.key,s.outcomes.length]));
+          console.log({counts,outcomes,total:Object.values(counts).reduce((a,b)=>a+b,0)});
+          if(counts.reading!==16) throw new Error('Reading indicators must equal 16');
+          if(counts.math!==95) throw new Error('Math indicators must equal 95');
+          if(counts.science!==159) throw new Error('Science indicators must equal 159');
+          if(outcomes.reading!==3||outcomes.math!==25||outcomes.science!==48) throw new Error('Outcome counts do not match official framework');
+          if(Object.values(counts).reduce((a,b)=>a+b,0)!==270) throw new Error('Total indicators must equal 270');
+          NODE
       - uses: actions/configure-pages@v5
         with:
           enablement: true
