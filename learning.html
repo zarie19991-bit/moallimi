@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تفضيلات التعلم | معلّمي</title>
+<meta name="theme-color" content="#0f514c">
+<link rel="stylesheet" href="app.css?v=20260827-3">
+<style>
+:root{--lp:#0f514c;--lp2:#17324d;--paper:#f7f6f1;--gold:#c6a04a}
+body{background:linear-gradient(145deg,#edf4f2,#f7f6f1 55%,#f4efe3);min-height:100vh}
+.lp-shell{width:min(920px,calc(100% - 28px));margin:28px auto 60px}
+.lp-head{display:flex;align-items:center;gap:14px;margin-bottom:16px}.lp-head .brand-mark{flex:0 0 auto}.lp-head h1{margin:0;color:var(--lp2);font-size:24px}.lp-head p{margin:4px 0 0;color:#71808a;font-size:12px}
+.lp-card{background:rgba(255,255,255,.96);border:1px solid #dfe7e3;border-radius:24px;box-shadow:0 22px 60px rgba(20,55,57,.12);overflow:hidden}.lp-intro{padding:28px}.lp-kicker{color:var(--gold);font-size:11px;font-weight:800}.lp-intro h2{margin:8px 0;color:var(--lp2);font-size:28px}.lp-intro p{line-height:1.9;color:#60727a}.lp-note{background:#f7f4eb;border:1px solid #e9dfc2;border-radius:14px;padding:12px 14px;color:#685d43;font-size:11px;line-height:1.8;margin:14px 0}
+.lp-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.lp-form .full{grid-column:1/-1}
+.lp-progress{height:8px;background:#e7ece9;border-radius:999px;overflow:hidden}.lp-progress i{display:block;height:100%;background:linear-gradient(90deg,#0f514c,#c6a04a);width:0;transition:.25s}.lp-progress-row{display:flex;justify-content:space-between;align-items:center;padding:17px 22px;border-bottom:1px solid #edf0ec;color:#667985;font-size:11px}.lp-qwrap{padding:32px}.lp-question{font-size:22px;line-height:1.8;color:var(--lp2);margin:0 0 22px}.lp-options{display:grid;gap:10px}.lp-option{display:flex;align-items:flex-start;gap:12px;border:1px solid #dfe5e2;background:#fff;border-radius:16px;padding:16px;cursor:pointer;transition:.18s}.lp-option:hover{border-color:#9cbab3;transform:translateY(-1px)}.lp-option.selected{border-color:#0f514c;background:#eef6f3;box-shadow:0 8px 22px rgba(15,81,76,.09)}.lp-option input{margin-top:4px}.lp-option span{line-height:1.8;color:#465f68;font-size:13px}.lp-nav{display:flex;justify-content:space-between;gap:10px;margin-top:24px}.lp-nav .btn{min-width:130px}.lp-result{padding:28px}.lp-result-hero{text-align:center;padding:28px;border-radius:20px;background:linear-gradient(145deg,#0f514c,#17324d);color:#fff}.lp-result-hero small{display:block;color:#cfe0dc}.lp-result-hero h2{margin:8px 0;font-size:28px}.lp-result-hero p{margin:0;color:#e5efed;line-height:1.8}.lp-bars{display:grid;gap:12px;margin-top:22px}.lp-bar-row{display:grid;grid-template-columns:140px 1fr 55px;gap:12px;align-items:center}.lp-bar-row span{font-size:12px;color:#536a72}.lp-bar{height:12px;border-radius:999px;background:#e8ecea;overflow:hidden}.lp-bar i{display:block;height:100%;border-radius:999px;background:#0f514c}.lp-bar-row b{text-align:left;color:#17324d}.lp-method{margin-top:18px;padding:16px;border-radius:16px;background:#f7f4eb;color:#665d49;font-size:11px;line-height:1.9}.lp-loading{text-align:center;padding:48px;color:#667985}.hidden{display:none!important}
+@media(max-width:620px){.lp-form{grid-template-columns:1fr}.lp-form .full{grid-column:auto}.lp-qwrap{padding:22px}.lp-question{font-size:18px}.lp-bar-row{grid-template-columns:105px 1fr 45px}.lp-nav .btn{min-width:0;flex:1}.lp-intro{padding:22px}}
+</style>
+</head>
+<body>
+<main class="lp-shell">
+  <header class="lp-head"><div class="brand-mark">م</div><div><h1>ملف تفضيلات التعلم</h1><p>مواقف دراسية قصيرة تساعد المعلم والطالب على فهم طرق التعلم المفضلة حاليًا.</p></div></header>
+  <section class="lp-card">
+    <div id="loading" class="lp-loading">جارٍ فتح الاستبانة...</div>
+    <div id="intro" class="lp-intro hidden">
+      <span class="lp-kicker">استبانة مركزة · 24 موقفًا</span>
+      <h2 id="surveyTitle">تفضيلات التعلم</h2>
+      <p id="surveyInstructions">اختر في كل موقف الخيار الأقرب لما تفعله عادة، وليس الخيار الذي تعتقد أنه الأفضل.</p>
+      <div class="lp-note">لا توجد إجابة صحيحة أو خاطئة. النتيجة تصف تفضيلاتك الحالية في مواقف الدراسة، ولا تعني أنك لا تستطيع التعلم بطرق أخرى.</div>
+      <form id="identityForm" class="lp-form">
+        <div class="field"><label>اسم الطالب كاملًا كما هو في كشف المدرسة</label><input name="student_name" required autocomplete="name"></div>
+        <div class="field"><label>رقم الطالب (إن وجد)</label><input name="student_number"></div>
+        <button class="btn primary wide full">ابدأ المواقف</button>
+      </form>
+    </div>
+    <div id="quiz" class="hidden">
+      <div class="lp-progress-row"><span id="progressText">1 من 24</span><div style="width:min(360px,55%)" class="lp-progress"><i id="progressBar"></i></div><span id="answeredText">0 مكتمل</span></div>
+      <div class="lp-qwrap">
+        <h2 id="questionText" class="lp-question"></h2>
+        <div id="options" class="lp-options"></div>
+        <div class="lp-nav"><button id="prevBtn" type="button" class="btn">السابق</button><button id="nextBtn" type="button" class="btn primary">التالي</button></div>
+      </div>
+    </div>
+    <div id="result" class="lp-result hidden"></div>
+  </section>
+</main>
+<div id="toast" class="toast hidden"></div>
+<script>
+const SB_URL='https://udznpifopbnrcgxtpzza.supabase.co';
+const SB_KEY='sb_publishable_UIuOZaeLk3oz25yf1kd-PA_OF8vEu8N';
+const ENDPOINT=SB_URL+'/functions/v1/survey-student';
+const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const code=(new URLSearchParams(location.search).get('code')||'').trim().toUpperCase();
+let survey=null,index=0,identity={},answers=new Map(),sending=false;
+function toast(m,b=false){const t=$('toast');t.textContent=m;t.className='toast'+(b?' bad':'');t.classList.remove('hidden');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.add('hidden'),3000)}
+async function call(body){const r=await fetch(ENDPOINT,{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.message||'تعذر إكمال الاستبانة');return d}
+async function boot(){if(!code){$('loading').textContent='الرابط لا يحتوي على كود استبانة.';return}try{survey=await call({action:'load',code});$('loading').classList.add('hidden');$('intro').classList.remove('hidden');$('surveyTitle').textContent=survey.title||'تفضيلات التعلم';if(survey.instructions)$('surveyInstructions').textContent=survey.instructions}catch(e){$('loading').textContent=e.message}}
+$('identityForm').onsubmit=e=>{e.preventDefault();identity=Object.fromEntries(new FormData(e.target));$('intro').classList.add('hidden');$('quiz').classList.remove('hidden');renderQuestion()};
+function renderQuestion(){const q=survey.questions[index];$('questionText').textContent=q.text;$('progressText').textContent=`${index+1} من ${survey.questions.length}`;$('answeredText').textContent=`${answers.size} مكتمل`;$('progressBar').style.width=`${Math.round((index+1)/survey.questions.length*100)}%`;$('prevBtn').disabled=index===0;$('nextBtn').textContent=index===survey.questions.length-1?'إرسال النتيجة':'التالي';const selected=answers.get(q.id);$('options').innerHTML=(q.options||[]).map(o=>`<label class="lp-option ${selected===o.id?'selected':''}"><input type="radio" name="lp" value="${esc(o.id)}" ${selected===o.id?'checked':''}><span>${esc(o.text)}</span></label>`).join('');document.querySelectorAll('input[name="lp"]').forEach(el=>el.onchange=()=>{answers.set(q.id,el.value);document.querySelectorAll('.lp-option').forEach(x=>x.classList.remove('selected'));el.closest('.lp-option').classList.add('selected');$('answeredText').textContent=`${answers.size} مكتمل`})}
+$('prevBtn').onclick=()=>{if(index>0){index--;renderQuestion()}};
+$('nextBtn').onclick=async()=>{const q=survey.questions[index];if(!answers.has(q.id))return toast('اختر الخيار الأقرب لك قبل المتابعة.',true);if(index<survey.questions.length-1){index++;renderQuestion();return}if(answers.size!==survey.questions.length)return toast('أجب عن جميع المواقف قبل الإرسال.',true);if(sending)return;sending=true;$('nextBtn').disabled=true;$('nextBtn').textContent='جارٍ تحليل الملف...';try{const d=await call({action:'submit',code,student_name:identity.student_name,student_number:identity.student_number||'',answers:survey.questions.map(q=>({id:q.id,value:answers.get(q.id)}))});renderResult(d)}catch(e){toast(e.message,true);sending=false;$('nextBtn').disabled=false;$('nextBtn').textContent='إرسال النتيجة'}};
+function renderResult(d){$('quiz').classList.add('hidden');$('result').classList.remove('hidden');const labels={visual:'بصري / منظم',auditory:'سمعي / لفظي',kinesthetic:'تطبيقي / عملي'};const rows=['visual','auditory','kinesthetic'].map(k=>`<div class="lp-bar-row"><span>${labels[k]}</span><div class="lp-bar"><i style="width:${Math.max(0,Math.min(100,+d.scores[k]||0))}%"></i></div><b>${Math.round(+d.scores[k]||0)}٪</b></div>`).join('');$('result').innerHTML=`<div class="lp-result-hero"><small>النتيجة الأقرب حاليًا</small><h2>${esc(d.dominant_label)}</h2><p>${esc(d.interpretation)}</p></div><div class="lp-bars">${rows}</div><div class="lp-method"><b>كيف تُقرأ النتيجة؟</b><br>${esc(d.method_note)}${d.dominant_style!=='mixed'?`<br>التفضيل الثاني لديك: ${esc(d.secondary_label)}.`:''}<br>درجة وضوح الفرق بين التفضيل الأول والثاني: ${Math.round(+d.clarity_percentage||0)}٪.</div><button class="btn wide" style="margin-top:16px" onclick="location.reload()">إعادة فتح الاستبانة</button>`}
+boot();
+</script>
+</body>
+</html>
