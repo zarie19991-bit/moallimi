@@ -54,11 +54,9 @@ jobs:
                   text = text.replace('</head>', css + '\n</head>', 1)
 
           scripts = [
-              '<script src="nafes-tests-plus.js?v=20260827-3"></script>',
-              '<script src="nafes-create-fix.js?v=20260827-3"></script>',
               '<script src="achievement-official.js?v=20260827-1"></script>',
               '<script src="achievement-upgrade.js?v=20260827-1"></script>',
-              '<script src="accuracy-guard.js?v=20260827-2"></script>',
+              '<script src="accuracy-guard.js?v=20260827-3"></script>',
               '<script src="learning-styles.js?v=20260827-1"></script>'
           ]
           text = text.replace('<script src="assessment-controls.js?v=20260827-1"></script>\n', '')
