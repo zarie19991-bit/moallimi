@@ -33,6 +33,10 @@ jobs:
           test -f QUESTION_BANK.md
           test -f supabase/question-bank-schema.sql
           test -f supabase/functions/nafes-exam/index.ts
+          test -f question-bank/scripts/build-reading-bank.mjs
+          test -f question-bank/scripts/audit-reading-bank.mjs
+          node question-bank/scripts/build-reading-bank.mjs
+          node question-bank/scripts/audit-reading-bank.mjs
           grep -q 'reviewed_question_bank' supabase/functions/nafes-exam/index.ts
           grep -q 'question_bank_with_temporary_fallback' supabase/functions/nafes-exam/index.ts
           node --input-type=module <<'NODE'
