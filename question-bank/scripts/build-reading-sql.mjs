@@ -18,6 +18,23 @@ const docs=models.map(model=>{
 const payload=JSON.stringify(docs);
 if(payload.includes('$reading_bank$'))throw new Error('unsafe dollar quote in payload');
 process.stdout.write(`
+begin;
+
+-- Move the current rows to unique temporary content inside this transaction.
+-- This preserves row IDs (and therefore old attempt references) while avoiding
+-- transient unique-index collisions when questions change positions.
+update public.nafes_question_bank
+set
+  context_text = '[staging-' || id::text || ']',
+  question_text = '[staging-' || id::text || ']'
+where grade_key = '${docs[0].grade_key}'
+  and subject_key = '${docs[0].subject_key}'
+  and outcome_code = '${docs[0].outcome_code}'
+  and indicator_index = ${docs[0].indicator_index}
+  and model_no = any(array[${models.join(',')}]::smallint[])
+  and review_status = 'approved'
+  and is_active = true;
+
 with docs as (
   select value as doc
   from jsonb_array_elements($reading_bank$${payload}$reading_bank$::jsonb)
@@ -54,7 +71,7 @@ with docs as (
     cognitive_level = p.cognitive_level,
     source_note = 'بنك القراءة: ' || (p.doc->>'title') || ' · ' || coalesce(p.doc->>'text_profile','hand_reviewed'),
     reviewed_at = now(),
-    reviewer_note = 'اجتاز فحص عدد الأسئلة، ونوع النص، والطول، والتفرد، والبدائل، وتوزيع الإجابات، ومستويات المعرفة والتطبيق والاستدلال.',
+    reviewer_note = 'اجتاز فحص المطابقة الدلالية للمؤشر، وعدد الأسئلة، ونوع النص، والطول، والتفرد، والبدائل، وتوزيع الإجابات، ومستويات المعرفة والتطبيق والاستدلال.',
     updated_at = now()
   from prepared p
   where b.grade_key = p.doc->>'grade_key'
@@ -92,7 +109,7 @@ with docs as (
     question_no::smallint,
     true,
     now(),
-    'اجتاز فحص عدد الأسئلة، ونوع النص، والطول، والتفرد، والبدائل، وتوزيع الإجابات، ومستويات المعرفة والتطبيق والاستدلال.'
+    'اجتاز فحص المطابقة الدلالية للمؤشر، وعدد الأسئلة، ونوع النص، والطول، والتفرد، والبدائل، وتوزيع الإجابات، ومستويات المعرفة والتطبيق والاستدلال.'
   from prepared
   on conflict do nothing
   returning model_no, question_no
@@ -102,4 +119,6 @@ select
   (select count(distinct model_no)::int from updated) as updated_models,
   (select count(*)::int from inserted) as inserted_rows,
   (select count(distinct model_no)::int from inserted) as inserted_models;
+
+commit;
 `);
