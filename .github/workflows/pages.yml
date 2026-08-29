@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify all 270 indicators and 8100 tests
+      - name: Verify all 270 indicators and 1080 tests
         shell: bash
         run: |
           node --check nafes-reading.js
@@ -45,13 +45,13 @@ jobs:
           const total=Object.values(counts).reduce((a,b)=>a+b,0);
           if(counts.reading!==16||counts.math!==95||counts.science!==159||total!==270)throw new Error('Indicator counts do not match framework');
           if(outcomes.reading!==3||outcomes.math!==25||outcomes.science!==48)throw new Error('Outcome counts do not match framework');
-          if(MODEL_COUNT<30||total*MODEL_COUNT<8100)throw new Error('Need at least 30 complete tests per indicator');
+          if(MODEL_COUNT!==4||QUESTION_COUNT!==15||total*MODEL_COUNT!==1080)throw new Error('Need exactly 4 tests of 15 questions per indicator');
           let checked=0,general=[];
           for(const s of data)for(const o of s.outcomes)o.indicators.forEach((text,idx)=>{
             const category=classify(s.key,text);
             if(category==='unsupported')throw new Error(`Unsupported ${s.key} ${o.code} indicator ${idx+1}`);
             if(category.endsWith('_general'))general.push(`${s.key}:${o.code}:${idx+1}`);
-            for(const modelNo of [1,15,30]){
+            for(const modelNo of [1,2,4]){
               const qs=generateExam({subject:s.key,indicatorText:text,outcomeTitle:o.title,outcomeCode:o.code,indicatorIndex:idx+1,modelNo,seed:`ci-${modelNo}`});
               if(qs.length!==QUESTION_COUNT)throw new Error(`Incomplete exam ${s.key} ${o.code} ${idx+1} model ${modelNo}`);
               for(const q of qs){if(!q.question||!Array.isArray(q.options)||q.options.length!==4||q.correctIndex<0||q.correctIndex>3)throw new Error(`Invalid question ${s.key} ${o.code} ${idx+1}`);if(new Set(q.options).size!==4)throw new Error(`Duplicate choices ${s.key} ${o.code} ${idx+1}: ${q.question}`)}
@@ -60,7 +60,7 @@ jobs:
           });
           console.log({counts,outcomes,total,modelsPerIndicator:MODEL_COUNT,totalTests:total*MODEL_COUNT,generatedExamChecks:checked,generalFallbacks:general.length,general});
           NODE
-      - name: Verify live edge engine for reading math science and model 30
+      - name: Verify live edge engine for reading math science and model 4
         shell: bash
         run: |
           check_preview () {
@@ -69,11 +69,11 @@ jobs:
             READY=$(node -e "const d=JSON.parse(process.argv[1]); console.log(d.ready===true?'yes':'no')" "$RESPONSE")
             COUNT=$(node -e "const d=JSON.parse(process.argv[1]); console.log(d.settings?.question_count||0)" "$RESPONSE")
             test "$READY" = "yes"
-            test "$COUNT" -ge 9
+            test "$COUNT" = "15"
           }
-          check_preview '{"action":"preview","subject":"reading","outcome":"1-1-1-2-9","indicator":1,"model":30,"indicator_text":"يستنتج معاني المفردات من خلال توظيف خبراته السابقة (الترادف، والتضاد، والسياق، والتفسير، والتعريف، والتصنيف، والتمثيل).","outcome_title":"استنتاج دلالات المفردات وتصنيفها"}'
-          check_preview '{"action":"preview","subject":"math","outcome":"1-1-1-4-9","indicator":1,"model":30,"indicator_text":"يميز الأعداد الصحيحة، ويستخدمها في التعبير عن مواقف متضادة، ويقرؤها، ويكتبها، ويمثلها على خط الأعداد.","outcome_title":"فهم الأعداد الصحيحة والنسبية"}'
-          check_preview '{"action":"preview","subject":"science","outcome":"1-1-1-5-9","indicator":1,"model":30,"indicator_text":"يتعرف على وحدة بناء أجسام المخلوقات الحية، ويذكر بنود النظرية الخلوية، ويقدر أهمية الأدوات التقنية (أجهزة التكبير، المجاهر)، ويوضح دورها في التعرف على الخلايا ومكوناتها.","outcome_title":"استيعاب أن الخلية هي وحدة البناء الأساسية في المخلوقات الحية"}'
+          check_preview '{"action":"preview","subject":"reading","outcome":"1-1-1-2-9","indicator":1,"model":4,"indicator_text":"يستنتج معاني المفردات من خلال توظيف خبراته السابقة (الترادف، والتضاد، والسياق، والتفسير، والتعريف، والتصنيف، والتمثيل).","outcome_title":"استنتاج دلالات المفردات وتصنيفها"}'
+          check_preview '{"action":"preview","subject":"math","outcome":"1-1-1-4-9","indicator":1,"model":4,"indicator_text":"يميز الأعداد الصحيحة، ويستخدمها في التعبير عن مواقف متضادة، ويقرؤها، ويكتبها، ويمثلها على خط الأعداد.","outcome_title":"فهم الأعداد الصحيحة والنسبية"}'
+          check_preview '{"action":"preview","subject":"science","outcome":"1-1-1-5-9","indicator":1,"model":4,"indicator_text":"يتعرف على وحدة بناء أجسام المخلوقات الحية، ويذكر بنود النظرية الخلوية، ويقدر أهمية الأدوات التقنية (أجهزة التكبير، المجاهر)، ويوضح دورها في التعرف على الخلايا ومكوناتها.","outcome_title":"استيعاب أن الخلية هي وحدة البناء الأساسية في المخلوقات الحية"}'
       - uses: actions/configure-pages@v5
         with:
           enablement: true
