@@ -1,5 +1,5 @@
-export const MODEL_COUNT=30;
-export const QUESTION_COUNT=9;
+export const MODEL_COUNT=4;
+export const QUESTION_COUNT=15;
 
 function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19}return function(){h=Math.imul(h^h>>>16,2246822507);h=Math.imul(h^h>>>13,3266489909);return (h^h>>>16)>>>0}}
 function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}}
@@ -200,5 +200,6 @@ function scienceQuestion(t,r,n){
 export function classify(subject,indicatorText){if(subject==='reading')return readingType(indicatorText);if(subject==='math')return mathType(indicatorText);if(subject==='science')return scienceType(indicatorText);return'unsupported'}
 export function generateExam({subject,indicatorText,outcomeTitle='',outcomeCode='',indicatorIndex=1,modelNo=1,seed=''}){
  const r=rng(`${subject}|${outcomeCode}|${indicatorIndex}|${modelNo}|${seed}`),out=[];
- for(let i=0;i<QUESTION_COUNT;i++){let q;if(subject==='reading')q=readingQuestion(indicatorText,r,i+modelNo);else if(subject==='math')q=mathQuestion(indicatorText,r,i+modelNo);else if(subject==='science')q=scienceQuestion(indicatorText,r,i+modelNo);else throw new Error('unsupported subject');q.id=`G-${subject}-${String(outcomeCode).replace(/[^0-9A-Za-z-]/g,'')}-${indicatorIndex}-${modelNo}-${i+1}-${Math.floor(r()*1e9)}`;out.push(q)}return out;
+ const start=(modelNo-1)*QUESTION_COUNT;
+ for(let i=0;i<QUESTION_COUNT;i++){let q;const serial=start+i+1;if(subject==='reading')q=readingQuestion(indicatorText,r,serial);else if(subject==='math')q=mathQuestion(indicatorText,r,serial);else if(subject==='science')q=scienceQuestion(indicatorText,r,serial);else throw new Error('unsupported subject');q.id=`G-${subject}-${String(outcomeCode).replace(/[^0-9A-Za-z-]/g,'')}-${indicatorIndex}-${modelNo}-${i+1}-${Math.floor(r()*1e9)}`;out.push(q)}return out;
 }
