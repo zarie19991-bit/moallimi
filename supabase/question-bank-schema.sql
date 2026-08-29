@@ -52,6 +52,9 @@ begin
   end if;
 end $$;
 
+alter table public.nafes_exam_settings
+  alter column show_answers set default 'immediately';
+
 create unique index if not exists nafes_bank_approved_position_uidx
   on public.nafes_question_bank
     (grade_key, subject_key, outcome_code, indicator_index, model_no, question_no)
