@@ -33,8 +33,8 @@ jobs:
           test -f QUESTION_BANK.md
           test -f supabase/question-bank-schema.sql
           test -f supabase/functions/nafes-exam/index.ts
-          ! grep -q 'generateExam' supabase/functions/nafes-exam/index.ts
           grep -q 'reviewed_question_bank' supabase/functions/nafes-exam/index.ts
+          grep -q 'question_bank_with_temporary_fallback' supabase/functions/nafes-exam/index.ts
           node --input-type=module <<'NODE'
           import {createRequire} from 'module';
           const require=createRequire(import.meta.url);
@@ -50,15 +50,15 @@ jobs:
           if(outcomes.reading!==3||outcomes.math!==25||outcomes.science!==48)throw new Error('Outcome counts do not match framework');
           const examSource=require('fs').readFileSync('exam.js','utf8');
           if(!/MODEL_COUNT=4/.test(examSource))throw new Error('Need exactly 4 tests per indicator');
-          console.log({counts,outcomes,total,modelsPerIndicator:4,totalTests:total*4,questionsPerTest:15,engine:'reviewed_question_bank'});
+          console.log({counts,outcomes,total,modelsPerIndicator:4,totalTests:total*4,questionsPerTest:15,engine:'reviewed_bank_with_temporary_fallback'});
           NODE
-      - name: Verify live question-bank engine contract
+      - name: Verify live exam engine contract
         shell: bash
         run: |
           check_preview () {
             RESPONSE=$(curl -fsS -X POST 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam' -H 'content-type: application/json' --data "$1")
             echo "$RESPONSE"
-            node -e "const d=JSON.parse(process.argv[1]); if(d.engine!=='reviewed_question_bank') throw Error('Wrong engine'); if(d.bank?.required_count!==15) throw Error('Wrong bank size'); if(d.ready===true&&d.bank?.approved_count!==15) throw Error('Incomplete ready bank'); if(d.ready!==true&&!d.error) throw Error('Missing preparation message')" "$RESPONSE"
+            node -e "const d=JSON.parse(process.argv[1]); if(!['reviewed_question_bank','question_bank_with_temporary_fallback'].includes(d.engine)) throw Error('Wrong engine'); if(d.bank?.required_count!==15) throw Error('Wrong bank size'); if(d.ready!==true) throw Error('Exam is unavailable'); if((d.settings?.question_count||0)!==15) throw Error('Wrong question count')" "$RESPONSE"
           }
           check_preview '{"action":"preview","subject":"reading","outcome":"1-1-1-2-9","indicator":1,"model":4,"indicator_text":"يستنتج معاني المفردات من خلال توظيف خبراته السابقة (الترادف، والتضاد، والسياق، والتفسير، والتعريف، والتصنيف، والتمثيل).","outcome_title":"استنتاج دلالات المفردات وتصنيفها"}'
           check_preview '{"action":"preview","subject":"math","outcome":"1-1-1-4-9","indicator":1,"model":4,"indicator_text":"يميز الأعداد الصحيحة، ويستخدمها في التعبير عن مواقف متضادة، ويقرؤها، ويكتبها، ويمثلها على خط الأعداد.","outcome_title":"فهم الأعداد الصحيحة والنسبية"}'
