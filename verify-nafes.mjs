@@ -26,7 +26,7 @@ for(const subject of subjects){
           outcomeCode:outcome.code,
           indicatorIndex,
           modelNo,
-          seed:'verification'
+          seed:`ci-${modelNo}`
         });
         exams++;
         if(questions.length!==QUESTION_COUNT)failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}/${modelNo}: question count`);
@@ -34,6 +34,7 @@ for(const subject of subjects){
           if(ids.has(question.id))failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}: duplicate id`);
           ids.add(question.id);
           if(question.options.length!==4)failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}/${modelNo}: options`);
+          if(new Set(question.options).size!==4)failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}/${modelNo}: duplicate options`);
           if(question.correctIndex<0||question.correctIndex>3)failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}/${modelNo}: correct index`);
         }
       }

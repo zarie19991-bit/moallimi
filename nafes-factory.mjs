@@ -8,7 +8,13 @@ const pick=(r,a)=>a[Math.floor(r()*a.length)];
 const ri=(r,a,b)=>Math.floor(r()*(b-a+1))+a;
 function shuffle(r,a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function item(r,q,correct,wrong,explanation='',context=null,level='application'){
- const opts=shuffle(r,[{t:String(correct),ok:true},...wrong.slice(0,3).map(t=>({t:String(t),ok:false}))]);
+ const correctText=String(correct),distractors=[];
+ const add=v=>{const t=String(v);if(t!==correctText&&!distractors.includes(t))distractors.push(t)};
+ wrong.forEach(add);
+ const numeric=correctText.match(/^(-?\d+(?:\.\d+)?)(.*)$/);
+ if(numeric){const value=Number(numeric[1]),suffix=numeric[2];[1,-1,2,-2,5,-5,10].forEach(step=>add(`${fmt(value+step)}${suffix}`))}
+ ['لا يمكن تحديد ذلك من المعطيات.','لا توجد علاقة مباشرة بين المعطيات.','المعطيات تقود إلى نتيجة مختلفة.'].forEach(add);
+ const opts=shuffle(r,[{t:correctText,ok:true},...distractors.slice(0,3).map(t=>({t,ok:false}))]);
  return {context,question:q,options:opts.map(x=>x.t),correctIndex:opts.findIndex(x=>x.ok),explanation,difficulty:level==='reasoning'?'hard':level==='knowledge'?'easy':'medium',cognitive_level:level};
 }
 const uniq=a=>[...new Set(a.map(String))];
@@ -74,7 +80,7 @@ function mathQuestion(t,r,n){
  case'integers':{const v=ri(r,2,25),neg=r()>.5?-v:v;return item(r,`أي عدد صحيح يمثل ${neg<0?'انخفاضًا':'ارتفاعًا'} مقداره ${v} وحدات عن نقطة الصفر؟`,neg,[-neg,0,neg<0?neg-1:neg+1],'الإشارة تحدد الاتجاه بالنسبة للصفر.');}
  case'compare_numbers':{const vals=uniq([ri(r,-20,20),ri(r,-20,20),ri(r,-20,20),ri(r,-20,20)]).slice(0,4);while(vals.length<4)vals.push(ri(r,-20,20));const s=[...vals].sort((x,y)=>x-y);return item(r,'أي ترتيب تصاعدي صحيح للأعداد الآتية؟',s.join(' ، '),[[...s].reverse().join(' ، '),[s[1],s[0],s[2],s[3]].join(' ، '),[s[0],s[2],s[1],s[3]].join(' ، ')],'في الترتيب التصاعدي نبدأ بالأصغر.');}
  case'absolute':{const v=ri(r,-25,-2);return item(r,`ما قيمة |${v}|؟`,Math.abs(v),numWrongs(Math.abs(v),1),'القيمة المطلقة تمثل البعد عن الصفر.',null,'knowledge');}
- case'rational_forms':{const d=pick(r,[2,4,5,10]),a=ri(r,1,d*2-1),v=a/d;return item(r,`أي عدد عشري يكافئ ${a}/${d}؟`,fmt(v),[fmt(v+.1),fmt(Math.abs(a-d)/d),fmt(a/(d+1))],'نحوّل الكسر بقسمة البسط على المقام.');}
+ case'rational_forms':{const d=pick(r,[2,4,5,10]),a=ri(r,1,d*2-1),v=a/d;return item(r,`أي عدد عشري يكافئ ${a}/${d}؟`,fmt(v),numWrongs(v,.1),'نحوّل الكسر بقسمة البسط على المقام.');}
  case'number_sets':{const k=ri(r,2,12),sq=k*k;return item(r,`أي تصنيف أدق للعدد √${sq}؟`,'عدد طبيعي وصحيح ونسبي وحقيقي',['غير نسبي فقط','تخيلي','غير حقيقي'],'جذر مربع كامل عدد صحيح، وكل صحيح عدد نسبي وحقيقي.');}
  case'roots':{const k=ri(r,3,15),sq=k*k;return item(r,`ما قيمة √${sq}؟`,k,numWrongs(k,1),`لأن ${k}×${k}=${sq}.`);}
  case'powers':{const a=ri(r,2,5),e=ri(r,2,4),ans=a**e;return item(r,`ما قيمة ${a}^${e}؟`,ans,numWrongs(ans,a),`نكرر ضرب الأساس في نفسه ${e} مرات.`);}
@@ -92,7 +98,7 @@ function mathQuestion(t,r,n){
  case'identity':{const x=ri(r,2,6),y=ri(r,1,5),ans=(x+y)**2;return item(r,`ما قيمة (${x}+${y})²؟`,ans,[x*x+y*y,(x+y)*2,x*x+2*x+y*y],'مربع مجموع حدين = أ² + 2أب + ب².');}
  case'factor':{const p=ri(r,2,7),q=ri(r,2,7);return item(r,`حلل: س² + ${p+q}س + ${p*q}`,`(س+${p})(س+${q})`,[`(س+${p+q})(س+${p*q})`,`(س−${p})(س−${q})`,`(س+${p})(س−${q})`],'نبحث عن عددين مجموعهما معامل س وحاصل ضربهما الحد الثابت.');}
  case'linear_eq':{const x=ri(r,2,15),m=ri(r,2,7),k=ri(r,-8,8),rhs=m*x+k;return item(r,`حل المعادلة: ${m}س${k>=0?'+':''}${k}=${rhs}`,x,numWrongs(x,1),'نعزل المتغير بإجراء العمليات العكسية.');}
- case'quadratic_eq':{const p=ri(r,1,6),q=ri(r,1,6);return item(r,`حل س² - ${p+q}س + ${p*q}=0`,`س=${p} أو س=${q}`,[`س=${p+q} فقط`,`س=${p*q} فقط`,'لا حل حقيقي'],'نحلل المقدار إلى (س−أ)(س−ب)=0.');}
+ case'quadratic_eq':{const p=ri(r,1,6),q=ri(r,1,6),answer=p===q?`س=${p}`:`س=${p} أو س=${q}`;return item(r,`حل س² - ${p+q}س + ${p*q}=0`,answer,[`س=${p+q} فقط`,`س=${p*q} فقط`,'لا حل حقيقي'],'نحلل المقدار إلى (س−أ)(س−ب)=0.');}
  case'eq_abs':{const a=ri(r,3,12);return item(r,`حل |س|=${a}.`,`س=${a} أو س=${-a}`,[`س=${a} فقط`,`س=${-a} فقط`,'لا حل'],'للقيمة المطلقة الموجبة حلان متعاكسان.');}
  case'system':{const x=ri(r,1,6),y=ri(r,1,6),s=x+y,d=x-y;return item(r,`حل النظام: س+ص=${s} ، س−ص=${d}`,`س=${x}، ص=${y}`,[`س=${y}، ص=${x}`,`س=${s}، ص=${d}`,`س=${x+1}، ص=${y-1}`],'نجمع المعادلتين ثم نعوض لإيجاد المتغير الآخر.');}
  case'inequality':{const k=ri(r,2,8),b=ri(r,5,20);return item(r,`حل المتباينة: ${k}س < ${k*b}`,`س < ${b}`,[`س > ${b}`,`س ≤ ${b}`,`س > ${k*b}`],'القسمة على عدد موجب لا تغير اتجاه المتباينة.');}
