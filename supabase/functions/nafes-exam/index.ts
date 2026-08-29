@@ -28,6 +28,7 @@ const hashKey = async (s: string) => {
 
 type BankRow = {
   id: string;
+  indicator_text: string;
   context_text: string | null;
   question_text: string;
   options: unknown;
@@ -84,7 +85,7 @@ async function settings(subject: string, outcome: string, indicator: number, mod
 async function loadBank(subject: string, outcome: string, indicator: number, model: number) {
   const { data, error } = await db
     .from("nafes_question_bank")
-    .select("id,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no")
+    .select("id,indicator_text,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no")
     .eq("grade_key", GRADE_KEY)
     .eq("subject_key", subject)
     .eq("outcome_code", outcome)
@@ -97,7 +98,7 @@ async function loadBank(subject: string, outcome: string, indicator: number, mod
   return (data || []) as BankRow[];
 }
 
-function inspectBank(rows: BankRow[]) {
+function inspectBank(rows: BankRow[], expectedIndicatorText: string) {
   const issues: string[] = [];
   if (rows.length !== QUESTION_COUNT) issues.push("count");
 
@@ -125,6 +126,9 @@ function inspectBank(rows: BankRow[]) {
       answerCounts[q.correct_index]++;
     }
     levels.add(q.cognitive_level);
+    if (norm(q.indicator_text) !== norm(expectedIndicatorText)) {
+      issues.push("indicator_mismatch");
+    }
   }
 
   if (rows.length === QUESTION_COUNT && Math.max(...answerCounts) - Math.min(...answerCounts) > 1) {
@@ -204,11 +208,19 @@ Deno.serve(async (req: Request) => {
 
     if (action === "preview" || action === "start") {
       const bank = await loadBank(subject, outcome, indicator, model);
-      const audit = inspectBank(bank);
+      const audit = inspectBank(bank, indicatorText);
       const bankReady = audit.ready;
       const reviewedRendered = bankReady ? renderBank(bank) : null;
 
       if (action === "preview") {
+        if (subject === "reading" && !bankReady) {
+          return json({
+            ready: false,
+            error: "أوقف الاختبار لأن بنك الأسئلة غير مطابق للمؤشر المحدد.",
+            engine: "blocked_indicator_mismatch",
+            bank: audit,
+          }, 409);
+        }
         return json({
           ready: true,
           engine: bankReady ? "reviewed_question_bank" : "question_bank_with_temporary_fallback",
@@ -222,6 +234,13 @@ Deno.serve(async (req: Request) => {
             closes_at: s.closes_at,
           },
         });
+      }
+
+      if (subject === "reading" && !bankReady) {
+        return json({
+          error: "أوقف الاختبار لأن بنك الأسئلة غير مطابق للمؤشر المحدد.",
+          bank: audit,
+        }, 409);
       }
 
       const windowError = checkWindow(s);
