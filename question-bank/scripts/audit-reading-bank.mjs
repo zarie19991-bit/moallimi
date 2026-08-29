@@ -9,12 +9,19 @@ const docs=files.map(file=>({file,...JSON.parse(fs.readFileSync(path.join(dir,fi
 const errors=[];
 const modelKeys=new Set(),contextHashes=new Set(),questionKeys=new Set();
 let questionCount=0;
+const expectedProfiles={
+ '1-1-1-2-9':['vocab_context','vocab_definition','vocab_classify','vocab_distinguish','vocab_use'],
+ '2-1-1-2-9':['main_structure','implicit_questions','compare_texts','fact_opinion','relationships'],
+ '3-1-1-2-9':['emotion_language','credibility_solutions','values_impact','arguments_evidence','summary_organize','problem_solving']
+};
 const banned=/^(المعنى المضاد لها|تفصيل لا علاقة له|اسم مكان ورد في النص|معنى حرفي لا يناسب السياق|عبارة |جملة |سلوك |تكرار عنوان النص)/;
 const countWords=s=>String(s).trim().split(/\s+/).filter(Boolean).length;
 
 for(const doc of docs){
  const modelKey=`${doc.outcome_code}|${doc.indicator_index}|${doc.model_no}`;
  if(modelKeys.has(modelKey))errors.push(`${doc.file}: duplicate model`);modelKeys.add(modelKey);
+ const expectedProfile=expectedProfiles[doc.outcome_code]?.[doc.indicator_index-1];
+ if(!expectedProfile||doc.text_profile!==expectedProfile)errors.push(`${doc.file}: profile ${doc.text_profile}/${expectedProfile}`);
  const hash=crypto.createHash('sha256').update(doc.context_text).digest('hex');
  if(contextHashes.has(hash))errors.push(`${doc.file}: duplicate context`);contextHashes.add(hash);
  if(doc.text_profile==='compare_texts'){
@@ -33,6 +40,7 @@ for(const doc of docs){
   if(q.options.length!==4||new Set(q.options).size!==4)errors.push(`${doc.file} q${q.question_no}: options`);
   if(!Number.isInteger(q.correct_index)||q.correct_index<0||q.correct_index>3)errors.push(`${doc.file} q${q.question_no}: key`);else answers[q.correct_index]++;
   if(!q.explanation?.trim())errors.push(`${doc.file} q${q.question_no}: explanation`);
+  if(q.measurement_focus!==expectedProfile)errors.push(`${doc.file} q${q.question_no}: measurement focus`);
   if(q.options.some(x=>banned.test(x)))errors.push(`${doc.file} q${q.question_no}: placeholder`);
   const correct=String(q.options[q.correct_index]||'').length;
   const wrong=q.options.filter((_,i)=>i!==q.correct_index).map(x=>String(x).length);
