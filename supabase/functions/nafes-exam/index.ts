@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { generateExam } from "https://raw.githubusercontent.com/zarie19991-bit/moallimi/main/nafes-factory.mjs";
 
 const MODEL_COUNT = 4;
 const QUESTION_COUNT = 15;
@@ -176,6 +177,7 @@ Deno.serve(async (req: Request) => {
     const indicator = Number(b.indicator || 0);
     const model = Number(b.model || 0);
     const indicatorText = String(b.indicator_text || "").trim();
+    const outcomeTitle = String(b.outcome_title || "").trim();
 
     if (!["reading", "math", "science"].includes(subject) || !outcome || indicator < 1 || model < 1 || model > MODEL_COUNT) {
       return json({ error: "بيانات الاختبار غير صحيحة." }, 400);
@@ -187,20 +189,13 @@ Deno.serve(async (req: Request) => {
     if (action === "preview" || action === "start") {
       const bank = await loadBank(subject, outcome, indicator, model);
       const audit = inspectBank(bank);
-      if (!audit.ready) {
-        return json({
-          ready: false,
-          engine: "reviewed_question_bank",
-          model_count: MODEL_COUNT,
-          bank: audit,
-          error: "هذا النموذج قيد إعداد بنك الأسئلة ومراجعته، ولن يُفتح حتى يكتمل اعتماده.",
-        }, action === "preview" ? 200 : 409);
-      }
+      const bankReady = audit.ready;
+      const reviewedRendered = bankReady ? renderBank(bank) : null;
 
       if (action === "preview") {
         return json({
           ready: true,
-          engine: "reviewed_question_bank",
+          engine: bankReady ? "reviewed_question_bank" : "question_bank_with_temporary_fallback",
           model_count: MODEL_COUNT,
           bank: audit,
           settings: {
@@ -231,6 +226,47 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (existingError) throw existingError;
       if (existing) {
+        const savedIds = Array.isArray(existing.question_ids)
+          ? existing.question_ids.map(String)
+          : [];
+        const reviewedIds = reviewedRendered?.map((q) => String(q.id)) || [];
+        const staleContent = !!reviewedRendered && (
+          savedIds.length !== reviewedIds.length ||
+          savedIds.some((id, i) => id !== reviewedIds[i])
+        );
+
+        // A reviewed bank must replace any older generated attempt. Otherwise the
+        // student keeps seeing the pre-review text even after the bank is fixed.
+        if (staleContent && reviewedRendered) {
+          const started = new Date().toISOString();
+          const expires = new Date(
+            Date.now() + (Number(s.duration_minutes) || 20) * 60000,
+          ).toISOString();
+          const { error: refreshError } = await db.from("nafes_exam_attempts")
+            .update({
+              question_ids: reviewedIds,
+              rendered_questions: reviewedRendered,
+              answers: {},
+              started_at: started,
+              expires_at: expires,
+              submitted_at: null,
+              score: null,
+              percent: null,
+            })
+            .eq("id", existing.id);
+          if (refreshError) throw refreshError;
+          return json({
+            attempt_id: existing.id,
+            resumed: false,
+            refreshed: true,
+            submitted: false,
+            expired: false,
+            expires_at: expires,
+            answers: {},
+            questions: publicQuestions(reviewedRendered),
+          });
+        }
+
         const expired = Date.now() > new Date(existing.expires_at).getTime();
         if (expired && !existing.submitted_at) {
           const g = grade(existing.rendered_questions || [], existing.answers || {});
@@ -264,7 +300,17 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      const rendered = renderBank(bank);
+      const rendered = reviewedRendered
+        ? reviewedRendered
+        : generateExam({
+          subject,
+          indicatorText,
+          outcomeTitle,
+          outcomeCode: outcome,
+          indicatorIndex: indicator,
+          modelNo: model,
+          seed: `${studentKey}|${crypto.randomUUID()}|${Date.now()}`,
+        }).slice(0, QUESTION_COUNT);
       const expires = new Date(Date.now() + (Number(s.duration_minutes) || 20) * 60000).toISOString();
       const ids = rendered.map((q) => q.id);
       const { data: attempt, error: attemptError } = await db
