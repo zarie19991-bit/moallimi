@@ -77,7 +77,7 @@ async function settings(subject: string, outcome: string, indicator: number, mod
     is_open: true,
     opens_at: null,
     closes_at: null,
-    show_answers: "after_close",
+    show_answers: "immediately",
   };
 }
 
@@ -163,6 +163,22 @@ function checkWindow(s: Record<string, unknown>) {
   if (s.opens_at && now < new Date(String(s.opens_at)).getTime()) return "لم يبدأ وقت الاختبار بعد.";
   if (s.closes_at && now > new Date(String(s.closes_at)).getTime()) return "انتهى وقت الاختبار.";
   return null;
+}
+
+function buildReview(
+  rendered: Record<string, unknown>[],
+  s: Record<string, unknown>,
+) {
+  const afterClose = !!s.closes_at &&
+    Date.now() > new Date(String(s.closes_at)).getTime();
+  const show = s.show_answers === "immediately" ||
+    (s.show_answers === "after_close" && afterClose);
+  if (!show) return [];
+  return (rendered || []).map((q) => ({
+    id: q.id,
+    correct_index: q.correctIndex,
+    explanation: q.explanation || null,
+  }));
 }
 
 Deno.serve(async (req: Request) => {
@@ -285,6 +301,7 @@ Deno.serve(async (req: Request) => {
             questions: publicQuestions(existing.rendered_questions || []),
             score: g.score,
             percent: g.percent,
+            review: buildReview(existing.rendered_questions || [], s),
           });
         }
         return json({
@@ -297,6 +314,9 @@ Deno.serve(async (req: Request) => {
           questions: publicQuestions(existing.rendered_questions || []),
           score: existing.score,
           percent: existing.percent,
+          review: existing.submitted_at
+            ? buildReview(existing.rendered_questions || [], s)
+            : [],
         });
       }
 
@@ -380,16 +400,8 @@ Deno.serve(async (req: Request) => {
         .update({ answers, submitted_at: finished, score: g.score, percent: g.percent })
         .eq("id", a.id);
       if (error) throw error;
-      const afterClose = !!s.closes_at && Date.now() > new Date(s.closes_at).getTime();
-      const show = s.show_answers === "immediately" || (s.show_answers === "after_close" && afterClose);
       const rendered = a.rendered_questions || [];
-      const review = show
-        ? rendered.map((q: Record<string, unknown>) => ({
-          id: q.id,
-          correct_index: q.correctIndex,
-          explanation: q.explanation || null,
-        }))
-        : [];
+      const review = buildReview(rendered, s);
       return json({ ok: true, score: g.score, total: g.total, percent: g.percent, review });
     }
 
