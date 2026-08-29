@@ -11,137 +11,228 @@
     {
       "question_no": 1,
       "question_text": "ما المعنى الأقرب لكلمة «الوعرة» في قول الكاتب: «على السفوح الوعرة»؟",
-      "options": ["صعبة المسالك", "واسعة الأطراف", "قليلة الارتفاع", "مستوية السطح"],
+      "options": [
+        "صعبة المسالك",
+        "واسعة الأطراف",
+        "قليلة الارتفاع",
+        "مستوية السطح"
+      ],
       "correct_index": 0,
       "explanation": "وصف السفوح بشدة الانحدار وصعوبة العمل فيها يدل على أن «الوعرة» تعني صعبة المسالك.",
       "difficulty": "easy",
-      "cognitive_level": "knowledge"
+      "cognitive_level": "knowledge",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 2,
       "question_text": "أي كلمة يمكن أن تحل محل «متعاقبة» من غير أن يتغير المعنى؟",
-      "options": ["متباعدة", "متتابعة", "متشابهة", "متفرقة"],
+      "options": [
+        "متباعدة",
+        "متتابعة",
+        "متشابهة",
+        "متفرقة"
+      ],
       "correct_index": 1,
       "explanation": "الجدران تأتي واحدًا بعد آخر على السفح؛ لذا فـ«متتابعة» هي المرادف الأنسب.",
       "difficulty": "easy",
-      "cognitive_level": "knowledge"
+      "cognitive_level": "knowledge",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 3,
       "question_text": "ما ضد كلمة «شحيحًا» كما وردت في وصف المياه؟",
-      "options": ["عميقًا", "ساكنًا", "وفيرًا", "متقطعًا"],
+      "options": [
+        "عميقًا",
+        "ساكنًا",
+        "وفيرًا",
+        "متقطعًا"
+      ],
       "correct_index": 2,
       "explanation": "الشحيح هو القليل النادر، وضده في هذا السياق «الوفير».",
       "difficulty": "easy",
-      "cognitive_level": "knowledge"
+      "cognitive_level": "knowledge",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 4,
       "question_text": "أي تفسير يوضح معنى «حصيفة» في وصف استجابة المزارعين؟",
-      "options": ["سريعة بلا تخطيط", "قديمة لا تتغير", "شاقة كثيرة الكلفة", "حكيمة محسوبة النتائج"],
+      "options": [
+        "سريعة بلا تخطيط",
+        "قديمة لا تتغير",
+        "شاقة كثيرة الكلفة",
+        "حكيمة محسوبة النتائج"
+      ],
       "correct_index": 3,
       "explanation": "الاستجابة عالجت الانحدار وحفظت الماء والتربة؛ وهذا يدل على الحكمة وحسن التقدير.",
       "difficulty": "medium",
-      "cognitive_level": "application"
+      "cognitive_level": "application",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 5,
       "question_text": "ما المقصود بـ«معرفة راسخة» في الفقرة الثانية؟",
-      "options": ["خبرة ثابتة متأصلة", "معلومة حديثة مؤقتة", "فكرة غامضة مترددة", "عادة ضعيفة الأثر"],
+      "options": [
+        "خبرة ثابتة متأصلة",
+        "معلومة حديثة مؤقتة",
+        "فكرة غامضة مترددة",
+        "عادة ضعيفة الأثر"
+      ],
       "correct_index": 0,
       "explanation": "تراكم المعرفة عبر أجيال وحفظها في الذاكرة الجماعية يدل على ثباتها وتأصلها.",
       "difficulty": "medium",
-      "cognitive_level": "application"
+      "cognitive_level": "application",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 6,
       "question_text": "أي تعريف يناسب كلمة «الرصد» وفق استعمالها في النص؟",
-      "options": ["إصدار حكم سريع", "متابعة منظمة للتغير", "إخفاء النتائج السلبية", "إعادة العمل من بدايته"],
+      "options": [
+        "إصدار حكم سريع",
+        "متابعة منظمة للتغير",
+        "إخفاء النتائج السلبية",
+        "إعادة العمل من بدايته"
+      ],
       "correct_index": 1,
       "explanation": "ربط الكاتب الرصد بحركة الماء والمتابعة المنتظمة لمعرفة مواضع التدخل؛ فهو متابعة منظمة للتغير.",
       "difficulty": "medium",
-      "cognitive_level": "application"
+      "cognitive_level": "application",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 7,
       "question_text": "أي عبارة تفسر «انحسار قدرتها على حفظ التربة» تفسيرًا دقيقًا؟",
-      "options": ["ثبات قدرتها دون تغير", "اتساع قدرتها تدريجيًا", "تراجع قدرتها وضعفها", "اختفاء التربة فورًا"],
+      "options": [
+        "ثبات قدرتها دون تغير",
+        "اتساع قدرتها تدريجيًا",
+        "تراجع قدرتها وضعفها",
+        "اختفاء التربة فورًا"
+      ],
       "correct_index": 2,
       "explanation": "جاء الانحسار بعد الهجر وتصدع الجدران، فالمقصود تراجع القدرة وضعفها.",
       "difficulty": "medium",
-      "cognitive_level": "application"
+      "cognitive_level": "application",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 8,
       "question_text": "تدل كلمة «استنزاف» في سياق مرور المياه سريعًا على:",
-      "options": ["تجميع المورد وحمايته", "تنظيم المورد وتوزيعه", "زيادة المورد طبيعيًا", "استهلاك المورد وإهداره تدريجيًا"],
+      "options": [
+        "تجميع المورد وحمايته",
+        "تنظيم المورد وتوزيعه",
+        "زيادة المورد طبيعيًا",
+        "استهلاك المورد وإهداره تدريجيًا"
+      ],
       "correct_index": 3,
       "explanation": "مرور المياه من غير استفادة يؤدي إلى فقدها شيئًا فشيئًا، وهو معنى الاستنزاف.",
       "difficulty": "medium",
-      "cognitive_level": "application"
+      "cognitive_level": "application",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 9,
       "question_text": "أي عمل يُعد مثالًا جديدًا على «الترميم» بالمعنى الوارد في النص؟",
-      "options": ["إصلاح بيت قديم ليصبح صالحًا للسكن", "تصوير بيت قديم من الخارج", "هدم بيت سليم لبناء موقف", "ترك بيت متصدع بلا متابعة"],
+      "options": [
+        "إصلاح بيت قديم ليصبح صالحًا للسكن",
+        "تصوير بيت قديم من الخارج",
+        "هدم بيت سليم لبناء موقف",
+        "ترك بيت متصدع بلا متابعة"
+      ],
       "correct_index": 0,
       "explanation": "الترميم هو الإصلاح وإعادة الشيء إلى أداء وظيفته، وينطبق ذلك على إصلاح البيت ليُسكن.",
       "difficulty": "medium",
-      "cognitive_level": "application"
+      "cognitive_level": "application",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 10,
       "question_text": "ما الدلالة المقصودة بالفعل «يستبطن» في قول الكاتب: «يستبطن هذا العمل فكرة مهمة»؟",
-      "options": ["يعلن الفكرة بصوت مرتفع", "يتضمن الفكرة في داخله", "يناقض الفكرة تمامًا", "يكرر الفكرة دون فهم"],
+      "options": [
+        "يعلن الفكرة بصوت مرتفع",
+        "يتضمن الفكرة في داخله",
+        "يناقض الفكرة تمامًا",
+        "يكرر الفكرة دون فهم"
+      ],
       "correct_index": 1,
       "explanation": "الفكرة تُفهم من طبيعة العمل وإن لم تكن جزءًا ماديًا ظاهرًا منه؛ لذلك «يستبطن» تعني يتضمن.",
       "difficulty": "hard",
-      "cognitive_level": "reasoning"
+      "cognitive_level": "reasoning",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 11,
       "question_text": "أي موقف يحقق معنى «المواءمة» كما عرضه النص؟",
-      "options": ["إلغاء الخبرة القديمة كليًا", "رفض الأدوات الحديثة دائمًا", "الجمع بين خبرة المزارع والخرائط الرقمية", "استخدام رأي واحد دون مقارنة"],
+      "options": [
+        "إلغاء الخبرة القديمة كليًا",
+        "رفض الأدوات الحديثة دائمًا",
+        "الجمع بين خبرة المزارع والخرائط الرقمية",
+        "استخدام رأي واحد دون مقارنة"
+      ],
       "correct_index": 2,
       "explanation": "المواءمة هي تحقيق التوافق بين عنصرين، وقد مثلها النص بالجمع بين الخبرة القديمة والمعرفة الحديثة.",
       "difficulty": "hard",
-      "cognitive_level": "reasoning"
+      "cognitive_level": "reasoning",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 12,
       "question_text": "أي زوج من الكلمات يمثل العلاقة الدلالية نفسها بين «شحيح» و«وفير»؟",
-      "options": ["مطر وغيم", "جبل وسفح", "بناء وترميم", "نادر وشائع"],
+      "options": [
+        "مطر وغيم",
+        "جبل وسفح",
+        "بناء وترميم",
+        "نادر وشائع"
+      ],
       "correct_index": 3,
       "explanation": "العلاقة بين شحيح ووفير تضاد، والعلاقة نفسها قائمة بين نادر وشائع.",
       "difficulty": "hard",
-      "cognitive_level": "reasoning"
+      "cognitive_level": "reasoning",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 13,
       "question_text": "أي جملة توظف كلمة «التدرج» توظيفًا موافقًا لمعناها في النص؟",
-      "options": ["بدأ المشروع بالأولوية الأولى ثم انتقل إلى المراحل التالية", "نفذ الفريق جميع المراحل في لحظة واحدة", "ألغى الفريق الخطة قبل أن يبدأ العمل", "اختار الفريق أعمالًا متعارضة بلا ترتيب"],
+      "options": [
+        "بدأ المشروع بالأولوية الأولى ثم انتقل إلى المراحل التالية",
+        "نفذ الفريق جميع المراحل في لحظة واحدة",
+        "ألغى الفريق الخطة قبل أن يبدأ العمل",
+        "اختار الفريق أعمالًا متعارضة بلا ترتيب"
+      ],
       "correct_index": 0,
       "explanation": "التدرج هو الانتقال المنظم من مرحلة إلى أخرى، وهو ما تصفه الجملة الأولى.",
       "difficulty": "medium",
-      "cognitive_level": "application"
+      "cognitive_level": "application",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 14,
       "question_text": "كيف حدد السياق معنى «نضوب» العيون؟",
-      "options": ["بربطه بزيادة جريانها", "بربطه بضعف الماء والحاجة إلى سنوات لاستعادته", "بربطه بتنظيف مجاريها", "بربطه بتنوع المحاصيل حولها"],
+      "options": [
+        "بربطه بزيادة جريانها",
+        "بربطه بضعف الماء والحاجة إلى سنوات لاستعادته",
+        "بربطه بتنظيف مجاريها",
+        "بربطه بتنوع المحاصيل حولها"
+      ],
       "correct_index": 1,
       "explanation": "القرينتان «ضعف جريانها» و«تحتاج سنوات لاستعادتها» تدلان على النفاد أو قربه.",
       "difficulty": "hard",
-      "cognitive_level": "reasoning"
+      "cognitive_level": "reasoning",
+      "measurement_focus": "vocab_context"
     },
     {
       "question_no": 15,
       "question_text": "أي معنى لكلمة «المرونة» ينسجم مع خاتمة النص؟",
-      "options": ["سهولة ثني المواد الصلبة", "التراجع عن كل خطة", "القدرة على التكيف مع الظروف", "الانتقال السريع بين الأماكن"],
+      "options": [
+        "سهولة ثني المواد الصلبة",
+        "التراجع عن كل خطة",
+        "القدرة على التكيف مع الظروف",
+        "الانتقال السريع بين الأماكن"
+      ],
       "correct_index": 2,
       "explanation": "فسر النص المرونة بقدرة المجتمع على التكيف مع الطبيعة الصعبة من غير استنزاف الموارد.",
       "difficulty": "hard",
-      "cognitive_level": "reasoning"
+      "cognitive_level": "reasoning",
+      "measurement_focus": "vocab_context"
     }
-  ]
+  ],
+  "text_profile": "vocab_context"
 }
