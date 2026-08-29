@@ -48,6 +48,19 @@ function publicQuestions(items: Record<string, unknown>[]) {
   }));
 }
 
+function examContentKey(items: Record<string, unknown>[]) {
+  return JSON.stringify((items || []).map((q) => ({
+    id: String(q.id || ""),
+    context: String(q.context || ""),
+    question: String(q.question || ""),
+    options: Array.isArray(q.options) ? q.options.map(String) : [],
+    correctIndex: Number(q.correctIndex),
+    explanation: String(q.explanation || ""),
+    difficulty: String(q.difficulty || ""),
+    cognitive_level: String(q.cognitive_level || ""),
+  })));
+}
+
 function grade(rendered: Record<string, unknown>[], answers: Record<string, unknown>) {
   let score = 0;
   for (const q of rendered || []) {
@@ -267,7 +280,9 @@ Deno.serve(async (req: Request) => {
         const reviewedIds = reviewedRendered?.map((q) => String(q.id)) || [];
         const staleContent = !!reviewedRendered && (
           savedIds.length !== reviewedIds.length ||
-          savedIds.some((id, i) => id !== reviewedIds[i])
+          savedIds.some((id, i) => id !== reviewedIds[i]) ||
+          examContentKey(existing.rendered_questions || []) !==
+            examContentKey(reviewedRendered)
         );
 
         // A reviewed bank must replace any older generated attempt. Otherwise the
