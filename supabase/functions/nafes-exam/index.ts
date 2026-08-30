@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { generateExam } from "https://raw.githubusercontent.com/zarie19991-bit/moallimi/main/nafes-factory.mjs";
 
 const MODEL_COUNT = 4;
 const QUESTION_COUNT = 15;
@@ -29,6 +28,7 @@ const hashKey = async (s: string) => {
 type BankRow = {
   id: string;
   indicator_text: string;
+  measurement_focus: string;
   context_text: string | null;
   question_text: string;
   options: unknown;
@@ -98,7 +98,7 @@ async function settings(subject: string, outcome: string, indicator: number, mod
 async function loadBank(subject: string, outcome: string, indicator: number, model: number) {
   const { data, error } = await db
     .from("nafes_question_bank")
-    .select("id,indicator_text,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no")
+    .select("id,indicator_text,measurement_focus,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no")
     .eq("grade_key", GRADE_KEY)
     .eq("subject_key", subject)
     .eq("outcome_code", outcome)
@@ -111,7 +111,7 @@ async function loadBank(subject: string, outcome: string, indicator: number, mod
   return (data || []) as BankRow[];
 }
 
-function inspectBank(rows: BankRow[], expectedIndicatorText: string) {
+function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string) {
   const issues: string[] = [];
   if (rows.length !== QUESTION_COUNT) issues.push("count");
 
@@ -142,6 +142,7 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string) {
     if (norm(q.indicator_text) !== norm(expectedIndicatorText)) {
       issues.push("indicator_mismatch");
     }
+    if (q.measurement_focus !== expectedFocus) issues.push("measurement_focus_mismatch");
   }
 
   if (rows.length === QUESTION_COUNT && Math.max(...answerCounts) - Math.min(...answerCounts) > 1) {
@@ -210,23 +211,22 @@ Deno.serve(async (req: Request) => {
     const indicator = Number(b.indicator || 0);
     const model = Number(b.model || 0);
     const indicatorText = String(b.indicator_text || "").trim();
-    const outcomeTitle = String(b.outcome_title || "").trim();
-
     if (!["reading", "math", "science"].includes(subject) || !outcome || indicator < 1 || model < 1 || model > MODEL_COUNT) {
       return json({ error: "بيانات الاختبار غير صحيحة." }, 400);
     }
     if (!indicatorText) return json({ error: "تعذر تحديد نص المؤشر لهذا الاختبار." }, 400);
+    const expectedFocus = `${subject}:${outcome}:i${indicator}`;
 
     const s = await settings(subject, outcome, indicator, model);
 
     if (action === "preview" || action === "start") {
       const bank = await loadBank(subject, outcome, indicator, model);
-      const audit = inspectBank(bank, indicatorText);
+      const audit = inspectBank(bank, indicatorText, expectedFocus);
       const bankReady = audit.ready;
       const reviewedRendered = bankReady ? renderBank(bank) : null;
 
       if (action === "preview") {
-        if (subject === "reading" && !bankReady) {
+        if (!bankReady) {
           return json({
             ready: false,
             error: "أوقف الاختبار لأن بنك الأسئلة غير مطابق للمؤشر المحدد.",
@@ -236,7 +236,7 @@ Deno.serve(async (req: Request) => {
         }
         return json({
           ready: true,
-          engine: bankReady ? "reviewed_question_bank" : "question_bank_with_temporary_fallback",
+          engine: "reviewed_question_bank",
           model_count: MODEL_COUNT,
           bank: audit,
           settings: {
@@ -249,7 +249,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      if (subject === "reading" && !bankReady) {
+      if (!bankReady) {
         return json({
           error: "أوقف الاختبار لأن بنك الأسئلة غير مطابق للمؤشر المحدد.",
           bank: audit,
@@ -354,17 +354,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      const rendered = reviewedRendered
-        ? reviewedRendered
-        : generateExam({
-          subject,
-          indicatorText,
-          outcomeTitle,
-          outcomeCode: outcome,
-          indicatorIndex: indicator,
-          modelNo: model,
-          seed: `${studentKey}|${crypto.randomUUID()}|${Date.now()}`,
-        }).slice(0, QUESTION_COUNT);
+      const rendered = reviewedRendered!;
       const expires = new Date(Date.now() + (Number(s.duration_minutes) || 20) * 60000).toISOString();
       const ids = rendered.map((q) => q.id);
       const { data: attempt, error: attemptError } = await db
