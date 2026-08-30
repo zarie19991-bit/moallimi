@@ -5,7 +5,8 @@ alter table public.nafes_question_bank
   add column if not exists question_no smallint,
   add column if not exists is_active boolean not null default true,
   add column if not exists reviewed_at timestamptz,
-  add column if not exists reviewer_note text;
+  add column if not exists reviewer_note text,
+  add column if not exists measurement_focus text;
 
 alter table public.nafes_question_bank
   drop constraint if exists nafes_question_bank_difficulty_check;
@@ -84,6 +85,8 @@ comment on column public.nafes_question_bank.review_status is
   'لا يصل السؤال للطالب إلا إذا كان approved ومعينًا لنموذج وموضع.';
 comment on column public.nafes_question_bank.reviewer_note is
   'ملاحظات التحكيم اللغوي والقياسي قبل الاعتماد.';
+comment on column public.nafes_question_bank.measurement_focus is
+  'مفتاح قياس حتمي يربط السؤال بالمادة وناتج التعلم ورقم المؤشر.';
 
 do $$
 begin
