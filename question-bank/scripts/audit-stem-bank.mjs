@@ -27,7 +27,8 @@ for(const file of files){
  const modelKey=`${indicatorKey}|${doc.model_no}`;
  const exp=expected.get(indicatorKey);
  if(!exp)errors.push(`${file}: unknown indicator`); else {
-  if(doc.indicator_text!==exp.text)errors.push(`${file}: indicator text mismatch`);
+ if(doc.indicator_text!==exp.text)errors.push(`${file}: indicator text mismatch`);
+  if(doc.grade_key!=='middle_3')errors.push(`${file}: grade mismatch`);
   if(doc.text_profile!==exp.profile||doc.text_profile.endsWith('_general'))errors.push(`${file}: profile mismatch`);
   if(doc.measurement_focus!==exp.focus)errors.push(`${file}: focus mismatch`);
  }
@@ -42,6 +43,13 @@ for(const file of files){
   if(q.options.length!==4||new Set(q.options).size!==4)errors.push(`${file} q${q.question_no}: options`);
   if(!Number.isInteger(q.correct_index)||q.correct_index<0||q.correct_index>3)errors.push(`${file} q${q.question_no}: key`);else answers[q.correct_index]++;
   if(!q.explanation?.trim())errors.push(`${file} q${q.question_no}: explanation`);
+  const expectedLevel=q.question_no<=5?'knowledge':q.question_no<=10?'application':'reasoning';
+  const expectedDifficulty=expectedLevel==='knowledge'?'easy':expectedLevel==='application'?'medium':'hard';
+  if(q.cognitive_level!==expectedLevel||q.difficulty!==expectedDifficulty)errors.push(`${file} q${q.question_no}: cognitive level`);
+  if(expectedLevel==='knowledge'&&!q.question_text.startsWith('أي قاعدة أو حقيقة أساسية'))errors.push(`${file} q${q.question_no}: knowledge task`);
+  if(expectedLevel==='knowledge'&&/ترتبط بالمفهوم المحدد|تتفق مع المفهوم|الوارد في المؤشر/.test(q.options[q.correct_index]))errors.push(`${file} q${q.question_no}: generic knowledge answer`);
+  if(expectedLevel==='reasoning'&&!q.question_text.startsWith('اقترح طالب الإجابة'))errors.push(`${file} q${q.question_no}: reasoning task`);
+  if(subject==='science'&&['أي عبارة علمية صحيحة؟','أي تفسير ينسجم أكثر مع هذا المؤشر؟','في موقف تطبيقي مرتبط بهذا المفهوم، أي استنتاج هو الأدق؟','أي اختيار يمثل الفهم العلمي الصحيح للمفهوم؟'].includes(q.question_text))errors.push(`${file} q${q.question_no}: generic science stem`);
   const content=`${q.context_text||''}\u001f${q.question_text}`;
   if(contents.has(content))errors.push(`${file} q${q.question_no}: repeated content`);contents.add(content);
  }
