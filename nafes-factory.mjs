@@ -22,6 +22,34 @@ function numWrongs(ans,step=1){const a=Number(ans);return uniq([a+step,a-step,a+
 function gcd(a,b){while(b){[a,b]=[b,a%b]}return a||1}
 function frac(n,d){const g=gcd(Math.abs(n),Math.abs(d));n/=g;d/=g;if(d<0){n=-n;d=-d}return d===1?String(n):`${n}/${d}`}
 function fmt(x){return Number.isInteger(x)?String(x):String(Math.round(x*100)/100)}
+function shortIndicator(t){return String(t).replace(/[.؛]$/,'').split(/[،؛]/)[0].replace(/^(يستنتج|يوضح|يحدد|يميز|يصف|يشرح|يعرف|يقارن|يحسب|يحل|يذكر|يتعرف|يفسر|يطبق|يعدد|يقترح|يقدم|يعلل|يصنف|ينظم|يحلل|يتنبأ)\s+/,'').slice(0,110)}
+function cognitiveVariant(r,q,level,indicatorText,serial){
+ const target=shortIndicator(indicatorText);
+ const correct=q.options[q.correctIndex];
+ const wrong=q.options.filter((_,i)=>i!==q.correctIndex);
+ if(level==='knowledge'){
+  const rawRule=String(q.explanation||'').replace(/[.]+$/,'');
+  const rule=!rawRule||/ترتبط بالمفهوم المحدد|تتفق مع المفهوم|الوارد في المؤشر/.test(rawRule)?String(correct):rawRule;
+  return item(r,`أي قاعدة أو حقيقة أساسية تساعد مباشرة في معالجة مهمة «${target}»؟`,rule,[
+   `نستخدم قاعدة لا ترتبط بمعطيات «${target}»`,
+   'نعتمد شكل الخيار دون فحص العلاقة العلمية أو الرياضية',
+   'لا نحتاج إلى مفهوم أو قاعدة قبل الإجابة'
+  ],'السؤال المعرفي يتحقق من تعرف القاعدة أو الحقيقة اللازمة قبل التطبيق.',`تمهيد ${serial} للمهمة الأصلية: ${q.question}`,'knowledge');
+ }
+ if(level==='reasoning'){
+  const proposed=wrong[serial%wrong.length];
+  return item(r,`اقترح طالب الإجابة «${proposed}» عن السؤال: «${q.question}». ما التقويم الأدق؟`,
+   `الإجابة غير صحيحة؛ الأدق «${correct}» لأن ${String(q.explanation||'المعطيات تؤيد هذا الاختيار').replace(/[.]+$/,'')}`,
+   [
+    'الإجابة صحيحة؛ ولا حاجة إلى التحقق من المعطيات',
+    `الإجابة غير صحيحة؛ لكن الأدق «${proposed}» للسبب نفسه`,
+    'لا يمكن تقويم الإجابة مع أن السؤال يتضمن معطيات كافية'
+   ],
+   'يتطلب سؤال الاستدلال فحص إجابة مقترحة وربط الحكم بالقاعدة أو الدليل.',
+   `تحليل الخطأ رقم ${serial} في مهارة «${target}».`,'reasoning');
+ }
+ return {...q,context:`${q.context||`موقف تطبيقي مباشر في مهارة «${target}».`} (المهمة ${serial})`,difficulty:'medium',cognitive_level:'application'};
+}
 
 const READING_PASSAGES=[
 {text:'تعمل المملكة على حماية موارد المياه عبر ترشيد الاستهلاك، وتطوير شبكات النقل، والاستفادة من التقنيات الحديثة في إعادة الاستخدام. ولا يقتصر النجاح على المشروعات الكبرى؛ فاختيارات الفرد اليومية، مثل إصلاح التسربات وتقليل الهدر، تصنع أثرًا متراكمًا يحفظ المورد للأجيال القادمة.',main:'حماية المياه مسؤولية مشتركة تجمع بين الحلول المؤسسية والسلوك الفردي',detail:'إصلاح التسربات يقلل الهدر',inference:'استدامة المياه تحتاج تعاون المؤسسات والأفراد',view:'السلوك اليومي جزء من الحل',value:'المسؤولية',problem:'هدر المياه',solution:'ترشيد الاستهلاك وإصلاح التسربات',word:['استدامة','استمرار المورد وقدرته على تلبية حاجات المستقبل'],evidence:'اختيارات الفرد اليومية تصنع أثرًا متراكمًا'},
@@ -69,10 +97,10 @@ function mathType(t){
  if(/النظري، والتجريبي|النظري والتجريبي/.test(t))return'theoretical_experimental';
  if(/تطبيقات حياتية على الاحتمالات/.test(t))return'probability_app';
  if(/احتمال|الاحتمالات/.test(t))return'probability';
+ if(/تطبيقات حياتية على مقاييس/.test(t))return'stats_app';
  if(/الانحراف المتوسط|الانحراف المعياري|التباين/.test(t))return'deviation';
  if(/مقاييس التشتت|المدى الربيعي|القيم المتطرفة/.test(t))return'dispersion';
  if(/يقارن بين مقاييس النزعة|المقياس الأنسب/.test(t))return'central_compare';
- if(/تطبيقات حياتية على مقاييس/.test(t))return'stats_app';
  if(/النزعة المركزية|المتوسط الحسابي|الوسيط|المنوال/.test(t))return'central';
  if(/شكل الانتشار/.test(t))return'scatter';
  if(/يقرأ البيانات من تمثيلاتها/.test(t))return'graph_interpret';
@@ -82,12 +110,14 @@ function mathType(t){
  if(/المساحة السطحية/.test(t))return'surface_area';
  if(/الحجوم|الحجم/.test(t)&&/تطبيقات حياتية/.test(t))return'volume_app';
  if(/الحجم|حجوم/.test(t))return'volume';
+ if(/محيطي شكلين متشابهين/.test(t))return'perimeter_similarity';
  if(/محيط|مساحة/.test(t)&&/تطبيقات حياتية/.test(t))return'area_app';
  if(/محيط|مساحة/.test(t))return'area';
  if(/وحدات الكتلة الإنجليزية/.test(t))return'unit_mass';
  if(/وحدتي السعة الإنجليزية/.test(t))return'unit_capacity';
  if(/وحدات الطول الإنجليزية/.test(t))return'unit_length';
  if(/الوحدات المترية/.test(t))return'unit_mixed';
+ if(/الأشكال المتماثلة|محاور التماثل|تماثل دوراني/.test(t))return'symmetry';
  if(/التمدد/.test(t)&&!/تطبيقات/.test(t))return'transform_dilation';
  if(/المستوى الإحداثي.*تحويل|نوع التحويل الهندسي/.test(t))return'transform_coordinate';
  if(/انعكاس|انسحاب|دوران|تحويل التطابق/.test(t))return'transform';
@@ -95,6 +125,7 @@ function mathType(t){
  if(/متوازيين أو متعامدين|يوازي آخر أو يعامده/.test(t))return'parallel_perpendicular';
  if(/معادلة المستقيم/.test(t))return'line_equation';
  if(/ميل المستقيم/.test(t))return'slope';
+ if(/مجالها|مداها|العلاقة بين متغيرين/.test(t))return'relation';
  if(/المستوى الإحداثي|الأزواج المرتبة/.test(t))return'coordinates';
  if(/معكوسات النسب المثلثية/.test(t))return'trig_inverse';
  if(/يحل المثلث القائم/.test(t))return'trig_solve';
@@ -130,8 +161,8 @@ function mathType(t){
  if(/الدالة التربيعية|القطع المكافئ/.test(t))return'quadratic_function';
  if(/الدالة الخطية/.test(t))return'function';
  if(/يصف الدالة/.test(t))return'function_rule';
+ if(/تطبيقات حياتية.*(?:المتتابعة|العلاقة بين متغيرين|معدلات التغير)/.test(t))return'sequence_app';
  if(/معدلات التغير/.test(t))return'rate';
- if(/العلاقة بين متغيرين/.test(t))return'relation';
  if(/يعبر عن المتتابعة.*بدالة/.test(t))return'sequence_function';
  if(/تطبيقات حياتية على المتتابعة/.test(t))return'sequence_app';
  if(/متتابعة/.test(t))return'sequence';
@@ -197,6 +228,7 @@ function mathQuestion(t,r,n){
  case'unit_capacity':{const gal=ri(r,2,9);return item(r,`كم كوبًا في ${gal} جالونات؟`,gal*16,[gal*8,gal*4,gal+16],'كل جالون يساوي 16 كوبًا.');}
  case'unit_mixed':{const m=ri(r,2,15);return item(r,`كم سنتيمترًا في ${m} أمتار؟`,m*100,[m*10,m*1000,m+100],'كل متر يساوي 100 سنتيمتر.');}
  case'area_app':{const l=ri(r,8,20),w=ri(r,5,12),cut=ri(r,2,Math.min(4,w-1)),ans=l*w-cut*cut;return item(r,`ساحة مستطيلة ${l}×${w} م حُذف منها مربع ضلعه ${cut} م. ما المساحة المتبقية؟`,`${ans} م²`,[`${l*w} م²`,`${l*w-2*cut} م²`,`${2*(l+w)-cut*cut} م²`],'نحسب مساحة المستطيل ثم نطرح مساحة الجزء المربع.');}
+ case'perimeter_similarity':{const k=ri(r,2,5),p=ri(r,12,40),ans=k*p;return item(r,`شكلان متشابهان، معامل التشابه من الأول إلى الثاني ${k}، ومحيط الأول ${p} سم. ما محيط الثاني؟`,`${ans} سم`,[`${p+k} سم`,`${p*k*k} سم`,`${fmt(p/k)} سم`],'نسبة المحيطين تساوي معامل التشابه الخطي.');}
  case'surface_area':{const r0=ri(r,2,6),h=ri(r,3,9),ans=2*3.14*r0*(r0+h);return item(r,`أسطوانة نصف قطرها ${r0} سم وارتفاعها ${h} سم. ما مساحتها السطحية الكلية تقريبًا؟`,`${fmt(ans)} سم²`,[`${fmt(3.14*r0*r0*h)} سم²`,`${fmt(2*3.14*r0*h)} سم²`,`${fmt(3.14*r0*r0)} سم²`],'المساحة الكلية للأسطوانة=2πنق²+2πنق×ع.');}
  case'volume_app':{const r0=ri(r,2,6),h=ri(r,3,9),ans=3.14*r0*r0*h;return item(r,`خزان أسطواني نصف قطره ${r0} م وارتفاعه ${h} م. ما حجمه تقريبًا؟`,`${fmt(ans)} م³`,[`${fmt(2*3.14*r0*h)} م³`,`${fmt(3.14*r0*h)} م³`,`${fmt(3.14*r0*r0)} م³`],'حجم الأسطوانة=πنق²×الارتفاع.');}
  case'graph_interpret':{const a=ri(r,20,40),b=a+ri(r,5,15),c=b+ri(r,5,15);return item(r,`أظهرت بيانات ثلاثة أعوام القيم ${a}، ${b}، ${c}. أي تنبؤ أقرب إذا استمر الاتجاه؟`,c+(b-a),[a,b,c-5],'نحدد اتجاه الزيادة ومقدارها التقريبي قبل التنبؤ.');}
@@ -419,7 +451,8 @@ function scienceQuestion(t,r,n){
  if(type==='climate'&&/يحلل البيانات/.test(t))return item(r,'أي بيانات أنسب للحكم على اتجاه مناخي في منطقة؟','سجل درجات حرارة ممتد لعقود وبطريقة قياس ثابتة',['درجة يوم واحد','رأي سكان محدود','أعلى قراءة في ساعة'],'المناخ يدرس باتجاهات طويلة المدى لا بحالة طقس منفردة.');
  if(type==='climate')return item(r,'كيف تزيد غازات الدفيئة حرارة الغلاف الجوي؟','تمتص جزءًا من الأشعة تحت الحمراء الصادرة من الأرض وتعيد بثه',['تمنع كل ضوء الشمس','تزيل الغلاف الجوي','تحول الحرارة إلى كتلة'],'زيادة احتجاز الإشعاع الحراري ترفع متوسط الطاقة في النظام المناخي.');
 
- const[correct,wrong]=facts[(n+ri(r,0,facts.length-1))%facts.length];const stems=['أي عبارة علمية صحيحة؟',`أي تفسير ينسجم أكثر مع هذا المؤشر؟`,'في موقف تطبيقي مرتبط بهذا المفهوم، أي استنتاج هو الأدق؟','أي اختيار يمثل الفهم العلمي الصحيح للمفهوم؟'];return item(r,stems[n%stems.length],correct,wrong,'الإجابة الصحيحة تتفق مع المفهوم العلمي المستهدف.',null,n%4===0?'reasoning':n%3===0?'application':'knowledge');
+ const[correct,wrong]=facts[(n+ri(r,0,facts.length-1))%facts.length];
+ return item(r,`أي تفسير علمي يصف بدقة «${shortIndicator(t)}»؟`,correct,wrong,'الإجابة الصحيحة ترتبط بالمفهوم المحدد في المؤشر ولا تكتفي بحقيقة عامة.',null,'application');
 }
 
 export function classify(subject,indicatorText){if(subject==='reading')return readingType(indicatorText);if(subject==='math')return mathType(indicatorText);if(subject==='science')return scienceType(indicatorText);return'unsupported'}
@@ -427,5 +460,5 @@ export function generateExam({subject,indicatorText,outcomeTitle='',outcomeCode=
  const r=rng(`${subject}|${outcomeCode}|${indicatorIndex}|${modelNo}|${seed}`),out=[];
  const measurementFocus=`${subject}:${outcomeCode}:i${indicatorIndex}`;
  const start=(modelNo-1)*QUESTION_COUNT;
- for(let i=0;i<QUESTION_COUNT;i++){let q;const serial=start+i+1;if(subject==='reading')q=readingQuestion(indicatorText,r,serial);else if(subject==='math')q=mathQuestion(indicatorText,r,serial);else if(subject==='science')q=scienceQuestion(indicatorText,r,serial);else throw new Error('unsupported subject');q.id=`G-${subject}-${String(outcomeCode).replace(/[^0-9A-Za-z-]/g,'')}-${indicatorIndex}-${modelNo}-${i+1}-${Math.floor(r()*1e9)}`;q.measurement_focus=measurementFocus;out.push(q)}return out;
+ for(let i=0;i<QUESTION_COUNT;i++){let q;const serial=start+i+1;if(subject==='reading')q=readingQuestion(indicatorText,r,serial);else if(subject==='math')q=mathQuestion(indicatorText,r,serial);else if(subject==='science')q=scienceQuestion(indicatorText,r,serial);else throw new Error('unsupported subject');if(subject!=='reading'){const level=i<5?'knowledge':i<10?'application':'reasoning';q=cognitiveVariant(r,q,level,indicatorText,serial)}q.id=`G-${subject}-${String(outcomeCode).replace(/[^0-9A-Za-z-]/g,'')}-${indicatorIndex}-${modelNo}-${i+1}-${Math.floor(r()*1e9)}`;q.measurement_focus=measurementFocus;out.push(q)}return out;
 }
