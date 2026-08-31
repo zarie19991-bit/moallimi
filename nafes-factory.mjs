@@ -27,9 +27,10 @@ function cognitiveVariant(r,q,level,indicatorText,serial){
  const target=shortIndicator(indicatorText);
  const correct=q.options[q.correctIndex];
  const wrong=q.options.filter((_,i)=>i!==q.correctIndex);
+ const rawRule=String(q.explanation||'').replace(/[.]+$/,'');
+ const genericRule=!rawRule||/ترتبط بالمفهوم المحدد|تتفق مع المفهوم|الوارد في المؤشر/.test(rawRule);
  if(level==='knowledge'){
-  const rawRule=String(q.explanation||'').replace(/[.]+$/,'');
-  const rule=!rawRule||/ترتبط بالمفهوم المحدد|تتفق مع المفهوم|الوارد في المؤشر/.test(rawRule)?String(correct):rawRule;
+  const rule=genericRule?String(correct):rawRule;
   return item(r,`أي قاعدة أو حقيقة أساسية تساعد مباشرة في معالجة مهمة «${target}»؟`,rule,[
    `نستخدم قاعدة لا ترتبط بمعطيات «${target}»`,
    'نعتمد شكل الخيار دون فحص العلاقة العلمية أو الرياضية',
@@ -38,8 +39,9 @@ function cognitiveVariant(r,q,level,indicatorText,serial){
  }
  if(level==='reasoning'){
   const proposed=wrong[serial%wrong.length];
+  const basis=genericRule?String(correct):rawRule;
   return item(r,`اقترح طالب الإجابة «${proposed}» عن السؤال: «${q.question}». ما التقويم الأدق؟`,
-   `الإجابة غير صحيحة؛ الأدق «${correct}» لأن ${String(q.explanation||'المعطيات تؤيد هذا الاختيار').replace(/[.]+$/,'')}`,
+   `الإجابة غير صحيحة؛ الأدق «${correct}»؛ والدليل العلمي أو الرياضي: ${basis}`,
    [
     'الإجابة صحيحة؛ ولا حاجة إلى التحقق من المعطيات',
     `الإجابة غير صحيحة؛ لكن الأدق «${proposed}» للسبب نفسه`,
@@ -47,6 +49,9 @@ function cognitiveVariant(r,q,level,indicatorText,serial){
    ],
    'يتطلب سؤال الاستدلال فحص إجابة مقترحة وربط الحكم بالقاعدة أو الدليل.',
    `تحليل الخطأ رقم ${serial} في مهارة «${target}».`,'reasoning');
+ }
+ if(q.question.startsWith('أي تفسير علمي يصف بدقة')){
+  return {...q,question:`في نشاط لتطبيق مهارة «${target}»، أي ربط علمي بين المفهوم ونتيجته هو الصحيح؟`,context:`موقف تطبيقي رقم ${serial}: تصنيف العلاقات العلمية المرتبطة بالمؤشر.`,difficulty:'medium',cognitive_level:'application'};
  }
  return {...q,context:`${q.context||`موقف تطبيقي مباشر في مهارة «${target}».`} (المهمة ${serial})`,difficulty:'medium',cognitive_level:'application'};
 }
