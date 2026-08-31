@@ -35,10 +35,13 @@ jobs:
           test -f supabase/functions/nafes-exam/index.ts
           test -f question-bank/scripts/build-reading-bank.mjs
           test -f question-bank/scripts/audit-reading-bank.mjs
+          test -f question-bank/scripts/verify-live-bank.mjs
           node question-bank/scripts/build-reading-bank.mjs
           node question-bank/scripts/audit-reading-bank.mjs
+          node verify-nafes.mjs
           grep -q 'reviewed_question_bank' supabase/functions/nafes-exam/index.ts
-          grep -q 'question_bank_with_temporary_fallback' supabase/functions/nafes-exam/index.ts
+          grep -q 'blocked_indicator_mismatch' supabase/functions/nafes-exam/index.ts
+          grep -q 'generic_task' supabase/functions/nafes-exam/index.ts
           node --input-type=module <<'NODE'
           import {createRequire} from 'module';
           const require=createRequire(import.meta.url);
@@ -54,19 +57,10 @@ jobs:
           if(outcomes.reading!==3||outcomes.math!==25||outcomes.science!==48)throw new Error('Outcome counts do not match framework');
           const examSource=require('fs').readFileSync('exam.js','utf8');
           if(!/MODEL_COUNT=4/.test(examSource))throw new Error('Need exactly 4 tests per indicator');
-          console.log({counts,outcomes,total,modelsPerIndicator:4,totalTests:total*4,questionsPerTest:15,engine:'reviewed_bank_with_temporary_fallback'});
+          console.log({counts,outcomes,total,modelsPerIndicator:4,totalTests:total*4,questionsPerTest:15,engine:'reviewed_question_bank_only'});
           NODE
       - name: Verify live exam engine contract
-        shell: bash
-        run: |
-          check_preview () {
-            RESPONSE=$(curl -fsS -X POST 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam' -H 'content-type: application/json' --data "$1")
-            echo "$RESPONSE"
-            node -e "const d=JSON.parse(process.argv[1]); if(!['reviewed_question_bank','question_bank_with_temporary_fallback'].includes(d.engine)) throw Error('Wrong engine'); if(d.bank?.required_count!==15) throw Error('Wrong bank size'); if(d.ready!==true) throw Error('Exam is unavailable'); if((d.settings?.question_count||0)!==15) throw Error('Wrong question count')" "$RESPONSE"
-          }
-          check_preview '{"action":"preview","subject":"reading","outcome":"1-1-1-2-9","indicator":1,"model":4,"indicator_text":"يستنتج معاني المفردات من خلال توظيف خبراته السابقة (الترادف، والتضاد، والسياق، والتفسير، والتعريف، والتصنيف، والتمثيل).","outcome_title":"استنتاج دلالات المفردات وتصنيفها"}'
-          check_preview '{"action":"preview","subject":"math","outcome":"1-1-1-4-9","indicator":1,"model":4,"indicator_text":"يميز الأعداد الصحيحة، ويستخدمها في التعبير عن مواقف متضادة، ويقرؤها، ويكتبها، ويمثلها على خط الأعداد.","outcome_title":"فهم الأعداد الصحيحة والنسبية"}'
-          check_preview '{"action":"preview","subject":"science","outcome":"1-1-1-5-9","indicator":1,"model":4,"indicator_text":"يتعرف على وحدة بناء أجسام المخلوقات الحية، ويذكر بنود النظرية الخلوية، ويقدر أهمية الأدوات التقنية (أجهزة التكبير، المجاهر)، ويوضح دورها في التعرف على الخلايا ومكوناتها.","outcome_title":"استيعاب أن الخلية هي وحدة البناء الأساسية في المخلوقات الحية"}'
+        run: node question-bank/scripts/verify-live-bank.mjs
       - uses: actions/configure-pages@v5
         with:
           enablement: true

@@ -124,7 +124,8 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
   const questionKeys = new Set<string>();
   const levels = new Set<string>();
   const answerCounts = [0, 0, 0, 0];
-  const bannedPlaceholder = /^(المعنى المضاد لها|تفصيل لا علاقة له|اسم مكان ورد في النص|معنى حرفي لا يناسب السياق|عبارة |جملة |سلوك |تكرار عنوان النص)/;
+  const bannedPlaceholder = /^(المعنى المضاد لها|تفصيل لا علاقة له|اسم مكان ورد في النص|معنى حرفي لا يناسب السياق|تكرار عنوان النص|نستخدم قاعدة لا ترتبط بمعطيات|نعتمد شكل الخيار دون فحص العلاقة|لا نحتاج إلى مفهوم أو قاعدة قبل الإجابة|الإجابة صحيحة؛ ولا حاجة إلى التحقق)/;
+  const bannedStem = /^(أي قاعدة أو حقيقة أساسية تساعد مباشرة|في نشاط لتطبيق مهارة|اقترح طالب الإجابة)/;
 
   for (const q of rows) {
     const options = Array.isArray(q.options) ? q.options.map(String) : [];
@@ -133,6 +134,7 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
     questionKeys.add(key);
     if (options.length !== 4 || new Set(options).size !== 4) issues.push("options");
     if (options.some((x) => bannedPlaceholder.test(x))) issues.push("placeholder_option");
+    if (bannedStem.test(q.question_text)) issues.push("generic_task");
     if (!Number.isInteger(q.correct_index) || q.correct_index < 0 || q.correct_index > 3) {
       issues.push("correct_index");
     } else {

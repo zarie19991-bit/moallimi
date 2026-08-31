@@ -1,0 +1,6 @@
+# Generated question-bank artifacts are rebuilt during deployment.
+question-bank/math/
+question-bank/science/
+question-bank/reading/*.json
+!question-bank/reading/1-1-1-2-9-i1-m1.json
+question-bank/reading/manifest.json
