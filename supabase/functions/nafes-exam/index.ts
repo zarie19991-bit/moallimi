@@ -111,7 +111,7 @@ async function loadBank(subject: string, outcome: string, indicator: number, mod
   return (data || []) as BankRow[];
 }
 
-function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string) {
+function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string, subject: string) {
   const issues: string[] = [];
   if (rows.length !== QUESTION_COUNT) issues.push("count");
 
@@ -123,12 +123,15 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
 
   const questionKeys = new Set<string>();
   const levels = new Set<string>();
+  const levelCounts: Record<string, number> = { knowledge: 0, application: 0, reasoning: 0 };
   const answerCounts = [0, 0, 0, 0];
-  const bannedPlaceholder = /^(المعنى المضاد لها|تفصيل لا علاقة له|اسم مكان ورد في النص|معنى حرفي لا يناسب السياق|تكرار عنوان النص|نستخدم قاعدة لا ترتبط بمعطيات|نعتمد شكل الخيار دون فحص العلاقة|لا نحتاج إلى مفهوم أو قاعدة قبل الإجابة|الإجابة صحيحة؛ ولا حاجة إلى التحقق)/;
+  const bannedPlaceholder = /^(المعنى المضاد لها|تفصيل لا علاقة له|اسم مكان ورد في النص|معنى حرفي لا يناسب السياق|تكرار عنوان النص|نستخدم قاعدة لا ترتبط بمعطيات|نعتمد شكل الخيار دون فحص العلاقة|لا نحتاج إلى مفهوم أو قاعدة قبل الإجابة|الإجابة صحيحة؛ ولا حاجة إلى التحقق|لا يمكن الحكم على الحل مع أن معطيات السؤال مكتملة|لا يمكن الحكم على الإجابة مع اكتمال معطيات السؤال)/;
   const bannedStem = /^(أي قاعدة أو حقيقة أساسية تساعد مباشرة|في نشاط لتطبيق مهارة|اقترح طالب الإجابة)/;
+  const bannedExplanation = /ترتبط بالمفهوم المحدد|تتفق مع المفهوم|الوارد في المؤشر|تثبت المعرفة العلمية أن تنص/;
   const genderMismatch = /(سأل|راجع|طبّق|اختار|استخدم|حلّل|ناقش|درس|بحث|فحص|قارن|وظّف|نقل|ربط|قوّم) (نورة|هيا|ريم|سارة|ليان|جود)/;
   const redundantStem = /أي إجابة علمية صحيحة عن السؤال الآتي: أي|ما الإجابة التي تتفق.+؟ أي|أي اختيار يعبّر.+؟ أي|الموقف المرتبط بمفهوم/;
-  const typographyError = /%|\s+،|-?\d+,\s*-?\d+|\d+\.\d{5,}|(^|[ «:])(حلل|بسط)([ :])/;
+  const typographyError = /%|\s+،|-?\d+,\s*-?\d+|\d+\.\d{3,}|(^|[ «:])(حلل|بسط)([ :])|مهارة «(?:على|بين)\s/;
+  const implausibleScienceOption = /توقف الزمن|تغير عدد الكواكب|تختفي الذرات|محرار زئبقي|يمنع انقسام الخلايا|يقيس كتلة الخلية مباشرة|كائن أكبر فعليًا/;
 
   for (const q of rows) {
     const options = Array.isArray(q.options) ? q.options.map(String) : [];
@@ -138,16 +141,26 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
     if (options.length !== 4 || new Set(options).size !== 4) issues.push("options");
     if (options.some((x) => bannedPlaceholder.test(x))) issues.push("placeholder_option");
     if (bannedStem.test(q.question_text)) issues.push("generic_task");
+    if (bannedExplanation.test(q.explanation || "")) issues.push("generic_explanation");
     const displayText = [q.context_text || "", q.question_text, q.explanation || "", ...options].join("\n");
     if (genderMismatch.test(q.question_text) || redundantStem.test(q.question_text) || typographyError.test(displayText)) {
       issues.push("language_quality");
     }
+    if (subject === "science" && implausibleScienceOption.test(displayText)) issues.push("implausible_distractor");
     if (!Number.isInteger(q.correct_index) || q.correct_index < 0 || q.correct_index > 3) {
       issues.push("correct_index");
     } else {
       answerCounts[q.correct_index]++;
     }
     levels.add(q.cognitive_level);
+    if (q.cognitive_level in levelCounts) levelCounts[q.cognitive_level]++;
+    const expectedDifficulty = q.cognitive_level === "knowledge" ? "easy" : q.cognitive_level === "application" ? "medium" : q.cognitive_level === "reasoning" ? "hard" : "";
+    if (!expectedDifficulty || q.difficulty !== expectedDifficulty) issues.push("difficulty_level");
+    if (subject !== "reading") {
+      const expectedLevel = q.question_no <= 5 ? "knowledge" : q.question_no <= 10 ? "application" : "reasoning";
+      if (q.cognitive_level !== expectedLevel) issues.push("level_position");
+      if (expectedLevel === "reasoning" && !q.question_text.startsWith("عند الإجابة عن السؤال الآتي (")) issues.push("reasoning_task");
+    }
     if (norm(q.indicator_text) !== norm(expectedIndicatorText)) {
       issues.push("indicator_mismatch");
     }
@@ -160,6 +173,12 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
   if (!["knowledge", "application", "reasoning"].every((level) => levels.has(level))) {
     issues.push("cognitive_levels");
   }
+  const expectedLevelCounts = subject === "reading"
+    ? { knowledge: 3, application: 7, reasoning: 5 }
+    : { knowledge: 5, application: 5, reasoning: 5 };
+  if (Object.entries(expectedLevelCounts).some(([level, count]) => levelCounts[level] !== count)) {
+    issues.push("cognitive_distribution");
+  }
 
   return {
     ready: issues.length === 0,
@@ -168,6 +187,7 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
     required_count: QUESTION_COUNT,
     answer_distribution: answerCounts,
     cognitive_levels: [...levels],
+    cognitive_distribution: levelCounts,
   };
 }
 
@@ -230,7 +250,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === "preview" || action === "start") {
       const bank = await loadBank(subject, outcome, indicator, model);
-      const audit = inspectBank(bank, indicatorText, expectedFocus);
+      const audit = inspectBank(bank, indicatorText, expectedFocus, subject);
       const bankReady = audit.ready;
       const reviewedRendered = bankReady ? renderBank(bank) : null;
 

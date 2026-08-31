@@ -15,11 +15,20 @@ const sourceFile=subject==='math'?'nafes-math.js':'nafes-science.js';
 const globalName=subject==='math'?'NAFES_MATH':'NAFES_SCIENCE';
 const sandbox={window:{}};vm.createContext(sandbox);vm.runInContext(fs.readFileSync(path.join(root,sourceFile),'utf8'),sandbox);
 const data=sandbox.window[globalName];
+const errors=[],modelKeys=new Set(),indicatorKeys=new Set(),contentByIndicator=new Map();
 const expected=new Map();
 for(const outcome of data.outcomes)outcome.indicators.forEach((text,i)=>expected.set(`${outcome.code}|${i+1}`,{text,profile:classify(subject,text),focus:`${subject}:${outcome.code}:i${i+1}`}));
+if(subject==='science'){
+ const semanticRoutes=new Map([
+  ['3-3-1-5-9|1','foodweb'],['3-1-2-5-9|2','solubility'],['1-4-1-5-9|4','mendel'],
+  ['2-4-1-5-9|2','dna'],['2-4-1-5-9|4','dna'],['7-1-2-5-9|1','electrons_bonds'],
+  ['6-2-2-5-9|2','newton3'],['4-3-2-5-9|1','electromagnet'],['4-3-2-5-9|2','electromagnet'],
+  ['1-2-3-5-9|1','climate'],['7-2-3-5-9|3','plates']
+ ]);
+ for(const[key,profile]of semanticRoutes)if(expected.get(key)?.profile!==profile)errors.push(`${key}: semantic route ${expected.get(key)?.profile}/${profile}`);
+}
 const dir=path.join(root,'question-bank',subject);
 const files=fs.readdirSync(dir).filter(x=>/^\d+-\d+-\d+-\d+-\d+-i\d+-m\d+\.json$/.test(x));
-const errors=[],modelKeys=new Set(),indicatorKeys=new Set(),contentByIndicator=new Map();
 let questions=0;
 for(const file of files){
  const doc=JSON.parse(fs.readFileSync(path.join(dir,file),'utf8'));
@@ -43,14 +52,19 @@ for(const file of files){
   if(q.options.length!==4||new Set(q.options).size!==4)errors.push(`${file} q${q.question_no}: options`);
   if(!Number.isInteger(q.correct_index)||q.correct_index<0||q.correct_index>3)errors.push(`${file} q${q.question_no}: key`);else answers[q.correct_index]++;
   if(!q.explanation?.trim())errors.push(`${file} q${q.question_no}: explanation`);
+  const display=[q.context_text||'',q.question_text,q.explanation||'',...q.options].join('\n');
+  if(/%|\s+،|-?\d+,\s*-?\d+|\d+\.\d{3,}|(^|[ «:])(حلل|بسط)([ :])|مهارة «(?:على|بين)\s|تثبت المعرفة العلمية أن تنص/.test(display))errors.push(`${file} q${q.question_no}: language quality`);
+  if((display.match(/«/g)||[]).length!==(display.match(/»/g)||[]).length)errors.push(`${file} q${q.question_no}: quotation balance`);
   const expectedLevel=q.question_no<=5?'knowledge':q.question_no<=10?'application':'reasoning';
   const expectedDifficulty=expectedLevel==='knowledge'?'easy':expectedLevel==='application'?'medium':'hard';
   if(q.cognitive_level!==expectedLevel||q.difficulty!==expectedDifficulty)errors.push(`${file} q${q.question_no}: cognitive level`);
-  if(expectedLevel==='knowledge'&&!q.question_text.startsWith('أي قاعدة أو حقيقة أساسية'))errors.push(`${file} q${q.question_no}: knowledge task`);
-  if(expectedLevel==='knowledge'&&/ترتبط بالمفهوم المحدد|تتفق مع المفهوم|الوارد في المؤشر/.test(q.options[q.correct_index]))errors.push(`${file} q${q.question_no}: generic knowledge answer`);
-  if(expectedLevel==='reasoning'&&!q.question_text.startsWith('اقترح طالب الإجابة'))errors.push(`${file} q${q.question_no}: reasoning task`);
+  if(expectedLevel==='knowledge'&&/أي قاعدة أو حقيقة أساسية|القاعدة المناسبة لبدء حل/.test(q.question_text))errors.push(`${file} q${q.question_no}: generic knowledge task`);
+  if(expectedLevel==='reasoning'&&!q.question_text.startsWith('عند الإجابة عن السؤال الآتي ('))errors.push(`${file} q${q.question_no}: reasoning task`);
+  if(expectedLevel==='reasoning'&&q.options.some(x=>/لا يمكن (الحكم|التقويم)|لا حاجة إلى التحقق/.test(x)))errors.push(`${file} q${q.question_no}: weak reasoning option`);
+  if(/ترتبط بالمفهوم المحدد|تتفق مع المفهوم|الوارد في المؤشر/.test(q.explanation))errors.push(`${file} q${q.question_no}: generic explanation`);
   if(subject==='science'&&['أي عبارة علمية صحيحة؟','أي تفسير ينسجم أكثر مع هذا المؤشر؟','في موقف تطبيقي مرتبط بهذا المفهوم، أي استنتاج هو الأدق؟','أي اختيار يمثل الفهم العلمي الصحيح للمفهوم؟'].includes(q.question_text))errors.push(`${file} q${q.question_no}: generic science stem`);
   if(subject==='science'&&expectedLevel==='application'&&q.question_text.startsWith('أي تفسير علمي يصف بدقة'))errors.push(`${file} q${q.question_no}: unapplied science task`);
+  if(subject==='science'&&/توقف الزمن|تغير عدد الكواكب|تختفي الذرات|محرار زئبقي|يمنع انقسام الخلايا|يقيس كتلة الخلية مباشرة|يحوله?ا? إلى كائن أكبر فعليًا/.test(display))errors.push(`${file} q${q.question_no}: implausible science distractor`);
   const content=`${q.context_text||''}\u001f${q.question_text}`;
   if(contents.has(content))errors.push(`${file} q${q.question_no}: repeated content`);contents.add(content);
  }

@@ -40,6 +40,11 @@ for(const doc of docs){
   if(q.options.length!==4||new Set(q.options).size!==4)errors.push(`${doc.file} q${q.question_no}: options`);
   if(!Number.isInteger(q.correct_index)||q.correct_index<0||q.correct_index>3)errors.push(`${doc.file} q${q.question_no}: key`);else answers[q.correct_index]++;
   if(!q.explanation?.trim())errors.push(`${doc.file} q${q.question_no}: explanation`);
+  const display=[doc.context_text||'',q.question_text,q.explanation||'',...q.options].join('\n');
+  if(/%|\s+،|-?\d+,\s*-?\d+|\d+\.\d{3,}|(^|[ «:])(حلل|بسط)([ :])|تثبت المعرفة العلمية أن تنص/.test(display))errors.push(`${doc.file} q${q.question_no}: language quality`);
+  if((display.match(/«/g)||[]).length!==(display.match(/»/g)||[]).length)errors.push(`${doc.file} q${q.question_no}: quotation balance`);
+  const expectedDifficulty=q.cognitive_level==='knowledge'?'easy':q.cognitive_level==='application'?'medium':q.cognitive_level==='reasoning'?'hard':'';
+  if(!expectedDifficulty||q.difficulty!==expectedDifficulty)errors.push(`${doc.file} q${q.question_no}: difficulty level`);
   if(q.measurement_focus!==expectedProfile)errors.push(`${doc.file} q${q.question_no}: measurement focus`);
   if(q.options.some(x=>banned.test(x)))errors.push(`${doc.file} q${q.question_no}: placeholder`);
   const correct=String(q.options[q.correct_index]||'').length;
@@ -49,6 +54,8 @@ for(const doc of docs){
  if(positions.some((x,i)=>x!==i+1))errors.push(`${doc.file}: positions`);
  if(Math.max(...answers)-Math.min(...answers)>1)errors.push(`${doc.file}: answer distribution`);
  if(!['knowledge','application','reasoning'].every(x=>levels.has(x)))errors.push(`${doc.file}: cognitive levels`);
+ const levelCounts=doc.questions.reduce((a,q)=>(a[q.cognitive_level]=(a[q.cognitive_level]||0)+1,a),{});
+ if(levelCounts.knowledge!==3||levelCounts.application!==7||levelCounts.reasoning!==5)errors.push(`${doc.file}: cognitive distribution`);
 }
 
 if(docs.length!==64)errors.push(`models ${docs.length}/64`);
