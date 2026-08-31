@@ -36,12 +36,14 @@ jobs:
           test -f question-bank/scripts/build-reading-bank.mjs
           test -f question-bank/scripts/audit-reading-bank.mjs
           test -f question-bank/scripts/verify-live-bank.mjs
+          test -f question-bank/scripts/review-language-live.sql
           node question-bank/scripts/build-reading-bank.mjs
           node question-bank/scripts/audit-reading-bank.mjs
           node verify-nafes.mjs
           grep -q 'reviewed_question_bank' supabase/functions/nafes-exam/index.ts
           grep -q 'blocked_indicator_mismatch' supabase/functions/nafes-exam/index.ts
           grep -q 'generic_task' supabase/functions/nafes-exam/index.ts
+          grep -q 'language_quality' supabase/functions/nafes-exam/index.ts
           node --input-type=module <<'NODE'
           import {createRequire} from 'module';
           const require=createRequire(import.meta.url);

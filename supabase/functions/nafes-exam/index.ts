@@ -126,6 +126,9 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
   const answerCounts = [0, 0, 0, 0];
   const bannedPlaceholder = /^(المعنى المضاد لها|تفصيل لا علاقة له|اسم مكان ورد في النص|معنى حرفي لا يناسب السياق|تكرار عنوان النص|نستخدم قاعدة لا ترتبط بمعطيات|نعتمد شكل الخيار دون فحص العلاقة|لا نحتاج إلى مفهوم أو قاعدة قبل الإجابة|الإجابة صحيحة؛ ولا حاجة إلى التحقق)/;
   const bannedStem = /^(أي قاعدة أو حقيقة أساسية تساعد مباشرة|في نشاط لتطبيق مهارة|اقترح طالب الإجابة)/;
+  const genderMismatch = /(سأل|راجع|طبّق|اختار|استخدم|حلّل|ناقش|درس|بحث|فحص|قارن|وظّف|نقل|ربط|قوّم) (نورة|هيا|ريم|سارة|ليان|جود)/;
+  const redundantStem = /أي إجابة علمية صحيحة عن السؤال الآتي: أي|ما الإجابة التي تتفق.+؟ أي|أي اختيار يعبّر.+؟ أي|الموقف المرتبط بمفهوم/;
+  const typographyError = /%|\s+،|-?\d+,\s*-?\d+|\d+\.\d{5,}|(^|[ «:])(حلل|بسط)([ :])/;
 
   for (const q of rows) {
     const options = Array.isArray(q.options) ? q.options.map(String) : [];
@@ -135,6 +138,10 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
     if (options.length !== 4 || new Set(options).size !== 4) issues.push("options");
     if (options.some((x) => bannedPlaceholder.test(x))) issues.push("placeholder_option");
     if (bannedStem.test(q.question_text)) issues.push("generic_task");
+    const displayText = [q.context_text || "", q.question_text, q.explanation || "", ...options].join("\n");
+    if (genderMismatch.test(q.question_text) || redundantStem.test(q.question_text) || typographyError.test(displayText)) {
+      issues.push("language_quality");
+    }
     if (!Number.isInteger(q.correct_index) || q.correct_index < 0 || q.correct_index > 3) {
       issues.push("correct_index");
     } else {
