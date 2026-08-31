@@ -50,6 +50,7 @@ for(const file of files){
   if(expectedLevel==='knowledge'&&/ترتبط بالمفهوم المحدد|تتفق مع المفهوم|الوارد في المؤشر/.test(q.options[q.correct_index]))errors.push(`${file} q${q.question_no}: generic knowledge answer`);
   if(expectedLevel==='reasoning'&&!q.question_text.startsWith('اقترح طالب الإجابة'))errors.push(`${file} q${q.question_no}: reasoning task`);
   if(subject==='science'&&['أي عبارة علمية صحيحة؟','أي تفسير ينسجم أكثر مع هذا المؤشر؟','في موقف تطبيقي مرتبط بهذا المفهوم، أي استنتاج هو الأدق؟','أي اختيار يمثل الفهم العلمي الصحيح للمفهوم؟'].includes(q.question_text))errors.push(`${file} q${q.question_no}: generic science stem`);
+  if(subject==='science'&&expectedLevel==='application'&&q.question_text.startsWith('أي تفسير علمي يصف بدقة'))errors.push(`${file} q${q.question_no}: unapplied science task`);
   const content=`${q.context_text||''}\u001f${q.question_text}`;
   if(contents.has(content))errors.push(`${file} q${q.question_no}: repeated content`);contents.add(content);
  }
