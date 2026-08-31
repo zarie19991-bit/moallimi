@@ -50,7 +50,7 @@ for(const outcome of data.outcomes){
    const items=raw.map((question,i)=>{
     const questionNo=i+1;
     const q=balance(question,targetAnswers[i]);
-    const cognitiveLevel=questionNo<=5?'knowledge':questionNo<=10?'application':'reasoning';
+    const cognitiveLevel=q.cognitive_level;
     const contextText=q.context||`${modelContexts[modelNo-1]}: ${phases[i]} في مهارة «${short(indicatorText)}».`;
     return {
      question_no:questionNo,
@@ -59,7 +59,7 @@ for(const outcome of data.outcomes){
      options:q.options.map(String),
      correct_index:q.correctIndex,
      explanation:q.explanation||'تُحدد الإجابة بتطبيق المفهوم الوارد في المؤشر على المعطيات.',
-     difficulty:cognitiveLevel==='knowledge'?'easy':cognitiveLevel==='application'?'medium':'hard',
+     difficulty:q.difficulty,
      cognitive_level:cognitiveLevel,
      measurement_focus:measurementFocus
     };
