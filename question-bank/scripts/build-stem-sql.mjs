@@ -47,7 +47,7 @@ select
  p.difficulty,p.cognitive_level,'approved',
  'بنك '||case when p.doc->>'subject_key'='math' then 'الرياضيات' else 'العلوم' end||': '||(p.doc->>'text_profile'),
  (p.doc->>'model_no')::smallint,p.question_no::smallint,true,now(),
- 'اجتاز فحص المؤشر والملف الدلالي والعدد والمواضع والبدائل والإجابة الواحدة وتوزيع المفاتيح والمستويات.',
+ 'اجتاز فحص مطابقة المؤشر والصف الثالث المتوسط، وصحة المهمة المعرفية والتطبيقية والاستدلالية، والعدد والمواضع والبدائل والإجابة الواحدة.',
  p.measurement_focus
 from prepared p
 on conflict (grade_key,subject_key,outcome_code,indicator_index,model_no,question_no)
