@@ -27,39 +27,184 @@ function gcd(a,b){while(b){[a,b]=[b,a%b]}return a||1}
 function frac(n,d){const g=gcd(Math.abs(n),Math.abs(d));n/=g;d/=g;if(d<0){n=-n;d=-d}return d===1?String(n):`${n}/${d}`}
 function fmt(x){return Number.isInteger(x)?String(x):String(Math.round(x*100)/100)}
 function counted(n,{dual,plural,singular}){return n===2?dual:n>=3&&n<=10?`${n} ${plural}`:`${n} ${singular}`}
-function shortIndicator(t){return String(t).replace(/[.؛]$/,'').split(/[،؛]/)[0].replace(/^(يستنتج|يوضح|يحدد|يميز|يصف|يشرح|يعرف|يقارن|يحسب|يحل|يذكر|يتعرف|يفسر|يطبق|يعدد|يقترح|يقدم|يعلل|يصنف|ينظم|يحلل|يتنبأ)\s+/,'').replace(/^(على|إلى|عن|بين)\s+/,'').slice(0,110)}
-function cognitiveVariant(r,q,level,indicatorText,serial){
+function shortIndicator(t){return String(t).replace(/[.؛]$/,'').split(/[،؛]/)[0].replace(/^(يستنتج|يوضح|يحدد|يميز|يصف|يشرح|يعرف|يقارن|يحسب|يحل|يذكر|يتعرف|يفسر|يطبق|يعدد|يقترح|يقدم|يعلل|يصنف|ينظم|يحلل|يتنبأ|يوجد|يقدّر|يقدر|يستخرج)\s+/,'').replace(/^(على|إلى|عن|بين)\s+/,'').replaceAll('%','٪').slice(0,110)}
+function mathApplicationStems(type,baseStem){
+ let settings;
+ if(/probability|sample_space|counting|event/.test(type))settings=[
+  'نفّذ طلاب تجربة عشوائية وسجلوا نواتجها.',
+  'صمم فريق لعبة احتمالات ويريد التحقق من عدالتها.',
+  'أجريت محاكاة رقمية لتوقع نتيجة تجربة.',
+  'قورنت النواتج الممكنة بالنواتج الملائمة في تجربة.',
+  'اختيرت عينة عشوائية لاتخاذ قرار مبني على البيانات.',
+  'راجع فريق نتائج تجربة تكررت مرات عدة.',
+  'وُضعت قواعد لعبة تعتمد على ناتج عشوائي.'
+ ];
+ else if(/central|deviation|dispersion|sampling|graphs|scatter|stats/.test(type))settings=[
+  'حلل المرشد درجات مجموعة من الطلاب.',
+  'أعدت المدرسة دراسة مسحية لاتخاذ قرار.',
+  'قورنت نتائج مجموعتين في تقرير إحصائي.',
+  'عُرضت بيانات نشاط في تمثيل بياني.',
+  'راجع فريق بيانات تجربة قبل إعلان نتيجتها.',
+  'نُظمت نتائج الطلاب للكشف عن نمط فيها.',
+  'دُرس تغير القيم عبر عدة قياسات.'
+ ];
+ else if(/triangle|polygon|quadrilateral|pythagoras|congruence|similarity|transform|symmetry|area|volume|surface|solid|coordinate|slope|line|trig|parallel/.test(type))settings=[
+  'تحقق مصمم من قياس في مخطط هندسي.',
+  'أجريت قياسات في فناء المدرسة قبل تنفيذ تصميم.',
+  'بُني نموذج هندسي وفق أبعاد محددة.',
+  'حُدد موقع عنصر على مخطط إحداثي.',
+  'راجع فريق رسمًا هندسيًا قبل اعتماده.',
+  'حُسبت أبعاد قطعة ضمن مشروع تصميم.',
+  'قورن نموذجان هندسيان للتحقق من العلاقة بينهما.'
+ ];
+ else if(/unit_/.test(type))settings=[
+  'تحتاج شحنة مدرسية إلى تحويل وحدات القياس.',
+  'قيس وعاء بوحدتين مختلفتين.',
+  'حُدد طول مسار قبل تنفيذ النشاط.',
+  'قورنت كتل مواد مستخدمة في مشروع.',
+  'حوّل فريق قياسًا ورد في تجربة.',
+  'حُسبت كمية مطلوبة للشراء.',
+  'رُوجعت بطاقة قياس للتأكد من وحدة الناتج.'
+ ];
+ else if(/percent|proportion|ratio|rate/.test(type))settings=[
+  'راجع متجر نسبة تغير في سعر سلعة.',
+  'قُدّر نمو عدد المشاركين في نشاط.',
+  'قورن معدل الإنجاز في مرحلتين.',
+  'وردت نسبة مئوية في تقرير مدرسي.',
+  'حُدد جزء من إجمالي ميزانية مشروع.',
+  'راجع فريق عرضًا تجاريًا قبل اختياره.',
+  'خُططت ميزانية نشاط وفق نسب محددة.'
+ ];
+ else if(/function|sequence|algebra|factor|identity|equation|system|inequality|relation/.test(type))settings=[
+  'بُني نموذج جبري لتكلفة خدمة.',
+  'حُلّل نمط متزايد للتنبؤ بقيمة لاحقة.',
+  'مُثلت ميزانية نشاط بعلاقة جبرية.',
+  'قورنت خطتان باستخدام نموذجين جبريين.',
+  'مُثلت علاقة بين متغيرين في موقف عملي.',
+  'راجع فريق نموذجًا جبريًا قبل اعتماده.',
+  'مُثل شرط في موقف حياتي بعلاقة رياضية.'
+ ];
+ else settings=[
+  'قورنت قراءات درجات حرارة بالنسبة إلى الصفر.',
+  'سُجل ارتفاع وانخفاض عن مستوى مرجعي.',
+  'حُللت قياسات مأخوذة في تجربة.',
+  'رُتبت قيم وردت في تقرير.',
+  'قُدرت كمية لازمة لمشروع.',
+  'رُوجعت نتيجة حسابية قبل اعتمادها.',
+  'مُثل موقف عددي على خط الأعداد.'
+ ];
+ return settings.map(setting=>`${setting} ${baseStem}؟`);
+}
+function reasoningTraps(subject,type){
+ const mathProbability=/probability|sample_space|counting|event/.test(type);
+ const mathStatistics=/central|deviation|dispersion|sampling|graphs|scatter|stats/.test(type);
+ const mathGeometry=/triangle|polygon|quadrilateral|pythagoras|congruence|similarity|transform|symmetry|area|volume|surface|solid|coordinate|slope|line|trig|parallel/.test(type);
+ const scienceBiology=/cell|organelle|mitosis|meiosis|homeostasis|disease|body|classification|life|biodiversity|fossil|foodweb|cycle|ecosystem|ecointeraction|ecobalance|biomass|mendel|dna/.test(type);
+ const scienceChemistry=/atom|mixture|solubility|liquid|electron|periodic|acid|reaction/.test(type);
+ const scienceEarth=/space|climate|carbon|natural|mineral|rock|earthquake|plate|human_earth|resource/.test(type);
+ if(subject==='math'&&mathProbability)return[
+  'الاحتمال يساوي عدد النواتج الكلية مقسومًا على عدد النواتج الملائمة',
+  'كل تكرار للناتج نفسه يُعد ناتجًا ممكنًا جديدًا',
+  'الاحتمال التجريبي يساوي الاحتمال النظري في كل تجربة قصيرة'
+ ];
+ if(subject==='math'&&mathStatistics)return[
+  'أكبر قيمة في البيانات تمثل مركزها دائمًا',
+  'القيم المتطرفة لا تؤثر في اختيار المقياس الإحصائي',
+  'تساوي عدد القيم يعني أن توزيعي البيانات متماثلان'
+ ];
+ if(subject==='math'&&mathGeometry)return[
+  'تشابه مظهر شكلين يكفي لتطبيق خصائص أحدهما على الآخر',
+  'وحدات الطول والمساحة والحجم يمكن استخدامها بالتبادل',
+  'قياس الرسم الظاهر يغني عن تطبيق العلاقة الهندسية المعطاة'
+ ];
+ if(subject==='math')return[
+  'تجمع القيم الظاهرة مهما اختلفت العملية أو الإشارة المطلوبة',
+  'يمكن تغيير أحد طرفي العلاقة من غير إجراء العملية نفسها على الطرف الآخر',
+  'ترتيب العمليات وشرط المسألة لا يغيران الناتج'
+ ];
+ if(scienceBiology)return[
+  'جميع التراكيب في النظام الحيوي تؤدي الوظيفة نفسها',
+  'تزامن حدثين يثبت أن أحدهما سبب الآخر من غير دليل إضافي',
+  'اختلاف الخلايا أو المخلوقات والظروف لا يؤثر في النتيجة'
+ ];
+ if(scienceChemistry)return[
+  'زيادة سرعة العملية تعني دائمًا زيادة مقدار المادة النهائي',
+  'كل تغير في شكل المادة دليل مؤكد على تكون مادة جديدة',
+  'لا يلزم حفظ عدد الذرات أو الشحنة عند تفسير التغير الكيميائي'
+ ];
+ if(scienceEarth)return[
+  'قراءة قصيرة المدى تكفي للحكم على ظاهرة تحدث عبر زمن ممتد',
+  'عامل واحد يفسر تغير النظام كله مهما تغيرت بقية العوامل',
+  'الارتباط بين ظاهرتين يثبت أن إحداهما سبب الأخرى'
+ ];
+ return[
+  'ملاحظة واحدة تكفي لتعميم النتيجة من غير مقارنة أو ضبط للمتغيرات',
+  'التفسير الموافق للتوقع صحيح حتى لو لم تدعمه الأدلة',
+  'يمكن مقارنة النتائج من غير تحديد العامل الذي تغير'
+ ];
+}
+function distractorRationale(subject,choice,fallback){
+ if(subject!=='science')return fallback;
+ if(/دائمًا|جميع|كل |كلها|بالتساوي/.test(choice))return'الحكم ينطبق على جميع الحالات من غير شروط أو استثناءات';
+ if(/فقط|وحده|وحدها|يقتصر|من غير|لا /.test(choice))return'العامل المذكور هو العامل الوحيد المؤثر ويمكن إهمال بقية الأدلة';
+ if(/يزداد|ينخفض|تزداد|تنخفض|يغير|يغيّر/.test(choice))return'تغير عامل واحد يثبت هذا الاتجاه مهما ثبتت بقية العوامل';
+ return fallback;
+}
+function cognitiveVariant(r,q,level,indicatorText,serial,subject,type){
  const target=shortIndicator(indicatorText);
  const correct=q.options[q.correctIndex];
+ const wrong=q.options.filter((_,i)=>i!==q.correctIndex);
+ const baseStem=String(q.question).replace(/[.؟!]+$/,'');
+ const genericScienceStem=subject==='science'&&/^في موقف علمي يتصل بـ«[^»]+»، أي عبارة تقدم تفسيرًا صحيحًا$/.test(baseStem);
+ const taskStem=genericScienceStem?`أي عبارة تفسر «${target}» تفسيرًا صحيحًا`:baseStem;
+ const basis=String(q.explanation||'تطبق القاعدة أو الدليل على المعطيات').replace(/[.]+$/,'');
+ const local=(serial-1)%QUESTION_COUNT;
  if(level==='knowledge'){
-  return {...q,context:null,difficulty:'easy',cognitive_level:'knowledge'};
+  const stems=[
+   q.question,
+   `ما الإجابة الدقيقة عن المهمة الآتية: ${baseStem}؟`,
+   `حدّد الخيار الذي يحقق المطلوب في السؤال الآتي: ${baseStem}؟`
+  ];
+  return {...q,context:`مراجعة المفهوم الأساسي في «${target}».`,question:stems[local%stems.length],difficulty:'easy',cognitive_level:'knowledge'};
  }
- if(level==='reasoning'){
-  const proposedIndex=serial%q.options.length;
-  const proposed=q.options[proposedIndex];
-  const baseStem=String(q.question).replace(/[.؟!]+$/,'');
-  const choices=q.options.map((answer,index)=>({
-   t:index===proposedIndex
-    ?`إجابة الطالب صحيحة؛ فالاختيار «${answer}» يوافق المعطيات.`
-    :`إجابة الطالب غير صحيحة؛ والإجابة الأدق هي «${answer}».`,
-   ok:index===q.correctIndex
-  }));
-  const opts=shuffle(r,choices);
-  const basis=String(q.explanation||'').replace(/[.]+$/,'');
-  return {
-   ...q,
-   context:null,
-   question:`عند الإجابة عن السؤال الآتي (${baseStem})، اختار طالب «${proposed}». أي تقويم لإجابته صحيح؟`,
-   options:opts.map(x=>x.t),
-   correctIndex:opts.findIndex(x=>x.ok),
-   explanation:proposedIndex===q.correctIndex
-    ?`${basis}؛ لذا كانت إجابة الطالب صحيحة.`
-    :`${basis}؛ لذا كانت إجابة الطالب غير صحيحة، والإجابة الأدق هي «${correct}».`,
-   difficulty:'hard',
-   cognitive_level:'reasoning'
-  };
+ if(level==='application'){
+  const j=local-3;
+  const scienceStems=genericScienceStem?[
+   `يعرض تقرير علمي معلومات عن «${target}». أي نتيجة علمية ينبغي اعتمادها؟`,
+   `استُخدمت ملاحظة جديدة لدراسة «${target}». أي تفسير يطبق المفهوم تطبيقًا صحيحًا؟`,
+   `راجع فريق نتائج تجربة ترتبط بـ«${target}». ما الاستنتاج الذي تدعمه المعرفة العلمية؟`,
+   `في موقف مختبري يتصل بـ«${target}»، أي خيار يقدم تفسيرًا علميًا صحيحًا؟`,
+   `عند تقويم تفسير لظاهرة في «${target}»، ما الحكم العلمي الأدق؟`,
+   `يتطلب اتخاذ قرار علمي في «${target}» اختيار العبارة المدعومة بالأدلة. ما هذه العبارة؟`,
+   `قارن فريق بين تفسيرات لحالة تتصل بـ«${target}». أي تفسير ينبغي اختياره؟`
+  ]:[
+   `يعرض تقرير علمي الحالة الآتية: ${baseStem}؟ أي نتيجة ينبغي اعتمادها؟`,
+   `استُخدمت ملاحظة جديدة لدراسة «${target}»: ${baseStem}؟ أي تفسير يطبق المفهوم تطبيقًا صحيحًا؟`,
+   `راجع فريق نتائج تجربة، ثم تناول السؤال الآتي: ${baseStem}؟ ما الاستنتاج المدعوم؟`,
+   `في موقف مختبري طُرح السؤال الآتي: ${baseStem}؟ أي خيار يفسر الحالة تفسيرًا صحيحًا؟`,
+   `عند تقويم تفسير لظاهرة، طُرح السؤال الآتي: ${baseStem}؟ ما الحكم العلمي الأدق؟`,
+   `يتطلب اتخاذ قرار علمي الإجابة عن السؤال الآتي: ${baseStem}؟ أي قرار تدعمه الأدلة؟`,
+   `قارن فريق بين تفسيرات للحالة الآتية: ${baseStem}؟ أي تفسير ينبغي اختياره؟`
+  ];
+  const mathStems=mathApplicationStems(type,taskStem);
+  return {...q,context:subject==='science'?`تقرير أو تجربة أو قرار علمي في «${target}».`:`بيانات موقف حياتي يتصل بـ«${target}».`,question:(subject==='science'?scienceStems:mathStems)[j%7],difficulty:'medium',cognitive_level:'application'};
  }
- return {...q,context:null,difficulty:'medium',cognitive_level:'application'};
+ const j=local-10,proposed=wrong[j%wrong.length],traps=reasoningTraps(subject,type);
+ const candidates=[
+  {t:`النتيجة «${correct}»؛ والتبرير: ${basis}.`,ok:true},
+  {t:`النتيجة «${wrong[(j+0)%wrong.length]}»؛ والتبرير: ${distractorRationale(subject,wrong[(j+0)%wrong.length],traps[(j+0)%traps.length])}.`,ok:false},
+  {t:`النتيجة «${wrong[(j+1)%wrong.length]}»؛ والتبرير: ${distractorRationale(subject,wrong[(j+1)%wrong.length],traps[(j+1)%traps.length])}.`,ok:false},
+  {t:`النتيجة «${wrong[(j+2)%wrong.length]}»؛ والتبرير: ${distractorRationale(subject,wrong[(j+2)%wrong.length],traps[(j+2)%traps.length])}.`,ok:false}
+ ];
+ const stems=[
+  `في السؤال الآتي ظهرت النتيجة «${proposed}»: ${taskStem}؟ أي خيار يصحح النتيجة ويبين السبب؟`,
+  `للتحقق من النتيجة «${proposed}» في المهمة الآتية، أي تعليل هو الأدق؟ ${taskStem}؟`,
+  `أي تحليل يربط المعطيات بالنتيجة الصحيحة في السؤال الآتي؟ ${taskStem}؟`,
+  `ما الخيار الذي يجمع النتيجة الدقيقة وتبريرها في المهمة الآتية؟ ${taskStem}؟`,
+  `تحتاج المهمة الآتية إلى نتيجة مدعومة بقاعدة أو دليل: ${taskStem}؟ أي تحليل يحقق ذلك؟`
+ ];
+ const opts=shuffle(r,candidates);
+ return {...q,context:`تحليل نتيجة وتبريرها في «${target}».`,question:stems[j%stems.length],options:opts.map(x=>x.t),correctIndex:opts.findIndex(x=>x.ok),explanation:`بتطبيق القاعدة أو فحص الدليل: ${basis}؛ ومن ثم تكون النتيجة الصحيحة «${correct}».`,difficulty:'hard',cognitive_level:'reasoning'};
 }
 
 const READING_PASSAGES=[
@@ -473,7 +618,7 @@ function scienceQuestion(t,r,n){
  if(type==='climate'&&/يحلل البيانات/.test(t))return item(r,'أي بيانات أنسب للحكم على اتجاه مناخي في منطقة؟','سجل درجات حرارة ممتد لعقود وبطريقة قياس ثابتة',['درجة يوم واحد','رأي سكان محدود','أعلى قراءة في ساعة'],'المناخ يدرس باتجاهات طويلة المدى لا بحالة طقس منفردة.');
  if(type==='climate')return item(r,'كيف تزيد غازات الدفيئة حرارة الغلاف الجوي؟','تمتص جزءًا من الأشعة تحت الحمراء الصادرة من الأرض وتعيد بثه',['تمنع كل ضوء الشمس','تزيل الغلاف الجوي','تحول الحرارة إلى كتلة'],'زيادة احتجاز الإشعاع الحراري ترفع متوسط الطاقة في النظام المناخي.');
 
- const[correct,wrong]=facts[(n+ri(r,0,facts.length-1))%facts.length];
+ const[correct,wrong]=facts[n%facts.length];
  return item(
   r,
   `في موقف علمي يتصل بـ«${shortIndicator(t)}»، أي عبارة تقدم تفسيرًا صحيحًا؟`,
@@ -490,5 +635,6 @@ export function generateExam({subject,indicatorText,outcomeTitle='',outcomeCode=
  const r=rng(`${subject}|${outcomeCode}|${indicatorIndex}|${modelNo}|${seed}`),out=[];
  const measurementFocus=`${subject}:${outcomeCode}:i${indicatorIndex}`;
  const start=(modelNo-1)*QUESTION_COUNT;
- for(let i=0;i<QUESTION_COUNT;i++){let q;const serial=start+i+1;if(subject==='reading')q=readingQuestion(indicatorText,r,serial);else if(subject==='math')q=mathQuestion(indicatorText,r,serial);else if(subject==='science')q=scienceQuestion(indicatorText,r,serial);else throw new Error('unsupported subject');if(subject!=='reading'){const level=i<5?'knowledge':i<10?'application':'reasoning';q=cognitiveVariant(r,q,level,indicatorText,serial)}q.id=`G-${subject}-${String(outcomeCode).replace(/[^0-9A-Za-z-]/g,'')}-${indicatorIndex}-${modelNo}-${i+1}-${Math.floor(r()*1e9)}`;q.measurement_focus=measurementFocus;out.push(q)}return out;
+ const type=classify(subject,indicatorText);
+ for(let i=0;i<QUESTION_COUNT;i++){let q;const serial=start+i+1;if(subject==='reading')q=readingQuestion(indicatorText,r,serial);else if(subject==='math')q=mathQuestion(indicatorText,r,serial);else if(subject==='science')q=scienceQuestion(indicatorText,r,serial);else throw new Error('unsupported subject');if(subject!=='reading'){const level=i<3?'knowledge':i<10?'application':'reasoning';q=cognitiveVariant(r,q,level,indicatorText,serial,subject,type)}q.id=`G-${subject}-${String(outcomeCode).replace(/[^0-9A-Za-z-]/g,'')}-${indicatorIndex}-${modelNo}-${i+1}-${Math.floor(r()*1e9)}`;q.measurement_focus=measurementFocus;out.push(q)}return out;
 }

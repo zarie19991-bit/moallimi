@@ -34,11 +34,16 @@ jobs:
           test -f supabase/question-bank-schema.sql
           test -f supabase/functions/nafes-exam/index.ts
           test -f question-bank/scripts/build-reading-bank.mjs
+          test -f question-bank/scripts/build-stem-bank.mjs
           test -f question-bank/scripts/audit-reading-bank.mjs
+          test -f question-bank/scripts/audit-stem-bank.mjs
           test -f question-bank/scripts/verify-live-bank.mjs
-          test -f question-bank/scripts/review-language-live.sql
           node question-bank/scripts/build-reading-bank.mjs
           node question-bank/scripts/audit-reading-bank.mjs
+          node question-bank/scripts/build-stem-bank.mjs math
+          node question-bank/scripts/audit-stem-bank.mjs math
+          node question-bank/scripts/build-stem-bank.mjs science
+          node question-bank/scripts/audit-stem-bank.mjs science
           node verify-nafes.mjs
           grep -q 'reviewed_question_bank' supabase/functions/nafes-exam/index.ts
           grep -q 'blocked_indicator_mismatch' supabase/functions/nafes-exam/index.ts

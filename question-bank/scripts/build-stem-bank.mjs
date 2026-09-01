@@ -27,7 +27,7 @@ const phases=subject==='math'?
 const modelContexts=subject==='math'?
  ['نشاط صفي منظم','مسألة حياتية','مراجعة جماعية للحل','موقف تقويمي جديد']:
  ['نشاط استقصاء','موقف مختبري','تحليل ظاهرة','تطبيق علمي جديد'];
-const short=s=>String(s).split(/[،.؛]/)[0].replace(/^(يستنتج|يوضح|يحدد|يميز|يصف|يشرح|يعرف|يقارن|يحسب|يحل|يذكر|يتعرف|يفسر|يطبق|يعدد|يقترح|يقدم|يعلل|يصنف|ينظم|يحلل|يتنبأ|يستوعب)\s+/,'').replace(/^(على|إلى|عن|بين)\s+/,'').replaceAll('%','٪').slice(0,100);
+const short=s=>String(s).split(/[،.؛]/)[0].replace(/^(يستنتج|يوضح|يحدد|يميز|يصف|يشرح|يعرف|يقارن|يحسب|يحل|يذكر|يتعرف|يفسر|يطبق|يعدد|يقترح|يقدم|يعلل|يصنف|ينظم|يحلل|يتنبأ|يستوعب|يوجد|يقدّر|يقدر|يستخرج)\s+/,'').replace(/^(على|إلى|عن|بين)\s+/,'').replaceAll('%','٪').slice(0,100);
 const targetAnswers=[0,1,2,3,0,1,2,3,0,1,2,3,0,1,2];
 
 function balance(question,target){
@@ -51,7 +51,8 @@ for(const outcome of data.outcomes){
     const questionNo=i+1;
     const q=balance(question,targetAnswers[i]);
     const cognitiveLevel=q.cognitive_level;
-    const contextText=q.context||`${modelContexts[modelNo-1]}: ${phases[i]} في مهارة «${short(indicatorText)}».`;
+    const taskContext=q.context||`${phases[i]} في مهارة «${short(indicatorText)}».`;
+    const contextText=`${modelContexts[modelNo-1]}: ${taskContext}`;
     return {
      question_no:questionNo,
      context_text:contextText,

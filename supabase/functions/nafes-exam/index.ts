@@ -122,6 +122,7 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
   }
 
   const questionKeys = new Set<string>();
+  const questionStems = new Set<string>();
   const levels = new Set<string>();
   const levelCounts: Record<string, number> = { knowledge: 0, application: 0, reasoning: 0 };
   const answerCounts = [0, 0, 0, 0];
@@ -138,6 +139,8 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
     const key = `${q.context_text || ""}\u001f${q.question_text}`;
     if (questionKeys.has(key)) issues.push("duplicate_question");
     questionKeys.add(key);
+    if (questionStems.has(q.question_text)) issues.push("duplicate_stem");
+    questionStems.add(q.question_text);
     if (options.length !== 4 || new Set(options).size !== 4) issues.push("options");
     if (options.some((x) => bannedPlaceholder.test(x))) issues.push("placeholder_option");
     if (bannedStem.test(q.question_text)) issues.push("generic_task");
@@ -157,9 +160,13 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
     const expectedDifficulty = q.cognitive_level === "knowledge" ? "easy" : q.cognitive_level === "application" ? "medium" : q.cognitive_level === "reasoning" ? "hard" : "";
     if (!expectedDifficulty || q.difficulty !== expectedDifficulty) issues.push("difficulty_level");
     if (subject !== "reading") {
-      const expectedLevel = q.question_no <= 5 ? "knowledge" : q.question_no <= 10 ? "application" : "reasoning";
+      const expectedLevel = q.question_no <= 3 ? "knowledge" : q.question_no <= 10 ? "application" : "reasoning";
       if (q.cognitive_level !== expectedLevel) issues.push("level_position");
-      if (expectedLevel === "reasoning" && !q.question_text.startsWith("عند الإجابة عن السؤال الآتي (")) issues.push("reasoning_task");
+      if (expectedLevel === "application" && !/(تقرير|تجربة|ملاحظة|نتائج|نتيجة|قرار|موقف|بيانات|قياس|نموذج|خطة|مشروع|نشاط|تصميم|عينة|مخطط|درجات|وعاء|لعبة|نمط|ارتفاع|متجر|معدل الإنجاز|كمية مطلوبة|تفسيرات|تفسير|مراجعة|رُوجعت|تطبيق|فريق)/.test(q.question_text)) issues.push("application_task");
+      if (expectedLevel === "reasoning" && !/(تحليل|تبرير|تعليل|تفسير|تصحيح|يصحح|مدعومة|المعطيات)/.test(q.question_text)) issues.push("reasoning_task");
+      if (expectedLevel === "reasoning" && (q.question_text.includes("اختار طالب") || options.some((x) => x.includes("إجابة الطالب")))) issues.push("meta_reasoning_wrapper");
+      if (expectedLevel === "reasoning" && options.some((x) => !/(التبرير|لأن|بسبب)/.test(x))) issues.push("reasoning_without_justification");
+      if (/لأن يمكن|يتصل بـ«[^»]+»، في موقف علمي يتصل/.test(displayText)) issues.push("rhetorical_quality");
     }
     if (norm(q.indicator_text) !== norm(expectedIndicatorText)) {
       issues.push("indicator_mismatch");
@@ -173,9 +180,7 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
   if (!["knowledge", "application", "reasoning"].every((level) => levels.has(level))) {
     issues.push("cognitive_levels");
   }
-  const expectedLevelCounts = subject === "reading"
-    ? { knowledge: 3, application: 7, reasoning: 5 }
-    : { knowledge: 5, application: 5, reasoning: 5 };
+  const expectedLevelCounts = { knowledge: 3, application: 7, reasoning: 5 };
   if (Object.entries(expectedLevelCounts).some(([level, count]) => levelCounts[level] !== count)) {
     issues.push("cognitive_distribution");
   }
