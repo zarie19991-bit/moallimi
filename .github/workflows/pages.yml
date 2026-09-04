@@ -72,8 +72,8 @@ jobs:
           if(counts.reading!==16||counts.math!==95||counts.science!==159||total!==270)throw new Error('Indicator counts do not match framework');
           if(outcomes.reading!==3||outcomes.math!==25||outcomes.science!==48)throw new Error('Outcome counts do not match framework');
           const examSource=require('fs').readFileSync('exam.js','utf8');
-          if(!/MODEL_COUNT=4/.test(examSource))throw new Error('Need exactly 4 tests per indicator');
-          console.log({counts,outcomes,total,modelsPerIndicator:4,totalTests:total*4,questionsPerTest:15,engine:'reviewed_question_bank_only'});
+          if(!/MODEL_COUNT=2/.test(examSource))throw new Error('Need exactly 2 tests per indicator');
+          console.log({counts,outcomes,total,modelsPerIndicator:2,totalTests:total*2,questionsPerTest:15,engine:'reviewed_question_bank_only'});
           NODE
       - name: Verify live exam engine contract
         run: node question-bank/scripts/verify-live-bank.mjs

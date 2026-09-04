@@ -7,6 +7,9 @@ const dir=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../reading'
 const files=fs.readdirSync(dir).filter(x=>/^\d+-\d+-\d+-\d+-\d+-i\d+-m\d+\.json$/.test(x));
 const docs=files.map(file=>({file,...JSON.parse(fs.readFileSync(path.join(dir,file),'utf8'))}));
 const errors=[];
+const MODEL_COUNT=2;
+const INDICATOR_COUNT=16;
+const QUESTION_COUNT=15;
 const modelKeys=new Set(),contextHashes=new Set(),questionKeys=new Set();
 let questionCount=0;
 const expectedProfiles={
@@ -58,8 +61,10 @@ for(const doc of docs){
  if(levelCounts.knowledge!==3||levelCounts.application!==7||levelCounts.reasoning!==5)errors.push(`${doc.file}: cognitive distribution`);
 }
 
-if(docs.length!==64)errors.push(`models ${docs.length}/64`);
-if(questionCount!==960)errors.push(`questions ${questionCount}/960`);
-if(contextHashes.size!==64)errors.push(`contexts ${contextHashes.size}/64`);
+const expectedModels=INDICATOR_COUNT*MODEL_COUNT;
+const expectedQuestions=expectedModels*QUESTION_COUNT;
+if(docs.length!==expectedModels)errors.push(`models ${docs.length}/${expectedModels}`);
+if(questionCount!==expectedQuestions)errors.push(`questions ${questionCount}/${expectedQuestions}`);
+if(contextHashes.size!==expectedModels)errors.push(`contexts ${contextHashes.size}/${expectedModels}`);
 if(errors.length){console.error(errors.join('\n'));process.exit(1);}
 console.log(JSON.stringify({models:docs.length,questions:questionCount,distinct_contexts:contextHashes.size,answer_rule:'4-4-4-3 per model',levels:['knowledge','application','reasoning']},null,2));

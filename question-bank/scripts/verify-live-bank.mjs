@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const EDGE = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
-const MODEL_COUNT = 4;
+const MODEL_COUNT = 2;
 const QUESTION_COUNT = 15;
-const CONCURRENCY = 12;
+const CONCURRENCY = 24;
 
 const sandbox = { window: {} };
 vm.createContext(sandbox);

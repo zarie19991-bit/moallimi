@@ -2,14 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import {fileURLToPath} from 'node:url';
-import {classify} from '../../nafes-factory.mjs';
+import {classify,MODEL_COUNT,QUESTION_COUNT} from '../../nafes-factory.mjs';
 
 const subject=process.argv[2];
 if(!['math','science'].includes(subject)){
  console.error('usage: node audit-stem-bank.mjs math|science');
  process.exit(2);
 }
-const expectedTotals={math:{indicators:95,models:380,questions:5700},science:{indicators:159,models:636,questions:9540}}[subject];
+const subjectIndicators={math:95,science:159};
+const expectedTotals={indicators:subjectIndicators[subject],models:subjectIndicators[subject]*MODEL_COUNT,questions:subjectIndicators[subject]*MODEL_COUNT*QUESTION_COUNT};
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const sourceFile=subject==='math'?'nafes-math.js':'nafes-science.js';
 const globalName=subject==='math'?'NAFES_MATH':'NAFES_SCIENCE';
@@ -77,9 +78,9 @@ for(const file of files){
  if(answers.join(',')!=='4,4,4,3')errors.push(`${file}: answer distribution ${answers.join(',')}`);
  if(!['knowledge','application','reasoning'].every(x=>levels.has(x)))errors.push(`${file}: levels`);
 }
-for(const[key,stems]of stemsByIndicator)if(stems.size!==60)errors.push(`${key}: distinct stems ${stems.size}/60`);
+for(const[key,stems]of stemsByIndicator)if(stems.size!==MODEL_COUNT*QUESTION_COUNT)errors.push(`${key}: distinct stems ${stems.size}/${MODEL_COUNT*QUESTION_COUNT}`);
 if(indicatorKeys.size!==expectedTotals.indicators)errors.push(`indicators ${indicatorKeys.size}/${expectedTotals.indicators}`);
 if(files.length!==expectedTotals.models)errors.push(`models ${files.length}/${expectedTotals.models}`);
 if(questions!==expectedTotals.questions)errors.push(`questions ${questions}/${expectedTotals.questions}`);
 if(errors.length){console.error(errors.slice(0,200).join('\n'));console.error(`errors=${errors.length}`);process.exit(1);}
-console.log(JSON.stringify({subject,indicators:indicatorKeys.size,models:files.length,questions,wrong_indicator_links:0,wrong_measurement_profiles:0,incomplete_models:0,duplicate_stems_within_model:0,duplicate_stems_across_models:0,distinct_stems_per_model:15,distinct_stems_per_indicator:60,cognitive_distribution:'3-7-5',answer_rule:'4-4-4-3',levels:['knowledge','application','reasoning']},null,2));
+console.log(JSON.stringify({subject,indicators:indicatorKeys.size,models:files.length,questions,wrong_indicator_links:0,wrong_measurement_profiles:0,incomplete_models:0,duplicate_stems_within_model:0,duplicate_stems_across_models:0,distinct_stems_per_model:QUESTION_COUNT,distinct_stems_per_indicator:MODEL_COUNT*QUESTION_COUNT,cognitive_distribution:'3-7-5',answer_rule:'4-4-4-3',levels:['knowledge','application','reasoning']},null,2));

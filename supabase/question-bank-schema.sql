@@ -51,7 +51,7 @@ begin
       check (
         (model_no is null and question_no is null)
         or
-        (model_no between 1 and 4 and question_no between 1 and 15)
+        (model_no between 1 and 2 and question_no between 1 and 15)
       );
   end if;
 end $$;

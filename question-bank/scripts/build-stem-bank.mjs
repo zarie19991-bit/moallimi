@@ -69,7 +69,7 @@ for(const outcome of data.outcomes){
      alignment_profile:alignmentProfile,
      alignment_verified:true,
      alignment_evidence:{
-      validator:'semantic-contract-v2',
+      validator:'semantic-contract-v3',
       generator_profile:textProfile,
       source_task:source.question,
       source_answer:source.options[source.correct_index],

@@ -1,6 +1,6 @@
 (()=>{
 const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
-const MODEL_COUNT=4;
+const MODEL_COUNT=2;
 const qs=new URLSearchParams(location.search);const P={subject:qs.get('s')||'',outcome:qs.get('o')||'',indicator:Number(qs.get('i')||0),model:Number(qs.get('m')||0)};
 const SUBJECTS=[window.NAFES_READING,window.NAFES_MATH,window.NAFES_SCIENCE].filter(Boolean);const subj=SUBJECTS.find(s=>s.key===P.subject),out=subj?.outcomes?.find(o=>o.code===P.outcome),indicatorText=out?.indicators?.[P.indicator-1]||'';
 const $=id=>document.getElementById(id);const letters=['أ','ب','ج','د'];let attempt=null,questions=[],answers={},current=0,timerId=null,saving=false,finishing=false;

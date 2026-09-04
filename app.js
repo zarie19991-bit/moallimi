@@ -1,7 +1,7 @@
 (()=>{
 const SUBJECTS=[window.NAFES_READING,window.NAFES_MATH,window.NAFES_SCIENCE].filter(Boolean);
 const EXPECTED={reading:16,math:95,science:159};
-const TESTS_PER_INDICATOR=4;
+const TESTS_PER_INDICATOR=2;
 let current='reading',query='',domain='';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));

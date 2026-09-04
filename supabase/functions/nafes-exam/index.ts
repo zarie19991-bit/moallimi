@@ -1,9 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 
-const MODEL_COUNT = 4;
+const MODEL_COUNT = 2;
 const QUESTION_COUNT = 15;
 const GRADE_KEY = "middle_3";
+const READING_FOCUS: Record<string, string[]> = {
+  "1-1-1-2-9": ["vocab_context", "vocab_definition", "vocab_classify", "vocab_distinguish", "vocab_use"],
+  "2-1-1-2-9": ["main_structure", "implicit_questions", "compare_texts", "fact_opinion", "relationships"],
+  "3-1-1-2-9": ["emotion_language", "credibility_solutions", "values_impact", "arguments_evidence", "summary_organize", "problem_solving"],
+};
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -110,6 +115,7 @@ async function loadIndicatorBank(subject: string, outcome: string, indicator: nu
     .eq("review_status", "approved")
     .eq("is_active", true)
     .not("model_no", "is", null)
+    .lte("model_no", MODEL_COUNT)
     .order("model_no", { ascending: true })
     .order("question_no", { ascending: true });
   if (error) throw error;
@@ -180,7 +186,7 @@ function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFoc
     if (subject !== "reading") {
       if (q.alignment_verified !== true) issues.push("semantic_alignment_unverified");
       if (!String(q.alignment_profile || "").startsWith(`${expectedFocus}:`)) issues.push("semantic_alignment_profile");
-      if (String(q.alignment_evidence?.validator || "") !== "semantic-contract-v2") issues.push("semantic_alignment_validator");
+      if (String(q.alignment_evidence?.validator || "") !== "semantic-contract-v3") issues.push("semantic_alignment_validator");
       if (!String(q.alignment_evidence?.source_task || "").trim() || !String(q.alignment_evidence?.source_answer || "").trim()) {
         issues.push("semantic_alignment_evidence");
       }
@@ -391,7 +397,8 @@ async function loadSimulationPool(subject: string, seed: number) {
     .eq("subject_key", subject)
     .eq("review_status", "approved")
     .eq("is_active", true)
-    .not("model_no", "is", null);
+    .not("model_no", "is", null)
+    .lte("model_no", MODEL_COUNT);
   const { count, error: countError } = await base;
   if (countError) throw countError;
   const pageSize = subject === "reading" ? 360 : 900;
@@ -404,6 +411,7 @@ async function loadSimulationPool(subject: string, seed: number) {
     .eq("review_status", "approved")
     .eq("is_active", true)
     .not("model_no", "is", null)
+    .lte("model_no", MODEL_COUNT)
     .order("id", { ascending: true })
     .range(start, start + pageSize - 1);
   if (error) throw error;
@@ -412,7 +420,7 @@ async function loadSimulationPool(subject: string, seed: number) {
     const semanticallyVerified = subject === "reading" || (
       q.alignment_verified === true &&
       String(q.alignment_profile || "").startsWith(`${String(q.measurement_focus || "")}:`) &&
-      String((q.alignment_evidence as Record<string, unknown> | null)?.validator || "") === "semantic-contract-v2" &&
+      String((q.alignment_evidence as Record<string, unknown> | null)?.validator || "") === "semantic-contract-v3" &&
       !!String((q.alignment_evidence as Record<string, unknown> | null)?.source_task || "").trim() &&
       !!String((q.alignment_evidence as Record<string, unknown> | null)?.source_answer || "").trim()
     );
@@ -594,7 +602,10 @@ Deno.serve(async (req: Request) => {
       return json({ error: "بيانات الاختبار غير صحيحة." }, 400);
     }
     if (!indicatorText) return json({ error: "تعذر تحديد نص المؤشر لهذا الاختبار." }, 400);
-    const expectedFocus = `${subject}:${outcome}:i${indicator}`;
+    const expectedFocus = subject === "reading"
+      ? READING_FOCUS[outcome]?.[indicator - 1] || ""
+      : `${subject}:${outcome}:i${indicator}`;
+    if (!expectedFocus) return json({ error: "تعذر تحديد مجال القياس لهذا المؤشر." }, 400);
 
     const s = await settings(subject, outcome, indicator, model);
 

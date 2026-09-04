@@ -6,6 +6,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const outDir=path.join(root,'question-bank/reading');
 const grade_key='middle_3';
 const subject_key='reading';
+const MODEL_COUNT=2;
 const outcomes=[
  {code:'1-1-1-2-9',indicators:[
   'يستنتج معاني المفردات من خلال توظيف خبراته السابقة (الترادف، والتضاد، والسياق، والتفسير، والتعريف، والتصنيف، والتمثيل).',
@@ -466,11 +467,15 @@ function validate(doc){
 }
 
 fs.mkdirSync(outDir,{recursive:true});
+for(const name of fs.readdirSync(outDir)){
+ const match=name.match(/-m(\d+)\.json$/);
+ if(match&&Number(match[1])>MODEL_COUNT)fs.rmSync(path.join(outDir,name));
+}
 const manifest=[];let globalIndex=0;
 for(const outcome of outcomes){
  for(let i=1;i<=outcome.indicators.length;i++){
   globalIndex++;
-  for(let model=1;model<=4;model++){
+  for(let model=1;model<=MODEL_COUNT;model++){
    const existing=outcome.code==='1-1-1-2-9'&&i===1&&model===1;
    if(existing){
     const filename=`${outcome.code}-i${i}-m${model}.json`;

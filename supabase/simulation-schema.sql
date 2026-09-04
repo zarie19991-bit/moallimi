@@ -58,7 +58,7 @@ begin
        or d.doc->>'outcome_code' <> v_outcome
        or d.doc->>'grade_key' <> 'middle_3'
        or jsonb_array_length(d.doc->'questions') <> 15
-       or (d.doc->>'model_no')::integer not between 1 and 4
+       or (d.doc->>'model_no')::integer not between 1 and 2
   ) then
     raise exception 'inconsistent bank documents';
   end if;
@@ -68,7 +68,7 @@ begin
     cross join lateral jsonb_array_elements(d.doc->'questions') q(item)
     where coalesce((q.item->>'alignment_verified')::boolean,false) is not true
        or q.item->>'alignment_profile' <> q.item->>'measurement_focus'||':'||(d.doc->>'text_profile')
-       or q.item->'alignment_evidence'->>'validator' <> 'semantic-contract-v2'
+       or q.item->'alignment_evidence'->>'validator' <> 'semantic-contract-v3'
        or coalesce(q.item->'alignment_evidence'->>'source_task','') = ''
        or coalesce(q.item->'alignment_evidence'->>'source_answer','') = ''
   ) then

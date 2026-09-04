@@ -77,7 +77,7 @@ for(const subject of ['math','science']){
      const expectedAlignmentProfile=`${focus}:${profile}`;
      if(!storedQuestion?.alignment_verified)errors.push(`${stored.name} q${i+1}: alignment not verified`);
      if(storedQuestion?.alignment_profile!==expectedAlignmentProfile)errors.push(`${stored.name} q${i+1}: alignment profile mismatch`);
-     if(storedQuestion?.alignment_evidence?.validator!=='semantic-contract-v2')errors.push(`${stored.name} q${i+1}: validator mismatch`);
+     if(storedQuestion?.alignment_evidence?.validator!=='semantic-contract-v3')errors.push(`${stored.name} q${i+1}: validator mismatch`);
      if(normalize(storedQuestion?.alignment_evidence?.source_task)!==sourceTask)errors.push(`${stored.name} q${i+1}: source task mismatch`);
      if(normalize(storedQuestion?.alignment_evidence?.source_answer)!==normalize(sourceAnswer))errors.push(`${stored.name} q${i+1}: source answer mismatch`);
     }
