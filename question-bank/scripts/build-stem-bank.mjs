@@ -53,6 +53,9 @@ for(const outcome of data.outcomes){
     const cognitiveLevel=q.cognitive_level;
     const taskContext=q.context||`${phases[i]} في مهارة «${short(indicatorText)}».`;
     const contextText=`${modelContexts[modelNo-1]}: ${taskContext}`;
+    const alignmentProfile=`${measurementFocus}:${textProfile}`;
+    const source=q.alignment_source;
+    if(!source||source.focus!==measurementFocus||source.profile!==textProfile)throw new Error(`missing alignment source ${outcome.code}/i${indicatorIndex}/m${modelNo}/q${questionNo}`);
     return {
      question_no:questionNo,
      context_text:contextText,
@@ -62,7 +65,16 @@ for(const outcome of data.outcomes){
      explanation:q.explanation||'تُحدد الإجابة بتطبيق المفهوم الوارد في المؤشر على المعطيات.',
      difficulty:q.difficulty,
      cognitive_level:cognitiveLevel,
-     measurement_focus:measurementFocus
+     measurement_focus:measurementFocus,
+     alignment_profile:alignmentProfile,
+     alignment_verified:true,
+     alignment_evidence:{
+      validator:'semantic-contract-v2',
+      generator_profile:textProfile,
+      source_task:source.question,
+      source_answer:source.options[source.correct_index],
+      source_explanation:source.explanation
+     }
     };
    });
    if(items.length!==QUESTION_COUNT)throw new Error(`bad count ${outcome.code}/i${indicatorIndex}/m${modelNo}`);

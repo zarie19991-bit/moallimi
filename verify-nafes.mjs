@@ -18,6 +18,7 @@ for(const subject of subjects){
     for(let indicatorIndex=1;indicatorIndex<=outcome.indicators.length;indicatorIndex++){
       indicators++;
       const ids=new Set();
+      const stems=new Set();
       for(let modelNo=1;modelNo<=MODEL_COUNT;modelNo++){
         const questions=generateExam({
           subject:subject.key,
@@ -33,11 +34,16 @@ for(const subject of subjects){
         for(const question of questions){
           if(ids.has(question.id))failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}: duplicate id`);
           ids.add(question.id);
+          if(subject.key!=='reading'){
+            if(stems.has(question.question))failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}: duplicate stem`);
+            stems.add(question.question);
+          }
           if(question.options.length!==4)failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}/${modelNo}: options`);
           if(new Set(question.options).size!==4)failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}/${modelNo}: duplicate options`);
           if(question.correctIndex<0||question.correctIndex>3)failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}/${modelNo}: correct index`);
         }
       }
+      if(subject.key!=='reading'&&stems.size!==MODEL_COUNT*QUESTION_COUNT)failures.push(`${subject.key}/${outcome.code}/${indicatorIndex}: distinct stems ${stems.size}/${MODEL_COUNT*QUESTION_COUNT}`);
     }
   }
 }

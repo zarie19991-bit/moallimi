@@ -47,6 +47,9 @@ async function verify(job) {
       if (body.model_count !== MODEL_COUNT) throw new Error(`model count ${body.model_count}`);
       if (body.bank?.approved_count !== QUESTION_COUNT || body.bank?.required_count !== QUESTION_COUNT) throw new Error(`bank count ${JSON.stringify(body.bank)}`);
       if (Array.isArray(body.bank?.issues) && body.bank.issues.length) throw new Error(`bank issues ${body.bank.issues.join(',')}`);
+      if (body.indicator_bank?.approved_count !== MODEL_COUNT * QUESTION_COUNT || body.indicator_bank?.required_count !== MODEL_COUNT * QUESTION_COUNT) throw new Error(`indicator bank count ${JSON.stringify(body.indicator_bank)}`);
+      if (body.indicator_bank?.distinct_questions !== MODEL_COUNT * QUESTION_COUNT) throw new Error(`indicator distinct count ${JSON.stringify(body.indicator_bank)}`);
+      if (Array.isArray(body.indicator_bank?.issues) && body.indicator_bank.issues.length) throw new Error(`indicator bank issues ${body.indicator_bank.issues.join(',')}`);
       if ((body.settings?.question_count || 0) !== QUESTION_COUNT) throw new Error(`settings count ${body.settings?.question_count}`);
       return;
     } catch (error) {

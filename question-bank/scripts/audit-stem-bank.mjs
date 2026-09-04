@@ -15,7 +15,7 @@ const sourceFile=subject==='math'?'nafes-math.js':'nafes-science.js';
 const globalName=subject==='math'?'NAFES_MATH':'NAFES_SCIENCE';
 const sandbox={window:{}};vm.createContext(sandbox);vm.runInContext(fs.readFileSync(path.join(root,sourceFile),'utf8'),sandbox);
 const data=sandbox.window[globalName];
-const errors=[],modelKeys=new Set(),indicatorKeys=new Set();
+const errors=[],modelKeys=new Set(),indicatorKeys=new Set(),stemsByIndicator=new Map();
 const expected=new Map();
 for(const outcome of data.outcomes)outcome.indicators.forEach((text,i)=>expected.set(`${outcome.code}|${i+1}`,{text,profile:classify(subject,text),focus:`${subject}:${outcome.code}:i${i+1}`}));
 if(subject==='science'){
@@ -42,11 +42,14 @@ for(const file of files){
   if(doc.measurement_focus!==exp.focus)errors.push(`${file}: focus mismatch`);
  }
  if(modelKeys.has(modelKey))errors.push(`${file}: duplicate model`);modelKeys.add(modelKey);indicatorKeys.add(indicatorKey);
+ const indicatorStems=stemsByIndicator.get(indicatorKey)||new Set();
+ stemsByIndicator.set(indicatorKey,indicatorStems);
  if(doc.questions.length!==15)errors.push(`${file}: question count`);
  const answers=[0,0,0,0],levels=new Set(),positions=[],modelStems=new Set();
  for(const q of doc.questions){
   questions++;positions.push(q.question_no);levels.add(q.cognitive_level);
   if(modelStems.has(q.question_text))errors.push(`${file} q${q.question_no}: repeated stem inside model`);modelStems.add(q.question_text);
+  if(indicatorStems.has(q.question_text))errors.push(`${file} q${q.question_no}: repeated stem across models`);indicatorStems.add(q.question_text);
   if(q.measurement_focus!==exp?.focus)errors.push(`${file} q${q.question_no}: focus`);
   if(q.options.length!==4||new Set(q.options).size!==4)errors.push(`${file} q${q.question_no}: options`);
   if(!Number.isInteger(q.correct_index)||q.correct_index<0||q.correct_index>3)errors.push(`${file} q${q.question_no}: key`);else answers[q.correct_index]++;
@@ -58,7 +61,8 @@ for(const file of files){
   const expectedDifficulty=expectedLevel==='knowledge'?'easy':expectedLevel==='application'?'medium':'hard';
   if(q.cognitive_level!==expectedLevel||q.difficulty!==expectedDifficulty)errors.push(`${file} q${q.question_no}: cognitive level`);
   if(expectedLevel==='knowledge'&&/أي قاعدة أو حقيقة أساسية|القاعدة المناسبة لبدء حل/.test(q.question_text))errors.push(`${file} q${q.question_no}: generic knowledge task`);
-  if(expectedLevel==='application'&&!/(تقرير|تجربة|ملاحظة|نتائج|نتيجة|قرار|موقف|بيانات|قياس|نموذج|خطة|مشروع|نشاط|تصميم|عينة|مخطط|درجات|وعاء|لعبة|نمط|ارتفاع|متجر|معدل الإنجاز|كمية مطلوبة|تفسيرات|تفسير|مراجعة|رُوجعت|تطبيق|فريق)/.test(q.question_text))errors.push(`${file} q${q.question_no}: application task`);
+  if(/^(ما الإجابة الدقيقة عن المهمة الآتية|حدّد الخيار الذي يحقق المطلوب في السؤال الآتي|أي تحليل يربط المعطيات بالنتيجة الصحيحة|ما الخيار الذي يجمع النتيجة الدقيقة وتبريرها)/.test(q.question_text))errors.push(`${file} q${q.question_no}: legacy wrapper`);
+  if(expectedLevel==='application'&&!/(تقرير|تجربة|ملاحظة|نتائج|نتيجة|قرار|موقف|بيانات|قياس|نموذج|خطة|مشروع|نشاط|تصميم|عينة|مخطط|درجات|وعاء|لعبة|نمط|ارتفاع|متجر|معدل الإنجاز|كمية مطلوبة|تفسيرات|تفسير|مراجعة|رُوجعت|تطبيق|فريق|طبّق|استخدم|راجع|تحقق|قارن|حوّل|اختار)/.test(q.question_text))errors.push(`${file} q${q.question_no}: application task`);
   if(expectedLevel==='reasoning'&&!/(تحليل|تبرير|تعليل|تفسير|تصحيح|يصحح|مدعومة|المعطيات)/.test(q.question_text))errors.push(`${file} q${q.question_no}: reasoning task`);
   if(expectedLevel==='reasoning'&&q.options.some(x=>!/(التبرير|لأن|بسبب)/.test(x)))errors.push(`${file} q${q.question_no}: reasoning without justification`);
   if(/لأن يمكن|يتصل بـ«[^»]+»، في موقف علمي يتصل/.test(display))errors.push(`${file} q${q.question_no}: rhetorical quality`);
@@ -73,8 +77,9 @@ for(const file of files){
  if(answers.join(',')!=='4,4,4,3')errors.push(`${file}: answer distribution ${answers.join(',')}`);
  if(!['knowledge','application','reasoning'].every(x=>levels.has(x)))errors.push(`${file}: levels`);
 }
+for(const[key,stems]of stemsByIndicator)if(stems.size!==60)errors.push(`${key}: distinct stems ${stems.size}/60`);
 if(indicatorKeys.size!==expectedTotals.indicators)errors.push(`indicators ${indicatorKeys.size}/${expectedTotals.indicators}`);
 if(files.length!==expectedTotals.models)errors.push(`models ${files.length}/${expectedTotals.models}`);
 if(questions!==expectedTotals.questions)errors.push(`questions ${questions}/${expectedTotals.questions}`);
 if(errors.length){console.error(errors.slice(0,200).join('\n'));console.error(`errors=${errors.length}`);process.exit(1);}
-console.log(JSON.stringify({subject,indicators:indicatorKeys.size,models:files.length,questions,wrong_indicator_links:0,wrong_measurement_profiles:0,incomplete_models:0,duplicate_stems_within_model:0,distinct_stems_per_model:15,cognitive_distribution:'3-7-5',answer_rule:'4-4-4-3',levels:['knowledge','application','reasoning']},null,2));
+console.log(JSON.stringify({subject,indicators:indicatorKeys.size,models:files.length,questions,wrong_indicator_links:0,wrong_measurement_profiles:0,incomplete_models:0,duplicate_stems_within_model:0,duplicate_stems_across_models:0,distinct_stems_per_model:15,distinct_stems_per_indicator:60,cognitive_distribution:'3-7-5',answer_rule:'4-4-4-3',levels:['knowledge','application','reasoning']},null,2));

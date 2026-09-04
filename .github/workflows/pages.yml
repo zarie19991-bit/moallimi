@@ -27,16 +27,22 @@ jobs:
           node --check app.js
           node --check tests.js
           node --check exam.js
+          node --check create.js
+          node --check simulation.js
           test -f exam.html
+          test -f create.html
+          test -f simulation.html
           test -f tests.css
           test -f exam.css
           test -f QUESTION_BANK.md
           test -f supabase/question-bank-schema.sql
+          test -f supabase/simulation-schema.sql
           test -f supabase/functions/nafes-exam/index.ts
           test -f question-bank/scripts/build-reading-bank.mjs
           test -f question-bank/scripts/build-stem-bank.mjs
           test -f question-bank/scripts/audit-reading-bank.mjs
           test -f question-bank/scripts/audit-stem-bank.mjs
+          test -f question-bank/scripts/audit-semantic-alignment.mjs
           test -f question-bank/scripts/verify-live-bank.mjs
           node question-bank/scripts/build-reading-bank.mjs
           node question-bank/scripts/audit-reading-bank.mjs
@@ -44,11 +50,14 @@ jobs:
           node question-bank/scripts/audit-stem-bank.mjs math
           node question-bank/scripts/build-stem-bank.mjs science
           node question-bank/scripts/audit-stem-bank.mjs science
+          node question-bank/scripts/audit-semantic-alignment.mjs
           node verify-nafes.mjs
           grep -q 'reviewed_question_bank' supabase/functions/nafes-exam/index.ts
           grep -q 'blocked_indicator_mismatch' supabase/functions/nafes-exam/index.ts
           grep -q 'generic_task' supabase/functions/nafes-exam/index.ts
           grep -q 'language_quality' supabase/functions/nafes-exam/index.ts
+          grep -q 'duplicate_across_models' supabase/functions/nafes-exam/index.ts
+          grep -q 'simulation_start' supabase/functions/nafes-exam/index.ts
           node --input-type=module <<'NODE'
           import {createRequire} from 'module';
           const require=createRequire(import.meta.url);

@@ -6,7 +6,10 @@ alter table public.nafes_question_bank
   add column if not exists is_active boolean not null default true,
   add column if not exists reviewed_at timestamptz,
   add column if not exists reviewer_note text,
-  add column if not exists measurement_focus text;
+  add column if not exists measurement_focus text,
+  add column if not exists alignment_profile text,
+  add column if not exists alignment_verified boolean not null default false,
+  add column if not exists alignment_evidence jsonb;
 
 alter table public.nafes_question_bank
   drop constraint if exists nafes_question_bank_difficulty_check;
@@ -87,6 +90,12 @@ comment on column public.nafes_question_bank.reviewer_note is
   'ملاحظات التحكيم اللغوي والقياسي قبل الاعتماد.';
 comment on column public.nafes_question_bank.measurement_focus is
   'مفتاح قياس حتمي يربط السؤال بالمادة وناتج التعلم ورقم المؤشر.';
+comment on column public.nafes_question_bank.alignment_profile is
+  'عقد دلالي فريد يجمع مفتاح المؤشر مع ملف المهمة التي يقيسها السؤال.';
+comment on column public.nafes_question_bank.alignment_verified is
+  'لا تكون صحيحة إلا بعد اجتياز السؤال تدقيق المطابقة الدلالية الآلي.';
+comment on column public.nafes_question_bank.alignment_evidence is
+  'دليل المطابقة: المهمة الأصلية والإجابة والتفسير ونسخة المدقق.';
 
 do $$
 begin
