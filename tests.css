@@ -64,3 +64,4 @@
 .guide-grid .guide-warning{background:#fffaf0;border-color:#eadbb4}
 .guide-grid .guide-warning b{color:#836523}
 @media(max-width:760px){.guide-grid{grid-template-columns:1fr}}
+.model-management{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #dce5e0;font-size:11px}.model-management a{color:#145d54;text-decoration:none}.model-management a:hover{text-decoration:underline}.qr-actions{flex-wrap:wrap}.qr-card{max-height:95vh;overflow:auto}#qrBox canvas{max-width:100%;height:auto!important}

@@ -2,6 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 import { REVIEW_VERSION, hasCurrentReview, inspectReviewedBank, itemContentKey, reviewedImage, publicReviewedQuestions } from "./reviewed-bank.ts";
 
+import { handleAssessments } from "./assessments.ts";
+
 const MODEL_COUNT = 2;
 const QUESTION_COUNT = 15;
 const GRADE_KEY = "middle_3";
@@ -12,7 +14,7 @@ const READING_FOCUS: Record<string, string[]> = {
 };
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-teacher-key",
   "Access-Control-Allow-Methods": "POST,OPTIONS",
   "Content-Type": "application/json; charset=utf-8",
 };
@@ -70,7 +72,8 @@ function examContentKey(items: Record<string, unknown>[]) {
 function grade(rendered: Record<string, unknown>[], answers: Record<string, unknown>) {
   let score = 0;
   for (const q of rendered || []) {
-    if (Number(answers?.[String(q.id)]) === Number(q.correctIndex)) score++;
+    const answer = answers?.[String(q.id)];
+    if (typeof answer === "number" && Number.isInteger(answer) && answer >= 0 && answer === Number(q.correctIndex)) score++;
   }
   const total = (rendered || []).length;
   const percent = total ? Math.round(score * 10000 / total) / 100 : 0;
@@ -430,7 +433,7 @@ async function loadSimulationPool(subject: string, seed: number) {
 }
 
 function shuffleQuestionOptions(question: Record<string, unknown>, random: () => number) {
-  const options = (question.options as unknown[]).map((text, index) => ({ text: String(text), correct: index === Number(question.correct_index) }));
+  const options = (question.options as unknown[]).map((text, index) => ({ text: String(text), correct: index === Number(question.correctIndex ?? question.correct_index) }));
   const mixed = shuffled(options, random);
   return { ...question, options: mixed.map((item) => item.text), correctIndex: mixed.findIndex((item) => item.correct) };
 }
@@ -479,6 +482,8 @@ function selectSimulationQuestions(pool: Record<string, unknown>[], section: Sim
     cognitive_level: row.cognitive_level,
     image: reviewedImage(row),
     measurement_focus: row.measurement_focus,
+    subject: row.subject_key, outcome: row.outcome_code, indicator: row.indicator_index,
+    indicator_key: `${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`, indicator_text: row.indicator_text,
   }));
   if (config.shuffle_options) rendered = rendered.map((q) => shuffleQuestionOptions(q, random));
   if (config.shuffle_questions && section.subject !== "reading") rendered = shuffled(rendered, random);
@@ -570,7 +575,9 @@ async function handleSimulationAction(body: Record<string, unknown>) {
     return json({ attempt_id: attempt.id, submitted: true, answers: attempt.answers || {}, sections: publicSimulationSections(attempt.rendered_sections || []), ...(storedConfig.show_result ? result : { result_hidden: true }), review: simulationReview(attempt.rendered_sections || [], storedConfig) });
   }
 
-  const incomingAnswers = body.answers && typeof body.answers === "object" ? body.answers as Record<string, unknown> : {};
+  const expiredNow = Date.now() > new Date(attempt.expires_at).getTime();
+  const incomingAnswers = expiredNow ? (attempt.answers || {}) : (body.answers && typeof body.answers === "object" ? body.answers as Record<string, unknown> : {});
+  if (action === "simulation_save" && expiredNow) return json({ error: "انتهى وقت الاختبار؛ سُلّمت آخر إجابات محفوظة عند الإنهاء." }, 403);
   if (action === "simulation_save") {
     const currentSection = Math.min(storedConfig.sections.length - 1, Math.max(0, Math.trunc(Number(body.current_section) || 0)));
     const { error } = await db.from("nafes_simulation_attempts").update({ answers: incomingAnswers, current_section: currentSection }).eq("id", attempt.id);
@@ -594,6 +601,7 @@ Deno.serve(async (req: Request) => {
   try {
     const b = await req.json();
     const action = String(b.action || "");
+    if (action.startsWith("teacher_") || action.startsWith("assessment_")) return json(await handleAssessments(db, req, b));
     if (action.startsWith("simulation_")) return await handleSimulationAction(b);
     const subject = String(b.subject || "");
     const outcome = String(b.outcome || "");
@@ -671,49 +679,7 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (existingError) throw existingError;
       if (existing) {
-        const savedIds = Array.isArray(existing.question_ids)
-          ? existing.question_ids.map(String)
-          : [];
-        const reviewedIds = reviewedRendered?.map((q) => String(q.id)) || [];
-        const staleContent = !!reviewedRendered && (
-          savedIds.length !== reviewedIds.length ||
-          savedIds.some((id, i) => id !== reviewedIds[i]) ||
-          examContentKey(existing.rendered_questions || []) !==
-            examContentKey(reviewedRendered)
-        );
-
-        // A reviewed bank must replace any older generated attempt. Otherwise the
-        // student keeps seeing the pre-review text even after the bank is fixed.
-        if (staleContent && reviewedRendered && !existing.submitted_at) {
-          const started = new Date().toISOString();
-          const expires = new Date(
-            Date.now() + (Number(s.duration_minutes) || 20) * 60000,
-          ).toISOString();
-          const { error: refreshError } = await db.from("nafes_exam_attempts")
-            .update({
-              question_ids: reviewedIds,
-              rendered_questions: reviewedRendered,
-              answers: {},
-              started_at: started,
-              expires_at: expires,
-              submitted_at: null,
-              score: null,
-              percent: null,
-            })
-            .eq("id", existing.id);
-          if (refreshError) throw refreshError;
-          return json({
-            attempt_id: existing.id,
-            resumed: false,
-            refreshed: true,
-            submitted: false,
-            expired: false,
-            expires_at: expires,
-            answers: {},
-            questions: publicQuestions(reviewedRendered),
-          });
-        }
-
+        // Preserve the exact paper and answers from the moment this attempt began.
         const expired = Date.now() > new Date(existing.expires_at).getTime();
         if (expired && !existing.submitted_at) {
           const g = grade(existing.rendered_questions || [], existing.answers || {});
@@ -801,7 +767,7 @@ Deno.serve(async (req: Request) => {
     if (!a) return json({ error: "تعذر التحقق من المحاولة." }, 404);
     if (a.submitted_at) return json({ error: "تم تسليم هذه المحاولة سابقًا.", score: a.score, percent: a.percent }, 409);
 
-    const expiredNow = Date.now() > new Date(a.expires_at).getTime();
+    const expiredNow = Date.now() > new Date(a.expires_at).getTime() || (!!s.closes_at && Date.now() > new Date(s.closes_at).getTime());
     if (expiredNow && action !== "finish") return json({ error: "انتهى وقت الاختبار." }, 403);
 
     if (action === "save") {
@@ -829,6 +795,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: "إجراء غير معروف." }, 400);
   } catch (error) {
     console.error(error);
+    if (error && typeof error === "object" && "status" in error) return json({error:String((error as Error).message)}, Number((error as {status:number}).status));
     return json({ error: "حدث خطأ أثناء تشغيل الاختبار." }, 500);
   }
 });

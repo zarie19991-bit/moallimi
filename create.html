@@ -2,19 +2,21 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f514c">
-<title>إنشاء محاكاة نافس | معلّمي</title>
-<link rel="stylesheet" href="create.css?v=20260903-1">
+<title>إنشاء اختبار نافس | معلّمي</title>
+<link rel="stylesheet" href="create.css?v=20260907-2">
 </head>
 <body>
-<header class="top"><a href="./" class="brand"><span>م</span><div><b>معلّمي</b><small>منشئ محاكاة نافس</small></div></a><div class="quality"><b>بنك محكّم</b><span>30 سؤالًا لكل مؤشر</span></div></header>
+<header class="top"><a href="./" class="brand"><span>م</span><div><b>معلّمي</b><small>إنشاء اختبارات نافس</small></div></a><div class="quality"><a href="analysis.html">تحليل نتائج الطلاب</a><span>اختبارات المؤشرات والمحاكاة</span></div></header>
 <main class="builder-shell">
- <section class="intro-card"><span>الصف الثالث المتوسط</span><h1>أنشئ اختبارك بالطريقة التي تناسب فصلك</h1><p>اختر مجالًا واحدًا أو محاكاة كاملة، ثم اضبط الأقسام وهوية الطالب ووقت الاختبار.</p></section>
- <form id="builder" class="builder">
+ <section class="intro-card"><span>الصف الثالث المتوسط</span><h1>أنشئ اختبارك بالطريقة التي تناسب فصلك</h1><p>اختر مؤشرات بعينها أو نموذج محاكاة، وعاين الأسئلة قبل نشر رابط الطالب.</p></section>
+ <p id="catalogState" class="step" role="status"></p><form id="builder" class="builder">
   <section class="step"><header><span>١</span><div><h2>نوع الاختبار</h2><p>يمكنك إنشاء اختبار مادة واحدة أو محاكاة متتابعة للأقسام الثلاثة.</p></div></header>
-   <div class="choice-grid">
+   <label class="field"><span>اسم الاختبار</span><input id="testTitle" required value="اختبار نافس" maxlength="160"></label><div class="choice-grid">
     <label class="choice"><input type="radio" name="testType" value="single"><span><b>مجال واحد</b><small>قسم واحد بوقت مستقل</small></span></label>
     <label class="choice"><input type="radio" name="testType" value="full" checked><span><b>محاكاة كاملة</b><small>أقسام متتابعة مع استراحة بينها</small></span></label>
+    <label class="choice"><input type="radio" name="testType" value="custom"><span><b>اختبار مؤشرات مخصص</b><small>مؤشر واحد أو عدة مؤشرات تختارها</small></span></label>
    </div>
+   <div id="customMode" class="hidden"><label class="field"><span>توزيع الأسئلة</span><select id="countMode"><option value="total">عدد كلي لكل مادة، يوزع على المؤشرات المختارة</option><option value="per_indicator">عدد محدد لكل مؤشر</option></select></label><label class="field"><span>النموذج في اختبار المؤشر الواحد</span><select id="fixedModel"><option value="">سحب متنوع من بنك المؤشر</option><option value="1">الاختبار الأول — ١٥ سؤالًا</option><option value="2">الاختبار الثاني — ١٥ سؤالًا</option></select></label></div>
    <label class="field"><span>الصف</span><select id="grade"><option value="middle_3">الصف الثالث المتوسط</option></select></label>
    <div class="section-table" aria-label="أقسام المحاكاة">
     <div class="section-row head"><b>القسم</b><b>الأسئلة</b><b>الدقائق</b><b>تفعيل</b></div>
@@ -22,6 +24,7 @@
     <div class="section-row" data-subject="science"><div><strong>العلوم</strong><small>159 مؤشرًا</small></div><input class="count" type="number" min="5" max="40" value="25" aria-label="عدد أسئلة العلوم"><input class="minutes" type="number" min="5" max="120" value="45" aria-label="دقائق العلوم"><label class="check"><input class="enabled" type="checkbox" checked><span></span></label></div>
     <div class="section-row" data-subject="reading"><div><strong>القراءة</strong><small>16 مؤشرًا</small></div><input class="count" type="number" min="5" max="40" value="20" aria-label="عدد أسئلة القراءة"><input class="minutes" type="number" min="5" max="120" value="45" aria-label="دقائق القراءة"><label class="check"><input class="enabled" type="checkbox" checked><span></span></label></div>
    </div>
+   <div id="selectionPanels"></div>
   </section>
 
   <section class="step"><header><span>٢</span><div><h2>الفصل والطلاب</h2><p>هذه البيانات تظهر في صفحة بدء الاختبار وتساعد على تنظيم النتائج.</p></div></header>
@@ -32,7 +35,7 @@
     <label class="field"><span>اسم قائد/قائدة المدرسة</span><input id="principalName" maxlength="120" placeholder="اختياري"></label>
    </div>
    <fieldset class="identity"><legend>طريقة تحديد هوية الطالب</legend>
-    <label><input type="radio" name="identity" value="list"><span><b>اختيار الاسم من القائمة</b><small>يعرض الأسماء المضافة أدناه</small></span></label>
+    <label><input type="radio" name="identity" value="list"><span><b>مطابقة الاسم مع كشف الفصل</b><small>يكتب الطالب اسمه ويطابقه النظام مع الكشف</small></span></label>
     <label><input type="radio" name="identity" value="manual" checked><span><b>كتابة الاسم</b><small>يكتب الطالب اسمه ورقمه المميز</small></span></label>
     <label><input type="radio" name="identity" value="email"><span><b>الاسم + بريد مدرستي</b><small>يتحقق من صيغة البريد قبل البدء</small></span></label>
    </fieldset>
@@ -50,18 +53,30 @@
     <label><input id="shuffleQuestions" type="checkbox" checked><span>ترتيب عشوائي للأسئلة لكل طالب</span></label>
     <label><input id="shuffleOptions" type="checkbox" checked><span>خلط ترتيب الخيارات لكل طالب</span></label>
     <label><input id="allowCopy" type="checkbox"><span>السماح بنسخ نص الأسئلة</span></label>
+<label><input id="showIndicatorResult" type="checkbox" checked><span>عرض مستوى المؤشرات للطالب بعد التسليم</span></label>
+<label><input id="showCorrectCount" type="checkbox" checked><span>عرض عدد الإجابات الصحيحة بعد التسليم</span></label>
+<label><input id="disableRightClick" type="checkbox" checked><span>تعطيل الزر الأيمن أثناء الاختبار</span></label>
+<label><input id="disablePrint" type="checkbox" checked><span>تعطيل الطباعة أثناء الاختبار</span></label>
+<label><input id="disableShortcuts" type="checkbox" checked><span>تعطيل اختصارات النسخ والحفظ</span></label>
+<label><input id="allowBack" type="checkbox" checked><span>السماح بالرجوع إلى الأسئلة السابقة</span></label>
+<label><input id="onePerPage" type="checkbox" checked><span>عرض سؤال واحد في كل صفحة</span></label>
+<label><input id="lockSession" type="checkbox" checked><span>قصر المحاولة على تبويب أو جهاز واحد قدر الإمكان</span></label>
+<label><input id="logVisibility" type="checkbox" checked><span>تسجيل مغادرة الصفحة وتغيير التبويب</span></label>
+<label><input id="watermark" type="checkbox" checked><span>علامة مائية متحركة باسم الطالب ومعرف المحاولة والوقت</span></label>
    </div>
    <div class="fields-grid compact">
     <label class="field"><span>عدد المحاولات</span><select id="attempts"><option value="1">محاولة واحدة</option><option value="2">محاولتان</option><option value="3">ثلاث محاولات</option></select></label>
+    <label class="field"><span>فتح الاختبار تلقائيًا</span><input id="opensAt" type="datetime-local"></label>
     <label class="field"><span>إغلاق الاختبار تلقائيًا</span><input id="closesAt" type="datetime-local"></label>
     <label class="field"><span>الاستراحة بين الأقسام (دقائق)</span><input id="breakMinutes" type="number" min="0" max="30" value="2"></label>
    </div>
   </section>
   <div id="formError" class="form-error"></div>
-  <button class="create-button" type="submit">إنشاء الاختبار</button>
+  <button class="create-button" type="submit">تكوين الاختبار ومعاينة الأسئلة</button>
  </form>
- <section id="created" class="created hidden"><span class="success">تم إنشاء الرابط</span><h2>محاكاة نافس جاهزة للإرسال</h2><div id="createdSummary" class="created-summary"></div><div class="link-row"><input id="createdLink" readonly><button id="copyLink" type="button">نسخ الرابط</button></div><div id="qr"></div><a id="openLink" target="_blank">فتح الاختبار</a></section>
+<section id="previewPanel" class="step hidden"><h2>معاينة الاختبار قبل النشر</h2><p>تبديل السؤال يسحب بديلًا من المؤشر نفسه. لا يصبح الرابط متاحًا حتى تنشر الاختبار.</p><div id="previewMeta"></div><div id="previewQuestions"></div><div class="preview-actions"><button id="regenerate" type="button">إعادة تكوين الاختبار</button><button id="publish" type="button">نشر الاختبار وإنشاء رابط الطالب</button></div><p id="previewError" role="alert"></p></section>
+ <section id="created" class="created hidden"><span class="success">تم إنشاء الرابط</span><h2>الاختبار جاهز للإرسال</h2><div id="createdSummary" class="created-summary"></div><div class="link-row"><input id="createdLink" readonly><button id="copyLink" type="button">نسخ الرابط</button></div><div id="qr"></div><div class="preview-actions"><button id="downloadQr" type="button">تحميل QR</button><button id="printQr" type="button">طباعة QR</button><a id="analysisLink" href="analysis.html">تحليل نتائج الاختبار</a></div><a id="openLink" target="_blank">فتح الاختبار</a></section>
 </main>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="create.js?v=20260903-1"></script>
+<script src="nafes-reading.js"></script><script src="nafes-math.js"></script><script src="nafes-science.js"></script><script src="teacher-access.js?v=20260907-2"></script><script src="qr.js?v=20260907-2"></script><script src="question-media.js?v=review-v4"></script>
+<script src="create.js?v=20260907-2"></script>
 </body></html>
