@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
+import { REVIEW_VERSION, hasCurrentReview, inspectReviewedBank, itemContentKey, reviewedImage, publicReviewedQuestions } from "./reviewed-bank.ts";
 
 const MODEL_COUNT = 2;
 const QUESTION_COUNT = 15;
@@ -49,12 +50,7 @@ type BankRow = {
 };
 
 function publicQuestions(items: Record<string, unknown>[]) {
-  return items.map((q) => ({
-    id: q.id,
-    context: q.context || null,
-    question: q.question,
-    options: q.options,
-  }));
+  return publicReviewedQuestions(items);
 }
 
 function examContentKey(items: Record<string, unknown>[]) {
@@ -67,6 +63,7 @@ function examContentKey(items: Record<string, unknown>[]) {
     explanation: String(q.explanation || ""),
     difficulty: String(q.difficulty || ""),
     cognitive_level: String(q.cognitive_level || ""),
+    image: q.image || null,
   })));
 }
 
@@ -123,6 +120,9 @@ async function loadIndicatorBank(subject: string, outcome: string, indicator: nu
 }
 
 function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string, subject: string) {
+  if (rows.some(q => q.alignment_evidence?.validator === REVIEW_VERSION)) {
+    return inspectReviewedBank(rows, expectedIndicatorText, expectedFocus, subject);
+  }
   const issues: string[] = [];
   if (rows.length !== QUESTION_COUNT) issues.push("count");
 
@@ -224,7 +224,7 @@ function inspectIndicatorBank(rows: BankRow[], expectedIndicatorText: string, ex
     const audit = inspectBank(modelRows, expectedIndicatorText, expectedFocus, subject);
     if (!audit.ready) issues.push(...audit.issues.map((issue) => `model_${model}_${issue}`));
     for (const q of modelRows) {
-      const key = subject === "reading"
+      const key = q.alignment_evidence?.validator === REVIEW_VERSION ? itemContentKey(q) : subject === "reading"
         ? `${q.context_text || ""}\u001f${q.question_text}`
         : q.question_text;
       if (contentKeys.has(key)) issues.push("duplicate_across_models");
@@ -251,6 +251,7 @@ function renderBank(rows: BankRow[]) {
     explanation: q.explanation || null,
     difficulty: q.difficulty,
     cognitive_level: q.cognitive_level,
+    image: reviewedImage(q),
   }));
 }
 
@@ -417,7 +418,7 @@ async function loadSimulationPool(subject: string, seed: number) {
   if (error) throw error;
   return (data || []).filter((q: Record<string, unknown>) => {
     const options = Array.isArray(q.options) ? q.options.map(String) : [];
-    const semanticallyVerified = subject === "reading" || (
+    const semanticallyVerified = (q.alignment_evidence as Record<string, unknown> | null)?.validator === REVIEW_VERSION ? hasCurrentReview(q) : subject === "reading" || (
       q.alignment_verified === true &&
       String(q.alignment_profile || "").startsWith(`${String(q.measurement_focus || "")}:`) &&
       String((q.alignment_evidence as Record<string, unknown> | null)?.validator || "") === "semantic-contract-v3" &&
@@ -476,6 +477,7 @@ function selectSimulationQuestions(pool: Record<string, unknown>[], section: Sim
     explanation: row.explanation || null,
     difficulty: row.difficulty,
     cognitive_level: row.cognitive_level,
+    image: reviewedImage(row),
     measurement_focus: row.measurement_focus,
   }));
   if (config.shuffle_options) rendered = rendered.map((q) => shuffleQuestionOptions(q, random));
@@ -682,7 +684,7 @@ Deno.serve(async (req: Request) => {
 
         // A reviewed bank must replace any older generated attempt. Otherwise the
         // student keeps seeing the pre-review text even after the bank is fixed.
-        if (staleContent && reviewedRendered) {
+        if (staleContent && reviewedRendered && !existing.submitted_at) {
           const started = new Date().toISOString();
           const expires = new Date(
             Date.now() + (Number(s.duration_minutes) || 20) * 60000,
