@@ -125,13 +125,13 @@
   function followupFor(entries) {
     const history = entries.slice().sort((a, b) => compareTime(a.attempt, b.attempt));
     if (!history.length) return { state: 'unmeasured', streak: 0, history: [], latest: null };
-    let streak = 0, hadRepeated = false;
+    let streak = 0, hadRepeated = false, lowCount = 0;
     for (const entry of history) {
-      if (entry.percent < THRESHOLDS.near) { streak++; if (streak >= 2) hadRepeated = true; }
+      if (entry.percent < THRESHOLDS.near) { streak++; lowCount++; if (lowCount >= 2) hadRepeated = true; }
       else streak = 0;
     }
     const latest = history[history.length - 1];
-    return { state: streak >= 2 ? 'repeated' : streak === 1 ? 'first_low' : hadRepeated ? 'resolved' : 'clear', streak, history, latest };
+    return { state: streak > 0 && lowCount >= 2 ? 'repeated' : streak === 1 ? 'first_low' : hadRepeated ? 'resolved' : 'clear', streak, history, latest };
   }
   function latestByStudentTest(attempts) {
     const map = new Map();
