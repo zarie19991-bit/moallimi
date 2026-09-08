@@ -52,5 +52,467 @@ window.closeModels=()=>{const m=document.getElementById('testModal');if(m)m.clas
 window.copyTestLink=async(s,o,i,m)=>{try{const d=await NafesQR.resolveLegacy(s,o,i,m);try{await navigator.clipboard.writeText(d.url);toast('تم نسخ رابط الاختبار')}catch(_){prompt('انسخ الرابط:',d.url)}}catch(e){toast(e.message)}};
 window.openQr=async(s,o,i,m)=>{let q=document.getElementById('qrLayer');if(!q){q=document.createElement('div');q.id='qrLayer';q.className='modal-layer hidden';q.innerHTML='<div class="modal-card qr-card"><button class="modal-close" type="button">×</button><div class="qr-title"></div><div id="qrBox"></div><div class="qr-code"></div><div class="qr-actions"></div></div>';document.body.appendChild(q);q.addEventListener('click',e=>{if(e.target===q||e.target.closest('.modal-close'))q.classList.add('hidden')})}q.classList.remove('hidden');q.querySelector('.qr-title').textContent='رابط الطالب وباركود الاختبار';q.querySelector('.qr-code').textContent=code(s,o,i,m);q.querySelector('.qr-actions').replaceChildren();const box=q.querySelector('#qrBox');try{NafesQR.clear(box);box.textContent='جارٍ التحقق من الاختبار…';const d=await NafesQR.resolveLegacy(s,o,i,m);await NafesQR.render(box,d.url);const actions=q.querySelector('.qr-actions');const a=document.createElement('a');a.href=d.url;a.target='_blank';a.rel='noopener';a.textContent='فتح الاختبار';actions.append(a);for(const[label,fn]of [['نسخ الرابط',()=>copyTestLink(s,o,i,m)],['تحميل QR',()=>NafesQR.download(box,'nafes-qr.png')],['طباعة QR',()=>NafesQR.print(box,'اختبار نافس')]]){const b=document.createElement('button');b.textContent=label;b.onclick=fn;actions.append(b)}}catch(e){box.textContent=e.message}};
 function toast(t){let x=document.getElementById('miniToast');if(!x){x=document.createElement('div');x.id='miniToast';x.className='mini-toast';document.body.appendChild(x)}x.textContent=t;x.classList.add('show');setTimeout(()=>x.classList.remove('show'),1800)}
-window.openNafesModels=async(s,o,i)=>{const subj=getSubject(s),out=subj?.outcomes?.find(x=>x.code===o),indicatorText=out?.indicators?.[i-1]||'',guide=indicatorGuide(s,indicatorText);const layer=ensureModal(),body=document.getElementById('testModalBody');layer.classList.remove('hidden');body.innerHTML='<div class="loading-box">جارٍ فحص محرك الاختبارات لهذا المؤشر...</div>';const p=await preview(s,o,i,1);const ready=!!p.ready;body.innerHTML=`<header class="tests-head"><span>نافس · ${esc(subj?.title||s)}</span><h3>${TESTS_PER_INDICATOR} اختباران على المؤشر</h3><p>${esc(indicatorText)}</p><div class="bank-state ${ready?'ready':'building'}"><b>${ready?'الاختبارات جاهزة للتشغيل':'تعذر تجهيز الاختبارات لهذا المؤشر'}</b><span>${ready?`${p.settings?.question_count||15} سؤالًا في كل اختبار · ${p.settings?.duration_minutes||20} دقيقة`:(p.error||'راجع محرك الاختبارات')}</span></div></header><section class="indicator-guide"><div class="guide-title"><span>قبل أن تبدأ</span><h4>شرح المؤشر بطريقة مبسطة</h4></div><div class="guide-grid"><article><b>ماذا يعني؟</b><p>${esc(guide.meaning)}</p></article><article><b>كيف أجيب؟</b><p>${esc(guide.method)}</p></article><article class="guide-warning"><b>انتبه</b><p>${esc(guide.warning)}</p></article></div></section><div class="models-note"><b>الاختباران</b><span>كل اختبار يحتوي على ١٥ سؤالًا تقيس المؤشر نفسه، وتُحفظ نتيجة الطالب لقياس مستوى إتقانه وتحسنه بين الاختبارين.</span></div><div class="models-grid">${Array.from({length:TESTS_PER_INDICATOR},(_,k)=>{const m=k+1,u=url(s,o,i,m),c=code(s,o,i,m);return `<article class="model-card ${ready?'':'locked'}"><div class="model-no">${pad(m)}</div><div class="model-main"><b>اختبار ${pad(m)}</b><small>١٥ سؤالًا · ${c}</small></div><div class="model-actions"><button ${ready?'':'disabled'} onclick="openQr('${s}','${o}',${i},${m})">باركود</button><button ${ready?'':'disabled'} onclick="copyTestLink('${s}','${o}',${i},${m})">نسخ الرابط</button><a class="${ready?'':'disabled'}" href="${ready?u:'#'}" target="_blank">فتح</a></div><div class="model-management"><a href="create.html?s=${s}&o=${o}&i=${i}&m=${m}">الإعدادات المتقدمة وإرسال الاختبار</a><a href="analysis.html?test=${encodeURIComponent(`exam:${s}:${o}:i${i}:m${m}`)}">تحليل نتائج الاختبار</a></div>${ready?'':'<span class="lock-note">غير متاح بسبب خطأ في محرك المؤشر</span>'}</article>`}).join('')}</div>`};
+window.openNafesModels=async(s,o,i)=>{const subj=getSubject(s),out=subj?.outcomes?.find(x=>x.code===o),indicatorText=out?.indicators?.[i-1]||'',guide=indicatorGuide(s,indicatorText);const layer=ensureModal(),body=document.getElementById('testModalBody');layer.classList.remove('hidden');body.innerHTML='<div class="loading-box">جارٍ فحص محرك الاختبارات لهذا المؤشر...</div>';const p=await preview(s,o,i,1);const ready=!!p.ready;body.innerHTML=`<header class="tests-head"><span>نافس · ${esc(subj?.title||s)}</span><h3>${TESTS_PER_INDICATOR} اختباران على المؤشر</h3><p>${esc(indicatorText)}</p><div class="bank-state ${ready?'ready':'building'}"><b>${ready?'الاختبارات جاهزة للتشغيل':'تعذر تجهيز الاختبارات لهذا المؤشر'}</b><span>${ready?`${p.settings?.question_count||15} سؤالًا في كل اختبار · ${p.settings?.duration_minutes||20} دقيقة`:(p.error||'راجع محرك الاختبارات')}</span></div></header><section class="indicator-guide"><div class="guide-title"><span>قبل أن تبدأ</span><h4>شرح المؤشر بطريقة مبسطة</h4></div><div class="guide-grid"><article><b>ماذا يعني؟</b><p>${esc(guide.meaning)}</p></article><article><b>كيف أجيب؟</b><p>${esc(guide.method)}</p></article><article class="guide-warning"><b>انتبه</b><p>${esc(guide.warning)}</p></article></div></section><div class="models-note"><b>الاختباران</b><span>كل اختبار يحتوي على ١٥ سؤالًا تقيس المؤشر نفسه، وتُحفظ نتيجة الطالب لقياس مستوى إتقانه وتحسنه بين الاختبارين.</span></div><div class="models-grid">${Array.from({length:TESTS_PER_INDICATOR},(_,k)=>{const m=k+1,u=url(s,o,i,m),c=code(s,o,i,m);return `<article class="model-card ${ready?'':'locked'}"><div class="model-no">${pad(m)}</div><div class="model-main"><b>اختبار ${pad(m)}</b><small>١٥ سؤالًا · ${c}</small></div><div class="model-actions"><button ${ready?'':'disabled'} onclick="openQr('${s}','${o}',${i},${m})">باركود</button><button ${ready?'':'disabled'} onclick="copyTestLink('${s}','${o}',${i},${m})">نسخ الرابط</button><a class="${ready?'':'disabled'}" href="${ready?u:'#'}" target="_blank">فتح</a></div><div class="model-management"><button type="button" class="btn-adv-settings" onclick="openIndicatorSettings('${s}','${o}',${i},${m})">الإعدادات المتقدمة وإرسال الاختبار</button><a href="analysis.html?test=${encodeURIComponent(`exam:${s}:${o}:i${i}:m${m}`)}">تحليل نتائج الاختبار</a></div>${ready?'':'<span class="lock-note">غير متاح بسبب خطأ في محرك المؤشر</span>'}</article>`}).join('')}</div>`};
+
+function ensureIndicatorSettingsModal(){
+  let el = document.getElementById('indicatorSettingsModal');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'indicatorSettingsModal';
+  el.className = 'modal-layer hidden';
+  el.innerHTML = '<div class="modal-card indicator-settings-modal"><button class="modal-close" type="button" aria-label="إغلاق" id="closeIndSettingsModalBtn">×</button><div id="indSettingsModalBody"></div></div>';
+  document.body.appendChild(el);
+  el.addEventListener('click', e => {
+    if (e.target === el || e.target.closest('#closeIndSettingsModalBtn')) closeIndicatorSettings();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !el.classList.contains('hidden')) closeIndicatorSettings();
+  });
+  return el;
+}
+
+window.closeIndicatorSettings = () => {
+  const m = document.getElementById('indicatorSettingsModal');
+  if (m) m.classList.add('hidden');
+};
+
+window.openIndicatorSettings = async (s, o, i, m = 1) => {
+  if (!window.NafesTeacher?.getKey()) {
+    window.NafesTeacher?.requireKey('أدخل مفتاح المعلم لفتح الإعدادات المتقدمة وتخصيص اختبار المؤشر.');
+    return;
+  }
+
+  const subj = getSubject(s);
+  const out = subj?.outcomes?.find(x => x.code === o);
+  const indicatorText = out?.indicators?.[i - 1] || '';
+  const initialModel = [1, 2].includes(Number(m)) ? Number(m) : 1;
+
+  let draft = {};
+  try { draft = JSON.parse(localStorage.getItem('nafes_builder_draft') || '{}'); } catch (_) {}
+
+  const defaultTitle = `${subj?.title || s} — ${indicatorText} — النموذج ${initialModel}`;
+  const defaultClass = draft.className || 'ثالث متوسط';
+  const defaultSchool = draft.schoolName || '';
+  const defaultTeacher = draft.teacherName || '';
+  const defaultPrincipal = draft.principalName || '';
+
+  const modal = ensureIndicatorSettingsModal();
+  const body = document.getElementById('indSettingsModalBody');
+  modal.classList.remove('hidden');
+
+  body.innerHTML = `
+    <header class="ind-settings-head">
+      <span class="ind-badge">إعدادات متقدمة لمؤشر فردي</span>
+      <h3>تخصيص وإرسال اختبار المؤشر</h3>
+      <p>تحديد خيارات العرض، الحماية، وترتيب الأسئلة لهذا المؤشر فقط، مع إصدار رابط معتمد للطالب.</p>
+      <div class="ind-indicator-summary">
+        <b>المؤشر:</b> <span>${esc(subj?.title || s)} · ${esc(out?.title || o)} · المؤشر ${i}: ${esc(indicatorText)}</span>
+      </div>
+    </header>
+
+    <form id="indSettingsForm" class="ind-form-body">
+      <!-- Section 1: Basic Info -->
+      <section class="ind-card-section">
+        <h4>📋 بيانات الاختبار والفصل</h4>
+        <div class="ind-grid-2">
+          <div class="ind-field">
+            <label for="indTitle">عنوان الاختبار *</label>
+            <input id="indTitle" type="text" required value="${esc(defaultTitle)}" maxlength="160">
+          </div>
+          <div class="ind-field">
+            <label for="indClassName">اسم الفصل / الشعبة *</label>
+            <input id="indClassName" type="text" required value="${esc(defaultClass)}" maxlength="80">
+          </div>
+        </div>
+        <div class="ind-grid-3" style="margin-top: 10px;">
+          <div class="ind-field">
+            <label for="indSchoolName">اسم المدرسة (اختياري)</label>
+            <input id="indSchoolName" type="text" value="${esc(defaultSchool)}" placeholder="مثال: متوسطة الرواد" maxlength="120">
+          </div>
+          <div class="ind-field">
+            <label for="indTeacherName">اسم المعلم (اختياري)</label>
+            <input id="indTeacherName" type="text" value="${esc(defaultTeacher)}" placeholder="اسم معلم المادة" maxlength="120">
+          </div>
+          <div class="ind-field">
+            <label for="indPrincipalName">اسم مدير المدرسة (اختياري)</label>
+            <input id="indPrincipalName" type="text" value="${esc(defaultPrincipal)}" placeholder="اسم مدير المدرسة" maxlength="120">
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Student Identity Verification -->
+      <section class="ind-card-section">
+        <h4>👤 هوية الطالب وتسجيل الدخول المعتمد</h4>
+        <div class="ind-identity-badge-box">
+          <div class="ind-id-icon">🔒</div>
+          <div>
+            <b>نظام الهوية المعتمد (الاسم + آخر ٣ أرقام من الهوية الوطنية):</b>
+            <p>يدخل الطالب اسمه الثلاثي أو الرباعي وآخر ٣ أرقام من هويته الوطنية، وترتبط جميع محاولاته آليًا بملف الطالب الثابت (<code>student_id</code>) في قاعدة البيانات لمنع تكرار الهويات أو إنشاء سجلات عشوائية.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Question Model & Count -->
+      <section class="ind-card-section">
+        <h4>🎯 سحب الأسئلة ونموذج المؤشر</h4>
+        <div class="ind-grid-3">
+          <div class="ind-field">
+            <label for="indModelChoice">اختيار النموذج أو طريقة السحب *</label>
+            <select id="indModelChoice">
+              <option value="1" ${initialModel === 1 ? 'selected' : ''}>النموذج الأول (١٥ سؤالًا مراجعًا)</option>
+              <option value="2" ${initialModel === 2 ? 'selected' : ''}>النموذج الثاني (١٥ سؤالًا مراجعًا)</option>
+              <option value="pool">سحب عشوائي متنوع من بنك أسئلة المؤشر (٣٠ سؤالًا)</option>
+            </select>
+          </div>
+          <div class="ind-field">
+            <label for="indQuestionCount">عدد الأسئلة</label>
+            <select id="indQuestionCount" disabled>
+              <option value="5">٥ أسئلة</option>
+              <option value="10">١٠ أسئلة</option>
+              <option value="15" selected>١٥ سؤالًا</option>
+              <option value="20">٢٠ سؤالًا</option>
+              <option value="25">٢٥ سؤالًا</option>
+              <option value="30">٣٠ سؤالًا (كامل البنك)</option>
+            </select>
+            <small id="indCountNote">النموذج الثابت ١٥ سؤالًا معتمدًا ومراجعًا.</small>
+          </div>
+          <div class="ind-field">
+            <label for="indDuration">مدة الاختبار (بالدقائق) *</label>
+            <input id="indDuration" type="number" min="5" max="60" value="20" required>
+            <small>الوقت الموصى به: ٢٠ دقيقة للاختبار الفردي.</small>
+          </div>
+        </div>
+        ${s === 'math' ? `
+        <div style="margin-top: 12px;">
+          <label class="ind-toggle-label" style="display: inline-flex;">
+            <input id="indCalculator" type="checkbox" checked>
+            <span>السماح باستخدام الآلة الحاسبة المدمجة أثناء الاختبار</span>
+          </label>
+        </div>` : ''}
+      </section>
+
+      <!-- Section 4: Ordering & Navigation -->
+      <section class="ind-card-section">
+        <h4>🔀 خيارات العرض والترتيب</h4>
+        <div class="ind-toggles-grid">
+          <label class="ind-toggle-label">
+            <input id="indShuffleQuestions" type="checkbox" checked>
+            <span>ترتيب عشوائي للأسئلة لكل طالب</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indShuffleOptions" type="checkbox" checked>
+            <span>خلط ترتيب خيارات الإجابة لكل طالب</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indOnePerPage" type="checkbox" checked>
+            <span>عرض سؤال واحد فقط في كل صفحة</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indAllowBack" type="checkbox" checked>
+            <span>السماح بالرجوع للأسئلة السابقة ومراجعتها</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Section 5: Security & Anti-Cheat -->
+      <section class="ind-card-section">
+        <h4>🛡️ إعدادات الحماية ومنع النسخ</h4>
+        <div class="ind-toggles-grid">
+          <label class="ind-toggle-label">
+            <input id="indAllowCopy" type="checkbox">
+            <span>السماح بنسخ نص الأسئلة (غير موصى به)</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indDisableRightClick" type="checkbox" checked>
+            <span>تعطيل الزر الأيمن في الفأرة أثناء الاختبار</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indDisablePrint" type="checkbox" checked>
+            <span>تعطيل الطباعة وأمر حفظ الصفحة</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indDisableShortcuts" type="checkbox" checked>
+            <span>تعطيل اختصارات النسخ والحفظ (Ctrl+C, Ctrl+P)</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indLockSession" type="checkbox" checked>
+            <span>قصر المحاولة على تبويب أو جهاز واحد</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indLogVisibility" type="checkbox" checked>
+            <span>تسجيل مغادرة الصفحة وتغيير التبويب في السجل</span>
+          </label>
+          <label class="ind-toggle-label" style="grid-column: 1 / -1;">
+            <input id="indWatermark" type="checkbox" checked>
+            <span>علامة مائية متحركة باسم الطالب ومعرف المحاولة وتاريخها</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Section 6: Results & Completion -->
+      <section class="ind-card-section">
+        <h4>📊 النتائج والتسليم</h4>
+        <div class="ind-toggles-grid">
+          <label class="ind-toggle-label">
+            <input id="indShowResult" type="checkbox" checked>
+            <span>عرض النتيجة والنسبة المئوية للطالب فور التسليم</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indShowAnswers" type="checkbox" checked>
+            <span>عرض الإجابات الصحيحة والتفسير التعليمي بعد التسليم</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indShowIndicatorResult" type="checkbox" checked>
+            <span>عرض مستوى إتقان المؤشر للطالب</span>
+          </label>
+          <label class="ind-toggle-label">
+            <input id="indShowCorrectCount" type="checkbox" checked>
+            <span>عرض عدد الأسئلة الصحيحة (مثال: ١٤ من ١٥)</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Section 7: Attempts & Scheduling -->
+      <section class="ind-card-section">
+        <h4>⏱️ عدد المحاولات والجدولة التلقائية</h4>
+        <div class="ind-grid-3">
+          <div class="ind-field">
+            <label for="indAttempts">عدد المحاولات المسموح بها لكل طالب</label>
+            <select id="indAttempts">
+              <option value="1" selected>محاولة واحدة فقط</option>
+              <option value="2">محاولتان</option>
+              <option value="3">ثلاث محاولات</option>
+            </select>
+          </div>
+          <div class="ind-field">
+            <label for="indOpensAt">فتح الاختبار تلقائيًا في وقت محدد</label>
+            <input id="indOpensAt" type="datetime-local">
+            <small>اختياري: اتركه فارغًا ليفتح الاختبار فورًا.</small>
+          </div>
+          <div class="ind-field">
+            <label for="indClosesAt">إغلاق الاختبار تلقائيًا في وقت محدد</label>
+            <input id="indClosesAt" type="datetime-local">
+            <small>اختياري: يمنع بدء أي محاولة جديدة بعد هذا الوقت.</small>
+          </div>
+        </div>
+      </section>
+
+      <div id="indFormError" class="ind-feedback-error" style="display: none;"></div>
+
+      <div class="ind-actions-bar">
+        <button type="button" class="btn-ind-cancel" onclick="closeIndicatorSettings()">إلغاء</button>
+        <button type="submit" class="btn-ind-publish" id="indPublishBtn">
+          <span>🚀 حفظ الإعدادات ونشر الاختبار</span>
+        </button>
+      </div>
+    </form>
+
+    <div id="indSuccessPanel" class="ind-success-panel" style="display: none;">
+      <div class="ind-success-icon">✓</div>
+      <h3>تم إنشاء ونشر اختبار المؤشر بنجاح</h3>
+      <p id="indSuccessSummary"></p>
+      
+      <div class="ind-link-group">
+        <input id="indGeneratedLink" type="text" readonly>
+        <button type="button" id="indCopyLinkBtn">نسخ الرابط</button>
+      </div>
+
+      <div class="ind-qr-wrapper" id="indQrBox"></div>
+
+      <div class="ind-success-actions">
+        <button type="button" id="indDownloadQrBtn">تحميل الباركود QR</button>
+        <button type="button" id="indPrintQrBtn">طباعة الباركود QR</button>
+        <a id="indOpenLink" class="btn-primary-link" href="#" target="_blank">فتح الاختبار (عرض الطالب)</a>
+        <a id="indAnalysisLink" href="#" target="_blank">تحليل نتائج الاختبار</a>
+        <button type="button" id="indResetFormBtn">تعديل الإعدادات أو إنشاء اختبار آخر</button>
+      </div>
+    </div>
+  `;
+
+  // Attach interactivity
+  const modelSelect = document.getElementById('indModelChoice');
+  const countSelect = document.getElementById('indQuestionCount');
+  const countNote = document.getElementById('indCountNote');
+  const allowBackCheckbox = document.getElementById('indAllowBack');
+  const onePerPageCheckbox = document.getElementById('indOnePerPage');
+  const form = document.getElementById('indSettingsForm');
+  const errorBox = document.getElementById('indFormError');
+  const publishBtn = document.getElementById('indPublishBtn');
+  const successPanel = document.getElementById('indSuccessPanel');
+
+  modelSelect.onchange = () => {
+    if (modelSelect.value === 'pool') {
+      countSelect.disabled = false;
+      countNote.textContent = 'سحب عشوائي متنوع من بنك أسئلة المؤشر المعتمد.';
+    } else {
+      countSelect.value = '15';
+      countSelect.disabled = true;
+      countNote.textContent = 'النموذج الثابت ١٥ سؤالًا معتمدًا ومراجعًا.';
+      const titleInput = document.getElementById('indTitle');
+      if (titleInput && titleInput.value.includes('النموذج')) {
+        titleInput.value = `${subj?.title || s} — ${indicatorText} — النموذج ${modelSelect.value}`;
+      }
+    }
+  };
+
+  allowBackCheckbox.onchange = () => {
+    if (!allowBackCheckbox.checked) {
+      onePerPageCheckbox.checked = true;
+    }
+  };
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    errorBox.style.display = 'none';
+    publishBtn.disabled = true;
+    publishBtn.innerHTML = '<span>جارٍ تجهيز واعتماد ونشر الاختبار…</span>';
+
+    try {
+      const titleVal = document.getElementById('indTitle').value.trim();
+      const classVal = document.getElementById('indClassName').value.trim();
+      const schoolVal = document.getElementById('indSchoolName').value.trim();
+      const teacherVal = document.getElementById('indTeacherName').value.trim();
+      const principalVal = document.getElementById('indPrincipalName').value.trim();
+      const identityMode = 'manual';
+      const rosterList = [];
+
+      const modelVal = modelSelect.value;
+      const isFixed = modelVal === '1' || modelVal === '2';
+      const fixedModel = isFixed ? Number(modelVal) : null;
+      const qCount = isFixed ? 15 : Number(countSelect.value || 15);
+      const durationVal = Math.max(5, Math.min(120, Number(document.getElementById('indDuration').value || 20)));
+
+      const opensAtInput = document.getElementById('indOpensAt').value;
+      const closesAtInput = document.getElementById('indClosesAt').value;
+      const opensAt = opensAtInput ? new Date(opensAtInput).toISOString() : null;
+      const closesAt = closesAtInput ? new Date(closesAtInput).toISOString() : null;
+      if (opensAt && closesAt && new Date(opensAt) >= new Date(closesAt)) {
+        throw new Error('وقت إغلاق الاختبار يجب أن يكون بعد وقت الفتح.');
+      }
+
+      // Save user inputs to draft for future convenience
+      try {
+        localStorage.setItem('nafes_builder_draft', JSON.stringify({
+          ...draft,
+          className: classVal,
+          schoolName: schoolVal,
+          teacherName: teacherVal,
+          principalName: principalVal
+        }));
+      } catch (_) {}
+
+      const indicatorKey = `${s}:${o}:i${i}`;
+
+      const config = {
+        kind: 'indicator',
+        grade_key: 'middle_3',
+        title: titleVal,
+        class_name: classVal,
+        school_name: schoolVal,
+        teacher_name: teacherVal,
+        principal_name: principalVal,
+        identity_mode: identityMode,
+        roster: rosterList,
+        count_mode: 'total',
+        sections: [{
+          subject: s,
+          question_count: qCount,
+          duration_minutes: durationVal,
+          calculator: s === 'math' && !!document.getElementById('indCalculator')?.checked,
+          model_no: fixedModel || 1,
+          fixed_model: fixedModel,
+          indicators: [{
+            key: indicatorKey,
+            count: qCount
+          }]
+        }],
+        settings: {
+          show_result: document.getElementById('indShowResult').checked,
+          show_answers: document.getElementById('indShowAnswers').checked,
+          show_indicator_result: document.getElementById('indShowIndicatorResult').checked,
+          show_correct_count: document.getElementById('indShowCorrectCount').checked,
+          shuffle_questions: document.getElementById('indShuffleQuestions').checked,
+          shuffle_options: document.getElementById('indShuffleOptions').checked,
+          allow_copy: document.getElementById('indAllowCopy').checked,
+          disable_right_click: document.getElementById('indDisableRightClick').checked,
+          disable_print: document.getElementById('indDisablePrint').checked,
+          disable_shortcuts: document.getElementById('indDisableShortcuts').checked,
+          allow_back: document.getElementById('indAllowBack').checked,
+          one_per_page: document.getElementById('indOnePerPage').checked,
+          lock_session: document.getElementById('indLockSession').checked,
+          log_visibility: document.getElementById('indLogVisibility').checked,
+          watermark: document.getElementById('indWatermark').checked,
+          attempts: Number(document.getElementById('indAttempts').value || 1),
+          opens_at: opensAt,
+          closes_at: closesAt,
+          break_minutes: 0
+        }
+      };
+
+      const previewRes = await window.NafesTeacher.api('teacher_preview', { config });
+      if (!previewRes?.draft_id) throw new Error('تعذر تكوين مسودة الاختبار للمؤشر.');
+
+      const publishRes = await window.NafesTeacher.api('teacher_publish', { draft_id: previewRes.draft_id });
+      if (!publishRes?.short_code) throw new Error('تعذر اعتماد ونشر الاختبار.');
+
+      // Determine the test URL
+      const prodUrl = publishRes.url;
+      const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const localUrl = `${location.origin}${location.pathname.replace(/[^/]+$/, '')}e.html?t=${publishRes.short_code}`;
+      const displayUrl = isLocal ? localUrl : prodUrl;
+
+      // Switch to success view
+      form.style.display = 'none';
+      successPanel.style.display = 'block';
+
+      document.getElementById('indSuccessSummary').textContent = `${publishRes.title} · الفصل: ${classVal} · الرمز: ${publishRes.short_code}`;
+      document.getElementById('indGeneratedLink').value = displayUrl;
+      document.getElementById('indOpenLink').href = displayUrl;
+      document.getElementById('indAnalysisLink').href = `analysis.html?test=${encodeURIComponent(publishRes.id)}`;
+
+      // Copy link
+      document.getElementById('indCopyLinkBtn').onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(displayUrl);
+          document.getElementById('indCopyLinkBtn').textContent = 'تم النسخ ✓';
+          setTimeout(() => { document.getElementById('indCopyLinkBtn').textContent = 'نسخ الرابط'; }, 2000);
+        } catch (_) {
+          document.getElementById('indGeneratedLink').select();
+          document.execCommand('copy');
+          document.getElementById('indCopyLinkBtn').textContent = 'تم التحديد';
+        }
+      };
+
+      // QR Code
+      const qrBox = document.getElementById('indQrBox');
+      NafesQR.clear(qrBox);
+      qrBox.textContent = 'جارٍ رسم الباركود…';
+      try {
+        await NafesQR.render(qrBox, prodUrl);
+      } catch (err) {
+        qrBox.textContent = 'تعذر إنشاء رمز الاستجابة السريعة: ' + err.message;
+      }
+
+      document.getElementById('indDownloadQrBtn').onclick = () => {
+        try { NafesQR.download(qrBox, `nafes-${publishRes.short_code}.png`); } catch (err) { toast(err.message); }
+      };
+      document.getElementById('indPrintQrBtn').onclick = () => {
+        try { NafesQR.print(qrBox, publishRes.title); } catch (err) { toast(err.message); }
+      };
+
+      document.getElementById('indResetFormBtn').onclick = () => {
+        form.style.display = 'grid';
+        successPanel.style.display = 'none';
+      };
+
+    } catch (err) {
+      errorBox.textContent = err.message || 'حدث خطأ أثناء حفظ ونشر الاختبار.';
+      errorBox.style.display = 'block';
+    } finally {
+      publishBtn.disabled = false;
+      publishBtn.innerHTML = '<span>🚀 حفظ الإعدادات ونشر الاختبار</span>';
+    }
+  };
+};
 })();
+

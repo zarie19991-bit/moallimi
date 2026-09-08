@@ -64,4 +64,61 @@
 .guide-grid .guide-warning{background:#fffaf0;border-color:#eadbb4}
 .guide-grid .guide-warning b{color:#836523}
 @media(max-width:760px){.guide-grid{grid-template-columns:1fr}}
-.model-management{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #dce5e0;font-size:11px}.model-management a{color:#145d54;text-decoration:none}.model-management a:hover{text-decoration:underline}.qr-actions{flex-wrap:wrap}.qr-card{max-height:95vh;overflow:auto}#qrBox canvas{max-width:100%;height:auto!important}
+.model-management{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #dce5e0;font-size:11px}
+.model-management a{color:#145d54;text-decoration:none}
+.model-management a:hover{text-decoration:underline}
+.btn-adv-settings{background:transparent;border:0;padding:0;color:#145d54;text-align:right;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.btn-adv-settings:hover{text-decoration:underline;color:#0c433c}
+.qr-actions{flex-wrap:wrap}.qr-card{max-height:95vh;overflow:auto}#qrBox canvas{max-width:100%;height:auto!important}
+
+/* Indicator-specific Advanced Settings Modal */
+.indicator-settings-modal{width:min(880px,96vw);padding:26px}
+.ind-settings-head{padding-bottom:16px;border-bottom:1px solid #dfe6e2}
+.ind-badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#e6f3ef;color:#0f514c;font-size:10px;font-weight:900;margin-bottom:6px}
+.ind-settings-head h3{margin:4px 0 8px;font-size:20px;color:#17324d}
+.ind-settings-head p{margin:0;color:#4b626d;font-size:11px;line-height:1.8}
+.ind-indicator-summary{margin-top:12px;padding:10px 14px;border-radius:12px;background:#f4f8f6;border:1px solid #cfe0d8;font-size:11px;color:#235447;display:flex;align-items:center;gap:8px}
+.ind-indicator-summary b{font-weight:900}
+.ind-form-body{margin-top:18px;display:grid;gap:16px}
+.ind-card-section{background:#fff;border:1px solid #dde5e1;border-radius:16px;padding:16px 18px}
+.ind-card-section h4{margin:0 0 12px;font-size:13px;color:#17324d;display:flex;align-items:center;gap:6px}
+.ind-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ind-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:700px){.ind-grid-2,.ind-grid-3{grid-template-columns:1fr}}
+.ind-field{display:grid;gap:5px}
+.ind-field label{font-size:10px;font-weight:800;color:#556c75}
+.ind-field input,.ind-field select,.ind-field textarea{width:100%;border:1px solid #cad6d0;border-radius:10px;padding:9px 12px;font-size:11px;color:#17324d;background:#fafbfb;outline:0;box-sizing:border-box;font-family:inherit}
+.ind-field input:focus,.ind-field select:focus,.ind-field textarea:focus{border-color:#0f514c;background:#fff;box-shadow:0 0 0 3px rgba(15,81,76,.1)}
+.ind-field small{font-size:9.5px;color:#798b92;line-height:1.4}
+.ind-toggles-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media(max-width:640px){.ind-toggles-grid{grid-template-columns:1fr}}
+.ind-toggle-label{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:11px;background:#f9fbfb;border:1px solid #e1e9e5;cursor:pointer;font-size:10.5px;color:#1e3b4a;transition:.15s ease;user-select:none}
+.ind-toggle-label:hover{background:#edf5f2;border-color:#b7d6ce}
+.ind-toggle-label input[type="checkbox"]{width:16px;height:16px;accent-color:#0f514c;cursor:pointer;margin:0}
+.ind-radio-row{display:flex;gap:10px;flex-wrap:wrap}
+.ind-radio-label{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:#f8faf9;border:1px solid #d5dfdb;cursor:pointer;font-size:10.5px}
+.ind-radio-label input{accent-color:#0f514c;margin:0}
+.ind-identity-badge-box{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:14px;background:#f0f7f4;border:1px solid #c2ded4;font-size:11px;color:#17463c}
+.ind-identity-badge-box p{margin:5px 0 0;font-size:10.5px;color:#355c53;line-height:1.7}
+.ind-id-icon{font-size:22px;line-height:1;margin-top:2px}
+
+.ind-actions-bar{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px}
+.btn-ind-publish{border:0;background:#0f514c;color:#fff;border-radius:11px;padding:11px 22px;font-size:12px;font-weight:900;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-ind-publish:hover{background:#176b63}
+.btn-ind-publish:disabled{opacity:.6;cursor:not-allowed}
+.btn-ind-cancel{border:1px solid #d0dad5;background:#fff;color:#3b5058;border-radius:11px;padding:11px 18px;font-size:11px;font-weight:800;cursor:pointer}
+.btn-ind-cancel:hover{background:#f4f6f5}
+.ind-feedback-error{padding:10px 14px;border-radius:10px;background:#fdf0f0;color:#a42c2c;border:1px solid #f4c2c2;font-size:11px;font-weight:800;margin-top:10px}
+.ind-success-panel{text-align:center;padding:24px;background:#fff;border:1px solid #b8dfd1;border-radius:20px;box-shadow:0 8px 24px rgba(15,81,76,.08)}
+.ind-success-icon{width:52px;height:52px;border-radius:50%;background:#eaf6f1;color:#1a7a5e;display:grid;place-items:center;font-size:26px;margin:0 auto 12px}
+.ind-success-panel h3{margin:0 0 6px;font-size:20px;color:#17324d}
+.ind-success-panel p{margin:0 0 16px;color:#506771;font-size:11.5px}
+.ind-link-group{display:flex;gap:8px;max-width:540px;margin:0 auto 16px}
+.ind-link-group input{flex:1;direction:ltr;text-align:left;border:1px solid #cbd7d2;border-radius:10px;padding:9px 12px;font-family:monospace;font-size:11px;background:#f9fbfb}
+.ind-link-group button{border:0;background:#0f514c;color:#fff;padding:0 16px;border-radius:10px;font-weight:800;font-size:11px;cursor:pointer;white-space:nowrap}
+.ind-qr-wrapper{width:200px;height:200px;margin:0 auto 16px;padding:8px;border-radius:16px;background:#fff;border:1px solid #dce5e1;display:grid;place-items:center}
+.ind-qr-wrapper canvas,.ind-qr-wrapper img{max-width:100%;height:auto}
+.ind-success-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.ind-success-actions a,.ind-success-actions button{border:1px solid #d3dfdb;background:#fff;color:#17324d;border-radius:9px;padding:8px 14px;font-size:10.5px;font-weight:800;text-decoration:none;cursor:pointer}
+.ind-success-actions a.btn-primary-link{background:#0f514c;color:#fff;border-color:#0f514c}
+

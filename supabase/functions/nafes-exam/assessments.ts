@@ -8,8 +8,12 @@ function must(result:Row) {if(result.error)throw result.error;return result.data
 function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:row.context_text||null,question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
 async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {const all:Row[]=[];const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];for(let start=0;;start+=500){let query=db.from('nafes_question_bank').select(BANK_COLUMNS).eq('grade_key','middle_3').eq('subject_key',subject).eq('is_active',true).eq('review_status','approved').lte('model_no',2).order('id');if(scoped.length)query=query.in('outcome_code',[...new Set(scoped.map(i=>i!.outcome))]).in('indicator_index',[...new Set(scoped.map(i=>i!.indicator))]);if(ids?.length)query=query.in('id',ids);const page=must(await query.range(start,start+499));for(const q of page||[])if(hasCurrentReview(q))all.push(rendered(q));if(!page||page.length<500)break;}return all;}
 
-async function teacherStudentsList(db:any) {
-  const students = must(await db.from('nafes_students').select('*').order('class_name',{ascending:true}).order('name_normalized',{ascending:true}));
+async function teacherStudentsList(db:any, b?:Row) {
+  let query = db.from('nafes_students').select('*');
+  if (b?.include_archived !== true) {
+    query = query.eq('is_active', true);
+  }
+  const students = must(await query.order('class_name',{ascending:true}).order('name_normalized',{ascending:true}));
   const attemptCounts = new Map<string, number>();
   for (const table of ['nafes_assessment_attempts', 'nafes_simulation_attempts', 'nafes_exam_attempts']) {
     const { data: rows } = await db.from(table).select('student_id, student_key');
@@ -26,40 +30,79 @@ async function teacherStudentsList(db:any) {
 }
 
 async function teacherStudentAdd(db:any, b:Row) {
-  const full_name = tidy(b.full_name, 120);
+  const full_name = tidy(b.full_name || b.student_name, 120);
   if (full_name.length < 2) fail('الاسم الكامل يجب أن يتكون من حرفين على الأقل.');
-  const last3 = normalizeLast3Digits(b.national_id_last3);
+  const last3 = normalizeLast3Digits(b.national_id_last3 || b.student_no);
   if (!last3 || last3.length !== 3) fail('يجب إدخال آخر ٣ أرقام فقط من رقم الهوية الوطنية (٣ أرقام بالضبط).');
   const grade = tidy(b.grade, 80) || 'الصف الثالث المتوسط';
   const class_name = tidy(b.class_name, 80);
   const name_normalized = normalizeArabicName(full_name);
 
-  const existing = must(await db.from('nafes_students').select('id').eq('national_id_last3', last3).eq('name_normalized', name_normalized).maybeSingle());
-  if (existing) fail('يوجد طالب مسجل مسبقًا بنفس الاسم وآخر ٣ أرقام من الهوية.', 409);
+  // Check globally for existing student (active or archived)
+  const existing = must(await db.from('nafes_students')
+    .select('id, is_active, full_name')
+    .eq('national_id_last3', last3)
+    .eq('name_normalized', name_normalized)
+    .maybeSingle());
+
+  if (existing) {
+    if (existing.is_active) {
+      fail('يوجد طالب نشط مسجل مسبقًا بنفس الاسم وآخر ٣ أرقام من الهوية. يرجى توضيح الاسم (مثل كتابة الاسم الرباعي) لتفادي التضارب أثناء تسجيل الدخول.', 409);
+    }
+    // Student was previously archived: reactivate/restore existing record to preserve single student_id and all historical attempts
+    const restored = must(await db.from('nafes_students').update({
+      full_name,
+      name_normalized,
+      grade,
+      class_name,
+      national_id_last3: last3,
+      is_active: true,
+      archived_at: null,
+      updated_at: new Date().toISOString()
+    }).eq('id', existing.id).select().single());
+
+    return {
+      ok: true,
+      student: restored,
+      restored: true,
+      message: 'تم استعادة السجل السابق للطالب وإعادة تفعيله بنجاح مع الحفاظ على جميع محاولاته السابقة.'
+    };
+  }
 
   const student = must(await db.from('nafes_students').insert({
     full_name,
     name_normalized,
     grade,
     class_name,
-    national_id_last3: last3
+    national_id_last3: last3,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   }).select().single());
 
   return { ok: true, student };
 }
 
 async function teacherStudentUpdate(db:any, b:Row) {
-  if (!isUUID(b.id)) fail('معرّف الطالب غير صحيح.');
-  const full_name = tidy(b.full_name, 120);
+  const id = b.id || b.student_id;
+  if (!isUUID(id)) fail('معرّف الطالب غير صحيح.');
+  const full_name = tidy(b.full_name || b.student_name, 120);
   if (full_name.length < 2) fail('الاسم الكامل يجب أن يتكون من حرفين على الأقل.');
-  const last3 = normalizeLast3Digits(b.national_id_last3);
+  const last3 = normalizeLast3Digits(b.national_id_last3 || b.student_no);
   if (!last3 || last3.length !== 3) fail('يجب إدخال آخر ٣ أرقام فقط من رقم الهوية الوطنية (٣ أرقام بالضبط).');
   const grade = tidy(b.grade, 80) || 'الصف الثالث المتوسط';
   const class_name = tidy(b.class_name, 80);
   const name_normalized = normalizeArabicName(full_name);
 
-  const existing = must(await db.from('nafes_students').select('id').eq('national_id_last3', last3).eq('name_normalized', name_normalized).neq('id', b.id).maybeSingle());
-  if (existing) fail('يوجد طالب مسجل مسبقًا بنفس الاسم وآخر ٣ أرقام من الهوية.', 409);
+  const existing = must(await db.from('nafes_students')
+    .select('id')
+    .eq('national_id_last3', last3)
+    .eq('name_normalized', name_normalized)
+    .neq('id', id)
+    .maybeSingle());
+  if (existing) {
+    fail('يوجد طالب آخر مسجل مسبقًا بنفس الاسم وآخر ٣ أرقام من الهوية. يرجى توضيح الاسم لتفادي التضارب أثناء تسجيل الدخول.', 409);
+  }
 
   const student = must(await db.from('nafes_students').update({
     full_name,
@@ -68,18 +111,52 @@ async function teacherStudentUpdate(db:any, b:Row) {
     class_name,
     national_id_last3: last3,
     updated_at: new Date().toISOString()
-  }).eq('id', b.id).select().single());
+  }).eq('id', id).select().single());
 
   return { ok: true, student };
 }
 
 async function teacherStudentDelete(db:any, b:Row) {
-  if (!isUUID(b.id)) fail('معرّف الطالب غير صحيح.');
-  const student = must(await db.from('nafes_students').select('id, full_name').eq('id', b.id).maybeSingle());
+  const id = b.id || b.student_id;
+  if (!isUUID(id)) fail('معرّف الطالب غير صحيح.');
+  const student = must(await db.from('nafes_students').select('id, full_name, is_active').eq('id', id).maybeSingle());
   if (!student) fail('الطالب غير موجود.', 404);
 
-  must(await db.from('nafes_students').delete().eq('id', b.id));
-  return { ok: true, id: b.id };
+  // Soft archive to protect student_id link across all historical and future attempts
+  const archived = must(await db.from('nafes_students').update({
+    is_active: false,
+    archived_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }).eq('id', id).select().single());
+
+  return { ok: true, id, student: archived, archived: true };
+}
+
+async function teacherStudentRestore(db:any, b:Row) {
+  const id = b.id || b.student_id;
+  if (!isUUID(id)) fail('معرّف الطالب غير صحيح.');
+  const student = must(await db.from('nafes_students').select('id, full_name, name_normalized, national_id_last3, is_active').eq('id', id).maybeSingle());
+  if (!student) fail('الطالب غير موجود.', 404);
+
+  // Check if restoring would collide with another currently active student
+  const conflict = must(await db.from('nafes_students')
+    .select('id')
+    .eq('national_id_last3', student.national_id_last3)
+    .eq('name_normalized', student.name_normalized)
+    .eq('is_active', true)
+    .neq('id', id)
+    .maybeSingle());
+  if (conflict) {
+    fail('لا يمكن استعادة الطالب لوجود طالب نشط آخر حاليًا بنفس الاسم وآخر ٣ أرقام من الهوية. يرجى تعديل اسم أحدهما أولًا لمنع الالتباس.', 409);
+  }
+
+  const restored = must(await db.from('nafes_students').update({
+    is_active: true,
+    archived_at: null,
+    updated_at: new Date().toISOString()
+  }).eq('id', id).select().single());
+
+  return { ok: true, id, student: restored, restored: true };
 }
 
 async function teacher(db:any,req:Request) {const key=tidy(req.headers.get('x-teacher-key'),128);if(!/^[a-f0-9]{48,96}$/i.test(key))fail('أدخل مفتاح دخول المعلم لعرض النتائج وإعداد الاختبارات.',401);const row=must(await db.from('nafes_teacher_access').select('id,label').eq('key_hash',await hash(key)).eq('active',true).maybeSingle());if(!row)fail('مفتاح دخول المعلم غير صحيح.',401);return row;}
@@ -172,6 +249,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_student_add')return await teacherStudentAdd(db,b);
  if(b.action==='teacher_student_update')return await teacherStudentUpdate(db,b);
  if(b.action==='teacher_student_delete')return await teacherStudentDelete(db,b);
+ if(b.action==='teacher_student_restore')return await teacherStudentRestore(db,b);
  if(b.action==='teacher_data')return await teacherData(db,b);
  if(b.action==='teacher_paper') {if(!SOURCES[b.source]||!isUUID(b.attempt_id))fail('المحاولة غير موجودة.',404);const a=must(await db.from(SOURCES[b.source]).select('*').eq('id',b.attempt_id).maybeSingle());if(!a)fail('المحاولة غير موجودة.',404);const map=await metadata(db,[a],b.source),attempt=canonical(a,b.source,map);const ss=b.source==='exam'?[{subject:a.subject_key,questions:a.rendered_questions||[]}]:a.rendered_sections;let n=0;const sections=ss.map((s:Row)=>({...s,questions:s.questions.map((q:Row)=>{const summary=attempt.questions[n++];return{...q,...summary,correctIndex:summary.correct_index};})}));return{attempt,sections,settings:a.config?.settings||{}};}
  if(b.action==='teacher_catalog')return{...await catalog(db),tests:must(await db.from('nafes_assessments').select('id,title,kind,config,short_code,created_at,published_at,legacy_target').eq('status','published')).map(testInfo)};

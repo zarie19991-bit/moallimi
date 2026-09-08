@@ -93,31 +93,39 @@ export async function verifyStudentIdentity(db: any, rawName: string, rawLast3: 
 
   const { data: candidates, error } = await db
     .from('nafes_students')
-    .select('id,full_name,name_normalized,grade,class_name,national_id_last3')
-    .eq('national_id_last3', normDigits);
+    .select('id,full_name,name_normalized,grade,class_name,national_id_last3,is_active')
+    .eq('national_id_last3', normDigits)
+    .eq('is_active', true);
 
   if (error) throw error;
   if (!candidates || candidates.length === 0) {
     fail('لم يتم العثور على طالب مطابق بهذا الاسم وآخر ٣ أرقام من الهوية. يُرجى مراجعة المعلم لإضافتك أولًا في إدارة الطلاب أو التأكد من إدخال البيانات بدقة.', 404);
   }
 
-  let matched = candidates.find((c: Row) => c.name_normalized === normName);
-
-  if (!matched) {
-    const inputTokens = normName.split(' ');
-    matched = candidates.find((c: Row) => {
-      const candidateTokens = c.name_normalized.split(' ');
-      return inputTokens.length >= 2 && candidateTokens.length >= 2 &&
-        inputTokens[0] === candidateTokens[0] &&
-        inputTokens[inputTokens.length - 1] === candidateTokens[candidateTokens.length - 1] &&
-        inputTokens.every((t: string) => candidateTokens.includes(t));
-    });
+  const exactMatches = candidates.filter((c: Row) => c.name_normalized === normName);
+  if (exactMatches.length > 1) {
+    fail('تم العثور على أكثر من طالب مطابق بنفس الاسم وآخر ٣ أرقام من الهوية. يُرجى مراجعة المعلم لتحديد الاسم بدقة لمنع التعارض.', 409);
+  }
+  if (exactMatches.length === 1) {
+    return exactMatches[0];
   }
 
-  if (!matched) {
-    fail('لم يتم العثور على طالب مطابق بهذا الاسم وآخر ٣ أرقام من الهوية. يُرجى مراجعة المعلم لإضافتك أولًا في إدارة الطلاب أو التأكد من إدخال البيانات بدقة.', 404);
+  const inputTokens = normName.split(' ');
+  const tokenMatches = candidates.filter((c: Row) => {
+    const candidateTokens = c.name_normalized.split(' ');
+    return inputTokens.length >= 2 && candidateTokens.length >= 2 &&
+      inputTokens[0] === candidateTokens[0] &&
+      inputTokens[inputTokens.length - 1] === candidateTokens[candidateTokens.length - 1] &&
+      inputTokens.every((t: string) => candidateTokens.includes(t));
+  });
+
+  if (tokenMatches.length > 1) {
+    fail('يوجد أكثر من طالب تتطابق أسماؤهم جزئيًا مع هذا الإدخال. يُرجى كتابة الاسم الكامل تمامًا كما سجله المعلم.', 409);
+  }
+  if (tokenMatches.length === 1) {
+    return tokenMatches[0];
   }
 
-  return matched;
+  fail('لم يتم العثور على طالب مطابق بهذا الاسم وآخر ٣ أرقام من الهوية. يُرجى مراجعة المعلم لإضافتك أولًا في إدارة الطلاب أو التأكد من إدخال البيانات بدقة.', 404);
 }
 

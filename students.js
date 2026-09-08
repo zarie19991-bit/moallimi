@@ -126,7 +126,7 @@
     if (!container) return;
     container.innerHTML = '<div class="table-loading">جارٍ تحميل بيانات الطلاب...</div>';
     try {
-      const res = await window.NafesTeacher.api('teacher_students_list', {});
+      const res = await window.NafesTeacher.api('teacher_students_list', { include_archived: true });
       studentList = res.students || [];
       renderStudentsTable();
     } catch (e) {
@@ -141,8 +141,9 @@
 
     const q = filterQuery.trim().toLowerCase();
     const filtered = studentList.filter(s => {
+      const sName = s.full_name || s.student_name || '';
       if (!q) return true;
-      return (s.student_name || '').toLowerCase().includes(q) ||
+      return sName.toLowerCase().includes(q) ||
              (s.class_name || '').toLowerCase().includes(q) ||
              (s.national_id_last3 || '').includes(q);
     });
@@ -166,43 +167,72 @@
             <th>الصف</th>
             <th>الفصل</th>
             <th>آخر ٣ أرقام</th>
-            <th>تاريخ الإضافة</th>
+            <th>الحالة</th>
+            <th>المحاولات</th>
             <th class="actions-col">إجراءات</th>
           </tr>
         </thead>
         <tbody>
-          ${filtered.map(st => `
-            <tr data-student-id="${esc(st.id)}">
-              <td><b>${esc(st.student_name)}</b></td>
+          ${filtered.map(st => {
+            const displayName = st.full_name || st.student_name || 'بدون اسم';
+            const isActive = st.is_active !== false;
+            return `
+            <tr data-student-id="${esc(st.id)}" class="${isActive ? '' : 'archived-row'}">
+              <td><b>${esc(displayName)}</b></td>
               <td>${esc(st.grade || 'الثالث المتوسط')}</td>
               <td><span class="class-badge">${esc(st.class_name || '—')}</span></td>
               <td><code class="id3-badge">${esc(st.national_id_last3 || '—')}</code></td>
-              <td><small class="date-txt">${st.created_at ? new Date(st.created_at).toLocaleDateString('ar-SA') : '—'}</small></td>
+              <td>
+                ${isActive ? '<span class="badge-active">نشط</span>' : '<span class="badge-archived">مؤرشف</span>'}
+              </td>
+              <td><small>${st.attempts_count || 0} محاولة</small></td>
               <td class="actions-col">
-                <button type="button" class="btn-del" data-del-id="${esc(st.id)}" data-name="${esc(st.student_name)}" title="حذف الطالب">حذف</button>
+                ${isActive ? `
+                  <button type="button" class="btn-del" data-archive-id="${esc(st.id)}" data-name="${esc(displayName)}" title="أرشفة الطالب وحفظ سجلاته">أرشفة</button>
+                ` : `
+                  <button type="button" class="btn-restore" data-restore-id="${esc(st.id)}" data-name="${esc(displayName)}" title="استعادة الطالب لقائمة النشطين">استعادة</button>
+                `}
               </td>
             </tr>
-          `).join('')}
+            `;
+          }).join('')}
         </tbody>
       </table>
     `;
 
-    container.querySelectorAll('[data-del-id]').forEach(btn => {
+    container.querySelectorAll('[data-archive-id]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const id = btn.dataset.delId;
+        const id = btn.dataset.archiveId;
         const name = btn.dataset.name;
-        if (!confirm(`هل أنت متأكد من حذف الطالب "${name}"؟`)) return;
+        if (!confirm(`هل أنت متأكد من أرشفة الطالب "${name}"؟\nستبقى جميع محاولاته التاريخية ونتائجه محفوظة دائمًا ولن تُحذف.`)) return;
         btn.disabled = true;
         btn.textContent = '...';
         try {
-          await window.NafesTeacher.api('teacher_student_delete', { student_id: id });
-          studentList = studentList.filter(s => s.id !== id);
-          renderStudentsTable($('studentSearchInput')?.value || '');
-          toast('تم حذف الطالب بنجاح');
+          await window.NafesTeacher.api('teacher_student_delete', { student_id: id, id: id });
+          toast('تمت أرشفة الطالب بأمان مع الحفاظ على جميع محاولاته');
+          await fetchStudents();
         } catch (err) {
-          alert('فشل الحذف: ' + err.message);
+          alert('فشلت الأرشفة: ' + err.message);
           btn.disabled = false;
-          btn.textContent = 'حذف';
+          btn.textContent = 'أرشفة';
+        }
+      });
+    });
+
+    container.querySelectorAll('[data-restore-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.restoreId;
+        const name = btn.dataset.name;
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          await window.NafesTeacher.api('teacher_student_restore', { student_id: id, id: id });
+          toast('تمت استعادة الطالب بنجاح');
+          await fetchStudents();
+        } catch (err) {
+          alert('فشلت الاستعادة: ' + err.message);
+          btn.disabled = false;
+          btn.textContent = 'استعادة';
         }
       });
     });
@@ -242,14 +272,15 @@
       });
 
       if (res.student) {
+        studentList = studentList.filter(s => s.id !== res.student.id);
         studentList.unshift(res.student);
       }
       $('newStudentName').value = '';
       $('newStudentClass').value = '';
       $('newStudentId3').value = '';
-      showMsg(msgEl, 'تمت إضافة الطالب بنجاح!', 'ok');
+      showMsg(msgEl, res.message || 'تمت إضافة الطالب بنجاح!', 'ok');
       renderStudentsTable($('studentSearchInput')?.value || '');
-      toast('تمت إضافة الطالب بنجاح');
+      toast(res.restored ? 'تمت استعادة سجل الطالب بنجاح' : 'تمت إضافة الطالب بنجاح');
     } catch (err) {
       showMsg(msgEl, 'خطأ: ' + err.message, 'err');
     } finally {
