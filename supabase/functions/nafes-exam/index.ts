@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 import { REVIEW_VERSION, hasCurrentReview, inspectReviewedBank, itemContentKey, reviewedImage, publicReviewedQuestions } from "./reviewed-bank.ts";
+import { verifyStudentIdentity } from "./assessment-engine.ts";
 
 import { handleAssessments } from "./assessments.ts";
 
@@ -516,10 +517,27 @@ function simulationReview(sections: Record<string, unknown>[], config: Simulatio
 
 async function handleSimulationAction(body: Record<string, unknown>) {
   const action = String(body.action || "");
-  const name = shortText(body.student_name, 120);
-  const no = shortText(body.student_no, 160);
-  if (!name || !no) return json({ error: "اكتب اسم الطالب وبياناته المميزة." }, 400);
-  const studentKey = await hashKey(`${norm(name)}|${norm(no)}`);
+  let student: Record<string, any> | null = null;
+  let studentKey = "";
+  let studentId: string | null = null;
+  let name = shortText(body.student_name, 120);
+  let no = shortText(body.student_no || body.national_id_last3, 160);
+
+  if (action === "simulation_start") {
+    student = await verifyStudentIdentity(db, String(body.student_name || ""), String(body.student_no || body.national_id_last3 || ""));
+    name = student.full_name;
+    no = student.national_id_last3;
+    studentKey = student.id;
+    studentId = student.id;
+  } else {
+    try {
+      student = await verifyStudentIdentity(db, String(body.student_name || ""), String(body.student_no || body.national_id_last3 || ""));
+      studentKey = student.id;
+      studentId = student.id;
+    } catch (_) {
+      studentKey = await hashKey(`${norm(name)}|${norm(no)}`);
+    }
+  }
 
   if (action === "simulation_start") {
     const config = parseSimulationConfig(body.config);
@@ -552,6 +570,7 @@ async function handleSimulationAction(body: Record<string, unknown>) {
     const expiresAt = new Date(Date.now() + duration * 60000).toISOString();
     const { data: created, error: createError } = await db.from("nafes_simulation_attempts").insert({
       simulation_key: config.id,
+      student_id: studentId,
       student_name: name,
       student_no: no,
       student_key: studentKey,
@@ -565,9 +584,12 @@ async function handleSimulationAction(body: Record<string, unknown>) {
 
   const attemptId = shortText(body.attempt_id, 80);
   if (!attemptId) return json({ error: "المحاولة غير موجودة." }, 400);
-  const { data: attempt, error: attemptError } = await db.from("nafes_simulation_attempts").select("*").eq("id", attemptId).eq("student_key", studentKey).maybeSingle();
+  const { data: attempt, error: attemptError } = await db.from("nafes_simulation_attempts").select("*").eq("id", attemptId).maybeSingle();
   if (attemptError) throw attemptError;
   if (!attempt) return json({ error: "تعذر التحقق من المحاولة." }, 404);
+  if (attempt.student_key !== studentKey && attempt.student_id !== studentId && attempt.student_key !== await hashKey(`${norm(name)}|${norm(no)}`)) {
+    return json({ error: "تعذر التحقق من صاحب المحاولة." }, 403);
+  }
   const storedConfig = parseSimulationConfig(attempt.config);
   if (!storedConfig) return json({ error: "إعدادات المحاولة غير صالحة." }, 409);
   if (attempt.submitted_at) {
@@ -663,10 +685,11 @@ Deno.serve(async (req: Request) => {
 
       const windowError = checkWindow(s);
       if (windowError) return json({ error: windowError }, 403);
-      const name = String(b.student_name || "").trim();
-      const no = String(b.student_no || "").trim();
-      if (!name || !no) return json({ error: "اكتب اسم الطالب ورقمه المميز." }, 400);
-      const studentKey = await hashKey(`${norm(name)}|${norm(no)}`);
+      const student = await verifyStudentIdentity(db, String(b.student_name || ""), String(b.student_no || b.national_id_last3 || ""));
+      const name = student.full_name;
+      const no = student.national_id_last3;
+      const studentKey = student.id;
+      const studentId = student.id;
 
       const { data: existing, error: existingError } = await db
         .from("nafes_exam_attempts")
@@ -727,6 +750,7 @@ Deno.serve(async (req: Request) => {
           outcome_code: outcome,
           indicator_index: indicator,
           model_no: model,
+          student_id: studentId,
           student_name: name,
           student_no: no,
           student_key: studentKey,
@@ -751,9 +775,16 @@ Deno.serve(async (req: Request) => {
     const windowError = checkWindow(s);
     if (windowError) return json({ error: windowError }, 403);
     const name = String(b.student_name || "").trim();
-    const no = String(b.student_no || "").trim();
-    if (!name || !no) return json({ error: "اكتب اسم الطالب ورقمه المميز." }, 400);
-    const studentKey = await hashKey(`${norm(name)}|${norm(no)}`);
+    const no = String(b.student_no || b.national_id_last3 || "").trim();
+    let studentKey = "";
+    let studentId: string | null = null;
+    try {
+      const student = await verifyStudentIdentity(db, name, no);
+      studentKey = student.id;
+      studentId = student.id;
+    } catch (_) {
+      studentKey = await hashKey(`${norm(name)}|${norm(no)}`);
+    }
     const attemptId = String(b.attempt_id || "");
     if (!attemptId) return json({ error: "المحاولة غير موجودة." }, 400);
 
@@ -761,10 +792,12 @@ Deno.serve(async (req: Request) => {
       .from("nafes_exam_attempts")
       .select("*")
       .eq("id", attemptId)
-      .eq("student_key", studentKey)
       .maybeSingle();
     if (attemptError) throw attemptError;
     if (!a) return json({ error: "تعذر التحقق من المحاولة." }, 404);
+    if (a.student_key !== studentKey && a.student_id !== studentId && a.student_key !== await hashKey(`${norm(name)}|${norm(no)}`)) {
+      return json({ error: "تعذر التحقق من صاحب المحاولة." }, 403);
+    }
     if (a.submitted_at) return json({ error: "تم تسليم هذه المحاولة سابقًا.", score: a.score, percent: a.percent }, 409);
 
     const expiredNow = Date.now() > new Date(a.expires_at).getTime() || (!!s.closes_at && Date.now() > new Date(s.closes_at).getTime());

@@ -26,6 +26,7 @@
   }
   const isAnalyzable = a => isSubmitted(a) && !clean(a.snapshot_warning);
   function studentIdentity(a) {
+    if (clean(a.student_id)) return `student:${clean(a.student_id)}`;
     if (clean(a.student_key)) return `key:${clean(a.student_key)}`;
     if (clean(a.student_no)) return `number:${canonicalDigits(a.school_name)}:${canonicalDigits(a.student_no).toLocaleLowerCase()}`;
     // A name alone cannot establish that two attempts belong to the same person.
@@ -40,10 +41,11 @@
     a.subjects = [...new Set([...(Array.isArray(raw.subjects) ? raw.subjects : []), ...a.questions.map(q => q.subject)].filter(Boolean))];
     a.kind = ['indicator', 'multi_indicator', 'simulation'].includes(raw.kind) ? raw.kind : (raw.source === 'simulation' ? 'simulation' : raw.source === 'exam' ? 'indicator' : 'multi_indicator');
     a.test_id = String(raw.test_id || `unknown-test:${a.source}:${a.id}`);
+    a.student_id = clean(raw.student_id);
     a.student_name = clean(raw.student_name) || 'اسم غير مسجل';
     a.class_name = clean(raw.class_name);
     a.studentIdentity = studentIdentity(a);
-    a.identityUncertain = !clean(raw.student_key) && !clean(raw.student_no);
+    a.identityUncertain = !clean(raw.student_id) && !clean(raw.student_key) && !clean(raw.student_no);
     return a;
   }
   function savedPercent(a) {

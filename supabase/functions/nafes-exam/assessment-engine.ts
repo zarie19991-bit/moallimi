@@ -58,3 +58,66 @@ export function selectUnique(pool:Row[],count:number,seed:string,usage=new Map<s
  return picked;
 }
 export function buildForms(pool:Row[],subject:string):Row[] {const usage=new Map<string,number>(),forms:Row[]=[],signatures=new Set<string>();for(let m=1;m<=60;m++){const qs=selectUnique(pool,30,`${subject}|form|${m}`,usage);const signature=qs.map(q=>q.id).sort().join('|');if(signatures.has(signature))fail('البنك لا يكفي لتكوين ٦٠ محاكاة مختلفة.');signatures.add(signature);forms.push({subject,model_no:m,questions:qs,signature});}return forms;}
+
+export function normalizeArabicName(name: string): string {
+  return String(name || '')
+    .normalize('NFKC')
+    .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+    .replace(/[إأآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/[ىي]/g, 'ي')
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+export function normalizeLast3Digits(digits: unknown): string {
+  return String(digits || '')
+    .normalize('NFKC')
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/\D/g, '')
+    .slice(-3);
+}
+
+export async function verifyStudentIdentity(db: any, rawName: string, rawLast3: string): Promise<Row> {
+  const normDigits = normalizeLast3Digits(rawLast3);
+  if (!normDigits || normDigits.length !== 3) {
+    fail('يجب إدخال آخر ٣ أرقام فقط من رقم الهوية الوطنية (٣ أرقام بالضبط).', 400);
+  }
+  const normName = normalizeArabicName(rawName);
+  if (!normName || normName.length < 2) {
+    fail('اكتب اسم الطالب الكامل كما هو مسجل لدى المعلم.', 400);
+  }
+
+  const { data: candidates, error } = await db
+    .from('nafes_students')
+    .select('id,full_name,name_normalized,grade,class_name,national_id_last3')
+    .eq('national_id_last3', normDigits);
+
+  if (error) throw error;
+  if (!candidates || candidates.length === 0) {
+    fail('لم يتم العثور على طالب مطابق بهذا الاسم وآخر ٣ أرقام من الهوية. يُرجى مراجعة المعلم لإضافتك أولًا في إدارة الطلاب أو التأكد من إدخال البيانات بدقة.', 404);
+  }
+
+  let matched = candidates.find((c: Row) => c.name_normalized === normName);
+
+  if (!matched) {
+    const inputTokens = normName.split(' ');
+    matched = candidates.find((c: Row) => {
+      const candidateTokens = c.name_normalized.split(' ');
+      return inputTokens.length >= 2 && candidateTokens.length >= 2 &&
+        inputTokens[0] === candidateTokens[0] &&
+        inputTokens[inputTokens.length - 1] === candidateTokens[candidateTokens.length - 1] &&
+        inputTokens.every((t: string) => candidateTokens.includes(t));
+    });
+  }
+
+  if (!matched) {
+    fail('لم يتم العثور على طالب مطابق بهذا الاسم وآخر ٣ أرقام من الهوية. يُرجى مراجعة المعلم لإضافتك أولًا في إدارة الطلاب أو التأكد من إدخال البيانات بدقة.', 404);
+  }
+
+  return matched;
+}
+
