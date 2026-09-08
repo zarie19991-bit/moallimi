@@ -14,3 +14,65 @@
   #printReport .badge{font-size:7pt;padding:1mm 1.5mm;border:1px solid #cad5d0;color:#111}#printReport .paper-question{margin:4mm 0;padding:4mm;border:1px solid #c1cfc9;border-radius:2mm;break-inside:avoid;overflow:visible}#printReport .paper-question>header{margin-bottom:2mm}#printReport .paper-question>header b{font-size:9pt}#printReport .question-indicator{font-size:7pt;margin-bottom:2mm;padding-bottom:2mm}#printReport .question-context{font-size:9pt;padding:3mm;margin:3mm 0;line-height:1.9;background:#f4f6f5;border-radius:1mm;break-inside:auto}#printReport .question-stem{font-size:10pt;line-height:1.9;margin:3mm 0}#printReport .paper-option{font-size:9pt;padding:2mm 3mm;border-radius:1mm;line-height:1.7;gap:2mm;break-inside:avoid}#printReport .option-note{font-size:7pt}#printReport .answer-summary{font-size:8pt;gap:4mm;margin-top:3mm;padding-top:2mm}#printReport .answer-explanation{font-size:8pt;line-height:1.8;margin:2mm 0 0}#printReport .question-figure{margin:3mm 0;break-inside:avoid}#printReport .question-figure img{max-width:145mm;max-height:90mm}#printReport .question-figure figcaption{display:none}#printReport .paper-section-heading{margin:6mm 0 2mm;break-after:avoid}#printReport .paper-section-heading h2{margin:0;font-size:12pt}#printReport .paper-section-heading span{font-size:8pt}#printReport .trend-chart{height:auto;max-height:65mm;width:100%;break-inside:avoid}#printReport .chart-caption{font-size:7pt}#printReport .print-history-group{break-before:auto}#printReport .print-warning{border-right:2mm solid #ad7830}#printReport .print-page-break{break-before:page}
 }
 @media print{#printReport .card{border:0!important;border-radius:0!important;padding:0!important;margin:0!important;background:white!important}#printReport .summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:3mm;margin:4mm 0}#printReport .metric{border:1px solid #b9cdc4;border-radius:2mm;padding:3mm!important;break-inside:avoid}#printReport .metric strong{font-size:15pt;line-height:1.5;margin:1mm 0}#printReport .metric span{font-size:8pt}#printReport .metric small{font-size:7pt}#printReport .table-wrap{border:0;border-radius:0;overflow:visible!important;margin-top:2mm}#printReport details p{display:none!important}#printReport details summary{list-style:none;font-size:7.5pt}#printReport .two-columns{gap:5mm}#printReport .trend-chart{max-height:50mm}#printReport h1{font-size:16pt}#printReport .distribution-row{font-size:8pt;grid-template-columns:34mm 1fr 10mm;gap:2mm}#printReport .distribution{gap:2mm}#printReport .bar-track{height:2mm}}
+
+/* Student Profile Header & Meta */
+.student-profile-head{display:flex;align-items:center;gap:18px;padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.student-avatar-box{width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,var(--teal),#1a6b61);color:#fff;display:grid;place-items:center;font-size:24px;font-weight:900;box-shadow:0 6px 16px rgba(15,81,76,.2)}
+.student-info-main h1{margin:0 0 6px;font-size:24px;color:var(--ink)}
+.student-meta-tags{display:flex;gap:8px;flex-wrap:wrap}
+.info-pill{display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;background:#f0f5f3;color:#39545e;font-size:11px;font-weight:800}
+.info-pill.highlight{background:#e7f5f0;color:var(--teal)}
+
+/* Student Level Visual Bar */
+.student-level-visual{margin:12px 0 20px}
+.level-bars-track{height:16px;border-radius:999px;background:#e9f0ec;display:flex;overflow:hidden;gap:2px}
+.bar-seg{height:100%;transition:width .3s}
+.bar-seg.mastered{background:#28705e}
+.bar-seg.improve{background:#c6a04a}
+.bar-seg.weak{background:#a84444}
+.level-bars-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:11px;font-weight:800}
+.leg-mastered{color:#28705e}
+.leg-improve{color:#9c7827}
+.leg-weak{color:#a84444}
+
+/* Three-Tier Classification Cards */
+.three-tier-container{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0}
+.tier-box{border-radius:18px;border:1px solid var(--line);background:#fff;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,.02)}
+.tier-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,.06)}
+.tier-head h4{margin:0;font-size:13px}
+.tier-count{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:900}
+.tier-mastered{border-color:#bce1d5;background:#f6fcf9}
+.tier-mastered h4{color:#1f6151}
+.tier-mastered .tier-count{background:#e1f5ee;color:#1f6151}
+.tier-improve{border-color:#fae6b8;background:#fffdf6}
+.tier-improve h4{color:#8f6d1f}
+.tier-improve .tier-count{background:#fdf0d2;color:#8f6d1f}
+.tier-weak{border-color:#f5caca;background:#fff9f9}
+.tier-weak h4{color:#a32a2a}
+.tier-weak .tier-count{background:#fde8e8;color:#a32a2a}
+.tier-body ul{margin:0;padding-right:18px;font-size:11px;line-height:1.9;color:#49616c}
+
+/* Badges for answer sheet */
+.badge-correct{display:inline-block;padding:3px 8px;border-radius:6px;background:#e5f6ef;color:#18614e;font-size:10px;font-weight:900}
+.badge-wrong{display:inline-block;padding:3px 8px;border-radius:6px;background:#fdeeee;color:#a32a2a;font-size:10px;font-weight:900}
+.paper-meta-pills{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 14px;font-size:12px;color:var(--muted)}
+.paper-meta-pills b{color:var(--teal)}
+
+/* Print Report Customizations for Saudi Official Header */
+@media print{
+  #printReport .print-header{display:grid;grid-template-columns:1fr 1.6fr 1fr;align-items:start;text-align:center;border-bottom:2px solid #0f514c;padding-bottom:4mm;margin-bottom:4mm}
+  #printReport .print-header-right{text-align:right;font-size:8pt;line-height:1.5}
+  #printReport .print-header-right .print-gov{font-weight:bold;margin:0 0 1mm}
+  #printReport .print-header-center h1{font-size:13pt;margin:0 0 1mm;color:#0f514c}
+  #printReport .print-header-center h2{font-size:11pt;margin:0 0 1mm}
+  #printReport .print-header-center p{font-size:8pt;margin:0;color:#555}
+  #printReport .print-header-left{text-align:left;font-size:8pt;line-height:1.5}
+  #printReport .print-meta-bar{display:grid;grid-template-columns:repeat(4,1fr);background:#f2f7f5;border:1px solid #c2d8cf;padding:2mm 3mm;font-size:8pt;margin-bottom:3mm}
+  #printReport .three-tier-container{grid-template-columns:repeat(3,1fr);gap:2.5mm;margin:3mm 0}
+  #printReport .tier-box{border:1px solid #ccc;padding:2.5mm;break-inside:avoid}
+  #printReport .tier-head h4{font-size:8pt}
+  #printReport .tier-body ul{font-size:7.5pt;line-height:1.6}
+}
+@media(max-width:850px){
+  .three-tier-container{grid-template-columns:1fr}
+}
