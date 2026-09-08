@@ -1,6 +1,56 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>اختبار نافس | معلّمي</title><link rel="stylesheet" href="e.css?v=20260907-2"></head><body>
-<header class="exam-top"><a class="brand" href="./"><span>م</span><div><b>معلّمي</b><small>اختبارات نافس</small></div></a><span id="code"></span><span id="saveState" role="status"></span></header><main id="screen" class="exam-shell">
-<section id="intro" class="panel intro-panel"><span class="kicker">نافس · الثالث المتوسط</span><h1 id="title">جارٍ تحميل الاختبار…</h1><p id="details"></p><div id="sections"></div><p id="message" role="alert"></p><form id="identity" hidden><label>اسم الطالب الكامل<input id="studentName" required autocomplete="name" maxlength="120" placeholder="كما هو في كشف الفصل"></label><label id="numberLabel">رقم الطالب المميز<input id="studentNo" required maxlength="160" autocomplete="off"></label><label>الفصل<input id="className" maxlength="80" placeholder="إن لم يكن محددًا في الاختبار"></label><button type="submit">ابدأ الاختبار</button></form></section>
+<header class="exam-top">
+  <div class="brand">
+    <span>م</span>
+    <div><b>معلّمي</b><small>منصة الاختبارات المدرسية</small></div>
+  </div>
+  <div class="top-meta">
+    <span id="code" class="exam-code-pill"></span>
+    <span id="saveState" role="status" class="save-state-indicator"></span>
+  </div>
+</header>
+<main id="screen" class="exam-shell">
+<section id="intro" class="panel intro-panel">
+  <div class="intro-badge">الاختبارات الوطنية المدرسية</div>
+  <h1 id="title">جارٍ تحميل الاختبار…</h1>
+  <div id="subjectPill" class="subject-pill"></div>
+  <p id="details" class="intro-details"></p>
+  <div id="sections" class="intro-sections"></div>
+
+  <div class="student-instructions-box">
+    <b>تعليمات دخول الاختبار:</b>
+    <ul>
+      <li>أدخل اسمك الثلاثي أو الرباعي بدقة كما هو مدون في كشف المدرسة.</li>
+      <li>أدخل آخر ٣ أرقام من سجلك المدني (الهوية الوطنية) لتأكيد هويتك.</li>
+      <li>لا تغلق المتصفح أو تغادر صفحة الاختبار حتى تنتهي من التسليم.</li>
+    </ul>
+  </div>
+
+  <p id="message" role="alert" class="intro-error-msg"></p>
+
+  <form id="identity" class="entry-form" hidden>
+    <div class="form-field">
+      <label for="studentName">اسم الطالب الكامل *</label>
+      <input id="studentName" required autocomplete="name" maxlength="120" placeholder="مثال: عبد العزيز محمد الغامدي">
+    </div>
+
+    <div class="form-field">
+      <label for="studentNo">آخر ٣ أرقام من الهوية الوطنية *</label>
+      <div class="id3-wrap">
+        <input id="studentNo" required maxlength="3" inputmode="numeric" pattern="[0-9]{3}" placeholder="مثال: 456" autocomplete="off">
+        <span class="id3-badge-hint">٣ أرقام فقط</span>
+      </div>
+      <small class="id3-helper-text">أدخل آخر ثلاثة أرقام فقط من سجلك المدني للتحقق من هوية الطالب.</small>
+    </div>
+
+    <div class="form-field form-field-class" id="classFieldWrap">
+      <label for="className">الفصل الدراسي</label>
+      <input id="className" maxlength="80" placeholder="مثال: ٣/١ (إن لم يكن محددًا)">
+    </div>
+
+    <button type="submit" class="btn-start-exam" id="startBtn">دخول الاختبار</button>
+  </form>
+</section>
 <section id="player" class="panel exam-panel" hidden><div class="exam-head"><div><small id="sectionTitle"></small><h2 id="questionTitle"></h2></div><b class="timer" id="timer" aria-label="الوقت المتبقي"></b></div><div class="progress" id="progress"></div><div id="questions"></div><div class="nav exam-nav"><button id="prev">السابق</button><button id="review">مراجعة الإجابات</button><button id="next">التالي</button><button id="finish">تسليم القسم</button></div><button id="calcButton" hidden>آلة حاسبة</button><p id="playerError" role="alert"></p></section>
 <section id="breakPanel" class="panel" hidden><h2>استراحة بين الأقسام</h2><p id="breakText"></p></section><section id="result" class="panel" hidden></section>
 <dialog id="calculator"><h2>آلة حاسبة</h2><input id="calcA" type="number" step="any" aria-label="العدد الأول"><select id="calcOp" aria-label="العملية"><option>+</option><option>−</option><option>×</option><option>÷</option></select><input id="calcB" type="number" step="any" aria-label="العدد الثاني"><button id="calcGo">احسب</button><output id="calcResult"></output><button id="calcClose">إغلاق</button></dialog></main>
