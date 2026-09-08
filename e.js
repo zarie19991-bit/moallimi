@@ -21,13 +21,34 @@ function render(){if(state.submitted)return showResult(state);active=true;curren
  $('progress').innerHTML=s.questions.map((q,i)=>`<button type="button" data-go="${i}" class="${answers[q.id]!==undefined?'answered ':''}${i===cursor?'current':''}" ${!settings.allow_back&&i!==cursor?'disabled':''}>${ar(i+1)}</button>`).join('');
  $('prev').hidden=!settings.allow_back||!single;$('prev').disabled=cursor===0;$('next').hidden=!single||cursor===s.questions.length-1;$('review').hidden=!settings.allow_back;$('finish').textContent=currentSection===state.sections.length-1?'تسليم الاختبار':'تسليم القسم';$('calcButton').hidden=!s.calculator;
  document.body.classList.add('exam-active');document.body.classList.toggle('no-copy',!settings.allow_copy);document.body.classList.toggle('watermarked',settings.watermark);document.body.classList.toggle('print-blocked',settings.disable_print);watermark();tick();}
+const normalizeDigits=str=>String(str??'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 function level(p){return p>=80?'متقن':p>=65?'قريب من الإتقان':p>=50?'يحتاج دعمًا':'غير متقن';}
-function showResult(d){active=false;clearInterval(timer);document.body.classList.remove('exam-active','no-copy','watermarked','print-blocked');lockRelease?.();locked=false;$('intro').hidden=true;$('player').hidden=true;$('breakPanel').hidden=true;$('result').hidden=false;
- const percent=d.result_hidden?'':`<div class="score">${ar(d.percent)}٪</div><p>الدرجة: ${ar(d.score)} من ${ar(d.total)}</p>`;
- $('result').innerHTML=`<h1>تم تسليم الاختبار</h1>${percent}${d.result_hidden?'<p>حُفظت إجاباتك، ويطلع المعلم على نتيجتك.</p>':''}${d.correct_count!==undefined?`<p>عدد الإجابات الصحيحة: ${ar(d.correct_count)}</p>`:''}${d.indicators?.length?`<h2>المؤشرات المقاسة</h2><p>تقدير تدريبي وفق حدود الإتقان المحددة في المنصة.</p><table><thead><tr><th>المؤشر</th><th>النسبة</th><th>المستوى</th></tr></thead><tbody>${d.indicators.map(i=>`<tr><td>${esc(i.text)}</td><td>${ar(i.percent)}٪</td><td>${level(i.percent)}</td></tr>`).join('')}</tbody></table>`:''}`;
- if(d.review?.length){const byId=new Map(d.review.map(q=>[q.id,q]));$('result').insertAdjacentHTML('beforeend','<h2>مراجعة الورقة</h2>'+d.sections.flatMap(s=>s.questions).map((q,i)=>{const key=byId.get(q.id);if(!key)return'';return `<article class="question ${answers[q.id]===key.correct_index?'review-correct':'review-wrong'}">${q.context?`<div class="context">${esc(q.context)}</div>`:''}${window.NafesMedia?.render(q)||''}<p class="stem">${ar(i+1)}) ${esc(q.question)}</p><p>إجابتك: ${answers[q.id]===undefined?'لم تجب':esc(q.options[answers[q.id]])}</p><p>الإجابة الصحيحة: ${esc(q.options[key.correct_index])}</p><p>${esc(key.explanation)}</p></article>`;}).join(''));}
- $('saveState').textContent='تم تسليم المحاولة وحفظها';}
-$('identity').onsubmit=async e=>{e.preventDefault();if(starting)return;starting=true;const btn=e.submitter;btn.disabled=true;$('message').textContent='';try{await claim();const name=$('studentName').value.trim(),no=$('studentNo').value.trim();state=await api('assessment_start',{student_name:name,student_no:no,class_name:$('className').value});access=state.access_token||'';answers=state.answers||{};cursor=state.cursor||0;try{localStorage.setItem(identityKey,JSON.stringify({name,no}));}catch(_){}saveLocal();if(state.submitted)showResult(state);else{render();clearInterval(timer);timer=setInterval(tick,1000);}}catch(e){$('message').textContent=e.message;lockRelease?.();locked=false;}finally{btn.disabled=false;starting=false;}};
+function showResult(d){
+ active=false;clearInterval(timer);document.body.classList.remove('exam-active','no-copy','watermarked','print-blocked');
+ lockRelease?.();locked=false;$('intro').hidden=true;$('player').hidden=true;$('breakPanel').hidden=true;$('result').hidden=false;
+ const percent=d.result_hidden?'':`<div class="result-score-box"><div class="score">${ar(d.percent)}٪</div><p class="score-sub">الدرجة: ${ar(d.score)} من ${ar(d.total)}</p></div>`;
+ $('result').innerHTML=`<div class="completion-container"><div class="completion-badge">✓</div><h1>تم تسليم الاختبار بنجاح</h1><div class="completion-student-info"><b>${esc(d.student_name||state?.student_name||'')}</b><span>${esc(info?.title||state?.title||'اختبار نافس')}</span></div>${percent}<p class="completion-msg">${d.result_hidden?'حُفظت إجاباتك بنجاح في سجلات المعلم المعتمدة.':'تم اعتماد نتيجة أدائك في الاختبار وحفظها.'}<br>يمكنك إغلاق هذه الصفحة الآن بأمان.</p>${d.correct_count!==undefined?`<div class="correct-summary">الإجابات الصحيحة: ${ar(d.correct_count)} من أصل ${ar(d.total||d.sections?.flatMap(s=>s.questions)?.length||15)}</div>`:''}${d.indicators?.length?`<div class="indicators-summary"><h3>المؤشرات المقاسة</h3><table><thead><tr><th>المؤشر</th><th>النسبة</th><th>المستوى</th></tr></thead><tbody>${d.indicators.map(i=>`<tr><td>${esc(i.text)}</td><td>${ar(i.percent)}٪</td><td>${level(i.percent)}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
+ $('saveState').textContent='تم تسليم المحاولة وحفظها';
+}
+$('identity').onsubmit=async e=>{
+ e.preventDefault();if(starting)return;
+ const name=$('studentName').value.trim();
+ const no=normalizeDigits($('studentNo').value.trim()).replace(/\D/g,'').slice(0,3);
+ if(!name||name.length<3){$('message').textContent='يرجى إدخال اسم الطالب كاملًا.';return;}
+ if(no.length!==3){$('message').textContent='يرجى إدخال آخر ٣ أرقام من الهوية الوطنية بدقة (٣ أرقام).';return;}
+ starting=true;const btn=$('startBtn')||e.submitter;btn.disabled=true;$('message').textContent='';
+ try{
+  await claim();
+  state=await api('assessment_start',{student_name:name,student_no:no,national_id_last3:no,class_name:$('className').value});
+  access=state.access_token||'';answers=state.answers||{};cursor=state.cursor||0;
+  try{localStorage.setItem(identityKey,JSON.stringify({name,no}));}catch(_){}
+  saveLocal();
+  if(state.submitted)showResult(state);
+  else{render();clearInterval(timer);timer=setInterval(tick,1000);}
+ }catch(e){$('message').textContent=e.message;lockRelease?.();locked=false;}
+ finally{btn.disabled=false;starting=false;}
+};
+$('studentNo')?.addEventListener('input',e=>{e.target.value=normalizeDigits(e.target.value).replace(/\D/g,'').slice(0,3);});
 $('questions').onchange=e=>{if(!e.target.matches('input[type=radio]'))return;const id=e.target.closest('[data-question]').dataset.question;answers[id]=Number(e.target.value);e.target.closest('.choices').querySelectorAll('.choice').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked));clearTimeout(saveDelay);saveDelay=setTimeout(()=>save().catch(()=>{}),350);$('progress').querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('answered',answers[state.sections[currentSection].questions[Number(b.dataset.go)].id]!==undefined));};
 async function navigate(n){if(!active)return;clearTimeout(saveDelay);const prior=cursor;cursor=n;try{await save();render();$('questions').scrollIntoView({behavior:'smooth',block:'start'});}catch(_){cursor=prior;}}
 $('next').onclick=()=>navigate(cursor+1);$('prev').onclick=()=>navigate(cursor-1);$('progress').onclick=e=>{const b=e.target.closest('[data-go]');if(b&&state.settings.allow_back)navigate(Number(b.dataset.go));};

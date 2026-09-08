@@ -7,18 +7,44 @@
 <link rel="stylesheet" href="exam-review.css?v=20260829-2">
 </head>
 <body>
-<header class="exam-top"><a href="./" class="brand"><span>م</span><div><b>معلّمي</b><small>اختبارات نافس</small></div></a><div id="modelCode" class="model-code"></div></header>
+<header class="exam-top">
+  <div class="brand">
+    <span>م</span>
+    <div><b>معلّمي</b><small>منصة الاختبارات المدرسية</small></div>
+  </div>
+  <div id="modelCode" class="model-code"></div>
+</header>
 <main class="exam-shell">
 <section id="intro" class="panel intro-panel">
- <span class="kicker">نافس · الصف الثالث المتوسط</span>
- <h1 id="examTitle">تحميل الاختبار...</h1>
- <p id="indicatorText" class="indicator-text"></p>
- <div id="readiness" class="readiness"></div>
- <form id="startForm" class="student-form hidden">
-  <div><label>اسم الطالب الكامل</label><input id="studentName" required autocomplete="name" placeholder="اكتب الاسم كما هو في الكشف"></div>
-  <div><label>رقم الطالب / رقم مميز</label><input id="studentNo" required inputmode="numeric" placeholder="مثال: 12"></div>
-  <button type="submit">ابدأ الاختبار</button>
- </form>
+  <div class="intro-badge">الاختبارات الوطنية · نافس</div>
+  <h1 id="examTitle">تحميل الاختبار...</h1>
+  <p id="indicatorText" class="indicator-text"></p>
+  <div id="readiness" class="readiness"></div>
+
+  <div class="student-instructions-box">
+    <b>تعليمات دخول الاختبار:</b>
+    <ul>
+      <li>أدخل اسمك الثلاثي أو الرباعي بدقة كما هو مدون في كشف المدرسة.</li>
+      <li>أدخل آخر ٣ أرقام من سجلك المدني (الهوية الوطنية) لتأكيد هويتك.</li>
+      <li>لا تغلق المتصفح أو تغادر صفحة الاختبار حتى تنتهي من التسليم.</li>
+    </ul>
+  </div>
+
+  <form id="startForm" class="student-form hidden">
+    <div class="form-field">
+      <label for="studentName">اسم الطالب الكامل *</label>
+      <input id="studentName" required autocomplete="name" placeholder="مثال: عبد العزيز محمد الغامدي">
+    </div>
+    <div class="form-field">
+      <label for="studentNo">آخر ٣ أرقام من الهوية الوطنية *</label>
+      <div class="id3-wrap">
+        <input id="studentNo" required maxlength="3" inputmode="numeric" pattern="[0-9]{3}" placeholder="مثال: 456" autocomplete="off">
+        <span class="id3-badge-hint">٣ أرقام فقط</span>
+      </div>
+      <small class="id3-helper-text">أدخل آخر ثلاثة أرقام فقط من سجلك المدني للتحقق من هوية الطالب.</small>
+    </div>
+    <button type="submit" class="btn-start-exam" id="startBtn">دخول الاختبار</button>
+  </form>
 </section>
 <section id="examArea" class="panel exam-panel hidden">
  <div class="exam-head"><div><small id="questionMeta"></small><h2 id="questionTitle"></h2></div><div id="timer" class="timer">--:--</div></div>
