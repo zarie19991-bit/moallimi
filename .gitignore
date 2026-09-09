@@ -6,3 +6,4 @@ question-bank/reading/*.json
 question-bank/reading/manifest.json
 
 _site/
+supabase/.temp/

@@ -5,63 +5,260 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0f514c">
   <meta name="referrer" content="no-referrer">
-  <title>التحليل والمتابعة | معلّمي</title>
-  <link rel="stylesheet" href="analysis.css?v=20260907-1">
+  <title>تحليل نتائج الطلاب | معلّمي</title>
+  <link rel="stylesheet" href="analysis.css?v=20260908-2">
 </head>
 <body>
   <header class="top no-print">
     <a class="brand" href="./"><span>م</span><div><b>معلّمي</b><small>منصة التدريب على نافس</small></div></a>
-    <nav aria-label="التنقل الرئيسي"><a href="./">المؤشرات</a><a href="create.html">إنشاء اختبار</a><a class="active" href="analysis.html" aria-current="page">التحليل والمتابعة</a></nav>
+    <nav aria-label="التنقل الرئيسي">
+      <a href="./">المؤشرات</a>
+      <a href="create.html">إنشاء اختبار</a>
+      <a class="active" href="analysis.html" aria-current="page">تحليل النتائج</a>
+    </nav>
   </header>
+
   <main class="analysis-shell no-print" id="main">
+    <!-- Intro Banner -->
     <section class="intro-card">
-      <div><span class="eyebrow">مساحة المعلم · الصف الثالث المتوسط</span><h1>كل محاولة، خطوة أوضح للتعلّم</h1><p>نتائج الطلاب، إتقان المؤشرات، والمتابعة عبر الاختبارات في مكان واحد.</p></div>
-      <div class="intro-actions"><button type="button" id="refreshBtn" class="button light" hidden>تحديث البيانات</button><button type="button" id="printBtn" class="button light" hidden>طباعة / حفظ PDF</button><button type="button" id="signoutBtn" class="text-button light-text" hidden>تسجيل الخروج</button></div>
+      <div>
+        <span class="eyebrow">مساحة المعلم · الصف الثالث المتوسط</span>
+        <h1>تحليل نتائج نافس</h1>
+        <p>متابعة إتقان المؤشرات، تحليل الأسئلة، واستخراج التقرير المدرسي لتحليل نتائج نافس.</p>
+      </div>
+      <div class="intro-actions">
+        <button type="button" id="refreshBtn" class="button light" hidden>تحديث البيانات</button>
+        <button type="button" id="printBtn" class="button light" hidden>طباعة التقرير (A4)</button>
+        <button type="button" id="signoutBtn" class="text-button light-text" hidden>تسجيل الخروج</button>
+      </div>
     </section>
+
+    <!-- Teacher Auth Card -->
     <section id="authPanel" class="card auth-card" hidden>
-      <h2>دخول المعلم</h2><p>أدخل مفتاح المعلم لعرض النتائج المحفوظة وملفات الطلاب.</p>
-      <form id="authForm"><label class="field"><span>مفتاح المعلم</span><input id="teacherKey" type="password" autocomplete="off" required placeholder="أدخل مفتاح المعلم" aria-describedby="authError"></label><button class="button" type="submit">عرض التحليل</button></form>
+      <h2>دخول المعلم</h2>
+      <p>أدخل مفتاح المعلم للوصول إلى لوحة التحليل وسجلات الطلاب.</p>
+      <form id="authForm">
+        <label class="field">
+          <span>مفتاح المعلم</span>
+          <input id="teacherKey" type="password" autocomplete="off" required placeholder="أدخل مفتاح المعلم" aria-describedby="authError">
+        </label>
+        <button class="button" type="submit">عرض التحليل</button>
+      </form>
       <p id="authError" class="error-text" role="alert"></p>
     </section>
+
+    <!-- Loading & Error States -->
     <div id="loadState" class="load-state" role="status" aria-live="polite"></div>
-    <section id="loadError" class="card error-card" role="alert" hidden><h2>تعذر تحميل النتائج</h2><p id="loadErrorText"></p><button type="button" class="button" id="retryBtn">إعادة المحاولة</button></section>
+    <section id="loadError" class="card error-card" role="alert" hidden>
+      <h2>تعذر تحميل النتائج</h2>
+      <p id="loadErrorText"></p>
+      <button type="button" class="button" id="retryBtn">إعادة المحاولة</button>
+    </section>
+
+    <!-- Data Quality Alerts Banner (Visible only when genuine quality anomalies exist) -->
+    <section id="qualityAlertsBanner" class="card quality-alert-card" hidden role="alert">
+      <div class="quality-alert-head">
+        <span class="quality-alert-icon">⚠️</span>
+        <div>
+          <h3>تنبيهات جودة البيانات</h3>
+          <p class="muted">ملاحظات على بعض السجلات التاريخية لضمان دقة وسلامة التحليل.</p>
+        </div>
+      </div>
+      <ul id="qualityAlertsList" class="quality-alert-list"></ul>
+    </section>
+
+    <!-- Main Dashboard -->
     <div id="dashboard" hidden>
-      <aside class="method-note"><b>تقدير تدريبي وليست مستويات نافس الرسمية.</b> متقن: ٨٠٪ فأكثر · قريب من الإتقان: ٦٥–أقل من ٨٠٪ · بحاجة إلى دعم: ٥٠–أقل من ٦٥٪ · غير متقن: أقل من ٥٠٪. المؤشر غير المقاس لا يُحتسب صفرًا. يظهر تنبيه المتابعة إذا كان آخر أداء أقل من ٦٥٪ وتكرر ذلك في أكثر من محاولة.</aside>
-      <section class="card filters-card" aria-labelledby="filterTitle">
-        <div class="section-heading"><div><h2 id="filterTitle">نطاق التحليل</h2><p>تُطبّق التصفية على الملخص والجداول والمتابعة.</p></div><button type="button" id="resetFilters" class="text-button">مسح التصفية</button></div>
-        <form id="filtersForm" class="filter-grid">
-          <label class="field"><span>المادة</span><select id="subjectFilter"><option value="">جميع المواد</option><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
-          <label class="field"><span>الفصل</span><select id="classFilter"><option value="">جميع الفصول</option></select></label>
-          <label class="field wide"><span>الاختبار</span><select id="testFilter"><option value="">جميع الاختبارات</option></select></label>
-          <label class="field wide"><span>المؤشر</span><select id="indicatorFilter"><option value="">جميع المؤشرات</option></select></label>
-          <label class="field"><span>التقدير الحالي</span><select id="levelFilter"><option value="">جميع التقديرات</option><option value="mastered">متقن</option><option value="near">قريب من الإتقان</option><option value="support">بحاجة إلى دعم</option><option value="nonmastered">غير متقن</option><option value="unmeasured">غير مقاس</option></select></label>
-          <label class="field"><span>التغيّر</span><select id="trendFilter"><option value="">جميع الاتجاهات</option><option value="up">تحسّن</option><option value="stable">استقرار</option><option value="down">تراجع</option><option value="unavailable">لا تتوفر مقارنة</option></select></label>
-          <label class="field"><span>المتابعة</span><select id="followupFilter"><option value="">جميع الطلاب</option><option value="repeated">دعم متكرر حاليًا</option><option value="resolved">تحسّن بعد دعم متكرر</option><option value="clear">دون تنبيه دعم متكرر</option></select></label>
-          <label class="field wide"><span>البحث عن طالب</span><input id="studentSearch" type="search" placeholder="اسم الطالب أو رقمه" autocomplete="off"></label>
-        </form>
-      </section>
-      <nav class="view-tabs" aria-label="أقسام التحليل">
-        <button type="button" data-view="overview" aria-pressed="true">نظرة عامة</button>
-        <button type="button" data-view="students" aria-pressed="false">ملفات الطلاب</button>
-        <button type="button" data-view="followup" aria-pressed="false">المتابعة</button>
-        <button type="button" data-view="tests" aria-pressed="false">الاختبارات</button>
+      <!-- 3 Primary Entry Pillars -->
+      <nav class="pillar-nav no-print" aria-label="محاور التحليل الرئيسية">
+        <button type="button" class="pillar-btn active" data-pillar="subjects">
+          <span class="pillar-icon">📚</span>
+          <div>
+            <strong>تحليل المواد</strong>
+            <small>القراءة · الرياضيات · العلوم</small>
+          </div>
+        </button>
+        <button type="button" class="pillar-btn" data-pillar="tests">
+          <span class="pillar-icon">📝</span>
+          <div>
+            <strong>تحليل الاختبارات</strong>
+            <small>الأحادية والمجمعة والمحاكية</small>
+          </div>
+        </button>
+        <button type="button" class="pillar-btn" data-pillar="students">
+          <span class="pillar-icon">👥</span>
+          <div>
+            <strong>ملفات الطلاب</strong>
+            <small>الكشف التراكمي وتطور المستويات</small>
+          </div>
+        </button>
       </nav>
-      <div class="report-heading"><h2 id="reportTitle">النتائج المحفوظة</h2><span id="updatedAt"></span></div>
-      <p id="reportScope" class="muted scope-note"></p>
-      <div id="qualityNotice"></div>
-      <section id="overviewView"></section>
-      <section id="studentsView" hidden></section>
-      <section id="followupView" hidden></section>
-      <section id="testsView" hidden></section>
+
+      <!-- Dynamic Breadcrumbs -->
+      <nav id="breadcrumbs" class="breadcrumbs" aria-label="مسار التحليل" hidden>
+        <button type="button" class="crumb-btn" id="crumbPillarBtn">تحليل المواد</button>
+        <span class="crumb-sep" id="crumbDetailSep" hidden>/</span>
+        <span id="crumbDetailName" class="crumb-current" hidden></span>
+      </nav>
+
+      <!-- ================================================================== -->
+      <!-- PILLAR 1: SUBJECTS ANALYSIS (تحليل المواد) -->
+      <!-- ================================================================== -->
+      <section id="subjectsSection">
+        <!-- View 1.1: Subjects Catalog -->
+        <div id="subjectsCatalogView">
+          <div class="section-title-box">
+            <h2>تحليل أداء المواد الدراسية</h2>
+            <p class="muted">اختر مادة لعرض تحليلها التراكمي الشامل عبر جميع اختبارات المؤشرات والمحاكاة التابعة لها حصراً.</p>
+          </div>
+          <div id="subjectsGrid" class="subjects-grid"></div>
+        </div>
+
+        <!-- View 1.2: Subject Deep-Dive Detail -->
+        <div id="subjectDetailView" hidden>
+          <div id="subjectHeaderContainer"></div>
+          
+          <!-- Subject Sub-tabs -->
+          <nav class="test-subtabs subject-subtabs" aria-label="أقسام تحليل المادة">
+            <button type="button" data-subject-tab="summary" aria-pressed="true">📊 الملخص</button>
+            <button type="button" data-subject-tab="students" aria-pressed="false">👥 الطلاب</button>
+            <button type="button" data-subject-tab="indicators" aria-pressed="false">🎯 المؤشرات</button>
+            <button type="button" data-subject-tab="tests" aria-pressed="false">📝 الاختبارات</button>
+            <button type="button" data-subject-tab="questions" aria-pressed="false">❓ الأسئلة</button>
+            <button type="button" data-subject-tab="evolution" aria-pressed="false">📈 التطور</button>
+          </nav>
+
+          <div id="subjectTabSummaryView" class="tab-pane"></div>
+          <div id="subjectTabStudentsView" class="tab-pane" hidden></div>
+          <div id="subjectTabIndicatorsView" class="tab-pane" hidden></div>
+          <div id="subjectTabTestsView" class="tab-pane" hidden></div>
+          <div id="subjectTabQuestionsView" class="tab-pane" hidden></div>
+          <div id="subjectTabEvolutionView" class="tab-pane" hidden></div>
+        </div>
+      </section>
+
+      <!-- ================================================================== -->
+      <!-- PILLAR 2: TESTS ANALYSIS (تحليل الاختبارات) -->
+      <!-- ================================================================== -->
+      <section id="testsSection" hidden>
+        <!-- View 2.1: Tests Catalog -->
+        <div id="testsCatalogSection">
+          <div class="section-title-box">
+            <h2>تحليل الاختبارات والنتائج المسلّمة</h2>
+            <p class="muted">تظهر هنا فقط الاختبارات التي لديها محاولات مسلّمة فعليًا. يمكنك فتح أي اختبار منفردًا أو تحديد عدة اختبارات لتحليلها كمجموعة موحدة.</p>
+          </div>
+
+          <!-- Group Analysis Selection Toolbar -->
+          <div class="group-select-toolbar" id="groupSelectToolbar">
+            <div class="group-select-actions">
+              <span class="select-hint">تحديد مجموعة:</span>
+              <button type="button" class="btn-chip" id="selectAllReadingTestsBtn">كل اختبارات القراءة</button>
+              <button type="button" class="btn-chip" id="selectAllMathTestsBtn">كل اختبارات الرياضيات</button>
+              <button type="button" class="btn-chip" id="selectAllScienceTestsBtn">كل اختبارات العلوم</button>
+              <button type="button" class="btn-chip secondary" id="clearSelectionBtn">إلغاء التحديد</button>
+            </div>
+            <div class="group-launch-box">
+              <span class="selected-count-badge" id="selectedTestsCountBadge">محدد: 0 اختبار</span>
+              <button type="button" class="btn-primary-pro" id="analyzeSelectedTestsBtn" disabled>
+                <span>📊</span> تحليل الاختبارات المحددة
+              </button>
+              <button type="button" class="btn-secondary-pro" id="managePreviousResultsBtn">
+                <span>⚙️</span> إدارة النتائج السابقة
+              </button>
+            </div>
+          </div>
+
+          <div id="testsGrid" class="test-grid"></div>
+        </div>
+
+        <!-- View 2.3: Multi-Test Group Analysis -->
+        <div id="groupAnalysisSection" class="group-analysis-box" hidden></div>
+
+        <!-- View 2.2: Detailed Test Analysis -->
+        <div id="testAnalysisSection" hidden>
+          <!-- Test Header & Summary Metrics -->
+          <div id="testSummaryContainer"></div>
+
+          <!-- Navigation Tabs & Quick Attempt Policy Toolbar -->
+          <div class="test-nav-bar">
+            <nav id="testSubtabsNav" class="test-subtabs" aria-label="أقسام تحليل الاختبار">
+              <!-- Dynamically populated based on test kind: single-subject vs multi-subject/simulation -->
+            </nav>
+            <div class="quick-policy-box">
+              <label for="quickPolicySelect">المحاولات:</label>
+              <select id="quickPolicySelect" aria-label="سياسة احتساب المحاولات لهذا الاختبار">
+                <option value="latest">آخر محاولة (افتراضي)</option>
+                <option value="highest">أعلى محاولة</option>
+                <option value="first">أول محاولة</option>
+                <option value="all">جميع المحاولات</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Dynamic Subtab Panes for Test Analysis -->
+          <section id="tabGeneralSummaryView" class="tab-pane"></section>
+          <section id="tabSubjectSectionView" class="tab-pane" hidden></section>
+          <section id="tabStudentsView" class="tab-pane" hidden></section>
+          <section id="tabIndicatorsView" class="tab-pane" hidden></section>
+          <section id="tabQuestionsView" class="tab-pane" hidden></section>
+          <section id="tabAbsentView" class="tab-pane" hidden></section>
+          <section id="tabOfficialReportView" class="tab-pane" hidden></section>
+        </div>
+      </section>
+
+      <!-- ================================================================== -->
+      <!-- PILLAR 3: STUDENTS DIRECT HUB (ملفات الطلاب) -->
+      <!-- ================================================================== -->
+      <section id="studentsSection" hidden>
+        <div id="studentsCatalogSection">
+          <div class="section-title-box" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h2>سجل الطلاب وملفات الأداء الفردية</h2>
+              <p class="muted">كشف بجميع الطلاب المسجلين ونتائجهم التراكمية في نافس. اضغط على اسم أي طالب لعرض سجله الشامل.</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input id="studentRosterSearch" type="search" placeholder="ابحث باسم الطالب أو الفصل..." class="roster-search-input" autocomplete="off" style="min-width:240px;">
+              <button type="button" class="btn-primary-pro" onclick="openStudentsModal()"><span>👥</span> إدارة الطلاب والفصول</button>
+            </div>
+          </div>
+          <div id="studentsCatalogTableWrap"></div>
+        </div>
+      </section>
     </div>
+
+    <!-- Student Profile & Test Paper Detail Panel -->
     <section id="detailPanel" tabindex="-1" hidden aria-live="polite"></section>
-    <footer class="page-footer">معلّمي · تحليل تدريبي يستند إلى المحاولات المحفوظة. استخدم زر «طباعة / حفظ PDF» ثم اختر الحفظ بصيغة PDF من نافذة الطباعة.</footer>
+
+    <!-- Indicator Drill-down Modal (Students Affected by Indicator) -->
+    <div id="indicatorDetailModal" class="modal-backdrop" hidden>
+      <div class="modal-box indicator-modal-box" role="dialog" aria-labelledby="indicatorModalTitle" aria-modal="true">
+        <div class="modal-head">
+          <div>
+            <h2 id="indicatorModalTitle">تفاصيل المؤشر وأولوية التدخل</h2>
+            <p id="indicatorModalSubtitle" class="muted" style="margin:2px 0 0;font-size:11px;"></p>
+          </div>
+          <button type="button" class="close-btn" id="closeIndicatorModalBtn" aria-label="إغلاق">×</button>
+        </div>
+        <div id="indicatorModalBody"></div>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      معلّمي · منصة تدريب وتحليل نتائج نافس. لطباعة التقرير المدرسي استخدم زر «طباعة التقرير (A4)» ثم اختر الحفظ كـ PDF.
+    </footer>
   </main>
+
+  <!-- Clean Official Print Report Container (Hidden on Screen, Visible on Print) -->
   <div id="printReport" dir="rtl" aria-hidden="true"></div>
+
   <noscript><p class="card">يلزم تفعيل JavaScript لتحميل النتائج وعرض التحليل.</p></noscript>
   <script src="teacher-access.js?v=20260907-1"></script>
   <script src="question-media.js?v=20260907-1"></script>
+  <script src="xlsx-vendor.js?v=20260909-1"></script>
+  <script src="excel-engine.js?v=20260909-1"></script>
+  <script src="students.js?v=20260909-1"></script>
   <script src="analysis-core.js?v=20260907-1"></script>
-  <script src="analysis.js?v=20260907-1"></script>
+  <script src="analysis.js?v=20260909-1"></script>
 </body>
 </html>
+

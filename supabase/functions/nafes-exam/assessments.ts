@@ -159,6 +159,240 @@ async function teacherStudentRestore(db:any, b:Row) {
   return { ok: true, id, student: restored, restored: true };
 }
 
+async function teacherStudentsBulkImport(db: any, b: Row) {
+  const rawList = Array.isArray(b.students) ? b.students : [];
+  if (!rawList.length) fail('قائمة الطلاب فارغة.');
+  if (rawList.length > 500) fail('الحد الأقصى للإضافة الجماعية ٥٠٠ طالب في الدفعة الواحدة.');
+
+  let added = 0, updated = 0, restored = 0, ignored = 0, failed = 0;
+  const processed = [];
+  const seenInBatch = new Set<string>();
+
+  for (const item of rawList) {
+    const fullName = tidy(item.full_name || item.student_name, 120);
+    const last3 = normalizeLast3Digits(item.national_id_last3 || item.student_no);
+    const grade = tidy(item.grade, 80) || 'الصف الثالث المتوسط';
+    const className = tidy(item.class_name, 80);
+    const normName = normalizeArabicName(fullName);
+
+    // Strict backend validation
+    if (fullName.length < 2 || !last3 || last3.length !== 3 || !/^\d{3}$/.test(last3)) {
+      failed++;
+      processed.push({ full_name: fullName, national_id_last3: last3, status: 'rejected', reason: 'بيانات غير صالحة' });
+      continue;
+    }
+
+    const batchKey = `${last3}:${normName}`;
+    if (seenInBatch.has(batchKey)) {
+      ignored++;
+      processed.push({ full_name: fullName, national_id_last3: last3, status: 'ignored', reason: 'مكرر في نفس الملف' });
+      continue;
+    }
+    seenInBatch.add(batchKey);
+
+    const existing = must(await db.from('nafes_students')
+      .select('id, full_name, class_name, grade, is_active')
+      .eq('national_id_last3', last3)
+      .eq('name_normalized', normName)
+      .maybeSingle());
+
+    if (existing) {
+      if (!existing.is_active) {
+        const res = must(await db.from('nafes_students').update({
+          full_name: fullName,
+          name_normalized: normName,
+          grade,
+          class_name: className,
+          is_active: true,
+          archived_at: null,
+          updated_at: new Date().toISOString()
+        }).eq('id', existing.id).select().single());
+        restored++;
+        processed.push({ ...res, status: 'restored' });
+      } else {
+        if (existing.class_name !== className || existing.grade !== grade) {
+          const res = must(await db.from('nafes_students').update({
+            grade,
+            class_name: className,
+            updated_at: new Date().toISOString()
+          }).eq('id', existing.id).select().single());
+          updated++;
+          processed.push({ ...res, status: 'updated' });
+        } else {
+          ignored++;
+          processed.push({ ...existing, status: 'ignored' });
+        }
+      }
+    } else {
+      const res = must(await db.from('nafes_students').insert({
+        full_name: fullName,
+        name_normalized: normName,
+        grade,
+        class_name: className,
+        national_id_last3: last3,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }).select().single());
+      added++;
+      processed.push({ ...res, status: 'added' });
+    }
+  }
+
+  return { ok: true, added, updated, restored, ignored, failed, total: rawList.length, students: processed };
+}
+
+async function teacherStudentHardDelete(db: any, b: Row) {
+  const id = b.id || b.student_id;
+  if (!isUUID(id)) fail('معرّف الطالب غير صحيح.');
+  const confirmWord = tidy(b.confirm_word);
+  if (confirmWord !== 'حذف') fail('يجب كتابة كلمة «حذف» للتأكيد.');
+
+  const rpcRes = await db.rpc('nafes_teacher_hard_delete_student', { p_student_id: id, p_confirm_word: confirmWord });
+  if (rpcRes.error) {
+    if (rpcRes.error.code === '42883' || rpcRes.error.message?.includes('42883') || rpcRes.error.message?.includes('function nafes_teacher_hard_delete_student')) {
+      fail('تعذر تنفيذ العملية الآمنة لأن تحديث قاعدة البيانات المطلوب لم يُطبق بعد.', 500);
+    }
+    fail(rpcRes.error.message || 'فشلت عملية الحذف النهائي للطالب.');
+  }
+  return rpcRes.data;
+}
+
+async function teacherTestClearResults(db: any, b: Row, owner?: Row) {
+  const testId = String(b.test_id || b.id || '').trim();
+  if (!testId) fail('معرّف الاختبار مطلوب.');
+  const confirmWord = tidy(b.confirm_word);
+  if (confirmWord !== 'مسح النتائج') fail('يجب كتابة كلمة «مسح النتائج» للتأكيد.');
+
+  const ownerId = owner?.id || null;
+  if (isUUID(testId) && !ownerId) {
+    fail('معرّف مالك الحساب مطلوب للتحقق من صلاحية الاختبار.', 401);
+  }
+
+  if (!isUUID(testId) && !testId.startsWith('simulation:') && !testId.startsWith('exam:')) {
+    fail('معرّف الاختبار تالف أو غير صالح.');
+  }
+  if (testId.startsWith('exam:')) {
+    if (!/^exam:(reading|math|science):[a-zA-Z0-9_]+:i[0-9]+:m[0-9]+$/.test(testId)) {
+      fail('معرّف اختبار المؤشر تالف أو غير صالح.');
+    }
+    const parts = testId.split(':');
+    if (parts.length !== 5 || !/^[0-9]+$/.test(parts[3].slice(1)) || !/^[0-9]+$/.test(parts[4].slice(1))) {
+      fail('أرقام المؤشر أو النموذج غير صالحة.');
+    }
+  }
+  if (testId.startsWith('simulation:') && !/^simulation:[a-z0-9_]+$/.test(testId)) {
+    fail('معرّف اختبار المحاكاة تالف أو غير صالح.');
+  }
+
+  const rpcRes = await db.rpc('nafes_teacher_clear_test_results', {
+    p_test_id: testId,
+    p_confirm_word: confirmWord,
+    p_owner_id: isUUID(testId) ? ownerId : null
+  });
+
+  if (rpcRes.error) {
+    if (rpcRes.error.code === '42883' || rpcRes.error.message?.includes('42883') || rpcRes.error.message?.includes('function nafes_teacher_clear_test_results')) {
+      fail('تعذر تنفيذ العملية الآمنة لأن تحديث قاعدة البيانات المطلوب لم يُطبق بعد.', 500);
+    }
+    fail(rpcRes.error.message || 'فشلت عملية مسح نتائج الاختبار.');
+  }
+
+  return rpcRes.data;
+}
+
+async function teacherTestDelete(db: any, b: Row, owner?: Row) {
+  const testId = String(b.test_id || b.id || '').trim();
+  if (!testId) fail('معرّف الاختبار مطلوب.');
+  const confirmWord = tidy(b.confirm_word);
+  if (confirmWord !== 'حذف') fail('يجب كتابة كلمة «حذف» للتأكيد.');
+
+  if (testId.startsWith('exam:') || testId.startsWith('simulation:')) {
+    fail('لا يمكن حذف هذا الاختبار نهائيًا لأنه يتبع بنك المؤشرات. يمكنك فقط مسح نتائجه.', 400);
+  }
+
+  if (!isUUID(testId)) fail('معرّف الاختبار غير صالح لحذف السجل.');
+
+  const ownerId = owner?.id || null;
+  if (!ownerId) fail('معرّف مالك الحساب مطلوب للتحقق من صلاحية حذف الاختبار.', 401);
+
+  const rpcRes = await db.rpc('nafes_teacher_delete_published_test', {
+    p_test_id: testId,
+    p_confirm_word: confirmWord,
+    p_owner_id: ownerId
+  });
+
+  if (rpcRes.error) {
+    if (rpcRes.error.code === '42883' || rpcRes.error.message?.includes('42883') || rpcRes.error.message?.includes('function nafes_teacher_delete_published_test')) {
+      fail('تعذر تنفيذ العملية الآمنة لأن تحديث قاعدة البيانات المطلوب لم يُطبق بعد.', 500);
+    }
+    fail(rpcRes.error.message || 'فشلت عملية حذف الاختبار.');
+  }
+
+  return rpcRes.data;
+}
+
+async function teacherTestsBulkClear(db: any, b: Row, owner?: Row) {
+  const isClearAll = b.clear_all === true;
+  const confirmWord = tidy(b.confirm_word);
+  const ownerId = owner?.id || null;
+  if (!ownerId) fail('معرّف مالك الحساب مطلوب لمسح النتائج.', 401);
+
+  if (isClearAll) {
+    if (confirmWord !== 'حذف جميع النتائج') {
+      fail('يرجى تأكيد الحذف بكتابة «حذف جميع النتائج».');
+    }
+  } else {
+    if (confirmWord !== 'مسح النتائج' && confirmWord !== 'حذف') {
+      fail('يجب كتابة «مسح النتائج» أو «حذف» لتأكيد مسح نتائج الاختبارات المحددة.');
+    }
+  }
+
+  const ids = Array.isArray(b.test_ids) ? b.test_ids : [];
+  if (!isClearAll && !ids.length) fail('لم يتم تحديد أي اختبارات.');
+
+  // Validate format of each ID upfront in Edge Function too:
+  if (!isClearAll) {
+    for (const tid of ids) {
+      const s = String(tid || '').trim();
+      if (!isUUID(s) && !s.startsWith('simulation:') && !s.startsWith('exam:')) {
+        fail(`معرّف اختبار تالف أو غير صالح في المجموعة: ${s}`);
+      }
+      if (s.startsWith('exam:')) {
+        if (!/^exam:(reading|math|science):[a-zA-Z0-9_]+:i[0-9]+:m[0-9]+$/.test(s)) {
+          fail(`معرّف اختبار المؤشر تالف أو غير صالح البنية: ${s}`);
+        }
+        const parts = s.split(':');
+        if (parts.length !== 5 || !/^[0-9]+$/.test(parts[3].slice(1)) || !/^[0-9]+$/.test(parts[4].slice(1))) {
+          fail(`أرقام المؤشر أو النموذج غير صالحة في معرّف الاختبار: ${s}`);
+        }
+      }
+      if (s.startsWith('simulation:')) {
+        if (!/^simulation:[a-z0-9_]+$/.test(s)) {
+          fail(`معرّف اختبار المحاكاة تالف أو غير صالح: ${s}`);
+        }
+      }
+    }
+  }
+
+  // Single atomic PostgreSQL transaction via RPC
+  const rpcRes = await db.rpc('nafes_teacher_bulk_clear_test_results', {
+    p_test_ids: isClearAll ? null : ids,
+    p_clear_all: isClearAll,
+    p_confirm_word: confirmWord,
+    p_owner_id: ownerId
+  });
+
+  if (rpcRes.error) {
+    if (rpcRes.error.code === '42883' || rpcRes.error.message?.includes('42883') || rpcRes.error.message?.includes('function nafes_teacher_bulk_clear_test_results')) {
+      fail('تعذر تنفيذ العملية الآمنة لأن تحديث قاعدة البيانات المطلوب لم يُطبق بعد.', 500);
+    }
+    fail(rpcRes.error.message || 'فشلت عملية مسح نتائج الاختبارات.');
+  }
+
+  return rpcRes.data;
+}
+
 async function teacher(db:any,req:Request) {const key=tidy(req.headers.get('x-teacher-key'),128);if(!/^[a-f0-9]{48,96}$/i.test(key))fail('أدخل مفتاح دخول المعلم لعرض النتائج وإعداد الاختبارات.',401);const row=must(await db.from('nafes_teacher_access').select('id,label').eq('key_hash',await hash(key)).eq('active',true).maybeSingle());if(!row)fail('مفتاح دخول المعلم غير صحيح.',401);return row;}
 function testInfo(t:Row) {const c=t.config||{};return{id:t.kind==='legacy'?legacyTestId(t.legacy_target):t.id,title:t.title,kind:t.kind==='legacy'?'indicator':t.kind,subjects:(c.sections||[]).map((s:Row)=>s.subject),class_name:c.class_name||'',school_name:c.school_name||'',teacher_name:c.teacher_name||'',principal_name:c.principal_name||'',grade_key:'middle_3',created_at:t.published_at||t.created_at,total:(c.sections||[]).reduce((n:number,s:Row)=>n+s.question_count,0),short_code:t.short_code};}
 function legacyTestId(t:Row) {return`exam:${t.subject||t.subject_key}:${t.outcome||t.outcome_code}:i${t.indicator||t.indicator_index}:m${t.model||t.model_no}`;}
@@ -250,6 +484,11 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_student_update')return await teacherStudentUpdate(db,b);
  if(b.action==='teacher_student_delete')return await teacherStudentDelete(db,b);
  if(b.action==='teacher_student_restore')return await teacherStudentRestore(db,b);
+ if(b.action==='teacher_students_bulk_import')return await teacherStudentsBulkImport(db,b);
+ if(b.action==='teacher_student_hard_delete')return await teacherStudentHardDelete(db,b);
+ if(b.action==='teacher_test_clear_results')return await teacherTestClearResults(db,b,owner);
+ if(b.action==='teacher_test_delete')return await teacherTestDelete(db,b,owner);
+ if(b.action==='teacher_tests_bulk_clear')return await teacherTestsBulkClear(db,b,owner);
  if(b.action==='teacher_data')return await teacherData(db,b);
  if(b.action==='teacher_paper') {if(!SOURCES[b.source]||!isUUID(b.attempt_id))fail('المحاولة غير موجودة.',404);const a=must(await db.from(SOURCES[b.source]).select('*').eq('id',b.attempt_id).maybeSingle());if(!a)fail('المحاولة غير موجودة.',404);const map=await metadata(db,[a],b.source),attempt=canonical(a,b.source,map);const ss=b.source==='exam'?[{subject:a.subject_key,questions:a.rendered_questions||[]}]:a.rendered_sections;let n=0;const sections=ss.map((s:Row)=>({...s,questions:s.questions.map((q:Row)=>{const summary=attempt.questions[n++];return{...q,...summary,correctIndex:summary.correct_index};})}));return{attempt,sections,settings:a.config?.settings||{}};}
  if(b.action==='teacher_catalog')return{...await catalog(db),tests:must(await db.from('nafes_assessments').select('id,title,kind,config,short_code,created_at,published_at,legacy_target').eq('status','published')).map(testInfo)};
