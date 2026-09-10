@@ -1,6 +1,7 @@
 /**
  * moallimi - Dedicated Simulation Hub (مركز الاختبارات المحاكية)
- * Multi-Subject Custom Indicator Simulation & Official Ministerial Forms
+ * 1. اختبار مؤشرات مخصص (Custom Indicators Exam)
+ * 2. اختبار محاكي مثل نافس (Simulation Exam like NAFES)
  */
 (() => {
   'use strict';
@@ -20,8 +21,15 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const ar = x => new Intl.NumberFormat('ar-SA').format(x);
 
+  const subjectNames = {
+    reading: 'القراءة',
+    math: 'الرياضيات',
+    science: 'العلوم'
+  };
+
   let simulationTests = [];
   let catalogIndicators = [];
+  let simulationSummary = { reading: 0, math: 0, science: 0, total: 0 };
   let isPublishing = false;
 
   async function initSimulationHub() {
@@ -35,225 +43,180 @@
     setupForms();
   }
 
-  // Tab switching
+  // Tab switching: Only Two Options as mandated:
+  // 1. اختبار مؤشرات مخصص (custom)
+  // 2. اختبار محاكي مثل نافس (full)
   window.switchSimTab = function(tab) {
     const isCustom = tab === 'custom';
     const isFull = tab === 'full' || tab === 'standard';
-    const isSingle = tab === 'single';
 
     $('tabCustomBtn')?.classList.toggle('active', isCustom);
     $('tabFullBtn')?.classList.toggle('active', isFull);
-    $('tabStandardBtn')?.classList.toggle('active', isFull);
-    $('tabSingleBtn')?.classList.toggle('active', isSingle);
 
     $('customSimView')?.classList.toggle('hidden', !isCustom);
     $('standardSimView')?.classList.toggle('hidden', !isFull);
-    $('singleDomainSimView')?.classList.toggle('hidden', !isSingle);
   };
-
-  let simulationSummary = { reading: 0, math: 0, science: 0, total: 0 };
 
   async function loadCatalogData() {
     try {
       const catalog = await window.NafesTeacher.api('teacher_catalog');
       catalogIndicators = catalog.simulation_indicators || [];
       simulationSummary = catalog.simulation_summary || { reading: 0, math: 0, science: 0, total: 0 };
-      renderIndicatorsForSubject('reading');
-      renderIndicatorsForSubject('math');
-      renderIndicatorsForSubject('science');
-      updateScienceBankBadge();
+
+      onCustomSubjectChange();
       updateStandardSpecsDisplay();
-      updateCustomSummary();
     } catch (err) {
       console.warn('Catalog load warning:', err);
     }
   }
 
-  function updateScienceBankBadge() {
-    const badge = $('science_bank_badge');
-    if (!badge) return;
-    const avail = simulationSummary.science || 0;
-    badge.textContent = `الرصيد المتاح: ${ar(avail)} سؤال معتمد`;
-    if (avail === 0) {
-      badge.style.background = '#fdeeee';
-      badge.style.color = '#b3261e';
-    } else {
-      badge.style.background = '#e6f7f2';
-      badge.style.color = '#0f514c';
+  // Called when subject dropdown changes in Custom Indicators Exam
+  window.onCustomSubjectChange = function() {
+    const subject = $('customSimSubject')?.value || 'reading';
+    const listContainer = $('customIndicatorsList');
+    const noticeContainer = $('customSubjectBankNotice');
+
+    const subjectTotal = simulationSummary[subject] || 0;
+    if (noticeContainer) {
+      if (subjectTotal === 0) {
+        noticeContainer.innerHTML = `<span style="color:#b3261e;">رصيد بنك المحاكاة لمادة ${subjectNames[subject]}: ٠ سؤال معتمد (البنك فارغ حالياً)</span>`;
+      } else {
+        noticeContainer.innerHTML = `<span style="color:#0f514c;">رصيد بنك المحاكاة لمادة ${subjectNames[subject]}: ${ar(subjectTotal)} سؤال معتمد صالح للاستخدام</span>`;
+      }
     }
-  }
+
+    if (!listContainer) return;
+
+    const inds = catalogIndicators.filter(i => i.subject === subject);
+    if (!inds.length) {
+      listContainer.innerHTML = '<div style="padding:14px;font-size:12px;color:#687a83;text-align:center;">جارٍ تحميل مؤشرات المادة من بنك المحاكاة...</div>';
+      return;
+    }
+
+    listContainer.innerHTML = inds.map((item, idx) => {
+      const isAvailable = (item.available || 0) > 0;
+      const availText = isAvailable
+        ? `${ar(item.available)} سؤالًا متاحًا في بنك المحاكاة`
+        : '٠ متاح في بنك المحاكاة المستقل';
+      const badgeClass = isAvailable ? 'avail' : 'zero';
+
+      return `
+        <label class="sim-ind-row" data-key="${esc(item.key)}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #edf2f0;cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;">
+            <input type="checkbox" class="custom-ind-check" value="${esc(item.key)}" ${!isAvailable ? 'disabled' : ''} onchange="updateCustomAllocationNotice()" style="width:18px;height:18px;accent-color:#0f514c;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#17324d;">${ar(idx + 1)}) ${esc(item.text)}</div>
+              <div class="sim-ind-badge ${badgeClass}" style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;margin-top:2px;">${availText}</div>
+            </div>
+          </div>
+        </label>
+      `;
+    }).join('');
+
+    updateCustomAllocationNotice();
+  };
+
+  window.selectAllCustomIndicators = function(selectAll) {
+    const listContainer = $('customIndicatorsList');
+    if (!listContainer) return;
+    const checks = listContainer.querySelectorAll('.custom-ind-check:not(:disabled)');
+    checks.forEach(c => { c.checked = !!selectAll; });
+    updateCustomAllocationNotice();
+  };
+
+  window.updateCustomAllocationNotice = function() {
+    const notice = $('customAllocationNotice');
+    const countBadge = $('customIndicatorsCountBadge');
+    if (!notice) return;
+
+    const subject = $('customSimSubject')?.value || 'reading';
+    const totalQ = Math.max(1, Number($('customSimCount')?.value || 20));
+    const checked = [...document.querySelectorAll('#customIndicatorsList .custom-ind-check:checked')];
+    const k = checked.length;
+
+    if (countBadge) {
+      countBadge.textContent = k > 0 ? `تم اختيار ${ar(k)} مؤشرًا` : 'لم يتم اختيار أي مؤشر بعد';
+    }
+
+    if (k === 0) {
+      notice.style.background = '#fdeeee';
+      notice.style.borderColor = '#f5c6cb';
+      notice.innerHTML = `
+        <div style="color:#b3261e;font-weight:bold;">⚠️ يرجى اختيار مؤشر واحد أو عدة مؤشرات من القائمة أعلاه.</div>
+      `;
+      return;
+    }
+
+    // Distribute questions evenly across selected indicators with balanced remainder
+    const basePerInd = Math.floor(totalQ / k);
+    const remainder = totalQ % k;
+
+    let totalAvailForSelected = 0;
+    let insufficient = false;
+    const allocations = [];
+
+    checked.forEach((ch, idx) => {
+      const allocated = basePerInd + (idx < remainder ? 1 : 0);
+      const indObj = catalogIndicators.find(x => x.key === ch.value);
+      const avail = indObj?.available || 0;
+      totalAvailForSelected += avail;
+      if (allocated > avail) {
+        insufficient = true;
+      }
+      allocations.push({ text: indObj?.text || ch.value, allocated, avail });
+    });
+
+    if (insufficient || totalQ > totalAvailForSelected) {
+      notice.style.background = '#fdeeee';
+      notice.style.borderColor = '#f5c6cb';
+      notice.innerHTML = `
+        <div style="color:#b3261e;font-weight:900;font-size:13px;">الرصيد المتاح لا يكفي لإنشاء الاختبار بهذه الإعدادات.</div>
+        <div style="color:#781c1c;margin-top:4px;">
+          المطلوب: <b>${ar(totalQ)} سؤالًا</b> موزعة على <b>${ar(k)} مؤشرات</b> · الرصيد المتاح للمؤشرات المختارة في بنك المحاكاة: <b>${ar(totalAvailForSelected)} سؤالًا معتمدًا</b>.
+        </div>
+        <div style="color:#781c1c;font-size:11px;margin-top:2px;">
+          ممنوع تكرار الأسئلة أو السحب من بنك المؤشرات الأساسي. يرجى خفض عدد الأسئلة أو اختيار مؤشرات يتوفر لها رصيد كافٍ.
+        </div>
+      `;
+    } else {
+      notice.style.background = '#f4fbf8';
+      notice.style.borderColor = '#cce8dd';
+      const remainderNotice = remainder > 0 ? ` (مع سؤال إضافي لـ ${ar(remainder)} مؤشرات لتحقيق المجموع)` : '';
+      notice.innerHTML = `
+        <div style="color:#0f514c;font-weight:900;font-size:13px;">✓ توزيع متوازن للأسئلة على المؤشرات المختارة:</div>
+        <div style="color:#184e3d;margin-top:4px;">
+          سيتم توزيع <b>${ar(totalQ)} سؤالًا</b> على <b>${ar(k)} مؤشرات</b>: <b>${ar(basePerInd)} أسئلة</b> لكل مؤشر${remainderNotice}.
+        </div>
+        <div style="color:#184e3d;font-size:11px;margin-top:2px;">
+          الرصيد المتاح للمؤشرات المختارة كافٍ تماماً (${ar(totalAvailForSelected)} سؤالًا معتمدًا في بنك المحاكاة).
+        </div>
+      `;
+    }
+  };
 
   function updateStandardSpecsDisplay() {
     const totalEl = $('standardSummaryTotal');
     const readEl = $('standardReadingSpec');
     const mathEl = $('standardMathSpec');
     const sciEl = $('standardScienceSpec');
+
     const rAvail = simulationSummary.reading || 0;
     const mAvail = simulationSummary.math || 0;
     const sAvail = simulationSummary.science || 0;
     const totAvail = simulationSummary.total || (rAvail + mAvail + sAvail);
 
-    if (totalEl) totalEl.textContent = `رصيد البنك المستقل: ${ar(totAvail)} سؤال معتمد`;
-    if (readEl) readEl.textContent = `٢٠ سؤالًا · ٤٥ دقيقة (المتاح: ${ar(rAvail)})`;
-    if (mathEl) mathEl.textContent = `٢٥ سؤالًا · ٤٥ دقيقة · 🧮 حاسبة مفعّلة (المتاح: ${ar(mAvail)})`;
+    if (totalEl) totalEl.textContent = `رصيد بنك المحاكاة المستقل: ${ar(totAvail)} سؤال معتمد`;
+    if (readEl) readEl.textContent = `٢٠ سؤالًا · ٤٥ دقيقة (المتاح في بنك المحاكاة: ${ar(rAvail)})`;
+    if (mathEl) mathEl.textContent = `٢٥ سؤالًا · ٤٥ دقيقة · 🧮 حاسبة مفعّلة (المتاح في بنك المحاكاة: ${ar(mAvail)})`;
     if (sciEl) {
       if (sAvail > 0) {
-        sciEl.textContent = `المتاح: ${ar(sAvail)} سؤال معتمد`;
+        sciEl.textContent = `٢٠ سؤالًا · ٣٠ دقيقة (المتاح في بنك المحاكاة: ${ar(sAvail)})`;
         sciEl.style.color = '#0f514c';
       } else {
-        sciEl.textContent = `المتاح: ٠ سؤال معتمد (غير جاهز)`;
+        sciEl.textContent = `المتاح في بنك المحاكاة: ٠ سؤال معتمد (غير جاهز)`;
         sciEl.style.color = '#b3261e';
       }
     }
-  }
-
-  function renderIndicatorsForSubject(subject) {
-    const container = $(`list_${subject}`);
-    if (!container) return;
-
-    const inds = catalogIndicators.filter(i => i.subject === subject);
-    if (!inds.length) {
-      container.innerHTML = '<div style="padding:10px;font-size:11px;color:#687a83;text-align:center;">جارٍ تحميل مؤشرات المادة من بنك المحاكاة...</div>';
-      return;
-    }
-
-    container.innerHTML = inds.map((item, idx) => {
-      const isAvailable = (item.available || 0) > 0;
-      const isChecked = false;
-      const availText = isAvailable ? `${ar(item.available)} سؤالًا متاحًا في بنك المحاكاة` : '٠ متاح — لا توجد أسئلة معتمدة حالياً';
-      const badgeClass = isAvailable ? 'avail' : 'zero';
-
-      return `
-        <label class="sim-ind-row" data-key="${esc(item.key)}" data-subject="${esc(subject)}">
-          <div class="sim-ind-main">
-            <input type="checkbox" class="sim-ind-check" data-subject="${esc(subject)}" value="${esc(item.key)}" ${isChecked ? 'checked' : ''} ${!isAvailable ? 'disabled' : ''} onchange="onIndicatorToggle('${esc(subject)}')">
-            <div class="sim-ind-text-wrap">
-              <span class="sim-ind-title" title="${esc(item.text)}">${ar(idx + 1)}) ${esc(item.text)}</span>
-              <span class="sim-ind-badge ${badgeClass}">${availText}</span>
-            </div>
-          </div>
-          <div class="sim-ind-count-ctrl">
-            <span>الأسئلة:</span>
-            <input type="number" class="sim-ind-count" min="1" max="15" value="${isAvailable ? 2 : 0}" data-key="${esc(item.key)}" data-subject="${esc(subject)}" onchange="updateCustomSummary()" ${!isAvailable ? 'disabled' : ''}>
-          </div>
-        </label>
-      `;
-    }).join('');
-
-    updateSubjectBadge(subject);
-  }
-
-  window.filterIndicators = function(subject, query) {
-    const q = String(query || '').trim().toLowerCase();
-    const container = $(`list_${subject}`);
-    if (!container) return;
-    const rows = container.querySelectorAll('.sim-ind-row');
-    rows.forEach(r => {
-      const text = r.textContent.toLowerCase();
-      r.style.display = text.includes(q) ? 'flex' : 'none';
-    });
-  };
-
-  window.selectAllIndicators = function(subject, selectAll) {
-    const container = $(`list_${subject}`);
-    if (!container) return;
-    const checks = container.querySelectorAll('.sim-ind-check:not(:disabled)');
-    checks.forEach(c => { c.checked = !!selectAll; });
-    updateSubjectBadge(subject);
-    updateCustomSummary();
-  };
-
-  window.selectFirstNIndicators = function(subject, n) {
-    const container = $(`list_${subject}`);
-    if (!container) return;
-    const checks = container.querySelectorAll('.sim-ind-check:not(:disabled)');
-    checks.forEach((c, idx) => {
-      c.checked = idx < n;
-    });
-    updateSubjectBadge(subject);
-    updateCustomSummary();
-  };
-
-  window.onIndicatorToggle = function(subject) {
-    updateSubjectBadge(subject);
-    updateCustomSummary();
-  };
-
-  function updateSubjectBadge(subject) {
-    const badge = $(`${subject}_selected_badge`);
-    if (!badge) return;
-    const container = $(`list_${subject}`);
-    if (!container) return;
-    const checkedCount = container.querySelectorAll('.sim-ind-check:checked').length;
-    badge.textContent = `تم اختيار ${ar(checkedCount)} مؤشرًا`;
-  }
-
-  window.toggleSubject = function(subject) {
-    const isChecked = $(`subj_enable_${subject}`)?.checked;
-    const card = $(`card_${subject}`);
-    const body = $(`body_${subject}`);
-    if (card) card.classList.toggle('enabled', !!isChecked);
-    if (body) body.style.display = isChecked ? 'block' : 'none';
-    updateCustomSummary();
-  };
-
-  function updateCustomSummary() {
-    const sectionsEl = $('customSummarySections');
-    const totalEl = $('customSummaryTotal');
-    const timeEl = $('customSummaryTime');
-    if (!sectionsEl || !totalEl || !timeEl) return;
-
-    const subjects = [
-      { key: 'reading', name: 'القراءة', icon: '📖' },
-      { key: 'math', name: 'الرياضيات', icon: '📐' },
-      { key: 'science', name: 'العلوم', icon: '🔬' }
-    ];
-
-    let grandTotalQuestions = 0;
-    let grandTotalMinutes = 0;
-    const activeSections = [];
-
-    for (const sub of subjects) {
-      const isEnabled = $(`subj_enable_${sub.key}`)?.checked;
-      if (!isEnabled) continue;
-
-      const duration = Number($(`subj_time_${sub.key}`)?.value || 30);
-      const container = $(`list_${sub.key}`);
-      let questionsCount = 0;
-      let indicatorsCount = 0;
-
-      if (container) {
-        const checkedChecks = container.querySelectorAll('.sim-ind-check:checked');
-        indicatorsCount = checkedChecks.length;
-        checkedChecks.forEach(ch => {
-          const countInput = container.querySelector(`.sim-ind-count[data-key="${ch.value}"]`);
-          questionsCount += Number(countInput?.value || 2);
-        });
-      }
-
-      grandTotalQuestions += questionsCount;
-      grandTotalMinutes += duration;
-
-      const calcBadge = sub.key === 'math' && $('subj_calc_math')?.checked ? ' · 🧮 حاسبة' : '';
-      activeSections.push(`
-        <div class="sim-spec-row">
-          <b>${sub.icon} ${sub.name}</b>
-          <span>${ar(questionsCount)} سؤالًا (${ar(indicatorsCount)} مؤشرًا) · ${ar(duration)} دقيقة${calcBadge}</span>
-        </div>
-      `);
-    }
-
-    if (!activeSections.length) {
-      sectionsEl.innerHTML = '<div style="font-size:11px;color:#b3261e;padding:6px 0;">لم يتم تفعيل أي مادة للاختبار</div>';
-      totalEl.textContent = '٠ سؤال';
-      timeEl.textContent = '٠ دقيقة';
-      return;
-    }
-
-    sectionsEl.innerHTML = activeSections.join('');
-    totalEl.textContent = `${ar(grandTotalQuestions)} سؤالًا`;
-    const breakNotice = activeSections.length > 1 ? ` (شاملًا استراحة ${ar(2)} دقيقة بين الأقسام)` : '';
-    timeEl.textContent = `${ar(grandTotalMinutes)} دقيقة${breakNotice}`;
   }
 
   async function loadSimulations() {
@@ -266,8 +229,8 @@
     try {
       const catalog = await window.NafesTeacher.api('teacher_catalog');
       const tests = catalog.tests || [];
-      
-      // Filter simulations: kind === 'simulation' or 'multi_indicator' or title/config containing simulation
+
+      // Filter simulation tests
       simulationTests = tests.filter(t => t.kind === 'simulation' || t.kind === 'multi_indicator' || (t.title && t.title.includes('محاكاة')));
 
       if (countEl) countEl.textContent = `${ar(simulationTests.length)} اختبار محاكاة`;
@@ -276,7 +239,7 @@
         listEl.innerHTML = `
           <div class="table-empty">
             لم تنشر أي اختبار محاكاة بعد.<br>
-            استخدم نموذج المحاكاة المخصصة أو النماذج القياسية على اليمين لتكوين أول محاكاة ونشرها لفصلك فورًا.
+            استخدم نموذج "اختبار مؤشرات مخصص" أو "اختبار محاكي مثل نافس" لتكوين أول محاكاة ونشرها لفصلك فورًا.
           </div>
         `;
         return;
@@ -291,13 +254,18 @@
         const hasMath = subList.includes('math');
         const hasScience = subList.includes('science');
 
+        const termDisplay = test.term || test.academic_term || 'غير محدد';
+        const classDisplay = test.class_name || '—';
+
         return `
           <article class="sim-card" data-test-id="${esc(test.id)}">
             <div class="sim-card-top">
               <div>
                 <h3 class="sim-card-title">${esc(test.title || 'اختبار محاكاة نافس')}</h3>
                 <div class="sim-card-meta">
-                  <span>الفصل: <b>${esc(test.class_name || '—')}</b></span>
+                  <span>فصل الطالب: <b>${esc(classDisplay)}</b></span>
+                  <span>·</span>
+                  <span>الفصل الدراسي: <b>${esc(termDisplay)}</b></span>
                   <span>·</span>
                   <span>الأسئلة: <b>${ar(test.total || 0)} سؤالًا</b></span>
                   <span>·</span>
@@ -311,7 +279,7 @@
               ${hasReading ? '<span class="sim-part-pill reading">📖 القراءة</span>' : ''}
               ${hasMath ? '<span class="sim-part-pill math">📐 الرياضيات مع حاسبة</span>' : ''}
               ${hasScience ? '<span class="sim-part-pill science">🔬 العلوم</span>' : ''}
-              <span class="sim-part-pill" style="background:#f0f4f3;color:#2c5b52;">⚡ محاكاة موحدة</span>
+              <span class="sim-part-pill" style="background:#f0f4f3;color:#2c5b52;">⚡ بنك المحاكاة المستقل</span>
             </div>
 
             <div class="sim-link-box">
@@ -329,9 +297,9 @@
               <button type="button" class="sim-act-btn qr" onclick="showSimQr('${esc(test.id)}', '${esc(test.title)}', '${esc(studentUrl)}')">
                 <span>📱</span> رمز QR
               </button>
-              <a href="analysis.html?test=${encodeURIComponent(test.id)}#manage" class="sim-act-btn manage">
-                <span>⚙️</span> إدارة ومسح النتائج
-              </a>
+              <button type="button" class="sim-act-btn danger" style="color:#b3261e;border-color:#f5c6cb;background:#fff5f5;" onclick="deleteSimTest('${esc(test.id)}', '${esc(test.title)}')">
+                <span>🗑️</span> حذف الاختبار
+              </button>
             </div>
           </article>
         `;
@@ -344,9 +312,9 @@
   function setupForms() {
     setupCustomForm();
     setupStandardForm();
-    setupSingleDomainForm();
   }
 
+  // 1. اختبار مؤشرات مخصص
   function setupCustomForm() {
     const form = $('customSimForm');
     if (!form) return;
@@ -355,83 +323,66 @@
       e.preventDefault();
       if (isPublishing) return;
 
-      const title = $('customSimTitle').value.trim() || 'اختبار محاكاة نافس المخصص';
+      const title = $('customSimTitle').value.trim() || 'اختبار مؤشرات نافس مخصص';
+      const subject = $('customSimSubject').value;
+      const totalQ = Math.max(1, Number($('customSimCount').value || 20));
+      const duration = Math.max(5, Number($('customSimDuration').value || 30));
       const className = $('customSimClass').value.trim();
+      const term = $('customSimTerm').value.trim();
       const schoolName = $('customSimSchool').value.trim();
       const teacherName = $('customSimTeacher').value.trim();
       const submitBtn = $('publishCustomSimBtn');
       const feedback = $('customSimFeedback');
 
       if (!className) {
+        showCustomFeedback('يرجى تحديد فصل الطالب (أ / ب / ج / د)', 'err');
+        return;
+      }
+      if (!term) {
         showCustomFeedback('يرجى تحديد الفصل الدراسي', 'err');
         return;
       }
 
-      // Collect sections
-      const sections = [];
-      const subjectsToCheck = [
-        { key: 'reading', name: 'القراءة', isEnabled: $('subj_enable_reading')?.checked, timeId: 'subj_time_reading', calc: false },
-        { key: 'math', name: 'الرياضيات', isEnabled: $('subj_enable_math')?.checked, timeId: 'subj_time_math', calc: !!$('subj_calc_math')?.checked },
-        { key: 'science', name: 'العلوم', isEnabled: $('subj_enable_science')?.checked, timeId: 'subj_time_science', calc: false }
-      ];
-
-      for (const item of subjectsToCheck) {
-        if (!item.isEnabled) continue;
-        const duration = Number($(item.timeId)?.value || 30);
-        const container = $(`list_${item.key}`);
-        if (!container) continue;
-
-        const checkedBoxes = container.querySelectorAll('.sim-ind-check:checked');
-        if (!checkedBoxes.length) {
-          showCustomFeedback(`يرجى اختيار مؤشر واحد على الأقل في مادة ${item.name}`, 'err');
-          return;
-        }
-
-        const sectionIndicators = [];
-        let sectionQuestionsTotal = 0;
-
-        for (const ch of checkedBoxes) {
-          const countInput = container.querySelector(`.sim-ind-count[data-key="${ch.value}"]`);
-          const count = Number(countInput?.value || 0);
-          const indObj = catalogIndicators.find(k => k.key === ch.value);
-          const available = indObj?.available || 0;
-          const text = indObj?.text || ch.closest('.sim-ind-row')?.querySelector('.sim-ind-title')?.textContent || '';
-
-          if (count <= 0) {
-            showCustomFeedback(`يرجى تحديد عدد أسئلة صحيح للمؤشر «${text}»`, 'err');
-            return;
-          }
-
-          if (count > available) {
-            showCustomFeedback(`المؤشر «${text}»: المطلوب ${ar(count)} سؤالًا، بينما المتاح في بنك المحاكاة المستقل ${ar(available)} فقط. لن يتم تكرار أي سؤال، ولا يمكن إنشاء الاختبار بهذا العدد.`, 'err');
-            return;
-          }
-
-          sectionIndicators.push({
-            key: ch.value,
-            count: count,
-            text: text
-          });
-          sectionQuestionsTotal += count;
-        }
-
-        sections.push({
-          subject: item.key,
-          question_count: sectionQuestionsTotal,
-          duration_minutes: duration,
-          calculator: item.calc,
-          indicators: sectionIndicators
-        });
+      const checkedBoxes = [...document.querySelectorAll('#customIndicatorsList .custom-ind-check:checked')];
+      if (!checkedBoxes.length) {
+        showCustomFeedback('يرجى اختيار مؤشر واحد على الأقل للمادة.', 'err');
+        return;
       }
 
-      if (!sections.length) {
-        showCustomFeedback('يرجى تفعيل مادة واحدة على الأقل في المحاكاة (القراءة أو الرياضيات أو العلوم)', 'err');
+      // Check balance and distribute evenly
+      const k = checkedBoxes.length;
+      const basePerInd = Math.floor(totalQ / k);
+      const remainder = totalQ % k;
+
+      let totalAvail = 0;
+      let insufficient = false;
+      const indicatorsList = [];
+
+      checkedBoxes.forEach((ch, idx) => {
+        const allocated = basePerInd + (idx < remainder ? 1 : 0);
+        const indObj = catalogIndicators.find(x => x.key === ch.value);
+        const avail = indObj?.available || 0;
+        totalAvail += avail;
+
+        if (allocated > avail) {
+          insufficient = true;
+        }
+
+        indicatorsList.push({
+          key: ch.value,
+          count: allocated,
+          text: indObj?.text || ch.value
+        });
+      });
+
+      if (insufficient || totalQ > totalAvail) {
+        showCustomFeedback(`الرصيد المتاح لا يكفي لإنشاء الاختبار بهذه الإعدادات. الرصيد المتاح في بنك المحاكاة المستقل للمؤشرات المختارة: ${ar(totalAvail)} سؤالًا معتمدًا، بينما المطلوب: ${ar(totalQ)} سؤالًا. لن يتم تكرار أي سؤال.`, 'err');
         return;
       }
 
       isPublishing = true;
       submitBtn.disabled = true;
-      submitBtn.textContent = 'جارٍ تكوين ونشر المحاكاة المخصصة...';
+      submitBtn.textContent = 'جارٍ تكوين ونشر اختبار المؤشرات المخصص...';
       feedback.classList.add('hidden');
 
       try {
@@ -442,12 +393,22 @@
           grade_key: 'middle_3',
           title: title,
           class_name: className,
+          term: term,
+          academic_term: term,
           school_name: schoolName,
           teacher_name: teacherName,
           principal_name: '',
           identity_mode: 'manual',
           roster: [],
-          sections: sections,
+          sections: [
+            {
+              subject: subject,
+              question_count: totalQ,
+              duration_minutes: duration,
+              calculator: subject === 'math',
+              indicators: indicatorsList
+            }
+          ],
           count_mode: 'per_indicator',
           settings: {
             show_result: true,
@@ -466,18 +427,18 @@
             log_visibility: true,
             watermark: true,
             attempts: 1,
-            break_minutes: 2
+            break_minutes: 0
           }
         };
 
         // 1. Preview Draft
         const draft = await window.NafesTeacher.api('teacher_preview', { config, regenerate: false });
-        if (!draft?.draft_id) throw new Error('فشل إعداد مسودة المحاكاة.');
+        if (!draft?.draft_id) throw new Error('فشل إعداد مسودة اختبار المؤشرات.');
 
         // 2. Publish Test
         const published = await window.NafesTeacher.api('teacher_publish', { draft_id: draft.draft_id });
 
-        showCustomFeedback(`تم نشر المحاكاة بنجاح! الرابط جاهز للإرسال للطلاب: ${published.url}`, 'ok');
+        showCustomFeedback(`تم نشر اختبار المؤشرات المخصص بنجاح! الرابط جاهز: ${published.url}`, 'ok');
 
         // Show QR modal with the newly created test
         showSimQr(published.id, published.title, published.url);
@@ -485,15 +446,16 @@
         // Reload published simulations list
         await loadSimulations();
       } catch (err) {
-        showCustomFeedback('فشل نشر المحاكاة المخصصة: ' + err.message, 'err');
+        showCustomFeedback('فشل نشر اختبار المؤشرات المخصص: ' + err.message, 'err');
       } finally {
         isPublishing = false;
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span>🚀</span> تكوين ونشر المحاكاة المخصصة';
+        submitBtn.innerHTML = '<span>🚀</span> تكوين ونشر اختبار المؤشرات المخصص';
       }
     };
   }
 
+  // 2. اختبار محاكي مثل نافس (شامل: القراءة والرياضيات والعلوم)
   function setupStandardForm() {
     const form = $('quickSimForm');
     if (!form) return;
@@ -504,6 +466,7 @@
 
       const title = $('simTitle').value.trim() || 'اختبار محاكاة نافس الشاملة';
       const className = $('simClass').value.trim();
+      const term = $('simTerm').value.trim();
       const schoolName = $('simSchool').value.trim();
       const teacherName = $('simTeacher').value.trim();
       const modelNo = Number($('simModel').value || 1);
@@ -511,14 +474,22 @@
       const feedback = $('simFormFeedback');
 
       if (!className) {
+        showStandardFeedback('يرجى تحديد فصل الطالب (أ / ب / ج / د)', 'err');
+        return;
+      }
+      if (!term) {
         showStandardFeedback('يرجى تحديد الفصل الدراسي', 'err');
         return;
       }
 
-      // Check available questions in independent simulation bank
-      const totalAvail = (simulationSummary.reading || 0) + (simulationSummary.math || 0) + (simulationSummary.science || 0);
-      if (totalAvail === 0) {
-        showStandardFeedback('لا يمكن إنشاء المحاكاة الشاملة حالياً: رصيد بنك المحاكاة المستقل (٠ سؤال معتمد). يرجى اعتماد أسئلة في بنك المحاكاة أولاً.', 'err');
+      // Check available questions in independent simulation bank across Reading, Math, Science
+      const rAvail = simulationSummary.reading || 0;
+      const mAvail = simulationSummary.math || 0;
+      const sAvail = simulationSummary.science || 0;
+      const totalAvail = rAvail + mAvail + sAvail;
+
+      if (totalAvail === 0 || rAvail < 20 || mAvail < 25 || sAvail < 20) {
+        showStandardFeedback(`الرصيد المتاح لا يكفي لإنشاء الاختبار بهذه الإعدادات. رصيد بنك المحاكاة المستقل: القراءة (${ar(rAvail)}/٢٠)، الرياضيات (${ar(mAvail)}/٢٥)، العلوم (${ar(sAvail)}/٢٠). لا يمكن استخدام بنك المؤشرات الأساسي كبديل.`, 'err');
         return;
       }
 
@@ -535,6 +506,8 @@
           grade_key: 'middle_3',
           title: title,
           class_name: className,
+          term: term,
+          academic_term: term,
           school_name: schoolName,
           teacher_name: teacherName,
           principal_name: '',
@@ -553,6 +526,13 @@
               question_count: 25,
               duration_minutes: 45,
               calculator: true,
+              model_no: modelNo
+            },
+            {
+              subject: 'science',
+              question_count: 20,
+              duration_minutes: 30,
+              calculator: false,
               model_no: modelNo
             }
           ],
@@ -618,120 +598,28 @@
     el.classList.remove('hidden');
   }
 
-  function setupSingleDomainForm() {
-    const form = $('singleDomainSimForm');
-    if (!form) return;
+  window.deleteSimTest = async function(testId, title) {
+    const conf = prompt(`تنبيه: سيتم حذف اختبار "${title}" مع كافة محاولاته ونتائجه نهائياً.\nهذا الإجراء لا يحذف الطلاب في إدارة الطلاب.\nلتأكيد الحذف، اكتب كلمة: حذف`);
+    if (!conf || conf.trim() !== 'حذف') {
+      if (conf) alert('تم إلغاء الحذف: كلمة التأكيد غير مطابقة.');
+      return;
+    }
 
-    form.onsubmit = async e => {
-      e.preventDefault();
-      if (isPublishing) return;
-
-      const title = $('singleSimTitle').value.trim() || 'اختبار محاكاة نافس - مجال مخصص';
-      const subject = $('singleSimSubject').value;
-      const className = $('singleSimClass').value.trim();
-      const count = Number($('singleSimCount').value || 20);
-      const duration = Number($('singleSimDuration').value || 35);
-      const schoolName = $('singleSimSchool').value.trim();
-      const teacherName = $('singleSimTeacher').value.trim();
-      const submitBtn = $('publishSingleSimBtn');
-      const feedback = $('singleSimFeedback');
-
-      if (!className) {
-        showSingleFeedback('يرجى تحديد الفصل الدراسي', 'err');
-        return;
-      }
-
-      const avail = simulationSummary[subject] || 0;
-      if (avail === 0) {
-        showSingleFeedback(`رصيد بنك المحاكاة المستقل لمادة (${subject === 'reading' ? 'القراءة' : subject === 'math' ? 'الرياضيات' : 'العلوم'}) هو ٠ سؤال معتمد حالياً. لا يمكن إنشاء اختبار محاكاة بدون أسئلة معتمدة في بنك المحاكاة، ولن يتم استخدام بنك المؤشرات كبديل.`, 'err');
-        return;
-      }
-
-      if (count > avail) {
-        showSingleFeedback(`العدد المطلوب (${ar(count)}) أكبر من الرصيد المتاح في بنك المحاكاة (${ar(avail)} سؤال). لن يتم تكرار أي أسئلة؛ يرجى طلب عدد لا يتجاوز ${ar(avail)} سؤالاً.`, 'err');
-        return;
-      }
-
-      isPublishing = true;
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'جارٍ تكوين ونشر اختبار المجال الواحد...';
-      feedback.classList.add('hidden');
-
-      try {
-        const config = {
-          kind: 'simulation',
-          simulation_mode: 'single_domain',
-          bank_source: 'simulation_bank',
-          grade_key: 'middle_3',
-          title: title,
-          class_name: className,
-          school_name: schoolName,
-          teacher_name: teacherName,
-          principal_name: '',
-          identity_mode: 'manual',
-          roster: [],
-          sections: [
-            {
-              subject: subject,
-              question_count: count,
-              duration_minutes: duration,
-              calculator: subject === 'math'
-            }
-          ],
-          count_mode: 'total',
-          settings: {
-            show_result: true,
-            show_answers: false,
-            show_indicator_result: true,
-            show_correct_count: true,
-            shuffle_questions: true,
-            shuffle_options: true,
-            allow_copy: false,
-            disable_right_click: true,
-            disable_print: true,
-            disable_shortcuts: true,
-            allow_back: true,
-            one_per_page: true,
-            lock_session: true,
-            log_visibility: true,
-            watermark: true,
-            attempts: 1,
-            break_minutes: 2
-          }
-        };
-
-        const draft = await window.NafesTeacher.api('teacher_preview', { config, regenerate: false });
-        if (!draft?.draft_id) throw new Error('فشل إعداد مسودة اختبار المحاكاة.');
-
-        const published = await window.NafesTeacher.api('teacher_publish', { draft_id: draft.draft_id });
-
-        showSingleFeedback(`تم نشر اختبار المجال الواحد بنجاح! الرابط جاهز: ${published.url}`, 'ok');
-        showSimQr(published.id, published.title, published.url);
-        await loadSimulations();
-      } catch (err) {
-        showSingleFeedback('فشل نشر اختبار المجال الواحد: ' + err.message, 'err');
-      } finally {
-        isPublishing = false;
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span>🚀</span> تكوين ونشر اختبار المجال الواحد';
-      }
-    };
-  }
-
-  function showSingleFeedback(msg, type) {
-    const el = $('singleSimFeedback');
-    if (!el) return;
-    el.textContent = msg;
-    el.className = `form-feedback ${type === 'ok' ? 'success' : 'danger'}`;
-    el.classList.remove('hidden');
-  }
+    try {
+      await window.NafesTeacher.api('teacher_test_delete', { test_id: testId, confirm_word: 'حذف' });
+      toast('تم حذف الاختبار ونتائجه بنجاح');
+      await loadSimulations();
+    } catch (err) {
+      alert('فشل حذف الاختبار: ' + err.message);
+    }
+  };
 
   window.copySimLink = async function(inputId) {
     const input = $(inputId);
     if (!input) return;
     try {
       await navigator.clipboard.writeText(input.value);
-      toast('تم نسخ رابط المحاكاة بنجاح');
+      toast('تم نسخ رابط الاختبار بنجاح');
     } catch (_) {
       input.select();
       document.execCommand('copy');
@@ -799,7 +687,7 @@
     try {
       const res = await window.NafesTeacher.api('teacher_attempts_raw');
       const attempts = (res.attempts || []).filter(a => String(a.test_id) === String(testId) && (a.submitted || a.submitted_at));
-      
+
       const test = simulationTests.find(t => String(t.id) === String(testId)) || { id: testId, title: 'اختبار محاكاة نافس' };
 
       if (!window.NafesExcelEngine) {

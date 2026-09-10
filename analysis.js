@@ -1798,8 +1798,31 @@ function renderIndicatorsTab(report, test, scopedAttempts = []) {
     const questionsForIndicator = sample 
       ? sample.questions.filter(q => A.indicatorKey(q) === g.key && A.isScorable(q)).length 
       : (g.measuredStudents ? Math.round(g.total / g.measuredStudents) : 0);
-    const masteryStatus = getNafesMastery(g.percent, questionsForIndicator);
-    const priority = getIndicatorPriority(g, questionsForIndicator, g.measuredStudents);
+
+    let nearCount = 0;
+    let supportCount = 0;
+    const supportNames = [];
+
+    const submits = scopedAttempts.filter(A.isSubmitted);
+    for (const a of submits) {
+      const qList = (a.questions || []).filter(q => A.indicatorKey(q) === g.key && A.isScorable(q));
+      if (!qList.length) continue;
+      const c = qList.filter(q => q.correct).length;
+      const p = (c / qList.length) * 100;
+      if (p >= 80) {
+        // متقن
+      } else if (p >= 65) {
+        nearCount++;
+      } else {
+        supportCount++;
+        const sName = a.student_name || a.name || 'طالب';
+        if (!supportNames.includes(sName)) supportNames.push(sName);
+      }
+    }
+
+    const supportNamesDisplay = supportNames.length > 0
+      ? `<span style="color:#b3261e;font-size:12px;font-weight:700;">${supportNames.map(E).join('، ')}</span>`
+      : `<span style="color:#0f514c;font-size:12px;">لا يوجد طلاب بحاجة لدعم</span>`;
 
     return [
       `<button type="button" class="text-button" data-indicator="${E(g.key)}" style="font-weight:800;text-align:right;">${E(g.text)}</button>`,
@@ -1807,8 +1830,9 @@ function renderIndicatorsTab(report, test, scopedAttempts = []) {
       pct(g.percent),
       pct(g.masteryRate),
       num(g.mastered),
-      num(g.measuredStudents ? Math.max(0, g.measuredStudents - g.mastered) : 0),
-      `<button type="button" class="button small" data-indicator="${E(g.key)}">عرض الطلاب ←</button>`
+      num(nearCount),
+      num(supportCount),
+      supportNamesDisplay
     ];
   });
 
@@ -1817,10 +1841,10 @@ function renderIndicatorsTab(report, test, scopedAttempts = []) {
       <div class="section-heading">
         <div>
           <h2>تحليل إتقان المؤشرات المقاسة</h2>
-          <p class="muted">نسب إتقان كل مؤشر وعدد الطلاب المتقنين والمحتاجين للدعم. اضغط على أي مؤشر لعرض الطلاب المتأثرين به.</p>
+          <p class="muted">نسب إتقان كل مؤشر وعدد الطلاب المتقنين والقريبين من الإتقان والذين يحتاجون دعماً مع بيان أسمائهم لتسهيل المتابعة الفردية.</p>
         </div>
       </div>
-      ${renderTable(['اسم المؤشر', 'عدد الأسئلة', 'متوسط أداء الطلاب', 'نسبة الإتقان', 'عدد الطلاب المتقنين', 'الطلاب المحتاجون للدعم', 'الإجراء'], rows)}
+      ${renderTable(['اسم المؤشر', 'عدد الأسئلة', 'متوسط أداء الطلاب', 'نسبة الإتقان', 'عدد الطلاب المتقنين', 'عدد الطلاب القريبين من الإتقان', 'عدد الطلاب الذين يحتاجون دعماً', 'أسماء الطلاب المحتاجين للدعم'], rows)}
     </div>
   `;
 }
@@ -1895,6 +1919,7 @@ function renderQuestionsWithDistractors(container, questionsList) {
 
     const correctCount = Math.max(0, g.measured - g.wrong);
     const correctPct = g.measured > 0 ? Math.round((correctCount / g.measured) * 1000) / 10 : 0;
+    const errorPct = g.measured > 0 ? Math.round((g.wrong / g.measured) * 1000) / 10 : 0;
 
     return [
       num(i + 1),
@@ -1902,6 +1927,7 @@ function renderQuestionsWithDistractors(container, questionsList) {
       num(correctCount),
       num(g.wrong),
       pct(correctPct),
+      pct(errorPct),
       distractorBarsHtml
     ];
   });
@@ -1910,11 +1936,11 @@ function renderQuestionsWithDistractors(container, questionsList) {
     <div class="card">
       <div class="section-heading">
         <div>
-          <h2>تحليل الأسئلة ومشتتات الإجابة</h2>
-          <p class="muted">تفصيل إجابات الطلاب على كل سؤال والمؤشر المرتبط به وتوزيع الاختيارات للبدائل (أ، ب، ج، د).</p>
+          <h2>تحليل الأسئلة والبدائل</h2>
+          <p class="muted">بيان رقم كل سؤال والمؤشر المقاس، وإحصاءات الإجابات الصحيحة والخاطئة ونسبتها، وتوزيع اختيارات الطلاب للبدائل (أ، ب، ج، د).</p>
         </div>
       </div>
-      ${renderTable(['#', 'المؤشر والسؤال', 'عدد الصحيحة', 'عدد الخاطئة', 'نسبة الإجابة الصحيحة', 'توزيع الاختيارات'], rows)}
+      ${renderTable(['رقم السؤال', 'المؤشر الذي يقيسه', 'عدد الإجابات الصحيحة', 'عدد الإجابات الخاطئة', 'نسبة الإجابة الصحيحة', 'نسبة الخطأ', 'عدد ونسبة الطلاب لكل بديل'], rows)}
     </div>
   `;
 }
@@ -2010,7 +2036,7 @@ function showStudent(key) {
   updateBreadcrumbs();
 
   const st = studentsRoster.find(s => s.id === key) || {};
-  const history = rawAttempts.filter(a => a.student_id === key || (a.studentIdentity && a.studentIdentity === key));
+  const history = rawAttempts.filter(a => a.student_id === key || a.student_key === key || (a.studentIdentity && (a.studentIdentity === key || a.studentIdentity === 'student:' + key || a.studentIdentity.includes(key))));
   const r = A.studentRows(history)[0] || { student: { student_name: st.full_name || st.student_name || 'طالب', grade: st.grade || 'الصف الثالث المتوسط', class_name: st.class_name || '—' }, skills: [] };
 
   const studentName = st.full_name || st.student_name || r.student.student_name || 'طالب';
@@ -2092,14 +2118,13 @@ function showStudent(key) {
   // All Tests Table rows
   const testRows = history.slice().sort(A.compareTime).reverse().map(a => {
     const t = tests.find(x => x.id === a.test_id);
-    let kindLabel = 'اختبارات المؤشرات';
-    if (t?.kind === 'simulation' || a.source === 'simulation') {
-      const subjs = t?.subjects || (a.questions ? [...new Set(a.questions.map(q => q.subject))] : []);
-      if (subjs.length >= 3) kindLabel = 'المحاكاة الكاملة';
-      else if (subjs.length === 1) kindLabel = 'اختبارات المجال الواحد';
-      else kindLabel = 'اختبارات المؤشرات المخصصة';
+    let kindLabel = 'اختبار مؤشرات أساسي';
+    if (t?.simulation_mode === 'custom' || a.simulation_mode === 'custom' || (t?.kind === 'simulation' && (t.subjects || []).length < 3)) {
+      kindLabel = 'اختبار مؤشرات مخصص (محاكاة)';
+    } else if (t?.kind === 'simulation' || a.source === 'simulation') {
+      kindLabel = 'محاكي مثل نافس';
     } else if (t?.kind === 'multi_indicator') {
-      kindLabel = 'الاختبارات متعددة المؤشرات';
+      kindLabel = 'اختبار مؤشرات مجمعة';
     }
     const subjs = (t?.subjects || (a.questions ? [...new Set(a.questions.map(q => q.subject))] : [])).map(s => names[s] || s).join(' · ') || '—';
 
@@ -2797,13 +2822,13 @@ function buildOfficialPrintReport(report, test, isMultiSubject = false, isPrintM
         <div class="print-header-left">
           <div class="print-brand">معلّمي<small>منصة تدريب وتحليل نافس</small></div>
           <p>تاريخ التقرير: ${E(currentDate)}</p>
-          <p>رمز الاختبار: <code>${E(test.short_code || test.id?.slice(0, 8))}</code></p>
+          <p>رمز الاختبار: <code>${E(test.short_code || '—')}</code></p>
         </div>
       </header>
 
       <div class="official-meta-cards">
         <div class="off-meta-box"><span>المرحلة الدراسية / الصف:</span><b>${E(gradeName)}</b></div>
-        <div class="off-meta-box"><span>الفصل الدراسي:</span><b>${E(test.term || test.semester || 'غير محدد')}</b></div>
+        <div class="off-meta-box"><span>الفصل الدراسي:</span><b>${E(test.term || test.academic_term || 'غير محدد')}</b></div>
         <div class="off-meta-box"><span>درجة القياس (الاختبار):</span><b>${num(maxScore)}</b></div>
       </div>
 

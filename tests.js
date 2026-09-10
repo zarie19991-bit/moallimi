@@ -120,8 +120,20 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
             <input id="indTitle" type="text" required value="${esc(defaultTitle)}" maxlength="160">
           </div>
           <div class="ind-field">
-            <label for="indClassName">اسم الفصل / الشعبة *</label>
-            <input id="indClassName" type="text" required value="${esc(defaultClass)}" maxlength="80">
+            <label for="indClassName">فصل الطالب / الشعبة *</label>
+            <select id="indClassName" required>
+              <option value="أ" ${defaultClass === 'أ' ? 'selected' : ''}>فصل (أ)</option>
+              <option value="ب" ${defaultClass === 'ب' ? 'selected' : ''}>فصل (ب)</option>
+              <option value="ج" ${defaultClass === 'ج' ? 'selected' : ''}>فصل (ج)</option>
+              <option value="د" ${defaultClass === 'د' ? 'selected' : ''}>فصل (د)</option>
+            </select>
+          </div>
+          <div class="ind-field">
+            <label for="indTerm">الفصل الدراسي *</label>
+            <select id="indTerm" required>
+              <option value="الفصل الدراسي الأول" selected>الفصل الدراسي الأول</option>
+              <option value="الفصل الدراسي الثاني">الفصل الدراسي الثاني</option>
+            </select>
           </div>
         </div>
         <div class="ind-grid-3" style="margin-top: 10px;">
@@ -370,6 +382,7 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
     try {
       const titleVal = document.getElementById('indTitle').value.trim();
       const classVal = document.getElementById('indClassName').value.trim();
+      const termVal = document.getElementById('indTerm')?.value.trim() || 'الفصل الدراسي الأول';
       const schoolVal = document.getElementById('indSchoolName').value.trim();
       const teacherVal = document.getElementById('indTeacherName').value.trim();
       const principalVal = document.getElementById('indPrincipalName').value.trim();
@@ -395,6 +408,7 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
         localStorage.setItem('nafes_builder_draft', JSON.stringify({
           ...draft,
           className: classVal,
+          term: termVal,
           schoolName: schoolVal,
           teacherName: teacherVal,
           principalName: principalVal
@@ -408,6 +422,8 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
         grade_key: 'middle_3',
         title: titleVal,
         class_name: classVal,
+        term: termVal,
+        academic_term: termVal,
         school_name: schoolVal,
         teacher_name: teacherVal,
         principal_name: principalVal,

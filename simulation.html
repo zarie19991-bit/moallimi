@@ -45,39 +45,79 @@
     <div class="sim-grid-layout">
       <!-- Left Column: Simulation Creator Hub -->
       <section class="sim-creator-card">
-        <!-- Tab Navigation -->
-        <!-- Tab Navigation (3 Types Only) -->
+        <!-- Tab Navigation (2 Types Only: Custom Indicators Exam & Simulation Exam like NAFES) -->
         <div class="sim-tabs-header">
           <button type="button" class="sim-tab-btn active" id="tabCustomBtn" onclick="switchSimTab('custom')">
-            <span>🎯</span> اختبار على المؤشرات
+            <span>🎯</span> اختبار مؤشرات مخصص
           </button>
           <button type="button" class="sim-tab-btn" id="tabFullBtn" onclick="switchSimTab('full')">
-            <span>🌐</span> اختبار محاكي كامل
-          </button>
-          <button type="button" class="sim-tab-btn" id="tabSingleBtn" onclick="switchSimTab('single')">
-            <span>📚</span> اختبار مجال واحد
+            <span>🌐</span> اختبار محاكي مثل نافس
           </button>
         </div>
 
         <!-- TAB 1: Custom Indicator Simulation -->
         <div id="customSimView">
-          <h2>🎯 اختبار على المؤشرات</h2>
-          <p class="card-subtitle">اختر المادة والمؤشرات التي تريد قياسها، مع تحديد عدد الأسئلة والوقت؛ لتوليد اختبار مستقل بالمؤشرات المختارة.</p>
+          <h2>🎯 اختبار مؤشرات مخصص</h2>
+          <p class="card-subtitle">حدد المادة والمؤشرات وعدد الأسئلة والزمن وفصل الطلاب والفصل الدراسي لإنشاء اختبار مؤشرات موحد ومستقل من بنك المحاكاة.</p>
 
           <form id="customSimForm">
             <div class="sim-form-group">
               <label for="customSimTitle">عنوان الاختبار *</label>
-              <input id="customSimTitle" type="text" value="اختبار على مؤشرات نافس" required maxlength="120">
+              <input id="customSimTitle" type="text" value="اختبار مؤشرات نافس مخصص" required maxlength="120">
             </div>
 
             <div class="sim-form-group">
-              <label for="customSimClass">الفصل الدراسي *</label>
-              <select id="customSimClass" required>
-                <option value="أ" selected>فصل (أ)</option>
-                <option value="ب">فصل (ب)</option>
-                <option value="ج">فصل (ج)</option>
-                <option value="د">فصل (د)</option>
+              <label for="customSimSubject">المادة *</label>
+              <select id="customSimSubject" required onchange="onCustomSubjectChange()">
+                <option value="reading" selected>📖 القراءة (فهم المقروء واللغة)</option>
+                <option value="math">📐 الرياضيات (الأعداد والهندسة والجبر والإحصاء)</option>
+                <option value="science">🔬 العلوم (علوم الحياة والأرض والفيزياء)</option>
               </select>
+            </div>
+
+            <div class="sim-form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+                <label style="margin:0;font-size:12px;font-weight:900;color:#17324d;">مؤشرات المادة المقاسة (اختر مؤشراً أو عدة مؤشرات معاً) *</label>
+                <div class="sim-quick-actions" style="margin:0;">
+                  <button type="button" class="btn-mini-chip" onclick="selectAllCustomIndicators(true)">تحديد الكل</button>
+                  <button type="button" class="btn-mini-chip" onclick="selectAllCustomIndicators(false)">إلغاء التحديد</button>
+                </div>
+              </div>
+              <div id="customSubjectBankNotice" style="margin-bottom:8px;font-size:12px;font-weight:800;"></div>
+              <div class="sim-ind-scroll-list" id="customIndicatorsList" style="max-height:240px;border:1px solid #dce7ea;border-radius:12px;padding:8px;background:#fbfdfc;overflow-y:auto;">
+                <!-- Dynamically rendered indicators with checkboxes -->
+              </div>
+              <div id="customIndicatorsCountBadge" style="font-size:12px;font-weight:800;color:#0f514c;margin-top:6px;"></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="sim-form-group">
+                <label for="customSimCount">عدد الأسئلة الكلي *</label>
+                <input id="customSimCount" type="number" min="1" max="60" value="20" required onchange="updateCustomAllocationNotice()" oninput="updateCustomAllocationNotice()">
+              </div>
+              <div class="sim-form-group">
+                <label for="customSimDuration">زمن الاختبار (بالدقائق) *</label>
+                <input id="customSimDuration" type="number" min="5" max="120" value="30" required>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="sim-form-group">
+                <label for="customSimClass">فصل الطالب / الشعبة *</label>
+                <select id="customSimClass" required>
+                  <option value="أ" selected>فصل (أ)</option>
+                  <option value="ب">فصل (ب)</option>
+                  <option value="ج">فصل (ج)</option>
+                  <option value="د">فصل (د)</option>
+                </select>
+              </div>
+              <div class="sim-form-group">
+                <label for="customSimTerm">الفصل الدراسي *</label>
+                <select id="customSimTerm" required>
+                  <option value="الفصل الدراسي الأول" selected>الفصل الدراسي الأول</option>
+                  <option value="الفصل الدراسي الثاني">الفصل الدراسي الثاني</option>
+                </select>
+              </div>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -91,139 +131,46 @@
               </div>
             </div>
 
-            <label style="display:block;font-size:12px;font-weight:900;color:#17324d;margin:12px 0 8px;">
-              📚 المواد والأقسام المشتركة في المحاكاة:
-            </label>
-
-            <!-- Subject 1: Reading -->
-            <div class="sim-subject-card enabled" id="card_reading">
-              <div class="sim-subj-header">
-                <label class="sim-subj-toggle">
-                  <input type="checkbox" id="subj_enable_reading" checked onchange="toggleSubject('reading')">
-                  <span>📖 القراءة</span>
-                </label>
-                <div class="sim-subj-meta-controls">
-                  <span>المدة:</span>
-                  <input type="number" id="subj_time_reading" class="sim-minute-input" min="5" max="120" value="30">
-                  <span>دقيقة</span>
-                </div>
-              </div>
-              <div class="sim-subj-body" id="body_reading">
-                <div class="sim-search-bar">
-                  <input type="search" placeholder="بحث في مؤشرات القراءة..." oninput="filterIndicators('reading', this.value)">
-                </div>
-                <div class="sim-quick-actions">
-                  <button type="button" class="btn-mini-chip" onclick="selectAllIndicators('reading', true)">تحديد الكل (١٦)</button>
-                  <button type="button" class="btn-mini-chip" onclick="selectAllIndicators('reading', false)">إلغاء التحديد</button>
-                  <span id="reading_selected_badge" style="font-size:11px;font-weight:800;color:#0f514c;margin-right:auto;align-self:center;"></span>
-                </div>
-                <div class="sim-ind-scroll-list" id="list_reading">
-                  <!-- Dynamically rendered indicators -->
-                </div>
-              </div>
-            </div>
-
-            <!-- Subject 2: Math -->
-            <div class="sim-subject-card enabled" id="card_math">
-              <div class="sim-subj-header">
-                <label class="sim-subj-toggle">
-                  <input type="checkbox" id="subj_enable_math" checked onchange="toggleSubject('math')">
-                  <span>📐 الرياضيات</span>
-                </label>
-                <div class="sim-subj-meta-controls">
-                  <label class="sim-calc-toggle" title="تفعيل الآلة الحاسبة أثناء أداء قسم الرياضيات">
-                    <input type="checkbox" id="subj_calc_math" checked>
-                    <span>🧮 حاسبة</span>
-                  </label>
-                  <span>المدة:</span>
-                  <input type="number" id="subj_time_math" class="sim-minute-input" min="5" max="120" value="45">
-                  <span>دقيقة</span>
-                </div>
-              </div>
-              <div class="sim-subj-body" id="body_math">
-                <div class="sim-search-bar">
-                  <input type="search" placeholder="بحث في مؤشرات الرياضيات..." oninput="filterIndicators('math', this.value)">
-                </div>
-                <div class="sim-quick-actions">
-                  <button type="button" class="btn-mini-chip" onclick="selectFirstNIndicators('math', 10)">أول ١٠ مؤشرات</button>
-                  <button type="button" class="btn-mini-chip" onclick="selectAllIndicators('math', true)">تحديد الكل</button>
-                  <button type="button" class="btn-mini-chip" onclick="selectAllIndicators('math', false)">إلغاء التحديد</button>
-                  <span id="math_selected_badge" style="font-size:11px;font-weight:800;color:#0f514c;margin-right:auto;align-self:center;"></span>
-                </div>
-                <div class="sim-ind-scroll-list" id="list_math">
-                  <!-- Dynamically rendered indicators -->
-                </div>
-              </div>
-            </div>
-
-            <!-- Subject 3: Science -->
-            <div class="sim-subject-card" id="card_science">
-              <div class="sim-subj-header">
-                <label class="sim-subj-toggle">
-                  <input type="checkbox" id="subj_enable_science" onchange="toggleSubject('science')">
-                  <span>🔬 العلوم</span>
-                </label>
-                <div class="sim-subj-meta-controls">
-                  <span id="science_bank_badge" style="font-size:10px;font-weight:800;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:999px;">
-                    الرصيد المتاح: ٠ سؤال معتمد
-                  </span>
-                  <span>المدة:</span>
-                  <input type="number" id="subj_time_science" class="sim-minute-input" min="5" max="120" value="30">
-                  <span>دقيقة</span>
-                </div>
-              </div>
-              <div class="sim-subj-body" id="body_science" style="display:none;">
-                <div class="sim-search-bar">
-                  <input type="search" placeholder="بحث في مؤشرات العلوم..." oninput="filterIndicators('science', this.value)">
-                </div>
-                <div class="sim-quick-actions">
-                  <button type="button" class="btn-mini-chip" onclick="selectAllIndicators('science', true)">تحديد الكل</button>
-                  <button type="button" class="btn-mini-chip" onclick="selectAllIndicators('science', false)">إلغاء التحديد</button>
-                  <span id="science_selected_badge" style="font-size:11px;font-weight:800;color:#0f514c;margin-right:auto;align-self:center;"></span>
-                </div>
-                <div class="sim-ind-scroll-list" id="list_science">
-                  <!-- Dynamically rendered indicators -->
-                </div>
-              </div>
-            </div>
-
-            <!-- Live Multi-Section Summary Box -->
-            <div class="sim-specs-box">
-              <div class="sim-specs-title">
-                <span>ملخص المحاكاة الموحدة</span>
-                <span id="customSummaryTotal">٠ سؤال</span>
-              </div>
-              <div id="customSummarySections">
-                <!-- Dynamically updated -->
-              </div>
-              <div class="sim-spec-row" style="border-top:1px solid #dae7e2;margin-top:6px;padding-top:6px;">
-                <b>إجمالي زمن الاختبار المقدر:</b>
-                <span id="customSummaryTime">٧٥ دقيقة (مع استراحة دقيقتين بين الأقسام)</span>
-              </div>
-            </div>
-
-            <div class="identity-notice" style="background:#f4fbf8;border:1px solid #cce8dd;border-radius:12px;padding:12px 14px;margin-bottom:16px;color:#184e3d;font-size:12px;line-height:1.6;">
-              <b>🔒 التحقق الآلي والأمان:</b>
-              <span>يسجل الطالب دخوله بالاسم وآخر ٣ أرقام من الهوية الوطنية. تطبق إجراءات حماية الاختبار للحد من النسخ والتصوير قدر الإمكان فقط لضمان النزاهة مع علامة مائية باسم الطالب.</span>
+            <div id="customAllocationNotice" class="identity-notice" style="background:#f4fbf8;border:1px solid #cce8dd;border-radius:12px;padding:10px 14px;margin-bottom:14px;color:#184e3d;font-size:12px;line-height:1.7;">
+              <!-- Dynamically rendered distribution summary -->
             </div>
 
             <button type="submit" class="sim-btn-publish" id="publishCustomSimBtn">
-              <span>🚀</span> تكوين ونشر المحاكاة المخصصة
+              <span>🚀</span> تكوين ونشر اختبار المؤشرات المخصص
             </button>
 
             <div id="customSimFeedback" class="form-feedback hidden"></div>
           </form>
         </div>
 
-        <!-- TAB 2: Standard / Full Simulation Models -->
+        <!-- TAB 2: Simulation like NAFES -->
         <div id="standardSimView" class="hidden">
-          <h2>🌐 اختبار محاكي كامل</h2>
-          <p class="card-subtitle">نماذج محاكاة شاملة قياسية تغطي مواد القراءة والرياضيات والعلوم وفق الأسئلة المعتمدة في بنك المحاكاة المستقل.</p>
+          <h2>🌐 اختبار محاكي مثل نافس</h2>
+          <p class="card-subtitle">اختبار محاكي شامل كتجربة واحدة متكاملة يغطي مواد القراءة والرياضيات والعلوم وفق النماذج القياسية لبنك المحاكاة.</p>
 
           <form id="quickSimForm">
             <div class="sim-form-group">
               <label for="simTitle">عنوان الاختبار *</label>
               <input id="simTitle" type="text" value="اختبار محاكاة نافس الشاملة" required maxlength="120">
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="sim-form-group">
+                <label for="simClass">فصل الطالب / الشعبة *</label>
+                <select id="simClass" required>
+                  <option value="أ" selected>فصل (أ)</option>
+                  <option value="ب">فصل (ب)</option>
+                  <option value="ج">فصل (ج)</option>
+                  <option value="د">فصل (د)</option>
+                </select>
+              </div>
+              <div class="sim-form-group">
+                <label for="simTerm">الفصل الدراسي *</label>
+                <select id="simTerm" required>
+                  <option value="الفصل الدراسي الأول" selected>الفصل الدراسي الأول</option>
+                  <option value="الفصل الدراسي الثاني">الفصل الدراسي الثاني</option>
+                </select>
+              </div>
             </div>
 
             <div class="sim-form-group">
@@ -235,121 +182,46 @@
               </select>
             </div>
 
-            <div class="sim-form-group">
-              <label for="simClass">الفصل / الشعبة *</label>
-              <select id="simClass" required>
-                <option value="أ" selected>فصل (أ)</option>
-                <option value="ب">فصل (ب)</option>
-                <option value="ج">فصل (ج)</option>
-                <option value="د">فصل (د)</option>
-              </select>
-            </div>
-
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <div class="sim-form-group">
                 <label for="simSchool">المدرسة (اختياري)</label>
                 <input id="simSchool" type="text" placeholder="اسم المدرسة" maxlength="100">
               </div>
               <div class="sim-form-group">
-                <label for="simTeacher">المعلم (اختياري)</label>
+                <label for="simTeacher">المعلم المشرف (اختياري)</label>
                 <input id="simTeacher" type="text" placeholder="اسم المعلم" maxlength="100">
               </div>
             </div>
 
             <div class="sim-specs-box">
               <div class="sim-specs-title">
-                <span>توزيع الأقسام في المحاكاة الشاملة</span>
+                <span>أقسام الاختبار المحاكي الشامل (٦٠ سؤالاً · تجربة موحدة)</span>
                 <span id="standardSummaryTotal">رصيد البنك المستقل: ٠ سؤال</span>
               </div>
               <div class="sim-spec-row">
                 <b>القسم ١: القراءة</b>
-                <span id="standardReadingSpec">٢٠ سؤالًا · ٤٥ دقيقة (المتاح: ٠)</span>
+                <span id="standardReadingSpec">٢٠ سؤالًا · ٤٥ دقيقة</span>
               </div>
               <div class="sim-spec-row">
                 <b>القسم ٢: الرياضيات</b>
-                <span id="standardMathSpec">٢٥ سؤالًا · ٤٥ دقيقة · 🧮 حاسبة مفعّلة (المتاح: ٠)</span>
+                <span id="standardMathSpec">٢٥ سؤالًا · ٤٥ دقيقة · 🧮 حاسبة مفعّلة</span>
               </div>
               <div class="sim-spec-row">
                 <b>القسم ٣: العلوم</b>
-                <span id="standardScienceSpec" style="color:#b3261e;">المتاح: ٠ سؤال معتمد (غير جاهز)</span>
+                <span id="standardScienceSpec">١٥ سؤالًا · ٣٠ دقيقة</span>
               </div>
             </div>
 
             <div class="identity-notice" style="background:#f4fbf8;border:1px solid #cce8dd;border-radius:12px;padding:12px 14px;margin-bottom:16px;color:#184e3d;font-size:12px;line-height:1.6;">
               <b>🔒 التحقق الآلي والنزاهة:</b>
-              <span>يسجل الطالب دخوله بالاسم وآخر ٣ أرقام من الهوية الوطنية. الاختبار محمي بـ Snapshot مستقل، ولا يتم تنزيل أي مفاتيح إجابات لجهاز الطالب.</span>
+              <span>يسجل الطالب دخوله بالاسم وآخر ٣ أرقام من الهوية الوطنية مع مطابقة الفصل. الاختبار محمي بـ Snapshot مستقل، ولا يتم تنزيل أي مفاتيح إجابات لجهاز الطالب.</span>
             </div>
 
             <button type="submit" class="sim-btn-publish" id="publishSimBtn">
-              <span>🚀</span> تكوين ونشر المحاكاة الشاملة
+              <span>🚀</span> تكوين ونشر الاختبار المحاكي الشامل
             </button>
 
             <div id="simFormFeedback" class="form-feedback hidden"></div>
-          </form>
-        </div>
-
-        <!-- TAB 3: Single Domain Simulation -->
-        <div id="singleDomainSimView" class="hidden">
-          <h2>📚 اختبار مجال واحد</h2>
-          <p class="card-subtitle">اختر مجالاً واحداً (القراءة أو الرياضيات أو العلوم) لإنشاء اختبار محاكي مخصص في ذلك المجال فقط.</p>
-
-          <form id="singleDomainSimForm">
-            <div class="sim-form-group">
-              <label for="singleSimTitle">عنوان الاختبار *</label>
-              <input id="singleSimTitle" type="text" value="اختبار محاكاة نافس - مجال مخصص" required maxlength="120">
-            </div>
-
-            <div class="sim-form-group">
-              <label for="singleSimSubject">المجال / المادة *</label>
-              <select id="singleSimSubject" required>
-                <option value="reading" selected>📖 القراءة (فهم المقروء واللغة)</option>
-                <option value="math">📐 الرياضيات (الأعداد والهندسة والجبر والإحصاء)</option>
-                <option value="science">🔬 العلوم (علوم الحياة والأرض والفيزياء)</option>
-              </select>
-            </div>
-
-            <div class="sim-form-group">
-              <label for="singleSimClass">الفصل الدراسي *</label>
-              <select id="singleSimClass" required>
-                <option value="أ" selected>فصل (أ)</option>
-                <option value="ب">فصل (ب)</option>
-                <option value="ج">فصل (ج)</option>
-                <option value="د">فصل (د)</option>
-              </select>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div class="sim-form-group">
-                <label for="singleSimCount">عدد الأسئلة *</label>
-                <input id="singleSimCount" type="number" min="5" max="50" value="20" required>
-              </div>
-              <div class="sim-form-group">
-                <label for="singleSimDuration">الوقت بالدقائق *</label>
-                <input id="singleSimDuration" type="number" min="10" max="90" value="35" required>
-              </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div class="sim-form-group">
-                <label for="singleSimSchool">المدرسة (اختياري)</label>
-                <input id="singleSimSchool" type="text" placeholder="اسم المدرسة" maxlength="100">
-              </div>
-              <div class="sim-form-group">
-                <label for="singleSimTeacher">المعلم (اختياري)</label>
-                <input id="singleSimTeacher" type="text" placeholder="اسم المعلم" maxlength="100">
-              </div>
-            </div>
-
-            <div class="identity-notice" style="background:#f4fbf8;border:1px solid #cce8dd;border-radius:12px;padding:12px 14px;margin-bottom:16px;color:#184e3d;font-size:12px;line-height:1.6;">
-              <b>🔒 التحقق الآلي والنزاهة:</b>
-              <span>يسجل الطالب دخوله بالاسم وآخر ٣ أرقام من الهوية الوطنية مع مطابقة الفصل. الأسئلة تسحب حصراً من بنك المحاكاة المستقل دون تكرار.</span>
-            </div>
-
-            <button type="submit" class="sim-btn-publish" id="publishSingleSimBtn">
-              <span>🚀</span> تكوين ونشر اختبار المجال الواحد
-            </button>
-
-            <div id="singleSimFeedback" class="form-feedback hidden"></div>
           </form>
         </div>
       </section>

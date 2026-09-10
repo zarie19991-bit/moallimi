@@ -132,21 +132,25 @@
         'اسم الطالب',
         'الفصل',
         'الدرجة الكلية',
-        'النسبة المئوية (%)',
-        'المستوى العام',
+        'النسبة العامة',
         'درجة القراءة',
+        'نسبة القراءة',
         'درجة الرياضيات',
+        'نسبة الرياضيات',
         'درجة العلوم',
-        'عدد الإجابات الصحيحة',
-        'عدد الإجابات الخاطئة',
+        'نسبة العلوم',
         ...activeIndicators.map(i => i.text || i.key)
       ];
 
       s2Rows = (report.students || []).map(st => {
         const sec = st.section_scores || {};
         const readingScore = sec.reading?.score ?? '—';
+        const readingPct = sec.reading?.percent != null ? `${round1(sec.reading.percent)}%` : (sec.reading?.total ? `${round1((sec.reading.score / sec.reading.total) * 100)}%` : '—');
         const mathScore = sec.math?.score ?? '—';
+        const mathPct = sec.math?.percent != null ? `${round1(sec.math.percent)}%` : (sec.math?.total ? `${round1((sec.math.score / sec.math.total) * 100)}%` : '—');
         const scienceScore = sec.science?.score ?? '—';
+        const sciencePct = sec.science?.percent != null ? `${round1(sec.science.percent)}%` : (sec.science?.total ? `${round1((sec.science.score / sec.science.total) * 100)}%` : '—');
+
         const indCols = activeIndicators.map(i => {
           const indData = st.indicator_scores?.[i.key];
           if (!indData) return '—';
@@ -158,12 +162,12 @@
           st.class_name || '—',
           st.score ?? '—',
           st.percent != null ? `${round1(st.percent)}%` : '—',
-          st.level_label || getNafesLevel(st.percent),
           readingScore,
+          readingPct,
           mathScore,
+          mathPct,
           scienceScore,
-          st.correct_count ?? (st.score ?? 0),
-          st.incorrect_count ?? Math.max(0, (st.total || 0) - (st.score || 0)),
+          sciencePct,
           ...indCols
         ];
       });
@@ -176,7 +180,6 @@
         'النسبة',
         'الصحيحة',
         'الخاطئة',
-        'المستوى',
         ...activeIndicators.map(i => i.text || i.key)
       ];
 
@@ -195,7 +198,6 @@
           st.percent != null ? `${round1(st.percent)}%` : '—',
           st.correct_count ?? (st.score ?? 0),
           st.incorrect_count ?? Math.max(0, (st.total || 0) - (st.score || 0)),
-          st.level_label || getNafesLevel(st.percent),
           ...indCols
         ];
       });
