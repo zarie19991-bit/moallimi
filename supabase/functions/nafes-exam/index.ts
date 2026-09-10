@@ -524,14 +524,14 @@ async function handleSimulationAction(body: Record<string, unknown>) {
   let no = shortText(body.student_no || body.national_id_last3, 160);
 
   if (action === "simulation_start") {
-    student = await verifyStudentIdentity(db, String(body.student_name || ""), String(body.student_no || body.national_id_last3 || ""));
+    student = await verifyStudentIdentity(db, String(body.student_name || ""), String(body.student_no || body.national_id_last3 || ""), String(body.class_name || body.className || ""));
     name = student.full_name;
     no = student.national_id_last3;
     studentKey = student.id;
     studentId = student.id;
   } else {
     try {
-      student = await verifyStudentIdentity(db, String(body.student_name || ""), String(body.student_no || body.national_id_last3 || ""));
+      student = await verifyStudentIdentity(db, String(body.student_name || ""), String(body.student_no || body.national_id_last3 || ""), String(body.class_name || body.className || ""));
       studentKey = student.id;
       studentId = student.id;
     } catch (_) {
@@ -685,7 +685,7 @@ Deno.serve(async (req: Request) => {
 
       const windowError = checkWindow(s);
       if (windowError) return json({ error: windowError }, 403);
-      const student = await verifyStudentIdentity(db, String(b.student_name || ""), String(b.student_no || b.national_id_last3 || ""));
+      const student = await verifyStudentIdentity(db, String(b.student_name || ""), String(b.student_no || b.national_id_last3 || ""), String(b.class_name || b.className || ""));
       const name = student.full_name;
       const no = student.national_id_last3;
       const studentKey = student.id;
@@ -776,10 +776,11 @@ Deno.serve(async (req: Request) => {
     if (windowError) return json({ error: windowError }, 403);
     const name = String(b.student_name || "").trim();
     const no = String(b.student_no || b.national_id_last3 || "").trim();
+    const cls = String(b.class_name || b.className || "").trim();
     let studentKey = "";
     let studentId: string | null = null;
     try {
-      const student = await verifyStudentIdentity(db, name, no);
+      const student = await verifyStudentIdentity(db, name, no, cls);
       studentKey = student.id;
       studentId = student.id;
     } catch (_) {

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f514c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">
 <title>اختبار نافس | معلّمي</title>
-<link rel="stylesheet" href="exam.css?v=20260907-review-v4">
-<link rel="stylesheet" href="exam-review.css?v=20260829-2">
+<link rel="stylesheet" href="exam.css?v=20260909-final">
+<link rel="stylesheet" href="exam-review.css?v=20260909-final">
 </head>
 <body>
 <header class="exam-top">
@@ -27,6 +27,7 @@
       <li>أدخل اسمك الثلاثي أو الرباعي بدقة كما هو مدون في كشف المدرسة.</li>
       <li>أدخل آخر ٣ أرقام من سجلك المدني (الهوية الوطنية) لتأكيد هويتك.</li>
       <li>لا تغلق المتصفح أو تغادر صفحة الاختبار حتى تنتهي من التسليم.</li>
+      <li>تطبق إجراءات حماية الاختبار للحد من النسخ والتصوير قدر الإمكان فقط لضمان النزاهة.</li>
     </ul>
   </div>
 
@@ -43,6 +44,16 @@
       </div>
       <small class="id3-helper-text">أدخل آخر ثلاثة أرقام فقط من سجلك المدني للتحقق من هوية الطالب.</small>
     </div>
+    <div class="form-field">
+      <label for="className">الفصل *</label>
+      <select id="className" required>
+        <option value="" disabled selected>اختر الفصل (أ / ب / ج / د)</option>
+        <option value="أ">أ</option>
+        <option value="ب">ب</option>
+        <option value="ج">ج</option>
+        <option value="د">د</option>
+      </select>
+    </div>
     <button type="submit" class="btn-start-exam" id="startBtn">دخول الاختبار</button>
   </form>
 </section>
@@ -54,6 +65,6 @@
 </section>
 <section id="result" class="panel result-panel hidden"></section>
 </main>
-<script src="nafes-reading.js?v=20260829-1"></script><script src="nafes-math.js?v=20260829-1"></script><script src="nafes-science.js?v=20260829-1"></script><script src="question-media.js?v=review-v4"></script>
-<script src="exam.js?v=20260907-review-v4"></script>
+<script src="nafes-reading.js?v=20260909-final"></script><script src="nafes-math.js?v=20260909-final"></script><script src="nafes-science.js?v=20260909-final"></script><script src="question-media.js?v=20260909-final"></script>
+<script src="exam.js?v=20260909-final"></script>
 </body></html>

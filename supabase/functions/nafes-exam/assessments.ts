@@ -8,6 +8,63 @@ function must(result:Row) {if(result.error)throw result.error;return result.data
 function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:row.context_text||null,question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
 async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {const all:Row[]=[];const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];for(let start=0;;start+=500){let query=db.from('nafes_question_bank').select(BANK_COLUMNS).eq('grade_key','middle_3').eq('subject_key',subject).eq('is_active',true).eq('review_status','approved').lte('model_no',2).order('id');if(scoped.length)query=query.in('outcome_code',[...new Set(scoped.map(i=>i!.outcome))]).in('indicator_index',[...new Set(scoped.map(i=>i!.indicator))]);if(ids?.length)query=query.in('id',ids);const page=must(await query.range(start,start+499));for(const q of page||[])if(hasCurrentReview(q))all.push(rendered(q));if(!page||page.length<500)break;}return all;}
 
+const SIM_BANK_COLUMNS='id,grade_key,subject_key,outcome_code,indicator_index,indicator_key,indicator_text,context_text,question_text,normalized_content_text,options,correct_index,explanation,difficulty,cognitive_level,review_status,content_sha256,semantic_similarity_cleared,semantic_review_evidence,is_active';
+
+function isValidSemanticEvidence(ev:any):boolean {
+  if(!ev||typeof ev!=='object'||Array.isArray(ev)) return false;
+  if(!ev.method||!String(ev.method).trim()) return false;
+  if(!ev.checked_at||!String(ev.checked_at).trim()) return false;
+  if(!ev.reviewed_by||!String(ev.reviewed_by).trim()) return false;
+  if(ev.score===undefined||ev.score===null||String(ev.score).trim()==='') return false;
+  const res=String(ev.result||'').trim().toLowerCase();
+  return res==='pass'||res==='cleared';
+}
+
+function renderedSimQuestion(row:Row):Row {
+  return {
+    id:row.id,
+    bank_source:'simulation_bank',
+    subject:row.subject_key,
+    outcome:row.outcome_code,
+    indicator:row.indicator_index,
+    indicator_key:row.indicator_key,
+    indicator_text:row.indicator_text,
+    context:row.context_text||null,
+    question:row.question_text,
+    options:row.options,
+    correctIndex:row.correct_index,
+    explanation:row.explanation||null,
+    cognitive_level:row.cognitive_level,
+    difficulty:row.difficulty,
+    image:null
+  };
+}
+
+async function simulationPool(db:any,subject:string,keys?:string[],ids?:string[]):Promise<Row[]> {
+  const all:Row[]=[];
+  for(let start=0;;start+=500){
+    let query=db.from('nafes_simulation_question_bank')
+      .select(SIM_BANK_COLUMNS)
+      .eq('grade_key','middle_3')
+      .eq('subject_key',subject)
+      .eq('is_active',true)
+      .eq('review_status','approved')
+      .eq('semantic_similarity_cleared',true)
+      .order('id');
+    if(keys?.length)query=query.in('indicator_key',keys);
+    if(ids?.length)query=query.in('id',ids);
+    const page=must(await query.range(start,start+499));
+    for(const q of page||[]){
+      if(isValidSemanticEvidence(q.semantic_review_evidence)){
+        all.push(renderedSimQuestion(q));
+      }
+    }
+    if(!page||page.length<500)break;
+  }
+  return all;
+}
+
+
 async function teacherStudentsList(db:any, b?:Row) {
   let query = db.from('nafes_students').select('*');
   if (b?.include_archived !== true) {
@@ -394,17 +451,107 @@ async function teacherTestsBulkClear(db: any, b: Row, owner?: Row) {
 }
 
 async function teacher(db:any,req:Request) {const key=tidy(req.headers.get('x-teacher-key'),128);if(!/^[a-f0-9]{48,96}$/i.test(key))fail('أدخل مفتاح دخول المعلم لعرض النتائج وإعداد الاختبارات.',401);const row=must(await db.from('nafes_teacher_access').select('id,label').eq('key_hash',await hash(key)).eq('active',true).maybeSingle());if(!row)fail('مفتاح دخول المعلم غير صحيح.',401);return row;}
-function testInfo(t:Row) {const c=t.config||{};return{id:t.kind==='legacy'?legacyTestId(t.legacy_target):t.id,title:t.title,kind:t.kind==='legacy'?'indicator':t.kind,subjects:(c.sections||[]).map((s:Row)=>s.subject),class_name:c.class_name||'',school_name:c.school_name||'',teacher_name:c.teacher_name||'',principal_name:c.principal_name||'',grade_key:'middle_3',created_at:t.published_at||t.created_at,total:(c.sections||[]).reduce((n:number,s:Row)=>n+s.question_count,0),short_code:t.short_code};}
+function testInfo(t:Row) {const c=t.config||{};return{id:t.kind==='legacy'?legacyTestId(t.legacy_target):t.id,title:t.title,kind:t.kind==='legacy'?'indicator':t.kind,simulation_mode:c.simulation_mode,bank_source:c.bank_source,subjects:(c.sections||[]).map((s:Row)=>s.subject),class_name:c.class_name||'',school_name:c.school_name||'',teacher_name:c.teacher_name||'',principal_name:c.principal_name||'',grade_key:'middle_3',created_at:t.published_at||t.created_at,total:(c.sections||[]).reduce((n:number,s:Row)=>n+s.question_count,0),short_code:t.short_code};}
 function legacyTestId(t:Row) {return`exam:${t.subject||t.subject_key}:${t.outcome||t.outcome_code}:i${t.indicator||t.indicator_index}:m${t.model||t.model_no}`;}
-async function catalog(db:any) {const counts=must(await db.rpc('nafes_teacher_catalog_counts'));const available=new Map<string,number>((counts||[]).map((x:Row)=>[x.key,x.available]));const rows=must(await db.from('nafes_simulation_forms').select('subject,model_no,created_at'));const forms=SUBJECTS.flatMap(subject=>Array.from({length:60},(_,i)=>({subject,model_no:i+1,question_count:30,ready:rows.some((r:Row)=>r.subject===subject&&r.model_no===i+1)})));return{indicators:FRAMEWORK.map(i=>({...i,available:available.get(i.key)||0})),forms,thresholds:THRESHOLDS};}
+
+async function simulationCatalogCounts(db:any):Promise<Map<string,number>> {
+  const simCounts=new Map<string,number>();
+  try {
+    const {data:rows,error}=await db.from('nafes_simulation_question_bank')
+      .select('indicator_key')
+      .eq('grade_key','middle_3')
+      .eq('is_active',true)
+      .eq('review_status','approved')
+      .eq('semantic_similarity_cleared',true);
+    if(!error&&rows){
+      for(const r of rows){
+        if(r.indicator_key){
+          simCounts.set(r.indicator_key,(simCounts.get(r.indicator_key)||0)+1);
+        }
+      }
+    }
+  } catch(_) {}
+  return simCounts;
+}
+
+async function catalog(db:any) {
+  const counts=must(await db.rpc('nafes_teacher_catalog_counts'));
+  const available=new Map<string,number>((counts||[]).map((x:Row)=>[x.key,x.available]));
+  const simCounts=await simulationCatalogCounts(db);
+  const simSummary={
+    reading:[...simCounts.entries()].filter(([k])=>k.startsWith('reading:')).reduce((s,[,c])=>s+c,0),
+    math:[...simCounts.entries()].filter(([k])=>k.startsWith('math:')).reduce((s,[,c])=>s+c,0),
+    science:[...simCounts.entries()].filter(([k])=>k.startsWith('science:')).reduce((s,[,c])=>s+c,0)
+  };
+  const rows=must(await db.from('nafes_simulation_forms').select('subject,model_no,created_at'));
+  const forms=SUBJECTS.flatMap(subject=>Array.from({length:60},(_,i)=>({subject,model_no:i+1,question_count:30,ready:rows.some((r:Row)=>r.subject===subject&&r.model_no===i+1)})));
+  return{
+    indicators:FRAMEWORK.map(i=>({...i,available:available.get(i.key)||0})),
+    simulation_indicators:FRAMEWORK.map(i=>({...i,available:simCounts.get(i.key)||0})),
+    simulation_summary:simSummary,
+    forms,
+    thresholds:THRESHOLDS
+  };
+}
 async function findDraft(db:any,id:unknown,owner:Row) {if(!isUUID(id))fail('المسودة غير موجودة.');const t=must(await db.from('nafes_assessments').select('*').eq('id',id).eq('owner_id',owner.id).maybeSingle());if(!t)fail('المسودة غير موجودة.',404);if(t.status!=='draft')fail('نُشر الاختبار بالفعل؛ أنشئ نسخة جديدة لتغيير الأسئلة.',409);return t;}
 function preview(t:Row) {return{draft_id:t.id,config:t.config,sections:t.rendered_sections};}
-async function draftSections(db:any,c:Row,regenerate=false) {const sections:Row[]=[];const used=new Set<string>();for(const s of c.sections){let pool:Row[]=[];let qs:Row[]=[];if(c.kind!=='simulation'||regenerate||s.question_count>30)pool=await fullPool(db,s.subject,c.kind!=='simulation'?s.indicators.map((i:Row)=>i.key):undefined);
- if(c.kind==='simulation'&&regenerate){qs=selectUnique(pool,s.question_count,token(8));}
- else if(c.kind==='simulation'){const form=must(await db.from('nafes_simulation_forms').select('questions').eq('subject',s.subject).eq('model_no',s.model_no).maybeSingle());if(!form)fail('نموذج المحاكاة المختار لم يُجهز بعد من البنك المراجع.',409);if(!pool.length)pool=await fullPool(db,s.subject,undefined,form.questions.map((q:Row)=>q.id));const current=new Map(pool.map(q=>[q.id,q]));let base=(form.questions||[]).filter((q:Row)=>current.has(q.id)&&questionKey(current.get(q.id)!)===questionKey(q));if(base.length!==30)fail('هذا النموذج يحتاج تحديثًا بعد مراجعة البنك؛ اختر نموذجًا جاهزًا.',409);qs=base.slice(0,s.question_count);if(qs.length<s.question_count)qs.push(...selectUnique(pool,s.question_count-qs.length,token(8),new Map(),new Set(qs.map(questionKey))));}
- else for(const i of s.indicators){let candidates=pool.filter(q=>q.indicator_key===i.key);if(s.fixed_model)candidates=candidates.filter(q=>q.model_no===s.fixed_model);const actual=new Set(candidates.map(questionKey)).size;if(actual<i.count)fail(`المؤشر «${i.text}»: المطلوب ${i.count} سؤالًا، والمتاح ${actual} فقط. لن يتكرر أي سؤال.`);qs.push(...s.fixed_model?candidates.sort((a,b)=>a.question_no-b.question_no):selectUnique(candidates,i.count,token(8),new Map(),used));}
- for(const q of qs){const k=questionKey(q);if(used.has(k))fail('يوجد سؤال مكرر بين المؤشرات المختارة؛ قلل العدد أو بدّل أحد المؤشرات.');used.add(k);}sections.push({...s,questions:qs});}
- return sections;}
+async function draftSections(db:any,c:Row,regenerate=false):Promise<Row[]> {
+  const isSimulation=c.kind==='simulation'&&c.bank_source==='simulation_bank';
+  const simulationMode=c.simulation_mode==='custom'?'custom':'standard';
+  const sections:Row[]=[];
+  const used=new Set<string>();
+  const subNames:Record<string,string>={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
+
+  for(const s of c.sections){
+    let pool:Row[]=[];
+    let qs:Row[]=[];
+
+    if(isSimulation){
+      // STRICT: Pull EXCLUSIVELY from simulationPool (nafes_simulation_question_bank). ZERO fallback to nafes_question_bank.
+      if(simulationMode==='custom'){
+        const keys=s.indicators?.map((i:Row)=>i.key);
+        pool=await simulationPool(db,s.subject,keys);
+        for(const i of s.indicators||[]){
+          const candidates=pool.filter(q=>q.indicator_key===i.key);
+          const actual=new Set(candidates.map(questionKey)).size;
+          if(actual<i.count){
+            fail(`المؤشر «${i.text}»: المطلوب ${i.count} سؤالًا، والمتاح ${actual} فقط في بنك المحاكاة المستقل. لن يتكرر أي سؤال.`);
+          }
+          qs.push(...selectUnique(candidates,i.count,token(8),new Map(),used));
+        }
+      } else {
+        // Standard Comprehensive Simulation (محاكاة شاملة)
+        pool=await simulationPool(db,s.subject);
+        const actual=new Set(pool.map(questionKey)).size;
+        if(actual===0){
+          fail(`لا توجد حاليًا أسئلة محاكاة معتمدة لمادة «${subNames[s.subject]||s.subject}» في بنك المحاكاة المستقل.`);
+        }
+        if(actual<s.question_count){
+          fail(`مادة «${subNames[s.subject]||s.subject}»: المطلوب ${s.question_count} سؤالًا، والمتاح في بنك المحاكاة المستقل ${actual} فقط.`);
+        }
+        qs=selectUnique(pool,s.question_count,token(8),new Map(),used);
+      }
+    } else {
+      // Legacy indicator tests (indicator / multi_indicator / legacy) - untouched, uses fullPool
+      pool=await fullPool(db,s.subject,s.indicators?.map((i:Row)=>i.key));
+      for(const i of s.indicators){
+        let candidates=pool.filter(q=>q.indicator_key===i.key);
+        if(s.fixed_model)candidates=candidates.filter(q=>q.model_no===s.fixed_model);
+        const actual=new Set(candidates.map(questionKey)).size;
+        if(actual<i.count)fail(`المؤشر «${i.text}»: المطلوب ${i.count} سؤالًا، والمتاح ${actual} فقط. لن يتكرر أي سؤال.`);
+        qs.push(...s.fixed_model?candidates.sort((a,b)=>a.question_no-b.question_no):selectUnique(candidates,i.count,token(8),new Map(),used));
+      }
+    }
+
+    for(const q of qs){
+      const k=questionKey(q);
+      if(used.has(k))fail('يوجد سؤال مكرر بين المؤشرات المختارة؛ قلل العدد أو بدّل أحد المؤشرات.');
+      used.add(k);
+    }
+    sections.push({...s,questions:qs});
+  }
+  return sections;
+}
 async function codeFor(db:any) {for(let n=0;n<6;n++){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=[...crypto.getRandomValues(new Uint8Array(8))].map(x=>chars[x%chars.length]).join('');const r=must(await db.from('nafes_assessments').select('id').eq('short_code',code).maybeSingle());if(!r)return code;}fail('تعذر إنشاء رمز الاختبار؛ أعد المحاولة.');}
 async function assessment(db:any,code:unknown) {if(!/^[A-Z2-9]{8}$/.test(String(code||'')))fail('رمز الاختبار غير صالح.',404);const t=must(await db.from('nafes_assessments').select('*').eq('short_code',code).eq('status','published').maybeSingle());if(!t)fail('رابط الاختبار غير موجود.',404);return t;}
 function studentInfo(t:Row) {const c=t.config;return{id:t.id,code:t.short_code,title:t.title,kind:t.kind,class_name:c.class_name,school_name:c.school_name,teacher_name:c.teacher_name,grade_key:'middle_3',identity_mode:c.identity_mode,settings:c.settings,sections:(c.sections||[]).map((s:Row)=>({subject:s.subject,question_count:s.question_count,duration_minutes:s.duration_minutes,calculator:s.calculator})),ready:true,...(t.kind==='legacy'?{legacy_url:new URL(`exam.html?s=${t.legacy_target.subject}&o=${t.legacy_target.outcome}&i=${t.legacy_target.indicator}&m=${t.legacy_target.model}`,BASE).href}:{})};}
@@ -433,7 +580,7 @@ async function studentAction(db:any,body:Row) {
    if(s.opens_at&&now<new Date(s.opens_at).getTime())fail('لم يبدأ وقت إتاحة الاختبار بعد.',403);
    if(s.closes_at&&now>new Date(s.closes_at).getTime())fail('انتهى وقت إتاحة الاختبار.',403);
    const session=tidy(body.session_id,96);if(!session)fail('بيانات الجلسة غير مكتملة.');
-   const student=await verifyStudentIdentity(db, String(body.student_name || ''), String(body.student_no || body.national_id_last3 || ''));
+   const student=await verifyStudentIdentity(db, String(body.student_name || ''), String(body.student_no || body.national_id_last3 || ''), String(body.class_name || ''));
    const name=student.full_name, no=student.national_id_last3, student_id=student.id, student_key=student.id;
    const className=student.class_name || c.class_name || tidy(body.class_name,80);
    if(c.identity_mode==='list'&&!c.roster.some((n:string)=>normalizeArabicName(n)===normalizeArabicName(name)))fail('اكتب اسمك كما هو في كشف الفصل.',403);
@@ -455,7 +602,19 @@ async function studentAction(db:any,body:Row) {
 }
 const SOURCES:Row={exam:'nafes_exam_attempts',simulation:'nafes_simulation_attempts',assessment:'nafes_assessment_attempts'};
 const READING_FOCUS=['vocab_context','vocab_definition','vocab_classify','vocab_distinguish','vocab_use','main_structure','implicit_questions','compare_texts','fact_opinion','relationships','emotion_language','credibility_solutions','values_impact','arguments_evidence','summary_organize','problem_solving'];
-async function metadata(db:any,rows:Row[],source:string) {for(const a of rows)for(const q of (source==='exam'?(a.rendered_questions||[]):flat(a)))q.question_fingerprint=await hash(questionKey(q));const ids=[...new Set(rows.flatMap(a=>source==='exam'?(a.rendered_questions||[]):flat(a)).map(q=>q.id).filter(isUUID))];const map=new Map<string,Row>();if(source==='assessment'||source==='exam')return map;for(let i=0;i<ids.length;i+=150){const data=must(await db.from('nafes_question_bank').select('id,subject_key,outcome_code,indicator_index,indicator_text').in('id',ids.slice(i,i+150)));for(const q of data||[])map.set(q.id,q);}return map;}
+async function metadata(db:any,rows:Row[],source:string) {
+  for(const a of rows)for(const q of (source==='exam'?(a.rendered_questions||[]):flat(a)))q.question_fingerprint=await hash(questionKey(q));
+  const map=new Map<string,Row>();
+  if(source==='assessment'||source==='exam')return map;
+  // For legacy simulation attempts (nafes_simulation_attempts) only:
+  // Exclude any questions belonging to simulation_bank
+  const ids=[...new Set(rows.flatMap(a=>flat(a)).filter(q=>q.bank_source!=='simulation_bank').map(q=>q.id).filter(isUUID))];
+  for(let i=0;i<ids.length;i+=150){
+    const data=must(await db.from('nafes_question_bank').select('id,subject_key,outcome_code,indicator_index,indicator_text').in('id',ids.slice(i,i+150)));
+    for(const q of data||[])map.set(q.id,q);
+  }
+  return map;
+}
 function canonical(a:Row,source:string,map:Map<string,Row>,test?:Row):Row {
  const c=a.config||{};const sections=source==='exam'?[{subject:a.subject_key,questions:a.rendered_questions||[]}]:a.rendered_sections||[];
  let warning='';const qs=sections.flatMap((sec:Row)=>sec.questions.map((q:Row)=>{
@@ -467,7 +626,7 @@ function canonical(a:Row,source:string,map:Map<string,Row>,test?:Row):Row {
   return{id:q.id,question:q.question,question_fingerprint:q.question_fingerprint,subject:sec.subject,indicator_key:key||null,indicator_text:q.indicator_text||indicator?.text||m?.indicator_text||'لم يُحفظ ارتباط هذا السؤال بمؤشر',answer,correct:correct_index===null?null:answer===correct_index,scorable:correct_index!==null,correct_index};
  }));
  const id=source==='exam'?legacyTestId(a):source==='simulation'?`simulation:${a.simulation_key}`:a.assessment_id;
- const submitted=!!a.submitted_at;const levelTotal=a.total||qs.length;return{id:a.id,source,test_id:id,title:test?.title||c.title||(source==='exam'?`اختبار مؤشر ${a.indicator_index} — النموذج ${a.model_no}`:'اختبار نافس'),kind:source==='exam'?'indicator':source==='simulation'?'simulation':c.kind,subjects:[...new Set(sections.map((s:Row)=>s.subject))],student_id:a.student_id||(isUUID(a.student_key)?a.student_key:null),student_key:a.student_key,student_name:a.student_name,student_no:a.student_no,class_name:a.class_name||c.class_name||'',school_name:c.school_name||'',teacher_name:c.teacher_name||'',principal_name:c.principal_name||'',grade_key:'middle_3',started_at:a.started_at,submitted_at:a.submitted_at,expires_at:a.expires_at,elapsed_seconds:submitted?Math.max(0,Math.round((Math.min(new Date(a.submitted_at).getTime(),new Date(a.expires_at).getTime())-new Date(a.started_at).getTime())/1000)):null,status:submitted?'submitted':Date.now()>new Date(a.expires_at).getTime()?'expired':'in_progress',score:submitted?a.score:null,total:levelTotal,percent:submitted?a.percent:null,questions:qs,events:a.events||[],...(warning?{snapshot_warning:warning}:{})};
+const submitted=!!a.submitted_at;const levelTotal=a.total||qs.length;return{id:a.id,source,test_id:id,title:test?.title||c.title||(source==='exam'?`اختبار مؤشر ${a.indicator_index} — النموذج ${a.model_no}`:'اختبار نافس'),kind:source==='exam'?'indicator':source==='simulation'?'simulation':c.kind,subjects:[...new Set(sections.map((s:Row)=>s.subject))],student_id:a.student_id||(isUUID(a.student_key)?a.student_key:null),student_key:a.student_key,student_name:a.student_name,student_no:a.student_no,class_name:a.class_name||c.class_name||'',school_name:a.school_name||'',teacher_name:a.teacher_name||'',principal_name:a.principal_name||'',grade_key:'middle_3',started_at:a.started_at,submitted_at:a.submitted_at,expires_at:a.expires_at,elapsed_seconds:submitted?Math.max(0,Math.round((Math.min(new Date(a.submitted_at).getTime(),new Date(a.expires_at).getTime())-new Date(a.started_at).getTime())/1000)):null,status:submitted?'submitted':Date.now()>new Date(a.expires_at).getTime()?'expired':'in_progress',score:submitted?a.score:null,total:levelTotal,percent:submitted?a.percent:null,questions:qs,events:a.events||[],...(warning?{snapshot_warning:warning}:{})};
 }
 async function teacherData(db:any,b:Row) {
  const limit=Math.min(100,Math.max(1,Math.trunc(Number(b.limit)||100))),cursor=Math.max(0,Math.trunc(Number(b.cursor)||0));
@@ -493,8 +652,36 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_paper') {if(!SOURCES[b.source]||!isUUID(b.attempt_id))fail('المحاولة غير موجودة.',404);const a=must(await db.from(SOURCES[b.source]).select('*').eq('id',b.attempt_id).maybeSingle());if(!a)fail('المحاولة غير موجودة.',404);const map=await metadata(db,[a],b.source),attempt=canonical(a,b.source,map);const ss=b.source==='exam'?[{subject:a.subject_key,questions:a.rendered_questions||[]}]:a.rendered_sections;let n=0;const sections=ss.map((s:Row)=>({...s,questions:s.questions.map((q:Row)=>{const summary=attempt.questions[n++];return{...q,...summary,correctIndex:summary.correct_index};})}));return{attempt,sections,settings:a.config?.settings||{}};}
  if(b.action==='teacher_catalog')return{...await catalog(db),tests:must(await db.from('nafes_assessments').select('id,title,kind,config,short_code,created_at,published_at,legacy_target').eq('status','published')).map(testInfo)};
  if(b.action==='teacher_preview') {const config=normalizeConfig(b.config),sections=await draftSections(db,config,b.regenerate===true);const draft=must(await db.from('nafes_assessments').insert({owner_id:owner.id,kind:config.kind,title:config.title,config,rendered_sections:sections}).select().single());return preview(draft);}
- if(b.action==='teacher_replace') {const t=await findDraft(db,b.draft_id,owner);const sections=t.rendered_sections;const all=sections.flatMap((s:Row)=>s.questions),old=all.find((q:Row)=>q.id===b.question_id);if(!old)fail('السؤال غير موجود في المسودة.');const pool=(await fullPool(db,old.subject,[old.indicator_key])).filter(q=>q.indicator_key===old.indicator_key);const candidates=pool.filter(q=>!all.some((x:Row)=>questionKey(x)===questionKey(q)));if(!candidates.length)fail('لا يوجد سؤال بديل مستقل متاح لهذا المؤشر.');const replacement=selectUnique(candidates,1,token(8))[0];for(const s of sections)s.questions=s.questions.map((q:Row)=>q.id===old.id?replacement:q);return preview(must(await db.from('nafes_assessments').update({rendered_sections:sections}).eq('id',t.id).eq('status','draft').select().single()));}
- if(b.action==='teacher_publish') {const t=await findDraft(db,b.draft_id,owner);for(const section of t.rendered_sections){const pool=await fullPool(db,section.subject,undefined,section.questions.map((q:Row)=>q.id));const current=new Map(pool.map(q=>[q.id,q]));if(section.questions.some((q:Row)=>!current.has(q.id)||snapshotKey(current.get(q.id)!)!==snapshotKey(q)))fail('تغير البنك بعد المعاينة؛ أعد تكوين المسودة قبل نشرها.',409);}const short_code=await codeFor(db);const saved=must(await db.from('nafes_assessments').update({status:'published',short_code,published_at:new Date().toISOString()}).eq('id',t.id).eq('status','draft').select().single());return{id:saved.id,short_code,url:`${BASE}e.html?t=${short_code}`,title:saved.title};}
+ if(b.action==='teacher_replace') {
+  const t=await findDraft(db,b.draft_id,owner);
+  const isSim=t.kind==='simulation'&&t.config?.bank_source==='simulation_bank';
+  const sections=t.rendered_sections;
+  const all=sections.flatMap((s:Row)=>s.questions),old=all.find((q:Row)=>q.id===b.question_id);
+  if(!old)fail('السؤال غير موجود في المسودة.');
+  const pool=isSim
+    ?(await simulationPool(db,old.subject,[old.indicator_key])).filter(q=>q.indicator_key===old.indicator_key)
+    :(await fullPool(db,old.subject,[old.indicator_key])).filter(q=>q.indicator_key===old.indicator_key);
+  const candidates=pool.filter(q=>!all.some((x:Row)=>questionKey(x)===questionKey(q)));
+  if(!candidates.length)fail('لا يوجد سؤال بديل مستقل متاح لهذا المؤشر في بنك المحاكاة المستقل.');
+  const replacement=selectUnique(candidates,1,token(8))[0];
+  for(const s of sections)s.questions=s.questions.map((q:Row)=>q.id===old.id?replacement:q);
+  return preview(must(await db.from('nafes_assessments').update({rendered_sections:sections}).eq('id',t.id).eq('status','draft').select().single()));
+ }
+ if(b.action==='teacher_publish') {
+  const t=await findDraft(db,b.draft_id,owner);
+  const isSim=t.kind==='simulation'&&t.config?.bank_source==='simulation_bank';
+  for(const section of t.rendered_sections){
+    const qIds=section.questions.map((q:Row)=>q.id);
+    const pool=isSim
+      ?await simulationPool(db,section.subject,undefined,qIds)
+      :await fullPool(db,section.subject,undefined,qIds);
+    const current=new Map(pool.map(q=>[q.id,q]));
+    if(section.questions.some((q:Row)=>!current.has(q.id)||snapshotKey(current.get(q.id)!)!==snapshotKey(q)))fail('تغير البنك بعد المعاينة؛ أعد تكوين المسودة قبل نشرها.',409);
+  }
+  const short_code=await codeFor(db);
+  const saved=must(await db.from('nafes_assessments').update({status:'published',short_code,published_at:new Date().toISOString()}).eq('id',t.id).eq('status','draft').select().single());
+  return{id:saved.id,short_code,url:`${BASE}e.html?t=${short_code}`,title:saved.title};
+ }
  if(b.action==='teacher_shorten_legacy') {const i=FRAMEWORK.find(i=>i.subject===b.subject&&i.outcome===b.outcome&&i.indicator===Number(b.indicator));if(!i||![1,2].includes(Number(b.model)))fail('الاختبار غير موجود.');const target={subject:i.subject,outcome:i.outcome,indicator:i.indicator,model:Number(b.model)};const pool=(await fullPool(db,i.subject,[i.key])).filter(q=>q.indicator_key===i.key&&q.model_no===target.model);if(pool.length!==15)fail('الاختبار لم يكتمل اعتماده؛ لا يمكن إنشاء باركود له.',409);const previous=must(await db.from('nafes_assessments').select('*').eq('kind','legacy').eq('status','published').contains('legacy_target',target).limit(1));let t=previous?.[0];if(!t){const code=await codeFor(db);t=must(await db.from('nafes_assessments').insert({owner_id:owner.id,short_code:code,status:'published',kind:'legacy',title:`${i.text} — النموذج ${target.model}`,config:{sections:[{subject:i.subject,question_count:15,duration_minutes:20}],settings:{},identity_mode:'manual'},legacy_target:target,published_at:new Date().toISOString()}).select().single());}return{id:t.id,short_code:t.short_code,url:`${BASE}e.html?t=${t.short_code}`,title:t.title};}
  if(b.action==='teacher_build_forms') {if(!SUBJECTS.includes(b.subject))fail('المادة غير صحيحة.');const pool=await fullPool(db,b.subject),expected=FRAMEWORK.filter(i=>i.subject===b.subject).length*30;if(pool.length!==expected)fail(`لم يكتمل البنك المراجع للمادة: ${pool.length} من ${expected}.`,409);const bank_hash=await hash(JSON.stringify(pool));const forms=buildForms(pool,b.subject);for(const f of forms){f.signature=await hash(f.signature);f.bank_hash=bank_hash;}const result=must(await db.rpc('replace_nafes_simulation_forms',{payload:forms}));return{ok:true,subject:b.subject,forms:60,question_slots:1800,unique_questions:new Set(forms.flatMap(f=>f.questions.map((q:Row)=>q.id))).size,result};}
  fail('إجراء غير معروف.');

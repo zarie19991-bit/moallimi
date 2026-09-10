@@ -104,7 +104,7 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
     <header class="ind-settings-head">
       <span class="ind-badge">إعدادات متقدمة لمؤشر فردي</span>
       <h3>تخصيص وإرسال اختبار المؤشر</h3>
-      <p>تحديد خيارات العرض، الحماية، وترتيب الأسئلة لهذا المؤشر فقط، مع إصدار رابط معتمد للطالب.</p>
+      <p>تحديد خيارات العرض، الحماية، وترتيب الأسئلة لهذا المؤشر فقط، مع إصدار رابط مباشر للطالب.</p>
       <div class="ind-indicator-summary">
         <b>المؤشر:</b> <span>${esc(subj?.title || s)} · ${esc(out?.title || o)} · المؤشر ${i}: ${esc(indicatorText)}</span>
       </div>
@@ -142,11 +142,11 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
 
       <!-- Section 2: Student Identity Verification -->
       <section class="ind-card-section">
-        <h4>👤 هوية الطالب وتسجيل الدخول المعتمد</h4>
+        <h4>👤 هوية الطالب وتسجيل الدخول</h4>
         <div class="ind-identity-badge-box">
           <div class="ind-id-icon">🔒</div>
           <div>
-            <b>نظام الهوية المعتمد (الاسم + آخر ٣ أرقام من الهوية الوطنية):</b>
+            <b>نظام هوية الطالب (الاسم + آخر ٣ أرقام من الهوية الوطنية):</b>
             <p>يدخل الطالب اسمه الثلاثي أو الرباعي وآخر ٣ أرقام من هويته الوطنية، وترتبط جميع محاولاته آليًا بملف الطالب الثابت (<code>student_id</code>) في قاعدة البيانات لمنع تكرار الهويات أو إنشاء سجلات عشوائية.</p>
           </div>
         </div>
@@ -174,7 +174,7 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
               <option value="25">٢٥ سؤالًا</option>
               <option value="30">٣٠ سؤالًا (كامل البنك)</option>
             </select>
-            <small id="indCountNote">النموذج الثابت ١٥ سؤالًا معتمدًا ومراجعًا.</small>
+            <small id="indCountNote">النموذج الثابت ١٥ سؤالًا مراجعًا.</small>
           </div>
           <div class="ind-field">
             <label for="indDuration">مدة الاختبار (بالدقائق) *</label>
@@ -216,7 +216,7 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
 
       <!-- Section 5: Security & Anti-Cheat -->
       <section class="ind-card-section">
-        <h4>🛡️ إعدادات الحماية ومنع النسخ</h4>
+        <h4>🛡️ إعدادات الحماية والحد من النسخ والتصوير قدر الإمكان فقط</h4>
         <div class="ind-toggles-grid">
           <label class="ind-toggle-label">
             <input id="indAllowCopy" type="checkbox">
@@ -343,11 +343,11 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
   modelSelect.onchange = () => {
     if (modelSelect.value === 'pool') {
       countSelect.disabled = false;
-      countNote.textContent = 'سحب عشوائي متنوع من بنك أسئلة المؤشر المعتمد.';
+      countNote.textContent = 'سحب عشوائي متنوع من بنك أسئلة المؤشر.';
     } else {
       countSelect.value = '15';
       countSelect.disabled = true;
-      countNote.textContent = 'النموذج الثابت ١٥ سؤالًا معتمدًا ومراجعًا.';
+      countNote.textContent = 'النموذج الثابت ١٥ سؤالًا مراجعًا.';
       const titleInput = document.getElementById('indTitle');
       if (titleInput && titleInput.value.includes('النموذج')) {
         titleInput.value = `${subj?.title || s} — ${indicatorText} — النموذج ${modelSelect.value}`;

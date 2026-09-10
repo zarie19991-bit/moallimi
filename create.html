@@ -6,7 +6,14 @@
 <link rel="stylesheet" href="create.css?v=20260907-2">
 </head>
 <body>
-<header class="top"><a href="./" class="brand"><span>م</span><div><b>معلّمي</b><small>إنشاء اختبارات نافس</small></div></a><div class="quality"><a href="analysis.html">تحليل نتائج الطلاب</a><span>اختبارات المؤشرات والمحاكاة</span></div></header>
+<header class="top">
+  <a href="./" class="brand"><span>م</span><div><b>معلّمي</b><small>إنشاء اختبارات نافس</small></div></a>
+  <div class="quality" style="display:flex;gap:12px;align-items:center;">
+    <a href="./">المؤشرات</a>
+    <a href="simulation.html">الاختبارات المحاكية</a>
+    <a href="analysis.html">تحليل نتائج الطلاب</a>
+  </div>
+</header>
 <main class="builder-shell">
  <section class="intro-card"><span>الصف الثالث المتوسط</span><h1>أنشئ اختبارك بالطريقة التي تناسب فصلك</h1><p>اختر مؤشرات بعينها أو نموذج محاكاة، وعاين الأسئلة قبل نشر رابط الطالب.</p></section>
  <p id="catalogState" class="step" role="status"></p><form id="builder" class="builder">
@@ -34,15 +41,9 @@
     <label class="field"><span>اسم المعلم</span><input id="teacherName" maxlength="120" placeholder="اختياري"></label>
     <label class="field"><span>اسم مدير المدرسة</span><input id="principalName" maxlength="120" placeholder="اختياري"></label>
    </div>
-   <fieldset class="identity"><legend>طريقة تحديد هوية الطالب</legend>
-    <label><input type="radio" name="identity" value="list"><span><b>مطابقة الاسم مع كشف الفصل</b><small>يكتب الطالب اسمه ويطابقه النظام مع الكشف</small></span></label>
-    <label><input type="radio" name="identity" value="manual" checked><span><b>كتابة الاسم</b><small>يكتب الطالب اسمه ورقمه المميز</small></span></label>
-    <label><input type="radio" name="identity" value="email"><span><b>الاسم + بريد مدرستي</b><small>يتحقق من صيغة البريد قبل البدء</small></span></label>
-   </fieldset>
-   <div id="rosterBox" class="roster hidden">
-    <label class="field"><span>قائمة أسماء الفصل — اسم في كل سطر</span><textarea id="roster" rows="8" placeholder="اكتب اسمًا في كل سطر"></textarea></label>
-    <label class="image-import"><input id="rosterImage" type="file" accept="image/*"><span>استيراد الأسماء من صورة كشف الفصل</span></label>
-    <div id="ocrState" class="ocr-state"></div>
+   <div class="identity-notice" style="background:#f4fbf8;border:1px solid #cce8dd;border-radius:12px;padding:14px 18px;margin-top:14px;color:#184e3d;font-size:13px;line-height:1.7;">
+     <b>🔒 نظام الهوية والتحقق المركزي:</b>
+     <span>يدخل الطالب بكتابة اسمه وآخر ٣ أرقام من سجله المدني للتحقق المباشر من هويته عبر سجل الطلاب المدرسي. لا يلزم لصق قوائم أسماء هنا.</span>
    </div>
   </section>
 
@@ -62,7 +63,7 @@
 <label><input id="onePerPage" type="checkbox" checked><span>عرض سؤال واحد في كل صفحة</span></label>
 <label><input id="lockSession" type="checkbox" checked><span>قصر المحاولة على تبويب أو جهاز واحد قدر الإمكان</span></label>
 <label><input id="logVisibility" type="checkbox" checked><span>تسجيل مغادرة الصفحة وتغيير التبويب</span></label>
-<label><input id="watermark" type="checkbox" checked><span>علامة مائية متحركة باسم الطالب ومعرف المحاولة والوقت</span></label>
+<label><input id="watermark" type="checkbox" checked><span>علامة مائية باسم الطالب ووقت الدخول لحماية الاختبار</span></label>
    </div>
    <div class="fields-grid compact">
     <label class="field"><span>عدد المحاولات</span><select id="attempts"><option value="1">محاولة واحدة</option><option value="2">محاولتان</option><option value="3">ثلاث محاولات</option></select></label>
@@ -77,6 +78,6 @@
 <section id="previewPanel" class="step hidden"><h2>معاينة الاختبار قبل النشر</h2><p>تبديل السؤال يسحب بديلًا من المؤشر نفسه. لا يصبح الرابط متاحًا حتى تنشر الاختبار.</p><div id="previewMeta"></div><div id="previewQuestions"></div><div class="preview-actions"><button id="regenerate" type="button">إعادة تكوين الاختبار</button><button id="publish" type="button">نشر الاختبار وإنشاء رابط الطالب</button></div><p id="previewError" role="alert"></p></section>
  <section id="created" class="created hidden"><span class="success">تم إنشاء الرابط</span><h2>الاختبار جاهز للإرسال</h2><div id="createdSummary" class="created-summary"></div><div class="link-row"><input id="createdLink" readonly><button id="copyLink" type="button">نسخ الرابط</button></div><div id="qr"></div><div class="preview-actions"><button id="downloadQr" type="button">تحميل QR</button><button id="printQr" type="button">طباعة QR</button><a id="analysisLink" href="analysis.html">تحليل نتائج الاختبار</a></div><a id="openLink" target="_blank">فتح الاختبار</a></section>
 <section id="publishedTests" class="step"><h2>اختباراتي المنشورة</h2><p>تظل الروابط نفسها متاحة هنا بعد إغلاق الصفحة.</p><div id="publishedList"></div></section></main>
-<script src="nafes-reading.js"></script><script src="nafes-math.js"></script><script src="nafes-science.js"></script><script src="teacher-access.js?v=20260907-2"></script><script src="qr.js?v=20260907-2"></script><script src="question-media.js?v=review-v4"></script>
-<script src="create.js?v=20260907-2"></script>
+<script src="nafes-reading.js?v=20260909-final"></script><script src="nafes-math.js?v=20260909-final"></script><script src="nafes-science.js?v=20260909-final"></script><script src="teacher-access.js?v=20260909-final"></script><script src="qr.js?v=20260909-final"></script><script src="question-media.js?v=20260909-final"></script>
+<script src="create.js?v=20260909-final"></script>
 </body></html>

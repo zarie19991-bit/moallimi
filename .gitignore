@@ -7,3 +7,21 @@ question-bank/reading/manifest.json
 
 _site/
 supabase/.temp/
+
+# Simulation Question Banks (Contains answer keys / correct_index)
+data/
+data/simulation-bank/
+
+# Generator & Audit scripts
+scripts/
+
+# Scratch & Temporary Testing Files
+scratch/
+test_browser_suite.html
+screenshot.png
+
+# Secrets & Local Configurations
+.env
+.env.*
+*.log
+supabase/manual-sql/

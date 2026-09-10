@@ -6,13 +6,15 @@
   <meta name="theme-color" content="#0f514c">
   <meta name="referrer" content="no-referrer">
   <title>تحليل نتائج الطلاب | معلّمي</title>
-  <link rel="stylesheet" href="analysis.css?v=20260908-2">
+  <link rel="stylesheet" href="analysis.css?v=20260909-final">
+  <link rel="stylesheet" href="students.css?v=20260909-final">
 </head>
 <body>
   <header class="top no-print">
     <a class="brand" href="./"><span>م</span><div><b>معلّمي</b><small>منصة التدريب على نافس</small></div></a>
     <nav aria-label="التنقل الرئيسي">
       <a href="./">المؤشرات</a>
+      <a href="simulation.html">الاختبارات المحاكية</a>
       <a href="create.html">إنشاء اختبار</a>
       <a class="active" href="analysis.html" aria-current="page">تحليل النتائج</a>
     </nav>
@@ -28,7 +30,6 @@
       </div>
       <div class="intro-actions">
         <button type="button" id="refreshBtn" class="button light" hidden>تحديث البيانات</button>
-        <button type="button" id="printBtn" class="button light" hidden>طباعة التقرير (A4)</button>
         <button type="button" id="signoutBtn" class="text-button light-text" hidden>تسجيل الخروج</button>
       </div>
     </section>
@@ -243,8 +244,29 @@
       </div>
     </div>
 
+    <!-- Official School Report Live Preview Modal (Single Unified Preview & Print Path) -->
+    <div id="reportPreviewModal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="reportPreviewTitle">
+      <div class="modal-card report-preview-modal-card" style="max-width:980px;width:95%;max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:20px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,0.25);">
+        <div class="modal-header" style="padding:16px 24px;border-bottom:1px solid #dce7ea;display:flex;justify-content:space-between;align-items:center;background:#f8fbfa;">
+          <div>
+            <h3 id="reportPreviewTitle" style="margin:0;font-size:17px;color:#0f514c;">معاينة التقرير المدرسي A4</h3>
+            <p style="margin:2px 0 0;font-size:12px;color:#687a83;">راجع شكل التقرير وكشف درجات الطلاب قبل الطباعة أو الحفظ كـ PDF</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <button type="button" id="modalPrintA4Btn" class="button" style="background:#0f514c;color:#fff;border-radius:10px;font-weight:800;padding:8px 18px;display:flex;align-items:center;gap:6px;">
+              <span>🖨️</span> طباعة التقرير المدرسي A4
+            </button>
+            <button type="button" class="close-btn" id="closeReportPreviewBtn" aria-label="إغلاق" style="border:0;background:#e9f0ee;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:18px;display:grid;place-items:center;">×</button>
+          </div>
+        </div>
+        <div id="reportPreviewContainer" style="flex:1;overflow-y:auto;padding:24px;background:#f0f4f3;">
+          <!-- Rendered buildOfficialPrintReport preview will be injected here -->
+        </div>
+      </div>
+    </div>
+
     <footer class="page-footer">
-      معلّمي · منصة تدريب وتحليل نتائج نافس. لطباعة التقرير المدرسي استخدم زر «طباعة التقرير (A4)» ثم اختر الحفظ كـ PDF.
+      معلّمي · منصة تدريب وتحليل نتائج نافس. لطباعة التقرير المدرسي استخدم زر «طباعة التقرير المدرسي A4» ثم اختر الحفظ كـ PDF.
     </footer>
   </main>
 
@@ -252,13 +274,13 @@
   <div id="printReport" dir="rtl" aria-hidden="true"></div>
 
   <noscript><p class="card">يلزم تفعيل JavaScript لتحميل النتائج وعرض التحليل.</p></noscript>
-  <script src="teacher-access.js?v=20260907-1"></script>
-  <script src="question-media.js?v=20260907-1"></script>
-  <script src="xlsx-vendor.js?v=20260909-1"></script>
-  <script src="excel-engine.js?v=20260909-1"></script>
-  <script src="students.js?v=20260909-1"></script>
-  <script src="analysis-core.js?v=20260907-1"></script>
-  <script src="analysis.js?v=20260909-1"></script>
+  <script src="teacher-access.js?v=20260909-final"></script>
+  <script src="question-media.js?v=20260909-final"></script>
+  <script src="xlsx-vendor.js?v=20260909-final"></script>
+  <script src="excel-engine.js?v=20260909-final"></script>
+  <script src="students.js?v=20260909-final"></script>
+  <script src="analysis-core.js?v=20260909-final"></script>
+  <script src="analysis.js?v=20260909-final"></script>
 </body>
 </html>
 

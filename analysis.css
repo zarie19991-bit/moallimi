@@ -146,16 +146,57 @@
 
 /* Print Overrides for Official Report */
 @media print{
-  #printReport .official-report-card{border:0;padding:0;box-shadow:none}
-  #printReport .official-title-banner{border-color:#000;background:#fcfcfc}
-  #printReport .off-meta-box{border-color:#555}
-  #printReport .official-chart-box{border-color:#555;break-inside:avoid}
-  #printReport .off-metrics-table,#printReport .off-detailed-levels-box{border-color:#555;break-inside:avoid}
-  #printReport .column-chart-grid{height:140px}
-  #printReport .donut-circle-wrap{width:75px;height:75px}
-  #printReport .donut-pct{font-size:11px}
-  #printReport .donut-label{font-size:9.5px}
-  .print-page-break{page-break-before:always!important;break-before:page!important;margin-top:20mm}
+  body > *:not(#reportPreviewModal):not(#printReport) {
+    display: none !important;
+  }
+  .no-print, header, nav, .modal-close, button, .btn-primary-pro, .btn-secondary-pro, .sim-act-btn {
+    display: none !important;
+  }
+  #reportPreviewModal {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+  #reportPreviewModal .modal-card {
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #reportPreviewContainer, #printReport {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .official-report-card {
+    border: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .official-title-banner {
+    border-color: #000 !important;
+    background: #fcfcfc !important;
+  }
+  .off-meta-box {
+    border-color: #555 !important;
+  }
+  .official-chart-box, .off-metrics-table, .off-detailed-levels-box {
+    border-color: #555 !important;
+    break-inside: avoid !important;
+  }
+  .column-chart-grid { height: 140px !important; }
+  .donut-circle-wrap { width: 75px !important; height: 75px !important; }
+  .donut-pct { font-size: 11px !important; }
+  .donut-label { font-size: 9.5px !important; }
+  .print-page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+    margin-top: 15mm !important;
+  }
 }
 
 /* ==========================================================================

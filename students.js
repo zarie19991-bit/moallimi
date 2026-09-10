@@ -24,6 +24,7 @@
   let studentList = [];
   let currentTab = 'single';
   let isManaging = false;
+  let currentClassFilter = '';
 
   function ensureStudentModal() {
     let el = $('studentsModal');
@@ -76,8 +77,13 @@
                   </select>
                 </div>
                 <div class="field">
-                  <label for="newStudentClass">الفصل / الشعبة *</label>
-                  <input id="newStudentClass" type="text" placeholder="مثال: ٣/١" required>
+                  <label for="newStudentClass">الفصل الدراسي *</label>
+                  <select id="newStudentClass" required>
+                    <option value="أ" selected>فصل (أ)</option>
+                    <option value="ب">فصل (ب)</option>
+                    <option value="ج">فصل (ج)</option>
+                    <option value="د">فصل (د)</option>
+                  </select>
                 </div>
               </div>
               <div class="field">
@@ -110,8 +116,13 @@
                 </select>
               </div>
               <div class="field">
-                <label for="bulkClass">الفصل / الشعبة لجميع الأسماء *</label>
-                <input id="bulkClass" type="text" placeholder="مثال: ٣/١" required>
+                <label for="bulkClass">الفصل الدراسي لجميع الأسماء *</label>
+                <select id="bulkClass" required>
+                  <option value="أ" selected>فصل (أ)</option>
+                  <option value="ب">فصل (ب)</option>
+                  <option value="ج">فصل (ج)</option>
+                  <option value="د">فصل (د)</option>
+                </select>
               </div>
             </div>
 
@@ -221,10 +232,14 @@
                   <option value="الأول المتوسط">الأول المتوسط</option>
                   <option value="السادس الابتدائي">السادس الابتدائي</option>
                 </select>
-                <select id="filterClassSelect">
-                  <option value="">جميع الفصول</option>
-                </select>
-              </div>
+            <!-- Class Tabs Filter Toolbar -->
+            <div class="class-filter-toolbar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+              <span style="font-weight:800;font-size:13px;color:#134e4a;margin-left:6px;">تصفية الفصول:</span>
+              <button type="button" class="btn-class-filter active" data-class="" style="padding:6px 14px;border-radius:999px;border:1px solid #0f514c;background:#0f514c;color:#fff;font-weight:800;cursor:pointer;font-size:12px;">الكل (<span id="countAll">0</span>)</button>
+              <button type="button" class="btn-class-filter" data-class="أ" style="padding:6px 14px;border-radius:999px;border:1px solid #d0e3de;background:#fff;color:#134e4a;font-weight:800;cursor:pointer;font-size:12px;">فصل أ (<span id="countA">0</span>)</button>
+              <button type="button" class="btn-class-filter" data-class="ب" style="padding:6px 14px;border-radius:999px;border:1px solid #d0e3de;background:#fff;color:#134e4a;font-weight:800;cursor:pointer;font-size:12px;">فصل ب (<span id="countB">0</span>)</button>
+              <button type="button" class="btn-class-filter" data-class="ج" style="padding:6px 14px;border-radius:999px;border:1px solid #d0e3de;background:#fff;color:#134e4a;font-weight:800;cursor:pointer;font-size:12px;">فصل ج (<span id="countC">0</span>)</button>
+              <button type="button" class="btn-class-filter" data-class="د" style="padding:6px 14px;border-radius:999px;border:1px solid #d0e3de;background:#fff;color:#134e4a;font-weight:800;cursor:pointer;font-size:12px;">فصل د (<span id="countD">0</span>)</button>
             </div>
 
             <!-- Class Student Counts -->
@@ -259,8 +274,13 @@
                 </select>
               </div>
               <div class="field">
-                <label for="editStudentClass">الفصل / الشعبة</label>
-                <input id="editStudentClass" type="text" required>
+                <label for="editStudentClass">الفصل الدراسي *</label>
+                <select id="editStudentClass" required>
+                  <option value="أ">فصل (أ)</option>
+                  <option value="ب">فصل (ب)</option>
+                  <option value="ج">فصل (ج)</option>
+                  <option value="د">فصل (د)</option>
+                </select>
               </div>
             </div>
             <div class="field">
@@ -363,7 +383,22 @@
     // Tab 4: Search & Filters
     $('studentSearchInput').addEventListener('input', () => renderStudentsTable());
     $('filterGradeSelect').addEventListener('change', () => renderStudentsTable());
-    $('filterClassSelect').addEventListener('change', () => renderStudentsTable());
+    const filterClassEl = $('filterClassSelect');
+    if (filterClassEl) filterClassEl.addEventListener('change', () => renderStudentsTable());
+
+    el.querySelectorAll('.btn-class-filter').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentClassFilter = btn.dataset.class || '';
+        el.querySelectorAll('.btn-class-filter').forEach(b => {
+          const active = (b.dataset.class || '') === currentClassFilter;
+          b.classList.toggle('active', active);
+          b.style.background = active ? '#0f514c' : '#fff';
+          b.style.color = active ? '#fff' : '#134e4a';
+          b.style.borderColor = active ? '#0f514c' : '#d0e3de';
+        });
+        renderStudentsTable();
+      });
+    });
 
     // Edit Modal events
     $('editStudentForm').addEventListener('submit', handleSaveEditStudent);
@@ -437,6 +472,18 @@
     const countEl = $('tabCount');
     if (countEl) countEl.textContent = activeStudents.length;
 
+    // Update class filter buttons counts
+    const countAllEl = $('countAll');
+    if (countAllEl) countAllEl.textContent = activeStudents.length;
+    const countAEl = $('countA');
+    if (countAEl) countAEl.textContent = activeStudents.filter(s => (s.class_name || '').trim() === 'أ').length;
+    const countBEl = $('countB');
+    if (countBEl) countBEl.textContent = activeStudents.filter(s => (s.class_name || '').trim() === 'ب').length;
+    const countCEl = $('countC');
+    if (countCEl) countCEl.textContent = activeStudents.filter(s => (s.class_name || '').trim() === 'ج').length;
+    const countDEl = $('countD');
+    if (countDEl) countDEl.textContent = activeStudents.filter(s => (s.class_name || '').trim() === 'د').length;
+
     // Populate Class Filter & Badges
     const classMap = new Map();
     activeStudents.forEach(s => {
@@ -463,11 +510,20 @@
   }
 
   window.filterByClass = function(className) {
-    const sel = $('filterClassSelect');
-    if (sel) {
-      sel.value = className;
-      renderStudentsTable();
+    currentClassFilter = className || '';
+    const modal = $('studentsModal');
+    if (modal) {
+      modal.querySelectorAll('.btn-class-filter').forEach(b => {
+        const active = (b.dataset.class || '') === currentClassFilter;
+        b.classList.toggle('active', active);
+        b.style.background = active ? '#0f514c' : '#fff';
+        b.style.color = active ? '#fff' : '#134e4a';
+        b.style.borderColor = active ? '#0f514c' : '#d0e3de';
+      });
     }
+    const sel = $('filterClassSelect');
+    if (sel) sel.value = className;
+    renderStudentsTable();
   };
 
   // ----------------------------------------------------
@@ -517,6 +573,7 @@
       updateCountsAndFilters();
       renderStudentsTable();
       toast(res.restored ? 'تمت استعادة سجل الطالب بنجاح' : 'تمت إضافة الطالب بنجاح');
+      await fetchStudents();
     } catch (err) {
       showMsg(msgEl, 'خطأ: ' + err.message, 'err');
     } finally {
@@ -783,7 +840,7 @@
       const row = rawJson[r];
       for (const cell of row || []) {
         const strCell = normalizeDigits(cell).replace(/\s+/g, '');
-        if (/^[12]\d{9}$/.test(strCell) || strCell.length >= 7) {
+        if (/^[12]\d{9}$/.test(strCell) || /^\d{7,}$/.test(strCell)) {
           alertBox.innerHTML = `
             <b>تنبيه أمان وحماية الخصوصية:</b>
             <p>الملف يحتوي رقم هوية كاملًا. حفاظًا على الخصوصية، استخدم ملفًا يحتوي آخر 3 أرقام فقط.</p>
@@ -911,6 +968,7 @@
       const sGrade = s.grade || 'الثالث المتوسط';
 
       if (gradeFilter && sGrade !== gradeFilter) return false;
+      if (currentClassFilter && sClass !== currentClassFilter.toLowerCase()) return false;
       if (classFilter && sClass !== classFilter.toLowerCase()) return false;
       if (!q) return true;
 
@@ -954,13 +1012,13 @@
               </td>
               <td><small>${st.attempts_count || 0} محاولة</small></td>
               <td class="actions-col">
-                <button type="button" class="btn-tbl-edit" data-edit-id="${esc(st.id)}" title="تعديل بيانات الطالب">تعديل</button>
+                <button type="button" class="btn-tbl-edit" data-edit-id="${esc(st.id)}" title="تعديل بيانات الطالب">✏️ تعديل</button>
                 ${isActive ? `
-                  <button type="button" class="btn-tbl-archive" data-archive-id="${esc(st.id)}" data-name="${esc(displayName)}" title="أرشفة الطالب وحفظ سجلاته">أرشفة</button>
+                  <button type="button" class="btn-tbl-archive" data-archive-id="${esc(st.id)}" data-name="${esc(displayName)}" title="أرشفة الطالب وحفظ سجلاته">📦 أرشفة</button>
                 ` : `
-                  <button type="button" class="btn-tbl-restore" data-restore-id="${esc(st.id)}" data-name="${esc(displayName)}" title="استعادة الطالب للنشطين">استعادة</button>
+                  <button type="button" class="btn-tbl-restore" data-restore-id="${esc(st.id)}" data-name="${esc(displayName)}" title="استعادة الطالب للنشطين">🔄 استعادة</button>
                 `}
-                <button type="button" class="btn-tbl-hard-del" data-hard-del-id="${esc(st.id)}" data-name="${esc(displayName)}" data-class="${esc(st.class_name || '—')}" data-attempts="${st.attempts_count || 0}" title="حذف الطالب وجميع نتائجه نهائيًا">حذف نهائي</button>
+                <button type="button" class="btn-tbl-hard-del" data-hard-del-id="${esc(st.id)}" data-name="${esc(displayName)}" data-class="${esc(st.class_name || '—')}" data-attempts="${st.attempts_count || 0}" title="حذف الطالب">🗑️ حذف</button>
               </td>
             </tr>
             `;

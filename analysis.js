@@ -11,6 +11,16 @@ const date = x => x ? new Date(x).toLocaleString('ar-SA', { dateStyle: 'medium',
 const names = { reading: 'القراءة', math: 'الرياضيات', science: 'العلوم' };
 const kinds = { indicator: 'اختبار مؤشر', multi_indicator: 'اختبار مجمع', simulation: 'اختبار محاكاة' };
 const subjectIcons = { reading: '📖', math: '📐', science: '🔬' };
+let currentActiveTest = null;
+let currentActiveReport = null;
+let currentTestClassFilter = '';
+
+function calculateMedian(arr) {
+  if (!arr || !arr.length) return null;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
 // School Grade Thresholds (Used ONLY for Official School Report matching Ministry PDF)
 function getSchoolGrade(percent) {
@@ -856,12 +866,33 @@ function renderTestsCatalog(f) {
           <span>المتوسط: <b>${pct(avgScore)}</b></span>
           <span>نسبة الإتقان: <b>${pct(masteryRate)}</b></span>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:auto;">
+        <div style="display:flex;gap:8px;align-items:center;margin-top:auto;justify-content:space-between;">
           <button type="button" class="button small" data-open-test="${E(t.id)}">تحليل الاختبار ←</button>
+          ${!t.id.startsWith('exam:') ? `
+            <button type="button" class="btn-tbl-del-test" data-del-test="${E(t.id)}" data-title="${E(t.title)}" title="حذف الاختبار ونتائجه" style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:800;font-size:12px;">🗑️ حذف</button>
+          ` : ''}
         </div>
       </article>
     `;
   }).join('');
+
+  grid.querySelectorAll('[data-del-test]').forEach(btn => {
+    btn.onclick = async e => {
+      e.stopPropagation();
+      const id = btn.dataset.delTest;
+      const title = btn.dataset.title;
+      if (!confirm(`هل أنت متأكد من حذف اختبار "${title}" وجميع نتائجه المرتبطة به؟\nلن يتم حذف الطلاب.`)) return;
+      btn.disabled = true;
+      try {
+        await window.NafesTeacher.api('teacher_test_delete', { test_id: id, confirm_word: 'حذف' });
+        alert('تم حذف الاختبار ونتائجه بنجاح.');
+        await load();
+      } catch (err) {
+        alert('فشل حذف الاختبار: ' + err.message);
+        btn.disabled = false;
+      }
+    };
+  });
 
   grid.querySelectorAll('.group-test-cb').forEach(cb => {
     cb.onchange = e => {
@@ -1146,8 +1177,13 @@ function renderTestAnalysisDetail(testId, f) {
   const currentTest = tests.find(t => t.id === testId) || { id: testId, title: 'اختبار غير معروف', total: 15, subjects: ['reading'] };
   const isMultiSubject = (currentTest.subjects || []).length > 1;
 
-  const scopedAttempts = filterAttemptsByPolicy(rawAttempts, f.policy);
-  const report = A.report(scopedAttempts, indicators, { ...f, test: testId });
+  const allScopedAttempts = filterAttemptsByPolicy(rawAttempts, f.policy);
+  const scopedAttempts = currentTestClassFilter
+    ? allScopedAttempts.filter(a => (a.class_name || '').trim().toLowerCase() === currentTestClassFilter.toLowerCase())
+    : allScopedAttempts;
+  const report = A.report(scopedAttempts, indicators, { ...f, test: testId, className: currentTestClassFilter || undefined });
+  currentActiveTest = currentTest;
+  currentActiveReport = report;
 
   // Render Subtabs Navigation dynamically
   const subtabsNav = $('testSubtabsNav');
@@ -1209,17 +1245,31 @@ function renderTestAnalysisDetail(testId, f) {
     renderOfficialReportTab(report, currentTest);
   }
 
-  printContent = buildOfficialPrintReport(report, currentTest, isMultiSubject);
+  const printNode = $('printReport');
+  if (printNode) {
+    printNode.innerHTML = buildOfficialPrintReport(report, currentTest, isMultiSubject, true);
+  }
 }
 
 // Test Header Summary Banner with Actions (Excel, Clear Results, Delete Test)
 function renderTestHeaderSummary(report, test, scopedAttempts = [], f = {}) {
   const container = $('testSummaryContainer');
-  const s = report.summary;
   const maxScore = Number(test.total) || 100;
-  const masteredCount = s.levels.find(l => l.key === 'mastered')?.count || 0;
-  const masteryRate = s.measured ? Math.round((masteredCount / s.measured) * 1000) / 10 : null;
   const isLegacy = test.id && test.id.startsWith('exam:');
+
+  const validSubmits = scopedAttempts.filter(a => a.test_id === test.id && A.isSubmitted(a));
+  const uniqueStudentCount = new Set(validSubmits.map(a => a.studentIdentity || A.studentIdentity(a))).size;
+  const validScores = validSubmits.filter(a => !a.snapshot_warning).map(A.savedPercent).filter(p => p !== null);
+  const avgPercent = validScores.length ? A.mean(validScores) : null;
+  const medianPercent = calculateMedian(validScores);
+  const achievementRate = avgPercent;
+  const highestPercent = validScores.length ? Math.max(...validScores) : null;
+  const lowestPercent = validScores.length ? Math.min(...validScores) : null;
+  const masteredCountVal = validScores.filter(p => p >= 80).length;
+  const nearCountVal = validScores.filter(p => p >= 65 && p < 80).length;
+  const supportCountVal = validScores.filter(p => p >= 50 && p < 65).length;
+  const nonMasteredCountVal = validScores.filter(p => p < 50).length;
+  const masteryRateVal = validScores.length ? Math.round((masteredCountVal / validScores.length) * 1000) / 10 : null;
 
   container.innerHTML = `
     <div class="card official-report-card">
@@ -1229,30 +1279,45 @@ function renderTestHeaderSummary(report, test, scopedAttempts = [], f = {}) {
           <button type="button" class="btn-primary-pro" id="downloadTestExcelBtn">
             <span>📊</span> تنزيل النتائج Excel
           </button>
+          <button type="button" class="btn-secondary-pro" onclick="openOfficialReportPreview()">
+            <span>🖨️</span> معاينة وطباعة التقرير المدرسي A4
+          </button>
           <button type="button" class="btn-secondary-pro" id="clearTestResultsBtn" style="color:#c5221f;border-color:#fce8e6;">
             <span>🗑️</span> مسح نتائج الاختبار
           </button>
           ${!isLegacy ? `
             <button type="button" class="btn-secondary-pro" id="deleteTestPermanentlyBtn" style="color:#a51d24;border-color:#fad2cf;">
-              <span>❌</span> حذف الاختبار نهائيًا
+              <span>🗑️</span> حذف الاختبار
             </button>
           ` : ''}
         </div>
       </div>
+
+      <!-- Class Tabs Filter Toolbar for Test Analysis -->
+      <div class="test-class-filter-toolbar" style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap;background:#f6fbf9;padding:8px 12px;border-radius:12px;border:1px solid #d8ece4;">
+        <span style="font-weight:800;font-size:13px;color:#134e4a;">تصفية الفصل:</span>
+        <button type="button" class="btn-test-class-filter ${!currentTestClassFilter ? 'active' : ''}" data-class="" style="padding:6px 14px;border-radius:999px;border:1px solid ${!currentTestClassFilter ? '#0f514c' : '#d0e3de'};background:${!currentTestClassFilter ? '#0f514c' : '#fff'};color:${!currentTestClassFilter ? '#fff' : '#134e4a'};font-weight:800;cursor:pointer;font-size:12px;">الكل</button>
+        <button type="button" class="btn-test-class-filter ${currentTestClassFilter === 'أ' ? 'active' : ''}" data-class="أ" style="padding:6px 14px;border-radius:999px;border:1px solid ${currentTestClassFilter === 'أ' ? '#0f514c' : '#d0e3de'};background:${currentTestClassFilter === 'أ' ? '#0f514c' : '#fff'};color:${currentTestClassFilter === 'أ' ? '#fff' : '#134e4a'};font-weight:800;cursor:pointer;font-size:12px;">فصل أ</button>
+        <button type="button" class="btn-test-class-filter ${currentTestClassFilter === 'ب' ? 'active' : ''}" data-class="ب" style="padding:6px 14px;border-radius:999px;border:1px solid ${currentTestClassFilter === 'ب' ? '#0f514c' : '#d0e3de'};background:${currentTestClassFilter === 'ب' ? '#0f514c' : '#fff'};color:${currentTestClassFilter === 'ب' ? '#fff' : '#134e4a'};font-weight:800;cursor:pointer;font-size:12px;">فصل ب</button>
+        <button type="button" class="btn-test-class-filter ${currentTestClassFilter === 'ج' ? 'active' : ''}" data-class="ج" style="padding:6px 14px;border-radius:999px;border:1px solid ${currentTestClassFilter === 'ج' ? '#0f514c' : '#d0e3de'};background:${currentTestClassFilter === 'ج' ? '#0f514c' : '#fff'};color:${currentTestClassFilter === 'ج' ? '#fff' : '#134e4a'};font-weight:800;cursor:pointer;font-size:12px;">فصل ج</button>
+        <button type="button" class="btn-test-class-filter ${currentTestClassFilter === 'د' ? 'active' : ''}" data-class="د" style="padding:6px 14px;border-radius:999px;border:1px solid ${currentTestClassFilter === 'د' ? '#0f514c' : '#d0e3de'};background:${currentTestClassFilter === 'د' ? '#0f514c' : '#fff'};color:${currentTestClassFilter === 'د' ? '#fff' : '#134e4a'};font-weight:800;cursor:pointer;font-size:12px;">فصل د</button>
+      </div>
+
       <div class="official-meta-cards">
         <div class="off-meta-box"><span>المرحلة الدراسية / الصف:</span><b>${E(test.grade_key === 'middle_3' ? 'الصف الثالث المتوسط' : test.grade_key || 'الصف الثالث المتوسط')}</b></div>
-        <div class="off-meta-box"><span>الفصل / الشعبة:</span><b>${E(test.class_name || 'جميع الفصول')}</b></div>
+        <div class="off-meta-box"><span>الفصل / الشعبة:</span><b>${E(currentTestClassFilter ? `فصل (${currentTestClassFilter})` : (test.class_name || 'جميع الفصول'))}</b></div>
         <div class="off-meta-box"><span>درجة القياس (الاختبار):</span><b>${num(maxScore)}</b></div>
       </div>
       <div class="official-stats-split">
         <table class="off-metrics-table">
           <tbody>
-            <tr><th>عدد الطلاب الذين سلموا</th><td>${num(s.submitted)}</td></tr>
-            <tr><th>أعلى درجة محققة</th><td>${pct(s.highest)} ${test.total && s.highest !== null ? `(${num(Math.round(s.highest * maxScore / 100 * 10) / 10)} من ${num(maxScore)})` : ''}</td></tr>
-            <tr><th>أقل درجة محققة</th><td>${pct(s.lowest)} ${test.total && s.lowest !== null ? `(${num(Math.round(s.lowest * maxScore / 100 * 10) / 10)} من ${num(maxScore)})` : ''}</td></tr>
-            <tr><th>متوسط درجات الطلاب</th><td>${pct(s.average)} ${test.total && s.average !== null ? `(متوسط: ${num(Math.round(s.average * maxScore / 100 * 10) / 10)})` : ''}</td></tr>
-            <tr><th>نسبة إتقان نافس (٨٠٪ فأكثر)</th><td>${pct(masteryRate)} <small class="muted">(${num(masteredCount)} متقن)</small></td></tr>
-            <tr><th>مجموع درجات الطلاب</th><td>${test.total && s.average !== null ? num(Math.round((s.average * maxScore / 100) * s.submitted * 10) / 10) : '—'}</td></tr>
+            <tr><th>عدد الطلاب</th><td>${num(uniqueStudentCount)}</td></tr>
+            <tr><th>المتوسط</th><td>${pct(avgPercent)} ${test.total && avgPercent !== null ? `(متوسط: ${num(Math.round(avgPercent * maxScore / 100 * 10) / 10)})` : ''}</td></tr>
+            <tr><th>الوسيط</th><td>${pct(medianPercent)}</td></tr>
+            <tr><th>نسبة التحصيل</th><td>${pct(achievementRate)}</td></tr>
+            <tr><th>أعلى نتيجة</th><td>${pct(highestPercent)} ${test.total && highestPercent !== null ? `(${num(Math.round(highestPercent * maxScore / 100 * 10) / 10)} من ${num(maxScore)})` : ''}</td></tr>
+            <tr><th>أقل نتيجة</th><td>${pct(lowestPercent)} ${test.total && lowestPercent !== null ? `(${num(Math.round(lowestPercent * maxScore / 100 * 10) / 10)} من ${num(maxScore)})` : ''}</td></tr>
+            <tr><th>نسبة الإتقان</th><td>${pct(masteryRateVal)} <small class="muted">(${num(masteredCountVal)} متقن)</small></td></tr>
           </tbody>
         </table>
         <div class="off-detailed-levels-box">
@@ -1260,16 +1325,24 @@ function renderTestHeaderSummary(report, test, scopedAttempts = [], f = {}) {
           <table class="off-levels-table">
             <thead><tr><th>المستوى</th><th>النطاق</th><th>عدد الطلاب</th></tr></thead>
             <tbody>
-              <tr><td><span class="badge mastered">متقن</span></td><td>٨٠٪ فأكثر</td><td><b>${num(masteredCount)}</b></td></tr>
-              <tr><td><span class="badge near">قريب من الإتقان</span></td><td>٦٥٪ - ٧٩٪</td><td><b>${num(s.levels.find(l => l.key === 'near')?.count || 0)}</b></td></tr>
-              <tr><td><span class="badge support">بحاجة إلى دعم</span></td><td>٥٠٪ - ٦٤٪</td><td><b>${num(s.levels.find(l => l.key === 'support')?.count || 0)}</b></td></tr>
-              <tr><td><span class="badge nonmastered">غير متقن</span></td><td>أقل من ٥٠٪</td><td><b>${num(s.levels.find(l => l.key === 'nonmastered')?.count || 0)}</b></td></tr>
+              <tr><td><span class="badge mastered">متقن</span></td><td>٨٠٪ فأكثر</td><td><b>${num(masteredCountVal)}</b></td></tr>
+              <tr><td><span class="badge near">قريب من الإتقان</span></td><td>٦٥٪ - ٧٩٪</td><td><b>${num(nearCountVal)}</b></td></tr>
+              <tr><td><span class="badge support">بحاجة إلى دعم</span></td><td>٥٠٪ - ٦٤٪</td><td><b>${num(supportCountVal)}</b></td></tr>
+              <tr><td><span class="badge nonmastered">غير متقن</span></td><td>أقل من ٥٠٪</td><td><b>${num(nonMasteredCountVal)}</b></td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </div>
   `;
+
+  // Bind class filter buttons
+  container.querySelectorAll('.btn-test-class-filter').forEach(btn => {
+    btn.onclick = () => {
+      currentTestClassFilter = btn.dataset.class || '';
+      renderTestAnalysisDetail(test.id, f);
+    };
+  });
 
   if ($('downloadTestExcelBtn')) {
     $('downloadTestExcelBtn').onclick = () => {
@@ -1283,10 +1356,74 @@ function renderTestHeaderSummary(report, test, scopedAttempts = [], f = {}) {
       const nonMasteredCountVal = s.levels.find(l => l.key === 'nonmastered')?.count || 0;
       const insufficientCountVal = s.levels.find(l => l.key === 'insufficient')?.count || 0;
 
+      const validSubmits = scopedAttempts.filter(a => a.test_id === test.id && A.isSubmitted(a));
+      const studentListForExcel = (report.rows && report.rows.length) ? report.rows.map(r => {
+        const a = r.latest;
+        const indScores = {};
+        (a?.questions || []).filter(A.isScorable).forEach(q => {
+          const k = A.indicatorKey(q);
+          if (!k) return;
+          if (!indScores[k]) indScores[k] = { text: q.indicator_text || k, correct: 0, total: 0 };
+          indScores[k].total++;
+          if (q.correct) indScores[k].correct++;
+        });
+        const indMapRes = {};
+        for (const [k, v] of Object.entries(indScores)) {
+          const p = v.total > 0 ? (v.correct / v.total) * 100 : 0;
+          indMapRes[k] = { score: v.correct, total: v.total, percent: p, level: getNafesMastery(p).label };
+        }
+
+        return {
+          name: r.student?.student_name || r.student?.full_name || 'طالب',
+          grade: r.student?.grade || test.grade || 'الثالث المتوسط',
+          class_name: r.student?.class_name || test.class_name || '—',
+          score: a?.score,
+          total: a?.total,
+          percent: a ? A.savedPercent(a) : null,
+          level_label: a ? getNafesMastery(A.savedPercent(a)).label : '—',
+          correct_count: a?.score,
+          incorrect_count: a && a.total != null && a.score != null ? a.total - a.score : 0,
+          submitted_at: a?.submitted_at,
+          snapshot_warning: a?.snapshot_warning,
+          section_scores: a?.section_scores,
+          indicator_scores: indMapRes
+        };
+      }) : validSubmits.map(a => {
+        const indScores = {};
+        (a?.questions || []).filter(A.isScorable).forEach(q => {
+          const k = A.indicatorKey(q);
+          if (!k) return;
+          if (!indScores[k]) indScores[k] = { text: q.indicator_text || k, correct: 0, total: 0 };
+          indScores[k].total++;
+          if (q.correct) indScores[k].correct++;
+        });
+        const indMapRes = {};
+        for (const [k, v] of Object.entries(indScores)) {
+          const p = v.total > 0 ? (v.correct / v.total) * 100 : 0;
+          indMapRes[k] = { score: v.correct, total: v.total, percent: p, level: getNafesMastery(p).label };
+        }
+
+        return {
+          name: a.student_name || 'طالب',
+          grade: a.grade || test.grade || 'الثالث المتوسط',
+          class_name: a.class_name || test.class_name || '—',
+          score: a.score,
+          total: a.total,
+          percent: A.savedPercent(a),
+          level_label: getNafesMastery(A.savedPercent(a)).label,
+          correct_count: a.score,
+          incorrect_count: a.total != null && a.score != null ? a.total - a.score : 0,
+          submitted_at: a.submitted_at,
+          snapshot_warning: a.snapshot_warning,
+          section_scores: a.section_scores,
+          indicator_scores: indMapRes
+        };
+      });
+
       const exportReport = {
         summary: {
-          students: s.submitted,
-          totalAttempts: scopedAttempts.filter(a => a.test_id === test.id && A.isSubmitted(a)).length,
+          students: studentListForExcel.length,
+          totalAttempts: validSubmits.length,
           averagePercent: s.average,
           maxScore: s.highest,
           minScore: s.lowest,
@@ -1297,22 +1434,7 @@ function renderTestHeaderSummary(report, test, scopedAttempts = [], f = {}) {
           nonMasteredCount: nonMasteredCountVal,
           insufficientEvidenceCount: insufficientCountVal
         },
-        students: report.rows.map(r => {
-          const a = r.latest;
-          return {
-            name: r.student.student_name,
-            grade: r.student.grade,
-            class_name: r.student.class_name,
-            score: a?.score,
-            total: a?.total,
-            percent: a ? A.savedPercent(a) : null,
-            level_label: a ? getNafesMastery(A.savedPercent(a)).label : '—',
-            correct_count: a?.score,
-            incorrect_count: a && a.total != null && a.score != null ? a.total - a.score : 0,
-            submitted_at: a?.submitted_at,
-            snapshot_warning: a?.snapshot_warning
-          };
-        }),
+        students: studentListForExcel,
         indicators: report.indicators.filter(i => i.measuredStudents).map(ind => {
           const qCount = (scopedAttempts.find(a => a.questions?.length)?.questions || []).filter(q => A.indicatorKey(q) === ind.key).length || 1;
           const prio = getIndicatorPriority(ind, qCount, ind.measuredStudents);
@@ -1542,17 +1664,44 @@ function renderStudentsTab(report, test, scopedAttempts = [], filters = {}) {
         ? `<span class="badge unmeasured" style="margin-right:6px;font-size:9.5px;">المحاولة ${num(attemptIdx + 1)} من ${num(attemptsList.length)}</span>` 
         : '';
 
+      const rawQs = (a?.questions || []).filter(A.isScorable);
+      const indMap = new Map();
+      rawQs.forEach(q => {
+        const k = A.indicatorKey(q);
+        if (!k) return;
+        if (!indMap.has(k)) indMap.set(k, { text: q.indicator_text || k, correct: 0, total: 0 });
+        const item = indMap.get(k);
+        item.total++;
+        if (q.correct) item.correct++;
+      });
+      const masteredInds = [];
+      const supportInds = [];
+      for (const item of indMap.values()) {
+        const p = item.total > 0 ? (item.correct / item.total) * 100 : 0;
+        if (p >= 80) masteredInds.push(item.text);
+        else if (p < 65) supportInds.push(item.text);
+      }
+      const masteredHtml = masteredInds.length
+        ? masteredInds.map(t => `<span class="badge mastered" style="font-size:10px;margin:2px;" title="${E(t)}">${E(t)}</span>`).join('')
+        : '<span class="muted">—</span>';
+      const supportHtml = supportInds.length
+        ? supportInds.map(t => `<span class="badge support" style="font-size:10px;margin:2px;" title="${E(t)}">${E(t)}</span>`).join('')
+        : '<span class="muted">—</span>';
+
       return {
         trendDir: trend.direction,
         cells: [
           num(i + 1),
           `<button type="button" class="text-button" data-student="${E(sKey)}" style="font-weight:900;font-size:13px;">${E(a.student_name)}</button>${attemptBadge}<small class="muted">${date(a.submitted_at)}</small>`,
           E(a.class_name || '—'),
-          `${num(a.score)} من ${num(a.total)}`,
+          num(a.score),
+          num(a.total),
           pct(A.savedPercent(a)),
+          num(a.score),
+          num(Math.max(0, (a.total || 0) - (a.score || 0))),
           mastery.badgeHtml,
-          `${num(a.score)} صحيح`,
-          trend.badgeHtml,
+          masteredHtml,
+          supportHtml,
           `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <button type="button" class="button small" data-paper="${E(a.id)}" data-source="${E(a.source)}" title="عرض ورقة الإجابة المحفوظة">ورقة الاختبار</button>
             <button type="button" class="button small" data-student="${E(sKey)}" title="عرض التحليل المستقل للطالب">تحليل الطالب ←</button>
@@ -1562,13 +1711,39 @@ function renderStudentsTab(report, test, scopedAttempts = [], filters = {}) {
     });
   } else {
     rows = report.rows.map((r, i) => {
-      const rawScore = r.latest ? `${num(r.latest.score)} من ${num(r.latest.total)}` : 'لم يسلّم';
+      const rawScore = r.latest ? num(r.latest.score) : '—';
+      const rawTotal = r.latest ? num(r.latest.total) : '—';
       const percentVal = r.latest ? A.savedPercent(r.latest) : null;
       const mastery = getNafesMastery(percentVal);
 
       const studentHistory = rawAttempts.filter(a => (a.studentIdentity || A.studentIdentity(a)) === r.key && r.latest && A.compareTime(a, r.latest) < 0).sort(A.compareTime).reverse();
       const trend = getFairTrend(r.latest, studentHistory);
-      const correctCount = r.measured.total ? `صحيح: ${num(r.measured.correct)} · خطأ: ${num(r.measured.total - r.measured.correct)}` : '—';
+      const correctCount = r.measured.total ? num(r.measured.correct) : '—';
+      const wrongCount = r.measured.total ? num(Math.max(0, r.measured.total - r.measured.correct)) : '—';
+
+      const rawQs = (r.latest?.questions || []).filter(A.isScorable);
+      const indMap = new Map();
+      rawQs.forEach(q => {
+        const k = A.indicatorKey(q);
+        if (!k) return;
+        if (!indMap.has(k)) indMap.set(k, { text: q.indicator_text || k, correct: 0, total: 0 });
+        const item = indMap.get(k);
+        item.total++;
+        if (q.correct) item.correct++;
+      });
+      const masteredInds = [];
+      const supportInds = [];
+      for (const item of indMap.values()) {
+        const p = item.total > 0 ? (item.correct / item.total) * 100 : 0;
+        if (p >= 80) masteredInds.push(item.text);
+        else if (p < 65) supportInds.push(item.text);
+      }
+      const masteredHtml = masteredInds.length
+        ? masteredInds.map(t => `<span class="badge mastered" style="font-size:10px;margin:2px;" title="${E(t)}">${E(t)}</span>`).join('')
+        : '<span class="muted">—</span>';
+      const supportHtml = supportInds.length
+        ? supportInds.map(t => `<span class="badge support" style="font-size:10px;margin:2px;" title="${E(t)}">${E(t)}</span>`).join('')
+        : '<span class="muted">—</span>';
 
       return {
         trendDir: trend.direction,
@@ -1577,10 +1752,13 @@ function renderStudentsTab(report, test, scopedAttempts = [], filters = {}) {
           `<button type="button" class="text-button" data-student="${E(r.key)}" style="font-weight:900;font-size:13px;">${E(r.student.student_name)}</button>`,
           E(r.student.class_name || '—'),
           rawScore,
+          rawTotal,
           pct(percentVal),
-          mastery.badgeHtml,
           correctCount,
-          trend.badgeHtml,
+          wrongCount,
+          mastery.badgeHtml,
+          masteredHtml,
+          supportHtml,
           `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             ${r.latest ? `<button type="button" class="button small" data-paper="${E(r.latest.id)}" data-source="${E(r.latest.source)}" title="عرض ورقة الإجابة المحفوظة">ورقة الاختبار</button>` : ''}
             <button type="button" class="button small" data-student="${E(r.key)}" title="عرض التحليل المستقل للطالب">تحليل الطالب ←</button>
@@ -1605,7 +1783,7 @@ function renderStudentsTab(report, test, scopedAttempts = [], filters = {}) {
           <p class="muted">السياسة المطبقة: <b>${policyLabels[policy] || policy}</b>. اضغط على اسم الطالب لعرض ملفه التراكمي ونقاط القوة والضعف.</p>
         </div>
       </div>
-      ${renderTable(['#', 'اسم الطالب', 'الفصل', 'الدرجة', 'النسبة', 'مستوى إتقان نافس', 'الإجابات', 'الاتجاه العادل', 'الإجراءات'], renderedCells)}
+      ${renderTable(['#', 'اسم الطالب', 'الفصل', 'الدرجة', 'الدرجة الكلية', 'النسبة', 'الصحيحة', 'الخاطئة', 'مستوى الطالب', 'المؤشرات المتقنة', 'المؤشرات التي تحتاج دعماً', 'الإجراءات'], renderedCells)}
     </div>
   `;
 }
@@ -1625,12 +1803,11 @@ function renderIndicatorsTab(report, test, scopedAttempts = []) {
 
     return [
       `<button type="button" class="text-button" data-indicator="${E(g.key)}" style="font-weight:800;text-align:right;">${E(g.text)}</button>`,
+      num(questionsForIndicator),
       pct(g.percent),
       pct(g.masteryRate),
-      masteryStatus.badgeHtml,
-      `<span class="badge ${priority.class}">${priority.label}</span>`,
-      g.measuredStudents ? `متقن: ${num(g.mastered)} · دون الإتقان: ${num(g.measuredStudents - g.mastered)}` : 'لم يُقَس',
-      `${num(questionsForIndicator)} أسئلة · ${num(g.measuredStudents)} طالبًا`,
+      num(g.mastered),
+      num(g.measuredStudents ? Math.max(0, g.measuredStudents - g.mastered) : 0),
       `<button type="button" class="button small" data-indicator="${E(g.key)}">عرض الطلاب ←</button>`
     ];
   });
@@ -1639,11 +1816,11 @@ function renderIndicatorsTab(report, test, scopedAttempts = []) {
     <div class="card">
       <div class="section-heading">
         <div>
-          <h2>تحليل إتقان المؤشرات المقاسة وأولويات التدخل</h2>
-          <p class="muted">نسب إتقان كل مؤشر مع التحقق من كفاية الأدلة (يلزم سؤالان على الأقل لإصدار حكم موثوق). اضغط على أي مؤشر لعرض الطلاب المتأثرين به.</p>
+          <h2>تحليل إتقان المؤشرات المقاسة</h2>
+          <p class="muted">نسب إتقان كل مؤشر وعدد الطلاب المتقنين والمحتاجين للدعم. اضغط على أي مؤشر لعرض الطلاب المتأثرين به.</p>
         </div>
       </div>
-      ${renderTable(['المؤشر المقاس', 'متوسط الأداء', 'نسبة إتقان الطلاب', 'حكم الإتقان', 'أولوية التدخل', 'توزيع الطلاب', 'كفاية الأدلة', 'الإجراء'], rows)}
+      ${renderTable(['اسم المؤشر', 'عدد الأسئلة', 'متوسط أداء الطلاب', 'نسبة الإتقان', 'عدد الطلاب المتقنين', 'الطلاب المحتاجون للدعم', 'الإجراء'], rows)}
     </div>
   `;
 }
@@ -1716,11 +1893,15 @@ function renderQuestionsWithDistractors(container, questionsList) {
       ${isHighlyAttractive ? `<span class="distractor-notice">⚠️ المشتت (${optionLetters[maxDistractorIdx]}) جذب ${attractivePct}٪ من الطلاب</span>` : ''}
     `;
 
+    const correctCount = Math.max(0, g.measured - g.wrong);
+    const correctPct = g.measured > 0 ? Math.round((correctCount / g.measured) * 1000) / 10 : 0;
+
     return [
       num(i + 1),
-      `<div style="font-weight:700;line-height:1.7;">${E(g.question)}</div><small class="muted">${E(g.indicator_text)}</small>`,
-      names[g.subject] || g.subject || '—',
-      `${num(g.wrong)} من ${num(g.measured)} (${pct(g.failureRate)})`,
+      `<span style="font-weight:800;color:#0f514c;">${E(g.indicator_text || '—')}</span><div style="font-size:12px;margin-top:3px;color:#333;">${E(g.question)}</div>`,
+      num(correctCount),
+      num(g.wrong),
+      pct(correctPct),
       distractorBarsHtml
     ];
   });
@@ -1729,11 +1910,11 @@ function renderQuestionsWithDistractors(container, questionsList) {
     <div class="card">
       <div class="section-heading">
         <div>
-          <h2>تحليل الأسئلة ومشتتات الإجابة (Distractor Analysis)</h2>
-          <p class="muted">مرتبة تنازلياً حسب نسبة الخطأ، مع تفصيل توزيع اختيارات الطلاب للبدائل (أ، ب، ج، د) وتحديد المشتت الأكثر جذباً.</p>
+          <h2>تحليل الأسئلة ومشتتات الإجابة</h2>
+          <p class="muted">تفصيل إجابات الطلاب على كل سؤال والمؤشر المرتبط به وتوزيع الاختيارات للبدائل (أ، ب، ج، د).</p>
         </div>
       </div>
-      ${renderTable(['#', 'نص السؤال والمؤشر', 'المادة', 'معدل الخطأ', 'توزيع البدائل والمشتتات'], rows)}
+      ${renderTable(['#', 'المؤشر والسؤال', 'عدد الصحيحة', 'عدد الخاطئة', 'نسبة الإجابة الصحيحة', 'توزيع الاختيارات'], rows)}
     </div>
   `;
 }
@@ -1828,88 +2009,182 @@ function showStudent(key) {
   syncUrl();
   updateBreadcrumbs();
 
-  const history = rawAttempts.filter(a => (a.studentIdentity || A.studentIdentity(a)) === key || a.student_id === key);
-  const r = A.studentRows(history)[0];
-  if (!r) return;
+  const st = studentsRoster.find(s => s.id === key) || {};
+  const history = rawAttempts.filter(a => a.student_id === key || (a.studentIdentity && a.studentIdentity === key));
+  const r = A.studentRows(history)[0] || { student: { student_name: st.full_name || st.student_name || 'طالب', grade: st.grade || 'الصف الثالث المتوسط', class_name: st.class_name || '—' }, skills: [] };
+
+  const studentName = st.full_name || st.student_name || r.student.student_name || 'طالب';
+  const studentClass = st.class_name || r.student.class_name || '—';
+  const studentGrade = st.grade || r.student.grade || 'الصف الثالث المتوسط';
 
   const records = history.filter(A.isSubmitted).sort(A.compareTime);
-  const reliable = records.filter(A.isAnalyzable);
-  const avg = A.mean(reliable.map(A.savedPercent));
-  const skills = r.skills.filter(s => s.latest);
-  const current = A.mean(skills.map(s => s.latest.percent));
 
-  const sortedSkills = skills.slice().sort((a, b) => b.latest.percent - a.latest.percent);
-  const topStrengths = sortedSkills.slice(0, 5);
-  const topWeaknesses = sortedSkills.slice().reverse().slice(0, 5);
-  const repeatedWeaknesses = skills.filter(s => s.repeated);
+  // Per-subject scores & levels (Reading, Math, Science)
+  function getSubjStats(subj) {
+    const qList = records.flatMap(a => (a.questions || []).filter(q => q.subject === subj && A.isScorable(q)));
+    if (!qList.length) return { percent: null, label: 'غير مقاس', badgeHtml: '<span class="badge unmeasured">غير مقاس</span>' };
+    const correct = qList.filter(q => q.correct).length;
+    const p = Math.round((correct / qList.length) * 1000) / 10;
+    return { percent: p, ...getNafesMastery(p, qList.length) };
+  }
+  const readingStats = getSubjStats('reading');
+  const mathStats = getSubjStats('math');
+  const scienceStats = getSubjStats('science');
 
-  const skillRows = skills.map(s => {
-    const p = s.latest.percent;
-    const qCount = s.latest.total || 0;
-    const masteryStatus = getNafesMastery(p, qCount);
+  // Overall average
+  const validPList = records.map(A.savedPercent).filter(p => p !== null);
+  const avgVal = validPList.length ? A.mean(validPList) : null;
+  const avgDisplay = avgVal !== null ? `${round1(avgVal)}٪` : 'لا توجد نتائج كافية';
+
+  // Latest result & delta from previous
+  const latestAttempt = records.length ? records[records.length - 1] : null;
+  const latestPercent = latestAttempt ? A.savedPercent(latestAttempt) : null;
+  const latestDisplay = latestAttempt ? `${num(latestAttempt.score)} من ${num(latestAttempt.total)} (${pct(latestPercent)})` : 'لا توجد نتائج كافية';
+
+  let deltaDisplay = 'لا توجد نتائج كافية';
+  if (records.length >= 2) {
+    const prevAttempt = records[records.length - 2];
+    const prevP = A.savedPercent(prevAttempt);
+    if (latestPercent !== null && prevP !== null) {
+      const diff = Math.round((latestPercent - prevP) * 10) / 10;
+      deltaDisplay = diff > 0 ? `+${num(diff)}٪ (تحسّن)` : diff < 0 ? `${num(diff)}٪ (تراجع)` : '٠٪ (استقرار)';
+    }
+  }
+
+  // Indicators aggregation across student history
+  const indAgg = new Map();
+  records.forEach(a => {
+    (a.questions || []).filter(A.isScorable).forEach(q => {
+      const k = A.indicatorKey(q);
+      if (!k) return;
+      if (!indAgg.has(k)) indAgg.set(k, { text: q.indicator_text || k, correct: 0, total: 0 });
+      const item = indAgg.get(k);
+      item.total++;
+      if (q.correct) item.correct++;
+    });
+  });
+
+  const masteredList = [];
+  const nearList = [];
+  const supportList = [];
+  const indRows = [];
+
+  for (const item of indAgg.values()) {
+    const p = item.total > 0 ? Math.round((item.correct / item.total) * 1000) / 10 : 0;
+    const mastery = getNafesMastery(p, item.total);
+    if (p >= 80) masteredList.push(item);
+    else if (p >= 65) nearList.push(item);
+    else supportList.push(item);
+
+    indRows.push({
+      text: item.text,
+      percent: p,
+      total: item.total,
+      correct: item.correct,
+      mastery
+    });
+  }
+
+  indRows.sort((a, b) => b.percent - a.percent);
+  const strengths = indRows.filter(i => i.percent >= 80);
+  const weaknesses = indRows.filter(i => i.percent < 65);
+
+  // All Tests Table rows
+  const testRows = history.slice().sort(A.compareTime).reverse().map(a => {
+    const t = tests.find(x => x.id === a.test_id);
+    let kindLabel = 'اختبارات المؤشرات';
+    if (t?.kind === 'simulation' || a.source === 'simulation') {
+      const subjs = t?.subjects || (a.questions ? [...new Set(a.questions.map(q => q.subject))] : []);
+      if (subjs.length >= 3) kindLabel = 'المحاكاة الكاملة';
+      else if (subjs.length === 1) kindLabel = 'اختبارات المجال الواحد';
+      else kindLabel = 'اختبارات المؤشرات المخصصة';
+    } else if (t?.kind === 'multi_indicator') {
+      kindLabel = 'الاختبارات متعددة المؤشرات';
+    }
+    const subjs = (t?.subjects || (a.questions ? [...new Set(a.questions.map(q => q.subject))] : [])).map(s => names[s] || s).join(' · ') || '—';
+
     return [
-      E(s.latest.text),
-      pct(p),
-      masteryStatus.badgeHtml,
-      `${num(s.latest.correct)} من ${num(s.latest.total)}`,
-      s.repeated ? '<span class="badge down">ضعف متكرر</span>' : '<span class="badge stable">طبيعي</span>'
+      E(a.title || t?.title || 'اختبار نافس'),
+      `<span class="badge" style="background:#eef7f4;color:#0f514c;">${kindLabel}</span>`,
+      subjs,
+      date(a.submitted_at || a.started_at),
+      A.isSubmitted(a) ? `${num(a.score)} من ${num(a.total)}` : 'لم يسلّم',
+      pct(A.savedPercent(a)),
+      `<button type="button" class="button small no-print" data-paper="${E(a.id)}" data-source="${E(a.source)}">ورقة الاختبار</button>`
     ];
   });
 
   const body = `
     <section class="card student-detail-card">
       <div class="student-profile-head">
-        <div class="student-avatar-box">${E(r.student.student_name.charAt(0))}</div>
+        <div class="student-avatar-box">${E(studentName.charAt(0))}</div>
         <div class="student-info-main">
-          <h1>${E(r.student.student_name)}</h1>
+          <h1>${E(studentName)}</h1>
           <div class="student-meta-tags">
-            <span class="info-pill">الصف: ${E(r.student.grade || 'الصف الثالث المتوسط')}</span>
-            <span class="info-pill">الفصل: ${E(r.student.class_name || 'غير مسجل')}</span>
-            <span class="info-pill highlight">مستوى نافس العام: ${getNafesMastery(current).badgeHtml}</span>
+            <span class="info-pill">الفصل: <b>${E(studentClass)}</b></span>
+            <span class="info-pill">الصف: ${E(studentGrade)}</span>
+            <span class="info-pill highlight">متوسط الأداء: <b>${avgDisplay}</b></span>
           </div>
         </div>
       </div>
 
-      <div class="summary-grid">
-        <div class="metric"><span>الاختبارات المسلّمة</span><strong>${num(records.length)}</strong></div>
-        <div class="metric"><span>متوسط نسبة الإتقان</span><strong>${pct(avg)}</strong></div>
-        <div class="metric"><span>نقاط الضعف المتكررة</span><strong>${num(repeatedWeaknesses.length)}</strong></div>
-        <div class="metric"><span>آخر نتيجة محفوظة</span><strong>${r.latest ? `${num(r.latest.score)} من ${num(r.latest.total)}` : '—'}</strong></div>
+      <!-- General Student Analysis Cards -->
+      <div class="summary-grid" style="margin-top:14px;">
+        <div class="metric"><span>متوسط الأداء العام</span><strong>${avgDisplay}</strong></div>
+        <div class="metric"><span>آخر نتيجة محققة</span><strong>${latestDisplay}</strong></div>
+        <div class="metric"><span>الفرق عن النتيجة السابقة</span><strong>${deltaDisplay}</strong></div>
+        <div class="metric"><span>إجمالي الاختبارات المسلمة</span><strong>${num(records.length)}</strong></div>
       </div>
 
-      <h2>📈 تطور مستوى الطالب عبر المحاولات</h2>
+      <!-- Subject Mastery Levels -->
+      <div class="card" style="margin:16px 0;background:#f8fbf9;border:1px solid #d8ece4;">
+        <h3 style="margin:0 0 10px;font-size:15px;color:#0f514c;">مستويات المواد الدراسية</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+          <div class="off-meta-box"><span>مستوى القراءة:</span><b>${readingStats.badgeHtml} ${readingStats.percent !== null ? `(${round1(readingStats.percent)}٪)` : ''}</b></div>
+          <div class="off-meta-box"><span>مستوى الرياضيات:</span><b>${mathStats.badgeHtml} ${mathStats.percent !== null ? `(${round1(mathStats.percent)}٪)` : ''}</b></div>
+          <div class="off-meta-box"><span>مستوى العلوم:</span><b>${scienceStats.badgeHtml} ${scienceStats.percent !== null ? `(${round1(scienceStats.percent)}٪)` : ''}</b></div>
+        </div>
+      </div>
+
+      <!-- Longitudinal Evolution Chart -->
+      <h2>📈 تطور الطالب مع الوقت</h2>
       ${renderTrendChart(records)}
 
-      <h2>🎯 نقاط القوة والضعف (أهم ٥ مؤشرات)</h2>
+      <!-- Strengths and Weaknesses -->
+      <h2>🎯 نقاط القوة والضعف والمؤشرات</h2>
       <div class="two-columns">
         <div class="card tier-mastered" style="margin-top:0;">
-          <h4>🌟 أقوى ٥ مؤشرات تميز</h4>
+          <h4>🌟 المؤشرات المتقنة ونقاط القوة (${num(masteredList.length)})</h4>
           <ul style="margin:10px 0 0;padding-right:20px;font-size:12px;line-height:1.9;">
-            ${topStrengths.length ? topStrengths.map(s => `<li>${E(s.latest.text)} (${pct(s.latest.percent)})</li>`).join('') : '<li class="muted">لا توجد مؤشرات كافية</li>'}
+            ${strengths.length ? strengths.map(s => `<li>${E(s.text)} (${pct(s.percent)})</li>`).join('') : '<li class="muted">لا توجد مؤشرات متقنة كافية بعد</li>'}
           </ul>
         </div>
         <div class="card tier-weak" style="margin-top:0;">
-          <h4>🚨 أهم ٥ مؤشرات بحاجة لدعم عاجل</h4>
+          <h4>🚨 المؤشرات التي تحتاج دعماً ونقاط الضعف (${num(supportList.length)})</h4>
           <ul style="margin:10px 0 0;padding-right:20px;font-size:12px;line-height:1.9;">
-            ${topWeaknesses.length ? topWeaknesses.map(s => `<li>${E(s.latest.text)} (${pct(s.latest.percent)}) ${s.repeated ? '⚠️ ضعف متكرر' : ''}</li>`).join('') : '<li class="muted">لا توجد نقاط ضعف مسجلة</li>'}
+            ${weaknesses.length ? weaknesses.map(s => `<li>${E(s.text)} (${pct(s.percent)})</li>`).join('') : '<li class="muted">لا توجد مؤشرات تحتاج دعمًا مسجلة</li>'}
           </ul>
         </div>
       </div>
 
+      <!-- Indicators Breakdown Table -->
       <h2>تحليل المؤشرات التفصيلي</h2>
-      ${renderTable(['المؤشر', 'النسبة المئوية', 'مستوى الإتقان', 'الصحيح / المقاس', 'المتابعة والتكرار'], skillRows)}
-
-      <h2>سجل الاختبارات وأوراق الإجابة الفعلية</h2>
-      ${history.length ? renderTable(
-        ['الاختبار والتاريخ', 'الدرجة', 'النسبة', 'الحالة', 'ورقة الإجابة'],
-        history.slice().sort(A.compareTime).reverse().map(a => [
-          `${E(a.title)}<br><small class="muted">${date(a.submitted_at || a.started_at)}</small>`,
-          A.isSubmitted(a) ? `${num(a.score)} من ${num(a.total)}` : 'لم يسلّم',
-          pct(A.savedPercent(a)),
-          A.isSubmitted(a) ? getNafesMastery(A.savedPercent(a)).badgeHtml : '<span class="badge in_progress">قيد الاختبار</span>',
-          `<button type="button" class="button small no-print" data-paper="${E(a.id)}" data-source="${E(a.source)}">عرض ورقة الاختبار ←</button>`
+      ${indRows.length ? renderTable(
+        ['المؤشر المقاس', 'النسبة المئوية', 'مستوى الإتقان', 'الصحيح من المقاس'],
+        indRows.map(i => [
+          E(i.text),
+          pct(i.percent),
+          i.mastery.badgeHtml,
+          `${num(i.correct)} من ${num(i.total)}`
         ])
-      ) : '<p class="muted">لم يدخل الطالب اختبارات بعد.</p>'}
+      ) : '<p class="muted">لا توجد مؤشرات مقاسة كافية بعد.</p>'}
+
+      <!-- Complete Taken Tests Table -->
+      <h2>سجل جميع الاختبارات التي أداها الطالب</h2>
+      ${history.length ? renderTable(
+        ['اسم الاختبار', 'النوع', 'المادة/المواد', 'التاريخ', 'الدرجة', 'النسبة', 'ورقة الإجابة'],
+        testRows
+      ) : '<p class="muted">لم يؤدِ الطالب أي اختبارات بعد.</p>'}
     </section>
   `;
 
@@ -2509,30 +2784,14 @@ function buildOfficialPrintReport(report, test, isMultiSubject = false, isPrintM
         <div class="print-header-right">
           <p class="print-gov">المملكة العربية السعودية</p>
           <p class="print-gov">وزارة التعليم</p>
-          <p>الإدارة العامة للتعليم بالمنطقة</p>
-          <p>مدرسة: <b>${E(schoolName)}</b></p>
+          <p>الإدارة العامة للتعليم بمنطقة نجران</p>
+          <p>مدرسة ابن سينا المتوسطة</p>
+          <p>الصف: <b>${E(gradeName)}</b> · الفصل: <b>${E(test.class_name || 'جميع الفصول')}</b></p>
         </div>
         <div class="print-header-center">
-          <div class="moe-emblem-box">
-            <svg class="moe-emblem" viewBox="0 0 120 32" width="120" height="32" aria-label="شعار وزارة التعليم">
-              <circle cx="60" cy="5" r="3.2" fill="#1b8a5a"/>
-              <circle cx="51" cy="9" r="2.8" fill="#1b8a5a"/>
-              <circle cx="69" cy="9" r="2.8" fill="#1b8a5a"/>
-              <circle cx="43" cy="14" r="2.5" fill="#1b8a5a"/>
-              <circle cx="77" cy="14" r="2.5" fill="#1b8a5a"/>
-              <circle cx="55" cy="16" r="3.0" fill="#0f6b63"/>
-              <circle cx="65" cy="16" r="3.0" fill="#0f6b63"/>
-              <circle cx="37" cy="21" r="2.3" fill="#1b8a5a"/>
-              <circle cx="83" cy="21" r="2.3" fill="#1b8a5a"/>
-              <circle cx="49" cy="23" r="2.8" fill="#0f6b63"/>
-              <circle cx="71" cy="23" r="2.8" fill="#0f6b63"/>
-              <circle cx="60" cy="22" r="3.2" fill="#0f6b63"/>
-            </svg>
-            <h1 style="font-size:12pt;margin:2px 0 0;color:#135245;font-weight:900;">وزارة التعليم</h1>
-            <p style="font-size:7.5pt;color:#666;margin:0 0 4px;letter-spacing:.5px;">Ministry of Education</p>
-          </div>
-          <div class="official-title-banner" style="margin:4px 0 0;">
-            <h2 style="font-size:12pt;margin:0;">التقرير المدرسي لتحليل نتائج اختبار [${E(test.title)}]</h2>
+          <div class="official-title-banner" style="margin:4px 0 0;text-align:center;">
+            <h1 style="font-size:15pt;margin:0;color:#0f514c;font-weight:900;">التقرير المدرسي لتحليل نتائج نافس</h1>
+            <p style="font-size:10pt;color:#456;margin:4px 0 0;">اختبار [${E(test.title)}]</p>
           </div>
         </div>
         <div class="print-header-left">
@@ -2544,54 +2803,102 @@ function buildOfficialPrintReport(report, test, isMultiSubject = false, isPrintM
 
       <div class="official-meta-cards">
         <div class="off-meta-box"><span>المرحلة الدراسية / الصف:</span><b>${E(gradeName)}</b></div>
-        <div class="off-meta-box"><span>السنة / الفصل الدراسي:</span><b>الفصل الدراسي الثاني</b></div>
+        <div class="off-meta-box"><span>الفصل الدراسي:</span><b>${E(test.term || test.semester || 'غير محدد')}</b></div>
         <div class="off-meta-box"><span>درجة القياس (الاختبار):</span><b>${num(maxScore)}</b></div>
       </div>
 
       <div class="official-stats-split">
         <table class="off-metrics-table">
           <tbody>
-            <tr><th>عدد الطلاب</th><td>${num(s.submitted)}</td></tr>
-            <tr><th>أعلى درجة</th><td>${s.highest !== null ? num(Math.round(s.highest * maxScore / 100 * 10) / 10) : '—'}</td></tr>
-            <tr><th>أقل درجة</th><td>${s.lowest !== null ? num(Math.round(s.lowest * maxScore / 100 * 10) / 10) : '—'}</td></tr>
-            <tr><th>متوسط الدرجات</th><td>${s.average !== null ? num(Math.round(s.average * maxScore / 100 * 10) / 10) : '—'}</td></tr>
-            <tr><th>نسبة النجاح</th><td>${num(successRate)}٪</td></tr>
-            <tr><th>مجموع الدرجات</th><td>${num(totalSumScore)}</td></tr>
+            <tr><th>عدد الطلاب المختبرين</th><td>${num(s.submitted)}</td></tr>
+            <tr><th>أعلى درجة محققة</th><td>${s.highest !== null ? num(Math.round(s.highest * maxScore / 100 * 10) / 10) : '—'}</td></tr>
+            <tr><th>أقل درجة محققة</th><td>${s.lowest !== null ? num(Math.round(s.lowest * maxScore / 100 * 10) / 10) : '—'}</td></tr>
+            <tr><th>متوسط درجات الطلاب</th><td>${s.average !== null ? num(Math.round(s.average * maxScore / 100 * 10) / 10) : '—'}</td></tr>
+            <tr><th>نسبة إتقان نافس</th><td>${num(successRate)}٪</td></tr>
+            <tr><th>مجموع درجات الطلاب</th><td>${num(totalSumScore)}</td></tr>
           </tbody>
         </table>
 
         <div class="off-detailed-levels-box">
-          <h3>الإحصائيات التفصيلية</h3>
+          <h3>الإحصائيات التفصيلية لمستويات نافس</h3>
           <table class="off-levels-table">
             <thead><tr><th>المستوى</th><th>النطاق</th><th>عدد الطلاب</th></tr></thead>
             <tbody>
-              <tr><td><span class="level-pill excellent">ممتاز</span></td><td>٩٠ - ١٠٠</td><td><b>${num(gradeCounts.excellent)}</b></td></tr>
-              <tr><td><span class="level-pill vgood">جيد جداً</span></td><td>٨٠ - ٨٩</td><td><b>${num(gradeCounts.vgood)}</b></td></tr>
-              <tr><td><span class="level-pill good">جيد</span></td><td>٧٠ - ٧٩</td><td><b>${num(gradeCounts.good)}</b></td></tr>
-              <tr><td><span class="level-pill pass">مقبول</span></td><td>٥٠ - ٦٩</td><td><b>${num(gradeCounts.pass)}</b></td></tr>
-              <tr><td><span class="level-pill fail">راسب</span></td><td>٠ - ٤٩</td><td><b>${num(gradeCounts.fail)}</b></td></tr>
+              <tr><td><span class="level-pill excellent">متقن (ممتاز)</span></td><td>٨٠ - ١٠٠</td><td><b>${num(gradeCounts.excellent + gradeCounts.vgood)}</b></td></tr>
+              <tr><td><span class="level-pill good">قريب من الإتقان</span></td><td>٦٥ - ٧٩</td><td><b>${num(gradeCounts.good)}</b></td></tr>
+              <tr><td><span class="level-pill pass">بحاجة إلى دعم</span></td><td>٥٠ - ٦٤</td><td><b>${num(gradeCounts.pass)}</b></td></tr>
+              <tr><td><span class="level-pill fail">غير متقن</span></td><td>٠ - ٤٩</td><td><b>${num(gradeCounts.fail)}</b></td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
       <div class="official-chart-box">
-        <span class="off-chart-legend-title">رسم بياني (نسب الطلاب لكل تقدير)</span>
+        <span class="off-chart-legend-title">رسم بياني (نسب وتوزيع الطلاب لمستويات نافس)</span>
         ${renderDonutGauges(gradeCounts, totalGraded)}
       </div>
 
-      <div class="official-chart-box">
-        <span class="off-chart-legend-title">رسم بياني (عدد الطلاب لكل تقدير)</span>
-        ${renderColumnChart(gradeCounts, maxGradeCount)}
+      <div class="official-signatures-row" style="margin-top:16px;">
+        <div class="off-sig-col"><b>معلم/ة المادة:</b><span>${E(teacherName)}</span><p style="margin-top:4px;font-size:8pt;color:#777;">التوقيع: ....................</p></div>
+        <div class="off-sig-col"><b>ختم المدرسة:</b><span style="display:inline-block;width:100px;height:45px;border:1px dashed #bbb;border-radius:8px;margin-top:4px;"></span></div>
+        <div class="off-sig-col"><b>مدير/ة المدرسة:</b><span>${E(principalName)}</span><p style="margin-top:4px;font-size:8pt;color:#777;">التوقيع: ....................</p></div>
       </div>
 
-      <div class="official-signatures-row">
-        <div class="off-sig-col"><b>معلم/ة المادة:</b><span>${E(teacherName)}</span></div>
-        <div class="off-sig-col"><b>مدير/ة المدرسة:</b><span>${E(principalName)}</span></div>
+      <!-- PAGE 2: STUDENTS RESULTS ROSTER -->
+      <div class="print-page-break"></div>
+      <header class="print-header">
+        <div class="print-header-right">
+          <p>مدرسة: <b>${E(schoolName)}</b></p>
+          <p>الفصل: <b>${E(test.class_name || 'جميع الفصول')}</b></p>
+        </div>
+        <div class="print-header-center">
+          <h2 style="font-size:12pt;margin:0;color:#0f514c;">كشف درجات الطلاب في اختبار نافس</h2>
+          <p style="font-size:8.5pt;color:#555;margin:2px 0 0;">اختبار [${E(test.title)}]</p>
+        </div>
+        <div class="print-header-left">
+          <p>تاريخ التقرير: ${E(currentDate)}</p>
+        </div>
+      </header>
+
+      <table class="print-table">
+        <thead>
+          <tr>
+            <th style="width:6%;">م</th>
+            <th style="width:34%;">اسم الطالب</th>
+            <th style="width:14%;">الفصل</th>
+            <th style="width:14%;">الدرجة</th>
+            <th style="width:14%;">النسبة المئوية</th>
+            <th style="width:18%;">المستوى (نافس)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${(report.rows || []).map((r, idx) => {
+            const p = r.measured?.percent;
+            const score = r.latest?.score !== undefined ? num(r.latest.score) : '—';
+            const total = r.latest?.total !== undefined ? num(r.latest.total) : num(maxScore);
+            const mastery = getNafesMastery(p);
+            return `
+              <tr>
+                <td>${idx + 1}</td>
+                <td><b>${E(r.student?.student_name || r.student?.full_name || 'طالب')}</b></td>
+                <td>${E(r.student?.class_name || test.class_name || '—')}</td>
+                <td>${score} / ${total}</td>
+                <td>${p !== null && p !== undefined ? `${num(Math.round(p))}%` : '—'}</td>
+                <td><span class="badge ${p >= 80 ? 'mastered' : p >= 65 ? 'near' : p >= 50 ? 'support' : 'nonmastered'}">${E(mastery.label)}</span></td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+
+      <div class="official-signatures-row" style="margin-top:18px;">
+        <div class="off-sig-col"><b>معلم/ة المادة:</b><span>${E(teacherName)}</span><p style="margin-top:4px;font-size:8pt;color:#777;">التوقيع: ....................</p></div>
+        <div class="off-sig-col"><b>ختم المدرسة:</b><span style="display:inline-block;width:100px;height:45px;border:1px dashed #bbb;border-radius:8px;margin-top:4px;"></span></div>
+        <div class="off-sig-col"><b>مدير/ة المدرسة:</b><span>${E(principalName)}</span><p style="margin-top:4px;font-size:8pt;color:#777;">التوقيع: ....................</p></div>
       </div>
 
       ${isMultiSubject ? `
-        <!-- PAGE 2+: DETAILED SUBJECT BREAKDOWNS (NO BLANK PAGES) -->
+        <!-- PAGE 3+: DETAILED SUBJECT BREAKDOWNS -->
         ${(test.subjects || []).map(subj => `
           <div class="print-page-break"></div>
           <header class="print-header">
@@ -2606,20 +2913,55 @@ function buildOfficialPrintReport(report, test, isMultiSubject = false, isPrintM
   `;
 }
 
-// Print Handler
-async function printReport() {
-  const node = $('printReport');
-  node.innerHTML = printContent;
-  node.setAttribute('aria-hidden', 'false');
-  node.querySelectorAll('details').forEach(d => d.open = true);
-  node.querySelectorAll('button[data-student]').forEach(b => b.replaceWith(document.createTextNode(b.textContent)));
-  node.querySelectorAll('button').forEach(b => b.remove());
-  node.querySelectorAll('.table-wrap').forEach(x => x.style.overflow = 'visible');
+// Unified Official School Print Report & Preview Handler
+function openOfficialReportPreview() {
+  if (!currentActiveTest || !currentActiveReport) {
+    const testListBtn = document.querySelector('.pillar-btn[data-pillar="tests"]');
+    if (testListBtn) testListBtn.click();
+    alert('يرجى اختيار اختبار أولاً من قائمة الاختبارات لمعاينة وطباعة التقرير المدرسي A4.');
+    return;
+  }
+  const isMulti = Array.isArray(currentActiveTest.subjects) && currentActiveTest.subjects.length > 1;
+  const previewHtml = buildOfficialPrintReport(currentActiveReport, currentActiveTest, isMulti, false);
+  const printHtml = buildOfficialPrintReport(currentActiveReport, currentActiveTest, isMulti, true);
 
+  const container = $('reportPreviewContainer');
+  if (container) container.innerHTML = previewHtml;
+
+  const printNode = $('printReport');
+  if (printNode) {
+    printNode.innerHTML = printHtml;
+    printNode.setAttribute('aria-hidden', 'false');
+  }
+
+  const modal = $('reportPreviewModal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeOfficialReportPreview() {
+  const modal = $('reportPreviewModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function executeOfficialPrint() {
+  if (!currentActiveTest || !currentActiveReport) return;
+  const isMulti = Array.isArray(currentActiveTest.subjects) && currentActiveTest.subjects.length > 1;
+  const printNode = $('printReport');
+  if (printNode) {
+    printNode.innerHTML = buildOfficialPrintReport(currentActiveReport, currentActiveTest, isMulti, true);
+    printNode.setAttribute('aria-hidden', 'false');
+    printNode.querySelectorAll('details').forEach(d => d.open = true);
+    printNode.querySelectorAll('button').forEach(b => b.remove());
+    printNode.querySelectorAll('.table-wrap').forEach(x => x.style.overflow = 'visible');
+  }
   await document.fonts.ready;
-  await Promise.all([...node.querySelectorAll('img')].map(img => img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })));
   window.print();
 }
+
+window.openOfficialReportPreview = openOfficialReportPreview;
+window.closeOfficialReportPreview = closeOfficialReportPreview;
+window.executeOfficialPrint = executeOfficialPrint;
+window.printReport = openOfficialReportPreview;
 
 // Fetch Remote Data
 async function load() {
@@ -2676,34 +3018,38 @@ async function load() {
 }
 
 // Event Listeners
-$('authForm').onsubmit = e => {
-  e.preventDefault();
-  NafesTeacher.setKey($('teacherKey').value);
-  $('teacherKey').value = '';
-  load();
-};
+if ($('authForm')) {
+  $('authForm').onsubmit = e => {
+    e.preventDefault();
+    NafesTeacher.setKey($('teacherKey').value);
+    $('teacherKey').value = '';
+    load();
+  };
+}
 
-$('refreshBtn').onclick = load;
-$('retryBtn').onclick = load;
-$('printBtn').onclick = printReport;
+if ($('refreshBtn')) $('refreshBtn').onclick = load;
+if ($('retryBtn')) $('retryBtn').onclick = load;
+if ($('printBtn')) $('printBtn').onclick = printReport;
 
-$('signoutBtn').onclick = () => {
-  NafesTeacher.clearKey();
-  rawAttempts = [];
-  tests = [];
-  studentsRoster = [];
-  selectedTestId = null;
-  selectedSubjectKey = null;
-  selectedStudentKey = null;
-  printContent = '';
-  $('dashboard').hidden = true;
-  $('detailPanel').hidden = true;
-  $('printReport').replaceChildren();
-  $('authPanel').hidden = false;
-  $('refreshBtn').hidden = true;
-  $('signoutBtn').hidden = true;
-  $('printBtn').hidden = true;
-};
+if ($('signoutBtn')) {
+  $('signoutBtn').onclick = () => {
+    NafesTeacher.clearKey();
+    rawAttempts = [];
+    tests = [];
+    studentsRoster = [];
+    selectedTestId = null;
+    selectedSubjectKey = null;
+    selectedStudentKey = null;
+    printContent = '';
+    if ($('dashboard')) $('dashboard').hidden = true;
+    if ($('detailPanel')) $('detailPanel').hidden = true;
+    if ($('printReport')) $('printReport').replaceChildren();
+    if ($('authPanel')) $('authPanel').hidden = false;
+    if ($('refreshBtn')) $('refreshBtn').hidden = true;
+    if ($('signoutBtn')) $('signoutBtn').hidden = true;
+    if ($('printBtn')) $('printBtn').hidden = true;
+  };
+}
 
 if ($('quickPolicySelect')) {
   $('quickPolicySelect').onchange = () => { render(); };
@@ -2719,9 +3065,30 @@ if ($('studentRosterSearch')) {
 if ($('closeIndicatorModalBtn')) {
   $('closeIndicatorModalBtn').onclick = () => { $('indicatorDetailModal').hidden = true; };
 }
-$('indicatorDetailModal').onclick = e => {
-  if (e.target === $('indicatorDetailModal')) $('indicatorDetailModal').hidden = true;
+if ($('indicatorDetailModal')) {
+  $('indicatorDetailModal').onclick = e => {
+    if (e.target === $('indicatorDetailModal')) $('indicatorDetailModal').hidden = true;
+  };
+}
+
+window.NafesAnalysis = {
+  calculateMedian,
+  showStudent,
+  buildOfficialPrintReport
 };
+
+// Report Preview Modal Listeners
+if ($('modalPrintA4Btn')) $('modalPrintA4Btn').onclick = executeOfficialPrint;
+if ($('closeReportPreviewBtn')) $('closeReportPreviewBtn').onclick = closeOfficialReportPreview;
+const previewModalEl = $('reportPreviewModal');
+if (previewModalEl) {
+  previewModalEl.addEventListener('click', e => {
+    if (e.target === previewModalEl) closeOfficialReportPreview();
+  });
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeOfficialReportPreview();
+});
 
 // Main Delegated Click Handler
 document.addEventListener('click', e => {
@@ -2805,6 +3172,12 @@ document.addEventListener('click', e => {
     return;
   }
 });
+
+window.NafesAnalysis = {
+  calculateMedian,
+  showStudent,
+  buildOfficialPrintReport
+};
 
 addEventListener('nafes:auth-required', () => { $('authPanel').hidden = false; });
 addEventListener('nafes:auth-changed', e => { if (e.detail.authenticated) load(); });

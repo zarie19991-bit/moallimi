@@ -6,21 +6,26 @@
 <meta name="theme-color" content="#0f514c">
 <meta name="description" content="معلّمي — قسم نافس للصف الثالث المتوسط: القراءة والرياضيات والعلوم بجميع نواتج التعلم والمؤشرات واختبارات المؤشرات.">
 <title>معلّمي | نافس — الثالث المتوسط</title>
-<link rel="stylesheet" href="styles.css?v=20260829-1">
-<link rel="stylesheet" href="tests.css?v=20260829-1">
+<link rel="stylesheet" href="styles.css?v=20260909-final">
+<link rel="stylesheet" href="tests.css?v=20260909-final">
+<link rel="stylesheet" href="students.css?v=20260909-final">
 </head>
 <body>
 <div class="shell">
 <aside class="side" id="teacherSidebar">
  <div class="brand">
   <div class="mark">م</div>
-  <div><b>معلّمي</b><small>منصة المعلم المعتمدة</small></div>
+  <div><b>معلّمي</b><small>منصة المعلم</small></div>
  </div>
  <nav class="nav">
   <p class="nav-title">الأقسام الأساسية</p>
   <a class="nav-item active" href="index.html">
    <span class="nav-icon">🎯</span>
    <div><b>اختبارات نافس</b><small>تصفح المؤشرات ونماذج الأسئلة</small></div>
+  </a>
+  <a class="nav-item" href="simulation.html">
+   <span class="nav-icon">🎮</span>
+   <div><b>الاختبارات المحاكية</b><small>نماذج نافس الشاملة والمحاكاة</small></div>
   </a>
   <a class="nav-item" href="create.html">
    <span class="nav-icon">✏️</span>
@@ -56,10 +61,10 @@
   <h2>افهم المؤشر أولًا، ثم أتقنه في اختبارين</h2>
   <p>قبل كل اختبار يظهر شرح مبسط للمؤشر وطريقة التعامل معه والخطأ الشائع فيه. بعد ذلك ينتقل الطالب إلى اختبارين، وفي كل اختبار 15 سؤالًا، وتُحفظ نتائجه لقياس مستوى الإتقان والتحسن.</p>
   <div class="hero-actions">
-   <a class="simulation-link" href="create.html"><span>✏️</span> إنشاء اختبار مؤشرات أو محاكاة</a>
-   <button class="simulation-secondary-btn" type="button" onclick="openStudentsModal()"><span>👥</span> إدارة فصول وطلاب نافس</button>
-   <span>القراءة · الرياضيات · العلوم في اختبار واحد</span>
-  </div>
+    <a class="simulation-link" href="simulation.html"><span>🎮</span> مركز الاختبارات المحاكية الشاملة</a>
+    <a class="simulation-secondary-btn" href="create.html"><span>✏️</span> إنشاء اختبار مخصص</a>
+    <button class="simulation-secondary-btn" type="button" onclick="openStudentsModal()"><span>👥</span> إدارة فصول وطلاب نافس</button>
+   </div>
  </section>
  <section id="summary" class="summary"></section>
  <section id="subjects" class="subjects"></section>
@@ -79,15 +84,15 @@
  <section class="source-box"><b>ضبط المصداقية</b><p>المؤشرات مأخوذة من إطار الصف التاسع الموجود في القسم. لكل مؤشر اختباران مستقلان، ويحتوي كل اختبار على 15 سؤالًا تقيس المؤشر نفسه.</p><div id="verification" class="verification"></div></section>
 </main>
 </div>
-<script src="nafes-reading.js?v=20260827-1"></script>
-<script src="nafes-math.js?v=20260827-1"></script>
-<script src="nafes-science.js?v=20260827-1"></script>
+<script src="nafes-reading.js?v=20260909-final"></script>
+<script src="nafes-math.js?v=20260909-final"></script>
+<script src="nafes-science.js?v=20260909-final"></script>
 
-<script src="teacher-access.js?v=20260907-2"></script><script src="qr.js?v=20260907-2"></script><script src="tests.js?v=20260907-2"></script>
-<script src="xlsx-vendor.js?v=20260909-1"></script>
-<script src="excel-engine.js?v=20260909-1"></script>
-<script src="students.js?v=20260909-1"></script>
-<script src="app.js?v=20260829-1"></script>
+<script src="teacher-access.js?v=20260909-final"></script><script src="qr.js?v=20260909-final"></script><script src="tests.js?v=20260909-final"></script>
+<script src="xlsx-vendor.js?v=20260909-final"></script>
+<script src="excel-engine.js?v=20260909-final"></script>
+<script src="students.js?v=20260909-final"></script>
+<script src="app.js?v=20260909-final"></script>
 <script>
  document.getElementById('menuToggleBtn')?.addEventListener('click', () => {
   document.getElementById('teacherSidebar')?.classList.toggle('open');

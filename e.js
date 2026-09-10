@@ -14,7 +14,7 @@ function save(action='assessment_save',extra={}){const payload={...authBody(),..
 let currentSection=0;
 function remaining(){const s=state.sections[state.current_section];return Math.min(new Date(state.expires_at).getTime(),new Date(state.section_started_at).getTime()+s.duration_minutes*60000)-Date.now();}
 function tick(){if(!active)return;const wait=new Date(state.section_started_at).getTime()-Date.now();if(wait>0){$('player').hidden=true;$('breakPanel').hidden=false;$('breakText').textContent=`يبدأ القسم التالي بعد ${ar(Math.ceil(wait/1000))} ثانية.`;return;}if(!$('breakPanel').hidden){$('breakPanel').hidden=true;$('player').hidden=false;render();}const left=remaining();$('timer').textContent=`${String(Math.max(0,Math.floor(left/60000))).padStart(2,'0')}:${String(Math.max(0,Math.floor(left/1000)%60)).padStart(2,'0')}`;if(left<=0){clearInterval(timer);save('assessment_advance').then(()=>{if(active){cursor=state.cursor||0;render();timer=setInterval(tick,1000);}}).catch(()=>{timer=setInterval(tick,1000);});}}
-function watermark(){if(!active)return;const text=`${state.student_name} · ${state.attempt_id.slice(0,8)} · ${new Date().toLocaleString('ar-SA')}`;$('watermark').replaceChildren(...Array.from({length:15},()=>{const el=document.createElement('span');el.textContent=text;return el;}));}
+function watermark(){if(!active)return;const time=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});const text=`${state.student_name} · ${time}`;$('watermark').replaceChildren(...Array.from({length:18},()=>{const el=document.createElement('span');el.textContent=text;return el;}));}
 function questionHtml(q,i){return `<article class="question question-card" data-question="${esc(q.id)}">${q.context?`<div class="context">${esc(q.context)}</div>`:''}${window.NafesMedia?.render(q)||''}<p class="stem">${ar(i+1)}) ${esc(q.question)}</p><div class="options choices">${q.options.map((o,n)=>`<label class="option choice ${answers[q.id]===n?'selected':''}"><input type="radio" name="q-${esc(q.id)}" value="${n}" ${answers[q.id]===n?'checked':''}><span class="letter">${['أ','ب','ج','د'][n]}</span><span class="text">${esc(o)}</span></label>`).join('')}</div></article>`;}
 function render(){if(state.submitted)return showResult(state);active=true;currentSection=state.current_section||0;const s=state.sections[currentSection],settings=state.settings;cursor=Math.min(cursor,s.questions.length-1);$('intro').hidden=true;$('player').hidden=false;$('result').hidden=true;$('sectionTitle').textContent=`القسم ${ar(currentSection+1)} من ${ar(state.sections.length)} · ${names[s.subject]}`;$('questionTitle').textContent=`السؤال ${ar(cursor+1)} من ${ar(s.questions.length)}`;
  const single=settings.one_per_page||!settings.allow_back;$('questions').innerHTML=single?questionHtml(s.questions[cursor],cursor):s.questions.map(questionHtml).join('');
@@ -27,21 +27,23 @@ function showResult(d){
  active=false;clearInterval(timer);document.body.classList.remove('exam-active','no-copy','watermarked','print-blocked');
  lockRelease?.();locked=false;$('intro').hidden=true;$('player').hidden=true;$('breakPanel').hidden=true;$('result').hidden=false;
  const percent=d.result_hidden?'':`<div class="result-score-box"><div class="score">${ar(d.percent)}٪</div><p class="score-sub">الدرجة: ${ar(d.score)} من ${ar(d.total)}</p></div>`;
- $('result').innerHTML=`<div class="completion-container"><div class="completion-badge">✓</div><h1>تم تسليم الاختبار بنجاح</h1><div class="completion-student-info"><b>${esc(d.student_name||state?.student_name||'')}</b><span>${esc(info?.title||state?.title||'اختبار نافس')}</span></div>${percent}<p class="completion-msg">${d.result_hidden?'حُفظت إجاباتك بنجاح في سجلات المعلم المعتمدة.':'تم اعتماد نتيجة أدائك في الاختبار وحفظها.'}<br>يمكنك إغلاق هذه الصفحة الآن بأمان.</p>${d.correct_count!==undefined?`<div class="correct-summary">الإجابات الصحيحة: ${ar(d.correct_count)} من أصل ${ar(d.total||d.sections?.flatMap(s=>s.questions)?.length||15)}</div>`:''}${d.indicators?.length?`<div class="indicators-summary"><h3>المؤشرات المقاسة</h3><table><thead><tr><th>المؤشر</th><th>النسبة</th><th>المستوى</th></tr></thead><tbody>${d.indicators.map(i=>`<tr><td>${esc(i.text)}</td><td>${ar(i.percent)}٪</td><td>${level(i.percent)}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
+ $('result').innerHTML=`<div class="completion-container"><div class="completion-badge">✓</div><h1>تم تسليم الاختبار بنجاح</h1><div class="completion-student-info"><b>${esc(d.student_name||state?.student_name||'')}</b><span>${esc(info?.title||state?.title||'اختبار نافس')}</span></div>${percent}<p class="completion-msg">${d.result_hidden?'حُفظت إجاباتك بنجاح في سجلات المعلم.':'تم حفظ نتيجة أدائك في الاختبار بنجاح.'}<br>يمكنك إغلاق هذه الصفحة الآن بأمان.</p>${d.correct_count!==undefined?`<div class="correct-summary">الإجابات الصحيحة: ${ar(d.correct_count)} من أصل ${ar(d.total||d.sections?.flatMap(s=>s.questions)?.length||15)}</div>`:''}${d.indicators?.length?`<div class="indicators-summary"><h3>المؤشرات المقاسة</h3><table><thead><tr><th>المؤشر</th><th>النسبة</th><th>المستوى</th></tr></thead><tbody>${d.indicators.map(i=>`<tr><td>${esc(i.text)}</td><td>${ar(i.percent)}٪</td><td>${level(i.percent)}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
  $('saveState').textContent='تم تسليم المحاولة وحفظها';
 }
 $('identity').onsubmit=async e=>{
  e.preventDefault();if(starting)return;
  const name=$('studentName').value.trim();
  const no=normalizeDigits($('studentNo').value.trim()).replace(/\D/g,'').slice(0,3);
+ const cls=($('className')?.value||'').trim();
  if(!name||name.length<3){$('message').textContent='يرجى إدخال اسم الطالب كاملًا.';return;}
  if(no.length!==3){$('message').textContent='يرجى إدخال آخر ٣ أرقام من الهوية الوطنية بدقة (٣ أرقام).';return;}
+ if(!cls){$('message').textContent='يرجى اختيار الفصل (أ / ب / ج / د).';return;}
  starting=true;const btn=$('startBtn')||e.submitter;btn.disabled=true;$('message').textContent='';
  try{
   await claim();
-  state=await api('assessment_start',{student_name:name,student_no:no,national_id_last3:no,class_name:$('className').value});
+  state=await api('assessment_start',{student_name:name,student_no:no,national_id_last3:no,class_name:cls});
   access=state.access_token||'';answers=state.answers||{};cursor=state.cursor||0;
-  try{localStorage.setItem(identityKey,JSON.stringify({name,no}));}catch(_){}
+  try{localStorage.setItem(identityKey,JSON.stringify({name,no,class:cls}));}catch(_){}
   saveLocal();
   if(state.submitted)showResult(state);
   else{render();clearInterval(timer);timer=setInterval(tick,1000);}
