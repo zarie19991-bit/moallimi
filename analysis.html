@@ -39,7 +39,7 @@
     <nav class="main-tabs" aria-label="أقسام التحليل"><button class="main-tab active" data-view="overview">تحليل المواد معًا</button><button class="main-tab" data-view="subject">تحليل كل مادة</button><button class="main-tab" data-view="report">التقرير</button></nav>
     <section id="overviewView" class="view-panel"><div class="toolbar card"><label><span>الفصل</span><select id="overviewClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label></div><div id="overviewSummary"></div><div id="overviewStudents"></div></section>
     <section id="subjectView" class="view-panel" hidden><div class="toolbar card"><label><span>المادة</span><select id="subjectSelect"><option value="all">جميع المواد — تحليل موحد</option><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label><label><span>الفصل</span><select id="subjectClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label></div><div id="subjectSummary"></div><div class="two-col"><section id="subjectStudents" class="card"></section><section id="subjectIndicators" class="card"></section></div><section id="subjectQuestions" class="card"></section></section>
-    <section id="reportView" class="view-panel" hidden><div class="toolbar card report-controls"><label class="wide"><span>الاختبارات</span><select id="reportTest"></select></label><label><span>الأسبوع / الفترة</span><input id="reportWeek" type="text" placeholder="مثال: الأسبوع الرابع"></label><button id="buildReportBtn" class="btn primary" type="button">إنشاء التقرير</button><button id="printReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button></div><div id="reportPreview" class="report-preview-empty">يمكنك اختيار جميع الاختبارات التي تم أداؤها أو اختبارًا واحدًا، ثم اضغط «إنشاء التقرير».</div></section>
+    <section id="reportView" class="view-panel" hidden><div class="toolbar card report-controls"><label class="wide"><span>الاختبارات</span><select id="reportTest"></select></label><label><span>الأسبوع / الفترة</span><input id="reportWeek" type="text" placeholder="مثال: الأسبوع الرابع"></label><button id="buildReportBtn" class="btn primary" type="button">إنشاء التقرير</button><button id="printReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button></div><div id="reportPreview" class="report-preview-empty">اختر الاختبارات التي تريد إدخالها في التقرير، ثم اضغط «إنشاء التقرير».</div></section>
   </section>
 </main>
 <div id="settingsModal" class="modal hidden no-print" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="modal-box"><div class="modal-head"><h2 id="settingsTitle">بيانات المدرسة والشعارات</h2><button id="closeSettingsBtn" class="close" type="button">×</button></div><div class="settings-grid"><label><span>اسم المدرسة</span><input id="schoolNameInput" type="text" placeholder="مدرسة ابن سينا المتوسطة"></label><label><span>اسم المعلم</span><input id="teacherNameInput" type="text"></label><label><span>اسم مدير المدرسة</span><input id="principalNameInput" type="text"></label><label><span>شعار وزارة التعليم</span><input id="ministryLogoInput" type="file" accept="image/*"></label><label><span>شعار المدرسة</span><input id="schoolLogoInput" type="file" accept="image/*"></label></div><p class="muted">الشعارات لا تُنشأ تلقائيًا؛ يظهر في التقرير فقط ما ترفعه أنت. شعار الوزارة في المنتصف، وشعار المدرسة في أقصى اليسار.</p><div class="modal-actions"><button id="saveSettingsBtn" class="btn primary" type="button">حفظ</button></div></div></div>
@@ -47,10 +47,10 @@
 <script src="teacher-access.js?v=20260909-final"></script>
 <script src="analysis-core.js?v=20260909-final"></script>
 <script src="analysis.js?v=20260911-unified"></script>
-<script src="analysis-all-subjects.js?v=20260911-2"></script>
+<script src="analysis-all-subjects.js?v=20260911-3"></script>
 <script src="report-weekly.js?v=20260911-1"></script>
 <script src="report-test-options.js?v=20260911-6"></script>
 <script src="manual-print-date.js?v=20260911-1"></script>
-<script src="reset-results.js?v=20260911-1"></script>
+<script src="reset-results.js?v=20260911-2"></script>
 </body>
 </html>
