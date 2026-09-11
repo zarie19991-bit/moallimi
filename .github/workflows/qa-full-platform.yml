@@ -1,0 +1,15 @@
+name: QA full platform
+on:
+  push:
+    paths:
+      - 'qa/full-platform-student-flow.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node qa/full-platform-student-flow.mjs
