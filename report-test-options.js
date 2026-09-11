@@ -1,11 +1,11 @@
 (()=>{
 'use strict';
 const T=window.NafesTeacher;
+const A=window.NafesAnalytics;
 const $=id=>document.getElementById(id);
 const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let busy=false;
 
-// حمّل تحسينات الخط وخيار «جميع المواد» من ملفين مستقلين حتى لا نعيد بناء صفحة التحليل.
 if(!document.querySelector('link[data-analysis-ux]')){
   const l=document.createElement('link');
   l.rel='stylesheet';
@@ -13,15 +13,12 @@ if(!document.querySelector('link[data-analysis-ux]')){
   l.dataset.analysisUx='1';
   document.head.appendChild(l);
 }
-if(!document.querySelector('script[data-analysis-all-subjects]')){
-  const s=document.createElement('script');
-  s.src='analysis-all-subjects.js?v=20260911-1';
-  s.dataset.analysisAllSubjects='1';
-  document.head.appendChild(s);
-}
 
-function submitted(a){return !!(a&&(a.submitted_at||a.status==='submitted'));}
-function when(a){return Date.parse(a?.submitted_at||a?.started_at||0)||0;}
+function normalize(a){return A?.normalizeAttempt?A.normalizeAttempt(a):a;}
+function submitted(a){return A?.isSubmitted?A.isSubmitted(a):!!(a&&(a.submitted_at||a.completed_at||a.finished_at||['submitted','completed','finished'].includes(String(a.status||'').toLowerCase())));}
+function testIdOf(a){return String(a?.test_id||a?.assessment_id||a?.exam_id||'').trim();}
+function when(a){return Date.parse(a?.submitted_at||a?.completed_at||a?.finished_at||a?.started_at||0)||0;}
+function titleOf(a,t){return String(t?.title||a?.test_title||a?.assessment_title||a?.exam_title||a?.title||'اختبار نافس').trim();}
 
 async function refreshReportTests(){
   const select=$('reportTest');
@@ -29,38 +26,34 @@ async function refreshReportTests(){
   busy=true;
   const keep=select.value;
   try{
-    let cursor=0,attempts=[],tests=[];
+    let cursor=0,rawAttempts=[],tests=[];
     do{
       const d=await T.api('teacher_data',{cursor,limit:100});
-      attempts.push(...(d.attempts||[]));
+      rawAttempts.push(...(d.attempts||[]));
       if(cursor===0)tests=d.tests||[];
       cursor=d.next_cursor;
     }while(cursor!==null);
 
-    // المصدر الأساسي للقائمة هو المحاولات الحقيقية المسلّمة نفسها، وليس قائمة الاختبارات.
-    // بهذا يظهر أي اختبار اختبره طالب فعليًا حتى لو لم يوجد له سجل مطابق في tests.
+    const attempts=rawAttempts.map(normalize);
     const groups=new Map();
     for(const a of attempts){
-      if(!submitted(a)||!a.test_id)continue;
-      const id=String(a.test_id);
-      const prev=groups.get(id);
-      if(!prev||when(a)>when(prev))groups.set(id,a);
+      const id=testIdOf(a);
+      if(!id||!submitted(a))continue;
+      const g=groups.get(id)||{latest:a,count:0};
+      g.count++;
+      if(when(a)>=when(g.latest))g.latest=a;
+      groups.set(id,g);
     }
 
-    const testById=new Map((tests||[]).map(t=>[String(t.id||''),t]));
-    const rows=[...groups.entries()].map(([id,a])=>{
+    const testById=new Map((tests||[]).map(t=>[String(t.id||t.test_id||''),t]));
+    const rows=[...groups.entries()].map(([id,g])=>{
       const t=testById.get(id);
-      return {
-        id,
-        title:(t?.title||a.title||'اختبار نافس').trim(),
-        time:when(a),
-        count:attempts.filter(x=>submitted(x)&&String(x.test_id||'')===id).length
-      };
+      return {id,title:titleOf(g.latest,t),time:when(g.latest),count:g.count};
     }).sort((a,b)=>b.time-a.time);
 
     select.innerHTML=rows.length
-      ? '<option value="">اختر الاختبار الذي تم أداؤه</option>'+rows.map(r=>`<option value="${E(r.id)}">${E(r.title)} — ${r.count} نتيجة</option>`).join('')
-      : '<option value="">لا توجد اختبارات بنتائج مسلّمة</option>';
+      ? '<option value="">اختر الاختبار</option>'+rows.map(r=>`<option value="${E(r.id)}">${E(r.title)} — ${r.count} نتيجة</option>`).join('')
+      : '<option value="">لا توجد اختبارات مكتملة بنتائج حقيقية</option>';
 
     if(keep&&rows.some(r=>r.id===keep))select.value=keep;
   }catch(err){
@@ -75,7 +68,6 @@ window.addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)sche
 document.addEventListener('click',e=>{
   if(e.target.closest('[data-view="report"]')||e.target.closest('#refreshBtn'))schedule(120);
 });
-// إذا قام analysis.js بإعادة كتابة القائمة بعدنا، نعيد بنائها من النتائج الحقيقية.
 let timer=0;
 const observer=new MutationObserver(()=>{
   clearTimeout(timer);
