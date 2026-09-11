@@ -11,6 +11,13 @@ let attempts=[],tests=[],catalog=[],students=[],loading=false,currentPaperHtml='
 let settings={schoolName:'مدرسة ابن سينا المتوسطة',teacherName:'',principalName:'',ministryLogo:'',schoolLogo:''};
 
 function loadSettings(){try{settings={...settings,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')}}catch(_){}}
+function saveSettings(){localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings))}
+function openSettings(){
+  $('schoolNameInput').value=settings.schoolName||'';$('teacherNameInput').value=settings.teacherName||'';$('principalNameInput').value=settings.principalName||'';
+  $('settingsModal').classList.remove('hidden');
+}
+function closeSettings(){$('settingsModal').classList.add('hidden')}
+function readLogo(file,cb){if(!file)return;if(file.size>1500000){alert('حجم الشعار كبير. اختر صورة أقل من 1.5 MB.');return}const r=new FileReader();r.onload=()=>cb(String(r.result||''));r.readAsDataURL(file)}
 function isSubmitted(a){return A.isSubmitted?A.isSubmitted(a):!!a.submitted_at}
 function compareTime(a,b){return A.compareTime?A.compareTime(a,b):new Date(a.submitted_at||0)-new Date(b.submitted_at||0)}
 function scorable(q){return A.isScorable?A.isScorable(q):(typeof q.correct==='boolean'&&Number(q.correct_index??q.correctIndex)>=0)}
@@ -104,14 +111,18 @@ async function load(){
     do{const d=await T.api('teacher_data',{cursor,limit:100});all.push(...(d.attempts||[]));if(cursor===0){testList=d.tests||[];ind=d.indicators||[]}cursor=d.next_cursor}while(cursor!==null);
     const s=await T.api('teacher_students_list',{include_archived:false});students=s.students||[];
     attempts=all.map(x=>A.normalizeAttempt?A.normalizeAttempt(x):x);tests=testList;catalog=ind;
-    $('refreshBtn').hidden=false;$('signoutBtn').hidden=false;$('papersDashboard').hidden=false;populateIndicators();
+    $('refreshBtn').hidden=false;$('settingsBtn').hidden=false;$('signoutBtn').hidden=false;$('papersDashboard').hidden=false;populateIndicators();
   }catch(err){$('loadError').hidden=false;$('loadErrorText').textContent=err.message||String(err);if(err.status===401)$('authPanel').hidden=false}
   finally{loading=false;$('loadState').textContent=''}
 }
 loadSettings();
 $('authForm').onsubmit=e=>{e.preventDefault();T.setKey($('teacherKey').value);$('teacherKey').value='';load()};
 $('retryBtn').onclick=load;$('refreshBtn').onclick=load;
-$('signoutBtn').onclick=()=>{T.clearKey();attempts=[];tests=[];catalog=[];students=[];$('papersDashboard').hidden=true;$('authPanel').hidden=false;$('refreshBtn').hidden=true;$('signoutBtn').hidden=true};
+$('signoutBtn').onclick=()=>{T.clearKey();attempts=[];tests=[];catalog=[];students=[];$('papersDashboard').hidden=true;$('authPanel').hidden=false;$('refreshBtn').hidden=true;$('settingsBtn').hidden=true;$('signoutBtn').hidden=true};
+$('settingsBtn').onclick=openSettings;$('closeSettingsBtn').onclick=closeSettings;$('settingsModal').onclick=e=>{if(e.target===$('settingsModal'))closeSettings()};
+$('saveSettingsBtn').onclick=()=>{settings.schoolName=$('schoolNameInput').value.trim();settings.teacherName=$('teacherNameInput').value.trim();settings.principalName=$('principalNameInput').value.trim();saveSettings();closeSettings();currentPaperHtml='';$('paperPanel').hidden=true};
+$('ministryLogoInput').onchange=e=>readLogo(e.target.files?.[0],src=>{settings.ministryLogo=src;saveSettings()});
+$('schoolLogoInput').onchange=e=>readLogo(e.target.files?.[0],src=>{settings.schoolLogo=src;saveSettings()});
 $('classSelect').onchange=renderStudents;$('paperSubject').onchange=populateIndicators;$('indicatorSelect').onchange=renderStudents;
 addEventListener('nafes:auth-required',()=>{$('authPanel').hidden=false});addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)load()});
 load();
