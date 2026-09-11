@@ -25,7 +25,7 @@
 </header>
 <main class="shell no-print">
   <section class="hero">
-    <div><span class="eyebrow">الصف الثالث المتوسط</span><h1>تحليل نتائج نافس</h1><p>تحليل عام للمواد، تحليل تشخيصي لكل مادة، وتقارير مستقلة لكل مادة أو لجميع المواد.</p></div>
+    <div><span class="eyebrow">الصف الثالث المتوسط</span><h1>تحليل نتائج نافس</h1><p>تحليل رسمي مطابق للنموذج المعتمد، مع تحليل تشخيصي إضافي وتقارير مستقلة.</p></div>
     <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="resetTrialDataBtn" class="btn ghost" type="button">إدارة / تصفير النتائج</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
   </section>
   <section id="authPanel" class="card auth-card" hidden><h2>دخول المعلم</h2><p>أدخل مفتاح المعلم للوصول إلى النتائج الحقيقية فقط.</p><form id="authForm" class="inline-form"><input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم"><button class="btn primary" type="submit">دخول</button></form><p id="authError" class="error"></p></section>
@@ -42,7 +42,7 @@
 
     <section id="overviewView" class="view-panel">
       <section class="card section-control-card">
-        <div class="section-head"><div><h2>تحليل جميع المواد</h2><p class="muted">يجمع القراءة والرياضيات والعلوم من النتائج الحقيقية، ويمكن طباعته مستقلًا.</p></div></div>
+        <div class="section-head"><div><h2>تحليل جميع المواد</h2><p class="muted">اختر اختبارًا للقراءة واختبارًا للرياضيات واختبارًا للعلوم. ينشئ النظام ثلاث أوراق تحليل رسمية بنفس النموذج الذي أرسلته، ويمكن طباعتها معًا.</p></div></div>
         <div class="toolbar">
           <label><span>الفصل</span><select id="overviewClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
           <button id="printOverviewAnalysisBtn" class="btn primary" type="button">طباعة تحليل جميع المواد</button>
@@ -53,7 +53,7 @@
 
     <section id="subjectView" class="view-panel" hidden>
       <section class="card section-control-card">
-        <div class="section-head"><div><h2>تحليل مادة منفصلة</h2><p class="muted">اختر القراءة أو الرياضيات أو العلوم، ثم حدد الاختبارات الداخلة في التحليل والفصل. يعرض هذا القسم الطلاب والمؤشرات والأسئلة ونقاط الضعف.</p></div></div>
+        <div class="section-head"><div><h2>تحليل مادة منفصلة</h2><p class="muted">اختر المادة ثم الاختبار والفصل. تظهر ورقة التحليل الرسمية بنفس عناصر النموذج: الإحصائيات الأساسية، الإحصائيات التحصيلية، ونوعا الرسم البياني.</p></div></div>
         <div class="toolbar">
           <label><span>المادة</span><select id="subjectSelect"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
           <label><span>الفصل</span><select id="subjectClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
@@ -67,7 +67,7 @@
 
     <section id="subjectReportView" class="view-panel" hidden>
       <section class="card subject-report-controls">
-        <div class="section-head"><div><h2>تقرير مادة منفصلة</h2><p class="muted">هذا القسم مخصص للورقة الرسمية القابلة للطباعة أو الحفظ PDF لمادة واحدة واختبار واحد.</p></div></div>
+        <div class="section-head"><div><h2>تقرير مادة منفصلة</h2><p class="muted">هذا القسم مخصص للتقرير المدرسي، وهو مستقل عن نموذج تحليل النتائج الرسمي.</p></div></div>
         <div class="toolbar subject-report-toolbar">
           <label><span>المادة</span><select id="reportSubjectSelect"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
           <label class="wide"><span>الاختبار</span><select id="reportSubjectTest"><option value="">جارٍ تحميل الاختبارات…</option></select></label>
@@ -98,7 +98,7 @@
 <script src="analysis-all-subjects.js?v=20260911-5"></script>
 <script src="subject-report-separate.js?v=20260911-1"></script>
 <script src="analysis-section-router.js?v=20260911-2"></script>
-<script src="analysis-print.js?v=20260911-1"></script>
+<script src="analysis-print.js?v=20260911-2"></script>
 <script src="report-weekly.js?v=20260911-1"></script>
 <script src="report-test-options.js?v=20260911-8"></script>
 <script src="manual-print-date.js?v=20260911-3"></script>
