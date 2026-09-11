@@ -1,0 +1,35 @@
+/* Weekly school report - visual structure intentionally mirrors the teacher's supplied reference. */
+#settingsBtn,#settingsModal{display:none!important}
+.weekly-report-settings{margin-bottom:16px;border:2px solid #5a1795;background:#fff}
+.weekly-report-settings .wr-settings-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.weekly-report-settings .wr-settings-head h2{margin:0;color:#531696;font-size:18px}
+.weekly-report-settings .wr-settings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.weekly-report-settings label{display:grid;gap:6px;font-size:12px;font-weight:900;color:#425a66}
+.weekly-report-settings input{width:100%;border:1px solid #cbdadd;border-radius:10px;padding:10px 12px;background:#fff}
+.weekly-report-settings .wr-logo-fields{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.weekly-report-settings .wr-logo-note{grid-column:1/-1;color:#667982;font-size:11px;line-height:1.8}
+.weekly-report-settings .wr-save{justify-self:start;background:#531696;color:#fff}
+
+.weekly-report{--teal:#0f4351;--cyan:#10bfd0;--purple:#57179a;--cream:#fbfbe8;--pink:#ffe5ef;--green:#26ad70;--ink:#353535;background:#fff;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
+.weekly-report.report-sheet{max-width:1040px;padding:0 40px 44px;border-radius:0 0 18px 18px;overflow:hidden;border:1px solid #d7d7d7;box-shadow:0 8px 28px rgba(0,0,0,.08);position:relative}
+.wr-topbar{height:188px;background:var(--teal);margin:0 -40px 0;border-radius:0 0 18px 18px;position:relative;display:grid;grid-template-columns:1fr 1.1fr 1fr;align-items:center;padding:22px 56px;color:#fff;border-top:12px solid transparent;border-image:linear-gradient(90deg,#2e8bc0,#35b66f) 1}
+.wr-topbar .wr-admin{font-size:13px;line-height:1.85;font-weight:700;text-align:right}
+.wr-topbar .wr-ministry{display:grid;place-items:center;text-align:center}
+.wr-topbar .wr-school{display:flex;justify-content:flex-start;align-items:center}
+.wr-topbar img{max-height:92px;max-width:170px;object-fit:contain}
+.wr-topbar .wr-school img{max-width:135px}
+.wr-logo-empty{border:1px dashed rgba(255,255,255,.55);color:#dcebf0;border-radius:10px;padding:10px;font-size:11px}
+.wr-title-pill{width:min(470px,80%);margin:-1px auto 7px;background:var(--purple);color:#fff;border-radius:0 0 9px 9px;text-align:center;padding:10px 18px;font-size:19px;font-weight:900;border-bottom:3px solid var(--cyan)}
+.wr-subtitle{text-align:center;font-weight:900;font-size:16px;line-height:1.7;margin-bottom:18px}.wr-subtitle b{color:var(--purple)}
+.wr-triple{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 24px}
+.wr-info-box{border:2px solid var(--cyan);border-radius:9px;padding:12px 14px;min-height:250px;background:#fff;line-height:1.8;font-size:13px}.wr-info-box:nth-child(2){border-color:#7020a2}.wr-info-box h3{margin:0 0 9px;text-decoration:underline;font-size:16px;text-align:center}.wr-info-box ul{margin:0;padding-right:18px}.wr-info-box li{margin:4px 0}
+.wr-two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}.wr-callout{border:2px solid #6b239f;border-radius:8px;padding:16px 16px 10px;position:relative;min-height:150px}.wr-callout h3{position:absolute;top:-18px;right:16px;margin:0;background:var(--pink);color:#5a168f;padding:3px 10px;font-size:16px}.wr-callout ul{margin:2px 0 0;padding-right:20px;line-height:2;font-size:13px}.wr-callout li::marker{color:var(--cyan);font-size:18px}
+.wr-band{margin:14px 0 0;border:1px solid #ddd;border-radius:9px;overflow:hidden;background:var(--cream)}.wr-band h3{margin:0;background:var(--purple);color:#fff;text-align:center;padding:8px 12px;font-size:15px}.wr-band-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:15px 18px;font-weight:900;font-size:13px}.wr-band-grid div{position:relative;padding-right:18px}.wr-band-grid div::before{content:'✓';position:absolute;right:0;color:var(--cyan);font-weight:900}
+.wr-footer-curve{height:44px;margin:40px -40px -44px;border-bottom:12px solid transparent;border-image:linear-gradient(90deg,#2d8dc5,#2fb36d) 1;position:relative}.wr-footer-curve:before{content:'';position:absolute;left:0;right:0;top:5px;border-top:4px solid var(--green);border-radius:0 38px 0 0}
+
+.wr-low-title{margin:24px 0 18px;border:2px solid #6b239f;border-radius:6px;background:var(--cream);color:#5a168f;text-align:center;padding:10px;font-size:18px;font-weight:900}
+.wr-low-table{width:100%;border-collapse:separate;border-spacing:4px;font-size:12px}.wr-low-table th{background:var(--purple);color:#fff;padding:12px 8px;text-align:center}.wr-low-table td{background:var(--cream);border:1px solid #eee;padding:9px 8px;text-align:right;vertical-align:top}.wr-low-table .empty{text-align:center;color:#71818a;padding:24px}
+.wr-signatures{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:26px}.wr-signature{border:2px solid #67239e;border-radius:8px;padding:14px;text-align:center;font-weight:900}.wr-signature:first-child{border-color:var(--cyan)}.wr-signature span{display:block;border-top:1px solid currentColor;margin-top:14px;padding-top:10px;font-weight:700}
+
+@media(max-width:850px){.weekly-report-settings .wr-settings-grid,.weekly-report-settings .wr-logo-fields{grid-template-columns:1fr}.wr-topbar{grid-template-columns:1fr;height:auto;gap:12px;text-align:center}.wr-topbar .wr-admin{text-align:center}.wr-topbar .wr-school{justify-content:center}.wr-triple,.wr-two,.wr-band-grid{grid-template-columns:1fr}.wr-info-box{min-height:0}}
+@media print{.weekly-report.report-sheet{width:210mm;min-height:297mm;max-width:none;padding:0 10mm 12mm;margin:0;border:0;box-shadow:none;page-break-after:always}.weekly-report.report-sheet:last-child{page-break-after:auto}.wr-topbar{margin:0 -10mm;height:45mm;padding:5mm 14mm}.wr-title-pill{font-size:14pt}.wr-info-box{min-height:58mm;font-size:9.5pt}.wr-callout{min-height:32mm}.wr-footer-curve{margin:10mm -10mm -12mm}.weekly-report-settings{display:none!important}}
