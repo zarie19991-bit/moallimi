@@ -21,7 +21,7 @@
 </header>
 <main class="shell no-print">
   <section class="hero">
-    <div><span class="eyebrow">نتائج حقيقية فقط</span><h1>أوراق اختبارات الطلاب</h1><p>اختر الفصل ثم المادة ثم الاختبار ثم المؤشر. تظهر ورقة الإجابة الحقيقية للطالب في الاختبار الذي حددته فقط.</p></div>
+    <div><span class="eyebrow">نتائج حقيقية فقط</span><h1>أوراق اختبارات الطلاب</h1><p>اختر الفصل ثم المادة ثم الاختبار. تظهر أوراق الطلاب مباشرة، ويمكنك بعد ذلك عرض الورقة كاملة أو اختيار مؤشر محدد.</p></div>
     <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
   </section>
   <section id="authPanel" class="card auth-card" hidden><h2>دخول المعلم</h2><form id="authForm" class="inline-form"><input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم"><button class="btn primary" type="submit">دخول</button></form><p id="authError" class="error"></p></section>
@@ -32,9 +32,9 @@
       <label><span>الفصل</span><select id="classSelect"><option value="أ">أ</option><option value="ب">ب</option><option value="ج">ج</option><option value="د">د</option></select></label>
       <label><span>المادة</span><select id="paperSubject"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
       <label class="wide"><span>الاختبار</span><select id="paperTest"><option value="">اختر الاختبار</option></select></label>
-      <label class="wide"><span>المؤشر</span><select id="indicatorSelect"><option value="">اختر الاختبار أولًا</option></select></label>
+      <label class="wide"><span>النطاق</span><select id="indicatorSelect"><option value="">اختر الاختبار أولًا</option></select></label>
     </div>
-    <section class="section-card"><div class="section-head"><div><h2 id="studentsTitle">طلاب الفصل</h2><p class="muted">إذا أدى الطالب الاختبار المحدد تظهر ورقته الحقيقية، وإذا لم يؤده تظهر حالته «لم يختبر».</p></div></div><div id="studentsList"></div></section>
+    <section class="section-card"><div class="section-head"><div><h2 id="studentsTitle">طلاب الفصل</h2><p class="muted">إذا أدى الطالب الاختبار المحدد يظهر زر «عرض ورقة الإجابة»، وإذا لم يؤده تظهر حالته «لم يختبر».</p></div></div><div id="studentsList"></div></section>
     <section id="paperPanel" class="section-card" hidden></section>
   </section>
 </main>
@@ -42,9 +42,9 @@
   <div class="modal-box"><div class="modal-head"><h2>بيانات المدرسة والشعارات</h2><button id="closeSettingsBtn" class="close" type="button">×</button></div><div class="settings-grid"><label><span>اسم المدرسة</span><input id="schoolNameInput" type="text"></label><label><span>اسم المعلم</span><input id="teacherNameInput" type="text"></label><label><span>اسم مدير المدرسة</span><input id="principalNameInput" type="text"></label><label><span>شعار وزارة التعليم</span><input id="ministryLogoInput" type="file" accept="image/*"></label><label><span>شعار المدرسة</span><input id="schoolLogoInput" type="file" accept="image/*"></label></div><p class="muted">شعار الوزارة يظهر في المنتصف، وشعار المدرسة في أقصى اليسار. لا يوضع أي شعار لم ترفعه أنت.</p><div class="modal-actions"><button id="saveSettingsBtn" class="btn primary" type="button">حفظ</button></div></div>
 </div>
 <section id="printRoot" class="print-root" aria-hidden="true"></section>
-<script src="teacher-access.js?v=20260909-final"></script>
+<script src="teacher-access.js?v=20260911-speed1"></script>
 <script src="analysis-core.js?v=20260909-final"></script>
-<script src="student-papers.js?v=20260911-3"></script>
+<script src="student-papers.js?v=20260911-4"></script>
 <script src="manual-print-date.js?v=20260911-2"></script>
 </body>
 </html>
