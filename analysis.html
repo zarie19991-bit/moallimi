@@ -22,96 +22,28 @@
     <a href="student-papers.html">أوراق اختبارات الطلاب</a>
   </nav>
 </header>
-
 <main class="shell no-print">
   <section class="hero">
-    <div>
-      <span class="eyebrow">الصف الثالث المتوسط</span>
-      <h1>تحليل نتائج نافس</h1>
-      <p>ثلاثة مسارات فقط: تحليل المواد معًا، تحليل مادة واحدة، والتقرير المدرسي.</p>
-    </div>
+    <div><span class="eyebrow">الصف الثالث المتوسط</span><h1>تحليل نتائج نافس</h1><p>ثلاثة مسارات فقط: تحليل المواد معًا، تحليل مادة واحدة، والتقرير المدرسي.</p></div>
     <div class="hero-actions">
       <button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button>
       <button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button>
-      <button id="resetTrialDataBtn" class="btn ghost" type="button" style="border-color:#ffd4d0;color:#8f1d17;background:#fff">تصفير بيانات التجربة</button>
+      <button id="resetTrialDataBtn" class="btn ghost" type="button">إدارة / تصفير النتائج</button>
       <button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button>
     </div>
   </section>
-
-  <section id="authPanel" class="card auth-card" hidden>
-    <h2>دخول المعلم</h2>
-    <p>أدخل مفتاح المعلم للوصول إلى النتائج الحقيقية فقط.</p>
-    <form id="authForm" class="inline-form">
-      <input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم">
-      <button class="btn primary" type="submit">دخول</button>
-    </form>
-    <p id="authError" class="error"></p>
-  </section>
-
+  <section id="authPanel" class="card auth-card" hidden><h2>دخول المعلم</h2><p>أدخل مفتاح المعلم للوصول إلى النتائج الحقيقية فقط.</p><form id="authForm" class="inline-form"><input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم"><button class="btn primary" type="submit">دخول</button></form><p id="authError" class="error"></p></section>
   <div id="loadState" class="state"></div>
-  <section id="loadError" class="card error-card" hidden>
-    <h2>تعذر تحميل البيانات</h2>
-    <p id="loadErrorText"></p>
-    <button id="retryBtn" class="btn primary">إعادة المحاولة</button>
-  </section>
-
+  <section id="loadError" class="card error-card" hidden><h2>تعذر تحميل البيانات</h2><p id="loadErrorText"></p><button id="retryBtn" class="btn primary" type="button">إعادة المحاولة</button></section>
   <section id="dashboard" hidden>
-    <nav class="main-tabs" aria-label="أقسام التحليل">
-      <button class="main-tab active" data-view="overview">تحليل المواد معًا</button>
-      <button class="main-tab" data-view="subject">تحليل كل مادة</button>
-      <button class="main-tab" data-view="report">التقرير</button>
-    </nav>
-
-    <section id="overviewView" class="view-panel">
-      <div class="toolbar card">
-        <label><span>الفصل</span><select id="overviewClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
-      </div>
-      <div id="overviewSummary"></div>
-      <div id="overviewStudents"></div>
-    </section>
-
-    <section id="subjectView" class="view-panel" hidden>
-      <div class="toolbar card">
-        <label><span>المادة</span><select id="subjectSelect"><option value="all">جميع المواد — تحليل موحد</option><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
-        <label><span>الفصل</span><select id="subjectClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
-      </div>
-      <div id="subjectSummary"></div>
-      <div class="two-col">
-        <section id="subjectStudents" class="card"></section>
-        <section id="subjectIndicators" class="card"></section>
-      </div>
-      <section id="subjectQuestions" class="card"></section>
-    </section>
-
-    <section id="reportView" class="view-panel" hidden>
-      <div class="toolbar card report-controls">
-        <label class="wide"><span>الاختبارات</span><select id="reportTest"></select></label>
-        <label><span>الأسبوع / الفترة</span><input id="reportWeek" type="text" placeholder="مثال: الأسبوع الرابع"></label>
-        <button id="buildReportBtn" class="btn primary" type="button">إنشاء التقرير</button>
-        <button id="printReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button>
-      </div>
-      <div id="reportPreview" class="report-preview-empty">يمكنك اختيار جميع الاختبارات التي تم أداؤها أو اختبارًا واحدًا، ثم اضغط «إنشاء التقرير».</div>
-    </section>
+    <nav class="main-tabs" aria-label="أقسام التحليل"><button class="main-tab active" data-view="overview">تحليل المواد معًا</button><button class="main-tab" data-view="subject">تحليل كل مادة</button><button class="main-tab" data-view="report">التقرير</button></nav>
+    <section id="overviewView" class="view-panel"><div class="toolbar card"><label><span>الفصل</span><select id="overviewClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label></div><div id="overviewSummary"></div><div id="overviewStudents"></div></section>
+    <section id="subjectView" class="view-panel" hidden><div class="toolbar card"><label><span>المادة</span><select id="subjectSelect"><option value="all">جميع المواد — تحليل موحد</option><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label><label><span>الفصل</span><select id="subjectClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label></div><div id="subjectSummary"></div><div class="two-col"><section id="subjectStudents" class="card"></section><section id="subjectIndicators" class="card"></section></div><section id="subjectQuestions" class="card"></section></section>
+    <section id="reportView" class="view-panel" hidden><div class="toolbar card report-controls"><label class="wide"><span>الاختبارات</span><select id="reportTest"></select></label><label><span>الأسبوع / الفترة</span><input id="reportWeek" type="text" placeholder="مثال: الأسبوع الرابع"></label><button id="buildReportBtn" class="btn primary" type="button">إنشاء التقرير</button><button id="printReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button></div><div id="reportPreview" class="report-preview-empty">يمكنك اختيار جميع الاختبارات التي تم أداؤها أو اختبارًا واحدًا، ثم اضغط «إنشاء التقرير».</div></section>
   </section>
 </main>
-
-<div id="settingsModal" class="modal hidden no-print" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-  <div class="modal-box">
-    <div class="modal-head"><h2 id="settingsTitle">بيانات المدرسة والشعارات</h2><button id="closeSettingsBtn" class="close" type="button">×</button></div>
-    <div class="settings-grid">
-      <label><span>اسم المدرسة</span><input id="schoolNameInput" type="text" placeholder="مدرسة ابن سينا المتوسطة"></label>
-      <label><span>اسم المعلم</span><input id="teacherNameInput" type="text"></label>
-      <label><span>اسم مدير المدرسة</span><input id="principalNameInput" type="text"></label>
-      <label><span>شعار وزارة التعليم</span><input id="ministryLogoInput" type="file" accept="image/*"></label>
-      <label><span>شعار المدرسة</span><input id="schoolLogoInput" type="file" accept="image/*"></label>
-    </div>
-    <p class="muted">الشعارات لا تُنشأ تلقائيًا؛ يظهر في التقرير فقط ما ترفعه أنت. شعار الوزارة في المنتصف، وشعار المدرسة في أقصى اليسار.</p>
-    <div class="modal-actions"><button id="saveSettingsBtn" class="btn primary" type="button">حفظ</button></div>
-  </div>
-</div>
-
+<div id="settingsModal" class="modal hidden no-print" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="modal-box"><div class="modal-head"><h2 id="settingsTitle">بيانات المدرسة والشعارات</h2><button id="closeSettingsBtn" class="close" type="button">×</button></div><div class="settings-grid"><label><span>اسم المدرسة</span><input id="schoolNameInput" type="text" placeholder="مدرسة ابن سينا المتوسطة"></label><label><span>اسم المعلم</span><input id="teacherNameInput" type="text"></label><label><span>اسم مدير المدرسة</span><input id="principalNameInput" type="text"></label><label><span>شعار وزارة التعليم</span><input id="ministryLogoInput" type="file" accept="image/*"></label><label><span>شعار المدرسة</span><input id="schoolLogoInput" type="file" accept="image/*"></label></div><p class="muted">الشعارات لا تُنشأ تلقائيًا؛ يظهر في التقرير فقط ما ترفعه أنت. شعار الوزارة في المنتصف، وشعار المدرسة في أقصى اليسار.</p><div class="modal-actions"><button id="saveSettingsBtn" class="btn primary" type="button">حفظ</button></div></div></div>
 <section id="printRoot" class="print-root" aria-hidden="true"></section>
-
 <script src="teacher-access.js?v=20260909-final"></script>
 <script src="analysis-core.js?v=20260909-final"></script>
 <script src="analysis.js?v=20260911-unified"></script>
@@ -119,53 +51,6 @@
 <script src="report-weekly.js?v=20260911-1"></script>
 <script src="report-test-options.js?v=20260911-6"></script>
 <script src="manual-print-date.js?v=20260911-1"></script>
-<script>
-(() => {
-  'use strict';
-  const btn = document.getElementById('resetTrialDataBtn');
-  if (!btn) return;
-  const isUuid = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v || ''));
-  btn.addEventListener('click', async () => {
-    if (!window.NafesTeacher) return alert('تعذر تحميل أدوات المعلم.');
-    const confirmText = prompt('سيتم حذف جميع نتائج ومحاولات الاختبارات الحالية، وبذلك يختفي التحليل الحالي، مع الإبقاء على الطلاب وبنوك الأسئلة.\n\nللتأكيد اكتب: حذف جميع النتائج');
-    if (confirmText !== 'حذف جميع النتائج') return;
-    btn.disabled = true;
-    const oldText = btn.textContent;
-    btn.textContent = 'جارٍ تصفير بيانات التجربة…';
-    try {
-      let cursor = 0;
-      const attemptTestIds = new Set();
-      do {
-        const d = await NafesTeacher.api('teacher_data', { cursor, limit: 100 });
-        for (const a of d.attempts || []) if (a.test_id) attemptTestIds.add(String(a.test_id));
-        cursor = d.next_cursor;
-      } while (cursor !== null);
-
-      await NafesTeacher.api('teacher_tests_bulk_clear', {
-        clear_all: true,
-        confirm_word: 'حذف جميع النتائج'
-      });
-
-      let deletedPublished = 0;
-      for (const id of attemptTestIds) {
-        if (!isUuid(id)) continue;
-        try {
-          await NafesTeacher.api('teacher_test_delete', { test_id: id, confirm_word: 'حذف' });
-          deletedPublished++;
-        } catch (e) {
-          console.warn('تعذر حذف اختبار منشور بعد مسح نتائجه:', id, e);
-        }
-      }
-
-      alert(`تم تصفير بيانات التجربة بنجاح.\nتم مسح جميع المحاولات والنتائج، وبالتالي أصبح التحليل فارغًا.\nتم حذف ${deletedPublished} اختبارًا منشورًا كان له نتائج تجريبية.\nلم تُحذف أسماء الطلاب ولا بنوك الأسئلة.`);
-      location.reload();
-    } catch (e) {
-      alert(e?.message || 'تعذر تصفير بيانات التجربة.');
-      btn.disabled = false;
-      btn.textContent = oldText;
-    }
-  });
-})();
-</script>
+<script src="reset-results.js?v=20260911-1"></script>
 </body>
 </html>
