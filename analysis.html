@@ -17,7 +17,7 @@
   <a class="brand" href="./"><span>م</span><div><b>معلّمي</b><small>تحليل نتائج نافس</small></div></a>
   <nav>
     <a href="./">المؤشرات</a>
-    <a href="simulation.html">الاختبارات المحاكية</a>
+    <a href="create.html">إنشاء الاختبارات</a>
     <a class="active" href="analysis.html">تحليل النتائج</a>
     <a href="student-papers.html">أوراق اختبارات الطلاب</a>
   </nav>
@@ -25,12 +25,7 @@
 <main class="shell no-print">
   <section class="hero">
     <div><span class="eyebrow">الصف الثالث المتوسط</span><h1>تحليل نتائج نافس</h1><p>ثلاثة مسارات فقط: تحليل المواد معًا، تحليل مادة واحدة، والتقرير المدرسي.</p></div>
-    <div class="hero-actions">
-      <button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button>
-      <button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button>
-      <button id="resetTrialDataBtn" class="btn ghost" type="button">إدارة / تصفير النتائج</button>
-      <button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button>
-    </div>
+    <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="resetTrialDataBtn" class="btn ghost" type="button">إدارة / تصفير النتائج</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
   </section>
   <section id="authPanel" class="card auth-card" hidden><h2>دخول المعلم</h2><p>أدخل مفتاح المعلم للوصول إلى النتائج الحقيقية فقط.</p><form id="authForm" class="inline-form"><input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم"><button class="btn primary" type="submit">دخول</button></form><p id="authError" class="error"></p></section>
   <div id="loadState" class="state"></div>
@@ -44,14 +39,5 @@
 </main>
 <div id="settingsModal" class="modal hidden no-print" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="modal-box"><div class="modal-head"><h2 id="settingsTitle">بيانات المدرسة والشعارات</h2><button id="closeSettingsBtn" class="close" type="button">×</button></div><div class="settings-grid"><label><span>اسم المدرسة</span><input id="schoolNameInput" type="text" placeholder="مدرسة ابن سينا المتوسطة"></label><label><span>اسم المعلم</span><input id="teacherNameInput" type="text"></label><label><span>اسم مدير المدرسة</span><input id="principalNameInput" type="text"></label><label><span>شعار وزارة التعليم</span><input id="ministryLogoInput" type="file" accept="image/*"></label><label><span>شعار المدرسة</span><input id="schoolLogoInput" type="file" accept="image/*"></label></div><p class="muted">الشعارات لا تُنشأ تلقائيًا؛ يظهر في التقرير فقط ما ترفعه أنت. شعار الوزارة في المنتصف، وشعار المدرسة في أقصى اليسار.</p><div class="modal-actions"><button id="saveSettingsBtn" class="btn primary" type="button">حفظ</button></div></div></div>
 <section id="printRoot" class="print-root" aria-hidden="true"></section>
-<script src="teacher-access.js?v=20260911-speed1"></script>
-<script src="analysis-core.js?v=20260909-final"></script>
-<script src="data-normalization-fix.js?v=20260911-1"></script>
-<script src="analysis.js?v=20260911-unified"></script>
-<script src="analysis-all-subjects.js?v=20260911-4"></script>
-<script src="report-weekly.js?v=20260911-1"></script>
-<script src="report-test-options.js?v=20260911-8"></script>
-<script src="manual-print-date.js?v=20260911-3"></script>
-<script src="reset-results.js?v=20260911-3"></script>
-</body>
-</html>
+<script src="teacher-access.js?v=20260911-speed1"></script><script src="analysis-core.js?v=20260909-final"></script><script src="data-normalization-fix.js?v=20260911-1"></script><script src="analysis.js?v=20260911-unified"></script><script src="analysis-all-subjects.js?v=20260911-4"></script><script src="report-weekly.js?v=20260911-1"></script><script src="report-test-options.js?v=20260911-8"></script><script src="manual-print-date.js?v=20260911-3"></script><script src="reset-results.js?v=20260911-3"></script>
+</body></html>
