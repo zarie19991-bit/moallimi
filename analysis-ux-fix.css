@@ -1,17 +1,20 @@
 /* تحسين وضوح الخط والقراءة في صفحات التحليل */
 html,body,button,input,select,textarea{font-family:"Segoe UI",Tahoma,Arial,sans-serif!important}
 body{font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+[hidden]{display:none!important}
 .top nav a{font-size:14px;letter-spacing:0}
 .brand b{font-size:18px}.brand small{font-size:12px}
-.hero h1{font-size:30px;line-height:1.35}
-.hero p{font-size:14px}
-.main-tab{font-size:16px}
-.toolbar label,.settings-grid label{font-size:13px}
-.toolbar select,.toolbar input,.settings-grid input{font-size:14px;min-height:44px}
+.hero h1{font-size:30px;line-height:1.35}.hero p{font-size:14px}
+.main-tabs{grid-template-columns:repeat(4,minmax(0,1fr))!important}.main-tab{font-size:15px;min-height:58px}
+.toolbar label,.settings-grid label{font-size:13px}.toolbar select,.toolbar input,.settings-grid input{font-size:14px;min-height:44px}
 .metric span{font-size:12px}.metric b{font-size:24px;line-height:1.25}
 .subject-card h3{font-size:21px;line-height:1.45}.subject-card .big{font-size:34px}.subject-card .sub{font-size:13px}
-.section-head h2{font-size:26px;line-height:1.4}.section-head h3{font-size:19px}.muted{font-size:13px}
+.section-head h2{font-size:24px;line-height:1.4}.section-head h3{font-size:19px}.muted{font-size:13px}
 .data-table{font-size:13px}.data-table th{font-size:13px;font-weight:800}.data-table td{font-size:13px;line-height:1.7}
-.badge{font-size:11px;padding:5px 9px}
-.rank-row small{font-size:13px;line-height:1.7}
-@media(max-width:650px){body{font-size:13px}.section-head h2{font-size:22px}.data-table{font-size:12px}.data-table th,.data-table td{font-size:12px}}
+.badge{font-size:11px;padding:5px 9px}.rank-row small{font-size:13px;line-height:1.7}
+.section-control-card{margin-bottom:2px}.view-panel{align-content:start}
+.analysis-print-sheet{direction:rtl;background:#fff;color:#22343d;font-family:Tahoma,Arial,sans-serif;padding:8mm}
+.analysis-print-head{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:14px;align-items:start;border-bottom:2px solid #0f514c;padding-bottom:12px;margin-bottom:18px;font-size:12px}.analysis-print-head>div:first-child span,.analysis-print-sign span{display:block;margin-top:4px}.analysis-print-title{text-align:center}.analysis-print-title h1{margin:0;color:#0f514c;font-size:22px}.analysis-print-title p{margin:5px 0 0;color:#61737c}.analysis-print-sign{text-align:left}.analysis-print-sheet>section{margin-bottom:14px}.analysis-print-sheet .section-card,.analysis-print-sheet .card,.analysis-print-sheet .metric,.analysis-print-sheet .subject-card{box-shadow:none!important}.analysis-print-sheet .table-wrap{overflow:visible}.analysis-print-sheet .data-table{font-size:10pt}
+@media(max-width:950px){.main-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:650px){body{font-size:13px}.main-tabs{grid-template-columns:1fr!important}.section-head h2{font-size:21px}.data-table{font-size:12px}.data-table th,.data-table td{font-size:12px}}
+@media print{@page{size:A4 portrait;margin:8mm}.analysis-print-sheet{padding:0}.analysis-print-head{grid-template-columns:1fr 1.5fr 1fr}.analysis-print-sheet .metrics{grid-template-columns:repeat(3,1fr)}.analysis-print-sheet .two-col{display:block}.analysis-print-sheet .two-col>section{margin-bottom:10px}.analysis-print-sheet section,.analysis-print-sheet .metric,.analysis-print-sheet .subject-card{break-inside:avoid}.analysis-print-sheet .data-table{font-size:8.5pt}.analysis-print-sheet .data-table th,.analysis-print-sheet .data-table td{padding:5px 4px}.analysis-print-sheet .section-head h2{font-size:14pt}}
