@@ -1,0 +1,17 @@
+/* تحسين وضوح الخط والقراءة في صفحات التحليل */
+html,body,button,input,select,textarea{font-family:"Segoe UI",Tahoma,Arial,sans-serif!important}
+body{font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.top nav a{font-size:14px;letter-spacing:0}
+.brand b{font-size:18px}.brand small{font-size:12px}
+.hero h1{font-size:30px;line-height:1.35}
+.hero p{font-size:14px}
+.main-tab{font-size:16px}
+.toolbar label,.settings-grid label{font-size:13px}
+.toolbar select,.toolbar input,.settings-grid input{font-size:14px;min-height:44px}
+.metric span{font-size:12px}.metric b{font-size:24px;line-height:1.25}
+.subject-card h3{font-size:21px;line-height:1.45}.subject-card .big{font-size:34px}.subject-card .sub{font-size:13px}
+.section-head h2{font-size:26px;line-height:1.4}.section-head h3{font-size:19px}.muted{font-size:13px}
+.data-table{font-size:13px}.data-table th{font-size:13px;font-weight:800}.data-table td{font-size:13px;line-height:1.7}
+.badge{font-size:11px;padding:5px 9px}
+.rank-row small{font-size:13px;line-height:1.7}
+@media(max-width:650px){body{font-size:13px}.section-head h2{font-size:22px}.data-table{font-size:12px}.data-table th,.data-table td{font-size:12px}}
