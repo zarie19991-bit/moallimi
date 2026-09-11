@@ -1,3 +1,4 @@
+// trigger qa workflow
 import https from 'node:https';
 
 const endpoint = new URL('https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam');
