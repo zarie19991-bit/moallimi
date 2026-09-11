@@ -30,6 +30,7 @@
     <div class="hero-actions">
       <button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button>
       <button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button>
+      <button id="resetTrialDataBtn" class="btn ghost" type="button" style="border-color:#ffd4d0;color:#8f1d17;background:#fff">تصفير بيانات التجربة</button>
       <button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button>
     </div>
   </section>
@@ -112,5 +113,53 @@
 <script src="analysis-core.js?v=20260909-final"></script>
 <script src="analysis.js?v=20260911-unified"></script>
 <script src="report-weekly.js?v=20260911-1"></script>
+<script>
+(() => {
+  'use strict';
+  const btn = document.getElementById('resetTrialDataBtn');
+  if (!btn) return;
+  const isUuid = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v || ''));
+  btn.addEventListener('click', async () => {
+    if (!window.NafesTeacher) return alert('تعذر تحميل أدوات المعلم.');
+    const confirmText = prompt('سيتم حذف جميع نتائج ومحاولات الاختبارات الحالية، وبذلك يختفي التحليل الحالي، مع الإبقاء على الطلاب وبنوك الأسئلة.\n\nللتأكيد اكتب: حذف جميع النتائج');
+    if (confirmText !== 'حذف جميع النتائج') return;
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = 'جارٍ تصفير بيانات التجربة…';
+    try {
+      let cursor = 0;
+      const attemptTestIds = new Set();
+      do {
+        const d = await NafesTeacher.api('teacher_data', { cursor, limit: 100 });
+        for (const a of d.attempts || []) if (a.test_id) attemptTestIds.add(String(a.test_id));
+        cursor = d.next_cursor;
+      } while (cursor !== null);
+
+      await NafesTeacher.api('teacher_tests_bulk_clear', {
+        clear_all: true,
+        confirm_word: 'حذف جميع النتائج'
+      });
+
+      let deletedPublished = 0;
+      for (const id of attemptTestIds) {
+        if (!isUuid(id)) continue;
+        try {
+          await NafesTeacher.api('teacher_test_delete', { test_id: id, confirm_word: 'حذف' });
+          deletedPublished++;
+        } catch (e) {
+          console.warn('تعذر حذف اختبار منشور بعد مسح نتائجه:', id, e);
+        }
+      }
+
+      alert(`تم تصفير بيانات التجربة بنجاح.\nتم مسح جميع المحاولات والنتائج، وبالتالي أصبح التحليل فارغًا.\nتم حذف ${deletedPublished} اختبارًا منشورًا كان له نتائج تجريبية.\nلم تُحذف أسماء الطلاب ولا بنوك الأسئلة.`);
+      location.reload();
+    } catch (e) {
+      alert(e?.message || 'تعذر تصفير بيانات التجربة.');
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  });
+})();
+</script>
 </body>
 </html>
