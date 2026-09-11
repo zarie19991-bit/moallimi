@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f514c">
+<title>تصفير بيانات التجربة | معلّمي</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#f7fafb;color:#17324d}.wrap{max-width:720px;margin:50px auto;padding:20px}.card{background:#fff;border:1px solid #dce7ea;border-radius:20px;padding:28px;box-shadow:0 12px 35px #17324d12}.head{display:flex;align-items:center;gap:12px;margin-bottom:18px}.mark{width:48px;height:48px;border-radius:14px;background:#0f514c;color:#fff;display:grid;place-items:center;font-size:24px;font-weight:900}.card h1{margin:0;font-size:24px}.note{line-height:1.9;color:#536a74;background:#f5f9f8;border-radius:14px;padding:14px;margin:18px 0}.warn{line-height:1.9;background:#fff4f2;border:1px solid #ffd7d2;color:#7c201a;border-radius:14px;padding:14px;margin:18px 0}.row{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:12px;padding:12px 18px;font-weight:900;cursor:pointer}.danger{background:#a92a22;color:#fff}.ghost{background:#eef4f4;color:#17324d}.state{margin-top:16px;line-height:1.9;font-weight:800}.ok{color:#147a49}.err{color:#a92a22}a{color:inherit;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="head"><div class="mark">م</div><div><h1>تصفير بيانات التجربة</h1><div>إعادة المنصة لحالة نظيفة قبل الاختبار الحقيقي</div></div></div>
+    <div class="note">سيبقى الطلاب والفصول وبنوك الأسئلة كما هي. الذي سيُحذف هو جميع المحاولات والنتائج الحالية، وبالتالي يختفي التحليل المبني عليها. كما ستُحذف الاختبارات المنشورة القابلة للحذف التي ارتبطت بهذه المحاولات.</div>
+    <div class="warn"><b>لن يتم حذف:</b> أسماء الطلاب، الفصول، بنك أسئلة المؤشرات، أو بنك أسئلة المحاكاة.</div>
+    <div class="row">
+      <button id="resetBtn" class="btn danger" type="button">🗑 حذف جميع نتائج التجربة</button>
+      <a class="btn ghost" href="analysis.html">العودة للتحليل</a>
+    </div>
+    <div id="state" class="state"></div>
+  </div>
+</div>
+<script src="teacher-access.js?v=20260911-reset"></script>
+<script>
+(() => {
+  'use strict';
+  const btn=document.getElementById('resetBtn');
+  const state=document.getElementById('state');
+  const isUuid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||''));
+  async function ensureTeacher(){
+    if(window.NafesTeacher?.getKey?.()) return true;
+    window.NafesTeacher?.requireKey?.('أدخل مفتاح المعلم لتصفير نتائج التجربة.');
+    state.textContent='بعد إدخال مفتاح المعلم اضغط زر الحذف مرة أخرى.';
+    return false;
+  }
+  btn.onclick=async()=>{
+    if(!await ensureTeacher()) return;
+    const c=prompt('هذه العملية لا يمكن التراجع عنها.\nللتأكيد اكتب حرفيًا: حذف جميع النتائج');
+    if(c!=='حذف جميع النتائج') return;
+    btn.disabled=true; state.className='state'; state.textContent='جارٍ جمع الاختبارات ومسح النتائج…';
+    try{
+      let cursor=0; const usedTestIds=new Set();
+      do{
+        const d=await NafesTeacher.api('teacher_data',{cursor,limit:100});
+        for(const a of d.attempts||[]) if(a.test_id) usedTestIds.add(String(a.test_id));
+        cursor=d.next_cursor;
+      }while(cursor!==null);
+      const cleared=await NafesTeacher.api('teacher_tests_bulk_clear',{clear_all:true,confirm_word:'حذف جميع النتائج'});
+      let deleted=0,failed=0;
+      for(const id of usedTestIds){
+        if(!isUuid(id)) continue;
+        try{await NafesTeacher.api('teacher_test_delete',{test_id:id,confirm_word:'حذف'});deleted++;}
+        catch(_){failed++;}
+      }
+      state.className='state ok';
+      state.textContent=`تم مسح جميع النتائج والمحاولات. حُذف ${deleted} اختبار منشور مرتبط بالتجربة${failed?`، وتعذر حذف ${failed} اختبار منشور`:''}. الطلاب وبنوك الأسئلة لم تُحذف.`;
+      btn.textContent='تم التصفير ✓';
+    }catch(e){
+      state.className='state err'; state.textContent=e?.message||'تعذر تنفيذ العملية.'; btn.disabled=false;
+    }
+  };
+})();
+</script>
+</body>
+</html>
