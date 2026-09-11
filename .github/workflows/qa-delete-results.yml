@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'qa/delete-results-test.mjs'
+      - 'qa/delete-results-trigger.txt'
 jobs:
   test:
     runs-on: ubuntu-latest
