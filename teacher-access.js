@@ -4,11 +4,16 @@
   if (window.NafesTeacher) return;
   const STORAGE = 'nafes_teacher_key_v1';
   const ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
+  const READ_ACTIONS = new Set(['teacher_data', 'teacher_students_list']);
+  const READ_CACHE_TTL = 15000;
+  const readCache = new Map();
   let memoryKey = '';
   function getKey() { try { return localStorage.getItem(STORAGE) || memoryKey; } catch (_) { return memoryKey; } }
+  function clearReadCache() { readCache.clear(); }
   function emit(authenticated) { window.dispatchEvent(new CustomEvent('nafes:auth-changed', { detail: { authenticated } })); }
   function setKey(value) {
     memoryKey = String(value || '').trim();
+    clearReadCache();
     try { if (memoryKey) localStorage.setItem(STORAGE, memoryKey); else localStorage.removeItem(STORAGE); } catch (_) {}
     document.getElementById('nafesTeacherLogin')?.remove();
     emit(!!memoryKey);
@@ -34,12 +39,8 @@
     layer.querySelector('form').onsubmit = e => { e.preventDefault(); setKey(layer.querySelector('input').value); };
     document.body.appendChild(layer); layer.querySelector('input').focus();
   }
-  async function api(action, body = {}) {
-    const key = getKey();
-    if (!key) {
-      requireKey();
-      throw Object.assign(new Error('يلزم دخول المعلم للمتابعة.'), { status: 401, code: 'TEACHER_AUTH_REQUIRED' });
-    }
+  function cacheKey(action, body) { return `${action}|${JSON.stringify(body || {})}`; }
+  async function request(action, body, key) {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 45000);
     let response, data;
     try {
@@ -54,7 +55,25 @@
     }
     return data;
   }
-  window.NafesTeacher = { api, getKey, setKey, clearKey, requireKey };
+  async function api(action, body = {}) {
+    const key = getKey();
+    if (!key) {
+      requireKey();
+      throw Object.assign(new Error('يلزم دخول المعلم للمتابعة.'), { status: 401, code: 'TEACHER_AUTH_REQUIRED' });
+    }
+    if (READ_ACTIONS.has(action)) {
+      const ck = cacheKey(action, body), now = Date.now(), hit = readCache.get(ck);
+      if (hit && hit.expires > now) return hit.promise;
+      const promise = request(action, body, key);
+      readCache.set(ck, { expires: now + READ_CACHE_TTL, promise });
+      try { return await promise; }
+      catch (error) { if (readCache.get(ck)?.promise === promise) readCache.delete(ck); throw error; }
+    }
+    const data = await request(action, body, key);
+    clearReadCache();
+    return data;
+  }
+  window.NafesTeacher = { api, getKey, setKey, clearKey, requireKey, clearReadCache };
   const fragment = new URLSearchParams(location.hash.replace(/^#/, ''));
   if (fragment.has('key')) {
     const key = fragment.get('key'); fragment.delete('key');
