@@ -89,50 +89,22 @@ export async function verifyStudentIdentity(db: any, rawName: string, rawLast3: 
   const normDigits = normalizeLast3Digits(rawLast3);
   const normName = normalizeArabicName(rawName);
   const normClass = String(rawClass || '').trim();
+  const MISMATCH_MSG = 'بيانات الطالب غير متطابقة، تأكد من الاسم كما هو في كشف المدرسة وآخر ثلاثة أرقام من الهوية والفصل.';
 
-  const MISMATCH_MSG = 'بيانات الطالب غير متطابقة، تأكد من الاسم وآخر ثلاثة أرقام من الهوية والفصل.';
-
-  if (!normDigits || normDigits.length !== 3 || !normName || normName.length < 2) {
+  if (!normDigits || normDigits.length !== 3 || !normName || normName.length < 2 || !normClass) {
     fail(MISMATCH_MSG, 400);
   }
 
-  let query = db
+  const { data: candidates, error } = await db
     .from('nafes_students')
     .select('id,full_name,name_normalized,grade,class_name,national_id_last3,is_active')
     .eq('national_id_last3', normDigits)
+    .eq('class_name', normClass)
     .eq('is_active', true);
-
-  if (normClass) {
-    query = query.eq('class_name', normClass);
-  }
-
-  const { data: candidates, error } = await query;
   if (error) throw error;
-  if (!candidates || candidates.length === 0) {
-    fail(MISMATCH_MSG, 404);
-  }
 
-  const exactMatches = candidates.filter((c: Row) => c.name_normalized === normName);
-  if (exactMatches.length === 1) {
-    return exactMatches[0];
-  }
-  if (exactMatches.length > 1) {
-    fail('تم العثور على أكثر من طالب مطابق بنفس البيانات؛ راجع المعلم لتفادي التضارب.', 409);
-  }
-
-  const inputTokens = normName.split(' ');
-  const tokenMatches = candidates.filter((c: Row) => {
-    const candidateTokens = c.name_normalized.split(' ');
-    return inputTokens.length >= 2 && candidateTokens.length >= 2 &&
-      inputTokens[0] === candidateTokens[0] &&
-      inputTokens[inputTokens.length - 1] === candidateTokens[candidateTokens.length - 1] &&
-      inputTokens.every((t: string) => candidateTokens.includes(t));
-  });
-
-  if (tokenMatches.length === 1) {
-    return tokenMatches[0];
-  }
-
+  const exactMatches = (candidates || []).filter((c: Row) => c.name_normalized === normName);
+  if (exactMatches.length === 1) return exactMatches[0];
+  if (exactMatches.length > 1) fail('تم العثور على أكثر من طالب مطابق بنفس البيانات؛ راجع المعلم لتفادي التضارب.', 409);
   fail(MISMATCH_MSG, 404);
 }
-
