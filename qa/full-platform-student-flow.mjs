@@ -1,3 +1,4 @@
+// trigger full-platform QA
 import https from 'node:https';
 const ENDPOINT=new URL('https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam');
 const code='QAFULL22';
