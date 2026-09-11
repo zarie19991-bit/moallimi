@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#0f514c">
   <meta name="referrer" content="no-referrer">
   <title>تحليل نتائج نافس | معلّمي</title>
-  <link rel="stylesheet" href="analysis.css?v=20260911-unified">
+  <link rel="stylesheet" href="analysis.css?v=20260911-unified2">
+  <link rel="stylesheet" href="analysis-ux-fix.css?v=20260911-2">
   <link rel="stylesheet" href="report-weekly.css?v=20260911-1">
 </head>
 <body>
@@ -69,7 +70,7 @@
 
     <section id="subjectView" class="view-panel" hidden>
       <div class="toolbar card">
-        <label><span>المادة</span><select id="subjectSelect"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
+        <label><span>المادة</span><select id="subjectSelect"><option value="all">جميع المواد — تحليل موحد</option><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
         <label><span>الفصل</span><select id="subjectClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
       </div>
       <div id="subjectSummary"></div>
@@ -112,6 +113,7 @@
 <script src="teacher-access.js?v=20260909-final"></script>
 <script src="analysis-core.js?v=20260909-final"></script>
 <script src="analysis.js?v=20260911-unified"></script>
+<script src="analysis-all-subjects.js?v=20260911-2"></script>
 <script src="report-weekly.js?v=20260911-1"></script>
 <script src="report-test-options.js?v=20260911-4"></script>
 <script>
