@@ -1,3 +1,4 @@
+// trigger 140-load QA
 import https from 'node:https';
 const ENDPOINT=new URL('https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam');
 const code='QALOAD22';
