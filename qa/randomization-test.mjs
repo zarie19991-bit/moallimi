@@ -2,7 +2,7 @@
 import https from 'node:https';
 
 const endpoint = new URL('https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam');
-const code = 'RANDTST1';
+const code = 'RANDTS22';
 const students = [1,2,3,4,5].map(n=>({
   student_name:`qa random student ${String(n).padStart(3,'0')}`,
   student_no:String(n).padStart(3,'0'),
