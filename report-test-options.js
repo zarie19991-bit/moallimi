@@ -5,6 +5,21 @@ const $=id=>document.getElementById(id);
 const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let busy=false;
 
+// حمّل تحسينات الخط وخيار «جميع المواد» من ملفين مستقلين حتى لا نعيد بناء صفحة التحليل.
+if(!document.querySelector('link[data-analysis-ux]')){
+  const l=document.createElement('link');
+  l.rel='stylesheet';
+  l.href='analysis-ux-fix.css?v=20260911-1';
+  l.dataset.analysisUx='1';
+  document.head.appendChild(l);
+}
+if(!document.querySelector('script[data-analysis-all-subjects]')){
+  const s=document.createElement('script');
+  s.src='analysis-all-subjects.js?v=20260911-1';
+  s.dataset.analysisAllSubjects='1';
+  document.head.appendChild(s);
+}
+
 function submitted(a){return !!(a&&(a.submitted_at||a.status==='submitted'));}
 function when(a){return Date.parse(a?.submitted_at||a?.started_at||0)||0;}
 
