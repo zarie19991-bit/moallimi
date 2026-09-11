@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#0f514c">
   <meta name="referrer" content="no-referrer">
   <title>تحليل نتائج نافس | معلّمي</title>
-  <link rel="stylesheet" href="analysis.css?v=20260911-unified3">
-  <link rel="stylesheet" href="analysis-ux-fix.css?v=20260911-3">
+  <link rel="stylesheet" href="analysis.css?v=20260911-unified4">
+  <link rel="stylesheet" href="analysis-ux-fix.css?v=20260911-4">
   <link rel="stylesheet" href="report-weekly.css?v=20260911-1">
   <link rel="stylesheet" href="report-print-exact.css?v=20260911-1">
   <link rel="stylesheet" href="manual-print-date.css?v=20260911-2">
@@ -41,16 +41,23 @@
     </nav>
 
     <section id="overviewView" class="view-panel">
-      <div class="toolbar card"><label><span>الفصل</span><select id="overviewClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label></div>
+      <section class="card section-control-card">
+        <div class="section-head"><div><h2>تحليل جميع المواد</h2><p class="muted">يجمع القراءة والرياضيات والعلوم من النتائج الحقيقية، ويمكن طباعته مستقلًا.</p></div></div>
+        <div class="toolbar">
+          <label><span>الفصل</span><select id="overviewClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
+          <button id="printOverviewAnalysisBtn" class="btn primary" type="button">طباعة تحليل جميع المواد</button>
+        </div>
+      </section>
       <div id="overviewSummary"></div><div id="overviewStudents"></div>
     </section>
 
     <section id="subjectView" class="view-panel" hidden>
-      <section class="card subject-report-controls">
+      <section class="card section-control-card">
         <div class="section-head"><div><h2>تحليل مادة منفصلة</h2><p class="muted">اختر القراءة أو الرياضيات أو العلوم، ثم حدد الاختبارات الداخلة في التحليل والفصل. يعرض هذا القسم الطلاب والمؤشرات والأسئلة ونقاط الضعف.</p></div></div>
         <div class="toolbar">
           <label><span>المادة</span><select id="subjectSelect"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
           <label><span>الفصل</span><select id="subjectClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
+          <button id="printSubjectAnalysisBtn" class="btn primary" type="button">طباعة تحليل المادة</button>
         </div>
       </section>
       <div id="subjectSummary"></div>
@@ -74,7 +81,7 @@
     </section>
 
     <section id="reportView" class="view-panel" hidden>
-      <section class="card"><div class="section-head"><div><h2>التقرير العام للمواد</h2><p class="muted">تقرير مدرسي يجمع المواد الثلاث في تقرير واحد.</p></div></div></section>
+      <section class="card"><div class="section-head"><div><h2>التقرير العام للمواد</h2><p class="muted">اختر اختبارات القراءة والرياضيات والعلوم التي تريد جمعها في تقرير مدرسي واحد، ثم اطبع التقرير أو احفظه PDF.</p></div></div></section>
       <div class="toolbar card report-controls"><label class="wide"><span>الاختبارات</span><select id="reportTest"></select></label><label><span>الأسبوع / الفترة</span><input id="reportWeek" type="text" placeholder="مثال: الأسبوع الرابع"></label><button id="buildReportBtn" class="btn primary" type="button">إنشاء التقرير العام</button><button id="printReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button></div>
       <div id="reportPreview" class="report-preview-empty">اختر الاختبارات التي تريد إدخالها في التقرير، ثم اضغط «إنشاء التقرير العام».</div>
     </section>
@@ -90,7 +97,8 @@
 <script src="analysis.js?v=20260911-unified2"></script>
 <script src="analysis-all-subjects.js?v=20260911-5"></script>
 <script src="subject-report-separate.js?v=20260911-1"></script>
-<script src="analysis-section-router.js?v=20260911-1"></script>
+<script src="analysis-section-router.js?v=20260911-2"></script>
+<script src="analysis-print.js?v=20260911-1"></script>
 <script src="report-weekly.js?v=20260911-1"></script>
 <script src="report-test-options.js?v=20260911-8"></script>
 <script src="manual-print-date.js?v=20260911-3"></script>
