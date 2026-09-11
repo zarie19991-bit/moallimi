@@ -1,0 +1,15 @@
+name: QA load 140
+on:
+  push:
+    paths:
+      - 'qa/load-140.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node qa/load-140.mjs
