@@ -60,19 +60,15 @@ function syncPreview(){
 function validatePrint(e){
   const btn=e.target.closest?.('#printReportBtn,#printPaperBtn');
   if(!btn)return;
-  if(value())return;
-  e.preventDefault();
-  e.stopPropagation();
-  e.stopImmediatePropagation();
-  alert('اختر التاريخ من التقويم قبل الطباعة.');
-  $('manualPrintDate')?.focus();
-}
-
-function observePrintRoot(){
-  const root=$('printRoot');
-  if(!root)return;
-  const mo=new MutationObserver(()=>applyDate(root));
-  mo.observe(root,{childList:true,subtree:true});
+  if(!value()){
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    alert('اختر التاريخ من التقويم قبل الطباعة.');
+    $('manualPrintDate')?.focus();
+    return;
+  }
+  requestAnimationFrame(()=>applyDate($('printRoot')));
 }
 
 function init(){
@@ -83,10 +79,8 @@ function init(){
   input?.addEventListener('click',()=>{try{input.showPicker?.()}catch(_){}});
   document.addEventListener('click',validatePrint,true);
   window.addEventListener('beforeprint',()=>{
-    const root=$('printRoot');
-    if(root)applyDate(root);
+    applyDate($('printRoot'));
   });
-  observePrintRoot();
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
