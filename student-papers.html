@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0f514c">
-  <meta name="referrer" content="no-referrer">
   <title>أوراق اختبارات الطلاب | معلّمي</title>
   <link rel="stylesheet" href="analysis.css?v=20260911-unified">
   <link rel="stylesheet" href="student-papers.css?v=20260911">
@@ -20,66 +19,32 @@
     <a class="active" href="student-papers.html">أوراق اختبارات الطلاب</a>
   </nav>
 </header>
-
 <main class="shell no-print">
   <section class="hero">
-    <div>
-      <span class="eyebrow">نتائج حقيقية فقط</span>
-      <h1>أوراق اختبارات الطلاب</h1>
-      <p>اختر الفصل ثم المادة ثم المؤشر. تظهر أسماء الطلاب وحالة الاختبار، وتفتح ورقة الإجابة الحقيقية للطالب إذا اختبر.</p>
-    </div>
-    <div class="hero-actions">
-      <button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button>
-      <button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button>
-      <button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button>
-    </div>
+    <div><span class="eyebrow">نتائج حقيقية فقط</span><h1>أوراق اختبارات الطلاب</h1><p>اختر الفصل ثم المادة ثم الاختبار ثم المؤشر. تظهر ورقة الإجابة الحقيقية للطالب في الاختبار الذي حددته فقط.</p></div>
+    <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
   </section>
-
-  <section id="authPanel" class="card auth-card" hidden>
-    <h2>دخول المعلم</h2>
-    <form id="authForm" class="inline-form">
-      <input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم">
-      <button class="btn primary" type="submit">دخول</button>
-    </form>
-    <p id="authError" class="error"></p>
-  </section>
-
+  <section id="authPanel" class="card auth-card" hidden><h2>دخول المعلم</h2><form id="authForm" class="inline-form"><input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم"><button class="btn primary" type="submit">دخول</button></form><p id="authError" class="error"></p></section>
   <div id="loadState" class="state"></div>
   <section id="loadError" class="card error-card" hidden><h2>تعذر تحميل البيانات</h2><p id="loadErrorText"></p><button id="retryBtn" class="btn primary">إعادة المحاولة</button></section>
-
   <section id="papersDashboard" hidden class="view-panel">
     <div class="toolbar card">
       <label><span>الفصل</span><select id="classSelect"><option value="أ">أ</option><option value="ب">ب</option><option value="ج">ج</option><option value="د">د</option></select></label>
       <label><span>المادة</span><select id="paperSubject"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
-      <label class="wide"><span>المؤشر</span><select id="indicatorSelect"></select></label>
+      <label class="wide"><span>الاختبار</span><select id="paperTest"><option value="">اختر الاختبار</option></select></label>
+      <label class="wide"><span>المؤشر</span><select id="indicatorSelect"><option value="">اختر الاختبار أولًا</option></select></label>
     </div>
-    <section class="section-card">
-      <div class="section-head"><div><h2 id="studentsTitle">طلاب الفصل</h2><p class="muted">لا تظهر ورقة إلا إذا وُجدت محاولة حقيقية مسلّمة للطالب في المؤشر المحدد.</p></div></div>
-      <div id="studentsList"></div>
-    </section>
+    <section class="section-card"><div class="section-head"><div><h2 id="studentsTitle">طلاب الفصل</h2><p class="muted">إذا أدى الطالب الاختبار المحدد تظهر ورقته الحقيقية، وإذا لم يؤده تظهر حالته «لم يختبر».</p></div></div><div id="studentsList"></div></section>
     <section id="paperPanel" class="section-card" hidden></section>
   </section>
 </main>
-
 <div id="settingsModal" class="modal hidden no-print" role="dialog" aria-modal="true">
-  <div class="modal-box">
-    <div class="modal-head"><h2>بيانات المدرسة والشعارات</h2><button id="closeSettingsBtn" class="close" type="button">×</button></div>
-    <div class="settings-grid">
-      <label><span>اسم المدرسة</span><input id="schoolNameInput" type="text"></label>
-      <label><span>اسم المعلم</span><input id="teacherNameInput" type="text"></label>
-      <label><span>اسم مدير المدرسة</span><input id="principalNameInput" type="text"></label>
-      <label><span>شعار وزارة التعليم</span><input id="ministryLogoInput" type="file" accept="image/*"></label>
-      <label><span>شعار المدرسة</span><input id="schoolLogoInput" type="file" accept="image/*"></label>
-    </div>
-    <p class="muted">شعار الوزارة يظهر في المنتصف، وشعار المدرسة في أقصى اليسار. لا يوضع أي شعار لم ترفعه أنت.</p>
-    <div class="modal-actions"><button id="saveSettingsBtn" class="btn primary" type="button">حفظ</button></div>
-  </div>
+  <div class="modal-box"><div class="modal-head"><h2>بيانات المدرسة والشعارات</h2><button id="closeSettingsBtn" class="close" type="button">×</button></div><div class="settings-grid"><label><span>اسم المدرسة</span><input id="schoolNameInput" type="text"></label><label><span>اسم المعلم</span><input id="teacherNameInput" type="text"></label><label><span>اسم مدير المدرسة</span><input id="principalNameInput" type="text"></label><label><span>شعار وزارة التعليم</span><input id="ministryLogoInput" type="file" accept="image/*"></label><label><span>شعار المدرسة</span><input id="schoolLogoInput" type="file" accept="image/*"></label></div><p class="muted">شعار الوزارة يظهر في المنتصف، وشعار المدرسة في أقصى اليسار. لا يوضع أي شعار لم ترفعه أنت.</p><div class="modal-actions"><button id="saveSettingsBtn" class="btn primary" type="button">حفظ</button></div></div>
 </div>
-
 <section id="printRoot" class="print-root" aria-hidden="true"></section>
 <script src="teacher-access.js?v=20260909-final"></script>
 <script src="analysis-core.js?v=20260909-final"></script>
-<script src="student-papers.js?v=20260911-2"></script>
+<script src="student-papers.js?v=20260911-3"></script>
 <script src="manual-print-date.js?v=20260911-1"></script>
 </body>
 </html>
