@@ -1,0 +1,14 @@
+.official-analysis-sheet{position:relative!important;overflow:hidden!important}
+.official-analysis-sheet:after{content:'';position:absolute;left:0;right:0;bottom:0;height:10px;background:linear-gradient(90deg,#26b866 0%,#17a66f 58%,#075934 100%)}
+.official-analysis-sheet .sar-meta{position:relative;padding-bottom:18px!important;margin-bottom:24px!important}
+.official-analysis-sheet .sar-meta:after{content:'';position:absolute;left:0;right:0;bottom:0;border-bottom:1px dashed #d2d8d6}
+.official-analysis-sheet .sar-ring{background:conic-gradient(var(--ring) var(--p),#eceeed 0)!important}
+.official-analysis-sheet .sar-chart-card:first-of-type{min-height:174px!important}
+.official-analysis-sheet .sar-chart-card:nth-of-type(2){min-height:210px!important}
+.official-analysis-sheet .sar-chart-card>h2{font-size:15px!important}
+.official-analysis-sheet .sar-achievement>h2{font-size:15px!important}
+.official-analysis-sheet .sar-stat-list span{font-size:13.5px!important}
+.official-analysis-sheet .sar-meta span{font-size:12.5px!important}
+.official-analysis-sheet .sar-meta b{font-size:18px!important}
+.official-analysis-sheet .sar-signatures{margin-bottom:20px!important}
+@media print{.official-analysis-sheet:after{height:5mm!important}.official-analysis-sheet .sar-meta{padding-bottom:5mm!important;margin-bottom:6mm!important}.official-analysis-sheet .sar-chart-card:first-of-type{min-height:43mm!important}.official-analysis-sheet .sar-chart-card:nth-of-type(2){min-height:52mm!important}.official-analysis-sheet .sar-signatures{margin-bottom:8mm!important}}
