@@ -14,7 +14,8 @@
 
 /* Print-quality repair: keep Arabic glyphs at native scale and give school logos enough physical size. */
 .weekly-report .wr-school img{max-width:190px!important;max-height:108px!important;width:auto!important;height:auto!important;object-fit:contain!important;image-rendering:auto!important;filter:none!important;transform:none!important}
-.weekly-report .wr-school{min-width:0!important;overflow:visible!important}
+.weekly-report .wr-school{min-width:0!important;overflow:visible!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:4px!important}
+.weekly-report .wr-school:after{content:'مدرسة ابن سينا المتوسطة';display:block!important;color:#fff!important;font-family:Tahoma,Arial,sans-serif!important;font-size:12px!important;font-weight:900!important;line-height:1.25!important;text-align:center!important;white-space:nowrap!important;text-shadow:none!important;-webkit-text-stroke:0!important;letter-spacing:0!important}
 
 @media print{
   .official-analysis-sheet:after{height:5mm!important}
@@ -58,9 +59,10 @@
   }
   .weekly-report .wr-topbar .wr-admin{font-size:9pt!important;line-height:1.5!important;text-align:right!important}
   .weekly-report .wr-topbar .wr-ministry{display:grid!important;place-items:center!important}
-  .weekly-report .wr-topbar .wr-school{display:flex!important;justify-content:center!important;align-items:center!important;overflow:visible!important}
+  .weekly-report .wr-topbar .wr-school{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;gap:1.2mm!important;overflow:visible!important}
   .weekly-report .wr-topbar img{max-height:25mm!important;max-width:42mm!important;width:auto!important;height:auto!important;object-fit:contain!important;image-rendering:auto!important;filter:none!important;transform:none!important}
-  .weekly-report .wr-topbar .wr-school img{max-width:50mm!important;max-height:28mm!important}
+  .weekly-report .wr-topbar .wr-school img{max-width:50mm!important;max-height:25mm!important}
+  .weekly-report .wr-topbar .wr-school:after{content:'مدرسة ابن سينا المتوسطة'!important;font-family:Tahoma,Arial,sans-serif!important;font-size:9pt!important;font-weight:900!important;line-height:1.2!important;color:#fff!important;text-align:center!important;white-space:nowrap!important;text-shadow:none!important;-webkit-text-stroke:0!important;letter-spacing:0!important}
 
   .weekly-report .wr-title-pill{width:58%!important;margin:0 auto 1.5mm!important;padding:2.2mm 4mm!important;font-size:12pt!important;line-height:1.2!important}
   .weekly-report .wr-subtitle{font-size:9.5pt!important;line-height:1.35!important;margin:0 0 3mm!important}
