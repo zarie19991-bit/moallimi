@@ -5,6 +5,7 @@ if(!T?.api||T.__savedGradeAnalysisWrapped)return;
 T.__savedGradeAnalysisWrapped=true;
 const baseApi=T.api.bind(T);
 const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-analysis-grades';
+const CLEAR_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-results-admin';
 let cache=null,cacheAt=0,loading=null;
 
 async function savedGrades(){
@@ -23,7 +24,22 @@ async function savedGrades(){
  return loading;
 }
 
+async function clearResults(payload){
+ const key=T.getKey?.();
+ if(!key)throw new Error('أدخل مفتاح المعلم أولًا.');
+ const res=await fetch(CLEAR_ENDPOINT,{
+  method:'POST',
+  headers:{'content-type':'application/json','x-teacher-key':key},
+  body:JSON.stringify({action:'teacher_tests_bulk_clear',...(payload||{})}),
+  cache:'no-store'
+ });
+ const body=await res.json().catch(()=>({}));
+ if(!res.ok||body?.error)throw new Error(body?.error||'تعذر مسح النتائج.');
+ return body;
+}
+
 T.api=async function(action,payload){
+ if(action==='teacher_tests_bulk_clear')return await clearResults(payload);
  const result=await baseApi(action,payload);
  if(action!=='teacher_data'||!Array.isArray(result?.attempts))return result;
  try{
