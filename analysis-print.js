@@ -4,7 +4,7 @@ const T=window.NafesTeacher,A=window.NafesAnalytics,$=id=>document.getElementByI
 const N={reading:'القراءة',math:'الرياضيات',science:'العلوم'}, SUBJECTS=['reading','math','science'];
 const SETTINGS_KEY='nafes_school_report_settings_v1';
 let attempts=[],tests=[],loaded=false,loading=false;
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const ar=v=>num(v)===null?'—':new Intl.NumberFormat('ar-SA',{maximumFractionDigits:1}).format(Number(v));
 const pct=v=>num(v)===null?'—':`${ar(v)}٪`;
@@ -25,11 +25,8 @@ function savedMeasure(a,subject){
  return null;
 }
 function measure(a,subject){
- const saved=savedMeasure(a,subject);if(saved)return saved;
- if(A?.measure){const m=A.measure(a,{subject});if(m?.total)return{...m,source:'answer_snapshot'};}
- const qs=(Array.isArray(a?.questions)?a.questions:[]).filter(q=>normSubject(q.subject||q.subject_key)===subject&&typeof q.correct==='boolean');
- const correct=qs.filter(q=>q.correct===true).length;
- return{correct,total:qs.length,percent:qs.length?correct/qs.length*100:null,source:'answer_snapshot'};
+ const saved=savedMeasure(a,subject);
+ return saved||{correct:0,total:0,percent:null,source:'missing_saved_grade'};
 }
 function latestRecords(id,subject,cls=''){
  const map=new Map();
@@ -54,8 +51,7 @@ function sheet(subject,id,cls=''){
  const counts=Object.fromEntries(LEVELS.map(l=>[l.key,vals.filter(p=>level(p)===l.key).length]));const maxCount=Math.max(1,...Object.values(counts));
  const s=settings(),t=testMeta(id),term=t.term||t.academic_term||t.semester||'—',classLabel=cls||t.class_name||'كل الفصول';
  const rows=LEVELS.map(l=>`<tr><td><span class="sar-level-tag ${l.key}">${l.label}</span></td><td>${l.range}</td><td>${ar(counts[l.key])}</td></tr>`).join('');
- const allSaved=recs.every(x=>String(x.m.source).startsWith('saved_'));
- return `<article class="subject-analysis-sheet official-analysis-sheet" data-grade-source="${allSaved?'saved':'mixed'}">
+ return `<article class="subject-analysis-sheet official-analysis-sheet" data-grade-source="saved">
  <header class="sar-head"><div class="sar-admin"><b>الإدارة العامة للتعليم بمنطقة نجران</b><span>${esc(s.schoolName||'مدرسة /')}</span></div><div class="sar-ministry">${logo(s.ministryLogo)}</div><div class="sar-form-no">١</div></header>
  <h1>تحليل نتائج اختبار مادة [${esc(N[subject])}]</h1>
  <div class="sar-meta"><div><span>المرحلة الدراسية / الصف:</span><b>الثالث المتوسط${classLabel&&classLabel!=='كل الفصول'?` / ${esc(classLabel)}`:''}</b></div><div><span>السنة / الفصل الدراسي:</span><b>${esc(term)}</b></div><div><span>درجة القياس (الاختبار):</span><b>${ar(degree)}</b></div></div>
@@ -70,10 +66,10 @@ function addSelect(toolbar,id,label){if($(id))return;const w=document.createElem
 function addButton(toolbar,id,text){if($(id))return;const b=document.createElement('button');b.id=id;b.type='button';b.className='btn ghost';b.textContent=text;toolbar.insertBefore(b,toolbar.querySelector('button[id^="print"]')||null);}
 function addPreview(viewId,id){if($(id))return;const view=$(viewId),control=view?.querySelector('.section-control-card');if(!view||!control)return;const p=document.createElement('div');p.id=id;p.className='official-analysis-preview';control.insertAdjacentElement('afterend',p);const d=document.createElement('div');d.className='analysis-diagnostic-title';d.innerHTML='<h3>التحليل التشخيصي الإضافي</h3><p>بيانات إضافية للطلاب والمؤشرات والأسئلة، ولا تدخل في طباعة النموذج الرسمي.</p>';p.insertAdjacentElement('afterend',d);}
 function install(){const ov=$('overviewView')?.querySelector('.toolbar');if(ov){addSelect(ov,'analysisReadingTest','اختبار القراءة');addSelect(ov,'analysisMathTest','اختبار الرياضيات');addSelect(ov,'analysisScienceTest','اختبار العلوم');addButton(ov,'buildOverviewOfficialBtn','إنشاء التحليل الرسمي');addPreview('overviewView','overviewOfficialPreview');}const sv=$('subjectView')?.querySelector('.toolbar');if(sv){addSelect(sv,'analysisSubjectTest','الاختبار');addButton(sv,'buildSubjectOfficialBtn','إنشاء التحليل الرسمي');addPreview('subjectView','subjectOfficialPreview');}}
-function fill(id,subject){const el=$(id);if(!el)return;const rows=testsFor(subject),old=el.value;el.innerHTML=rows.length?rows.map(r=>`<option value="${esc(r.id)}">${esc(r.title)} (${ar(r.count)} نتيجة فعلية)</option>`).join(''):'<option value="">لا توجد نتائج مسلّمة</option>';if(rows.some(r=>r.id===old))el.value=old;}
+function fill(id,subject){const el=$(id);if(!el)return;const rows=testsFor(subject),old=el.value;el.innerHTML=rows.length?rows.map(r=>`<option value="${esc(r.id)}">${esc(r.title)} (${ar(r.count)} نتيجة فعلية)</option>`).join(''):'<option value="">لا توجد درجات محفوظة مسلّمة</option>';if(rows.some(r=>r.id===old))el.value=old;}
 function populate(){fill('analysisReadingTest','reading');fill('analysisMathTest','math');fill('analysisScienceTest','science');fill('analysisSubjectTest',$('subjectSelect')?.value||'reading');}
-function buildOverview(){const cls=$('overviewClass')?.value||'',ids={reading:$('analysisReadingTest')?.value,math:$('analysisMathTest')?.value,science:$('analysisScienceTest')?.value};const html=SUBJECTS.map(s=>ids[s]?sheet(s,ids[s],cls):'').filter(Boolean).join('');const host=$('overviewOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">لا توجد نتائج فعلية مسلّمة للاختبارات المختارة.</div>';return html;}
-function buildSubject(){const s=$('subjectSelect')?.value||'reading',id=$('analysisSubjectTest')?.value||'',cls=$('subjectClass')?.value||'',html=id?sheet(s,id,cls):'';const host=$('subjectOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">اختر اختبارًا لديه نتائج فعلية مسلّمة.</div>';return html;}
+function buildOverview(){const cls=$('overviewClass')?.value||'',ids={reading:$('analysisReadingTest')?.value,math:$('analysisMathTest')?.value,science:$('analysisScienceTest')?.value};const html=SUBJECTS.map(s=>ids[s]?sheet(s,ids[s],cls):'').filter(Boolean).join('');const host=$('overviewOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">لا توجد درجات محفوظة فعلية للاختبارات المختارة.</div>';return html;}
+function buildSubject(){const s=$('subjectSelect')?.value||'reading',id=$('analysisSubjectTest')?.value||'',cls=$('subjectClass')?.value||'',html=id?sheet(s,id,cls):'';const host=$('subjectOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">اختر اختبارًا لديه درجات محفوظة فعلية لهذه المادة.</div>';return html;}
 function printHtml(html){if(!html)return;const root=$('printRoot');root.innerHTML=html;root.setAttribute('aria-hidden','false');requestAnimationFrame(()=>window.print());}
 async function load(){if(loading||!T?.getKey?.())return;loading=true;try{let cursor=0,raw=[],ts=[];do{const d=await T.api('teacher_data',{cursor,limit:100});raw.push(...(d.attempts||[]));if(cursor===0)ts=d.tests||[];cursor=d.next_cursor}while(cursor!==null);attempts=raw.map(x=>A?.normalizeAttempt?A.normalizeAttempt(x):x);tests=ts;loaded=true;populate();}catch(e){console.error('official analysis load',e)}finally{loading=false;}}
 function clear(id){const h=$(id);if(h)h.innerHTML='';}
