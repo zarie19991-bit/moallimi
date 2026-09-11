@@ -1,3 +1,4 @@
+// trigger teacher-readback QA
 import https from 'node:https';import crypto from 'node:crypto';
 const u=new URL('https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam');
 const key=crypto.createHash('sha256').update('qa-full-platform-2026-09-11').digest('hex');
