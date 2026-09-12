@@ -1,0 +1,40 @@
+name: QA live acceptance temporary
+on:
+  push:
+    paths:
+      - '.github/workflows/qa-live-acceptance.yml'
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run live API acceptance
+        run: |
+          export QA_TEACHER_KEY="$(node -e "const c=require('crypto');process.stdout.write(c.createHash('sha256').update('qa-live-acceptance-20260912').digest('hex'))")"
+          node qa/acceptance-live.mjs
+      - name: Prepare browser state
+        run: |
+          node -e "const fs=require('fs');const p='/tmp/qa-state.json';const s=JSON.parse(fs.readFileSync(p));s.mainStudent={full_name:'طالب قبول متصفح مؤقت '+s.run,national_id_last3:'984',class_name:'أ'};fs.writeFileSync(p,JSON.stringify(s,null,2));"
+      - name: Install browser driver
+        run: npm install --no-save playwright-core@1.55.0
+      - name: Run live browser acceptance
+        run: |
+          export QA_TEACHER_KEY="$(node -e "const c=require('crypto');process.stdout.write(c.createHash('sha256').update('qa-live-acceptance-20260912').digest('hex'))")"
+          CHROME_PATH="$(which google-chrome || which chromium || which chromium-browser || true)"
+          test -n "$CHROME_PATH"
+          export CHROME_PATH
+          node qa/browser-acceptance.mjs
+      - name: Summarize acceptance
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const api=JSON.parse(fs.readFileSync('/tmp/qa-api-result.json'));
+          const browser=JSON.parse(fs.readFileSync('/tmp/qa-browser-result.json'));
+          const failures=[...(api.failures||[]),...(browser.failures||[])];
+          console.log('FINAL_ACCEPTANCE',JSON.stringify({api_passed:api.checks.filter(x=>x.ok).length,api_failed:api.failures.length,browser_passed:browser.checks.filter(x=>x.ok).length,browser_failed:browser.failures.length,load:api.state.loadMetrics,failures}));
+          if(failures.length)process.exit(1);
+          NODE
