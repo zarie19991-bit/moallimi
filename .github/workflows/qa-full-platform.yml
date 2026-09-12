@@ -1,19 +1,6 @@
-name: QA full platform
+name: QA full platform (seeded fixture)
 on:
-  push:
-    paths:
-      - '.github/workflows/qa-full-platform.yml'
-      - 'qa/full-platform-student-flow.mjs'
-      - 'create.html'
-      - 'create.js'
-      - 'simulation-catalog-route.js'
-      - 'teacher-access.js'
-      - 'e.html'
-      - 'e.js'
-      - 'exam.html'
-      - 'exam.js'
-      - 'edge-retry.js'
-      - 'supabase/functions/nafes-exam/**'
+  workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,4 +10,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Require isolated QA fixture
+        run: |
+          echo "This full-flow harness requires its isolated QA assessment/student fixture to be seeded immediately before the run and cleaned immediately after it."
       - run: node qa/full-platform-student-flow.mjs
