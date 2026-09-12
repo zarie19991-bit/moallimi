@@ -11,39 +11,83 @@ function selectedClass(sheet){
  const m=text.match(/[\/·]\s*(?:فصل\s*)?\(?([أبجد])\)?(?:\s|$)/);
  return m?m[1]:'';
 }
+function activeRoster(){return roster.filter(s=>s&&s.is_active!==false);}
 function rosterCount(cls=''){
- const active=roster.filter(s=>s&&s.is_active!==false);
+ const active=activeRoster();
  return cls?active.filter(s=>String(s.class_name||'').trim()===String(cls).trim()).length:active.length;
 }
-function studentStat(sheet){
+function baseStudentStat(sheet){
  return [...sheet.querySelectorAll('.sar-stat-list > div')].find(row=>{
    const label=String(row.querySelector('span')?.textContent||'').trim();
-   return label==='عدد الطلاب'||label==='الطلاب المختبرون';
- });
+   return ['عدد الطلاب','الطلاب المختبرون','إجمالي الطلاب'].includes(label)&&!row.dataset.participationKind;
+ })||sheet.querySelector('.sar-stat-list > div[data-participation-kind="total"]');
+}
+function ensureStatRow(list,kind,label,after){
+ let row=list.querySelector(`:scope > div[data-participation-kind="${kind}"]`);
+ if(!row){
+   row=document.createElement('div');
+   row.dataset.participationKind=kind;
+   row.innerHTML='<span></span><b></b>';
+   after.insertAdjacentElement('afterend',row);
+ }
+ row.querySelector('span').textContent=label;
+ return row;
 }
 function applySheet(sheet){
  if(!ready||!sheet)return;
- const row=studentStat(sheet),value=row?.querySelector('b');
- if(!row||!value)return;
- const tested=firstNumber(value.textContent);
- if(tested===null)return;
+ const list=sheet.querySelector('.sar-stat-list');
+ const totalRow=baseStudentStat(sheet);
+ const value=totalRow?.querySelector('b');
+ if(!list||!totalRow||!value)return;
+ let tested=Number(totalRow.dataset.testedCount);
+ if(!Number.isFinite(tested))tested=firstNumber(value.textContent);
+ if(tested===null||!Number.isFinite(tested))return;
  const total=rosterCount(selectedClass(sheet));
- if(!total||tested>total)return;
- const rate=total?tested/total*100:0;
- row.querySelector('span').textContent='الطلاب المختبرون';
- value.innerHTML=`${ar(tested)} من ${ar(total)} <small>(${ar(rate)}٪)</small>`;
- row.dataset.participation='true';
- row.setAttribute('aria-label',`الطلاب المختبرون ${tested} من أصل ${total}`);
+ if(!total||tested>total){console.warn('analysis participation count mismatch',{tested,total});return;}
+ const absent=Math.max(0,total-tested),rate=total?tested/total*100:0;
+ totalRow.dataset.participationKind='total';
+ totalRow.dataset.testedCount=String(tested);
+ totalRow.querySelector('span').textContent='إجمالي الطلاب';
+ value.textContent=ar(total);
+ const testedRow=ensureStatRow(list,'tested','اختبر',totalRow);
+ testedRow.querySelector('b').innerHTML=`${ar(tested)} <small>(${ar(rate)}٪)</small>`;
+ testedRow.setAttribute('aria-label',`اختبر ${tested} من أصل ${total}`);
+ const absentRow=ensureStatRow(list,'absent','لم يختبر',testedRow);
+ absentRow.querySelector('b').textContent=ar(absent);
+ absentRow.setAttribute('aria-label',`لم يختبر ${absent} من أصل ${total}`);
+ sheet.dataset.participation='true';
+}
+function ensureWeeklyItem(list,kind,label,after){
+ let item=list.querySelector(`:scope > li[data-participation-kind="${kind}"]`);
+ if(!item){
+   item=document.createElement('li');
+   item.dataset.participationKind=kind;
+   after.insertAdjacentElement('afterend',item);
+ }
+ item.dataset.participationLabel=label;
+ return item;
 }
 function applyWeekly(report){
  if(!ready||!report)return;
- const item=[...report.querySelectorAll('li')].find(li=>/عدد الطلاب الذين أدوا الاختبار|^اختبر\s/.test(String(li.textContent||'').trim()));
- if(!item)return;
- const tested=firstNumber(item.textContent),total=rosterCount('');
- if(tested===null||!total||tested>total)return;
- const rate=tested/total*100;
- item.textContent=`اختبر ${ar(tested)} طالبًا من أصل ${ar(total)} طالبًا (${ar(rate)}٪ مشاركة).`;
- item.dataset.participation='true';
+ const base=[...report.querySelectorAll('li')].find(li=>{
+   const text=String(li.textContent||'').trim();
+   return li.dataset.participationKind==='total'||/عدد الطلاب الذين أدوا الاختبار|^اختبر\s/.test(text);
+ });
+ if(!base)return;
+ const list=base.parentElement;
+ let tested=Number(base.dataset.testedCount);
+ if(!Number.isFinite(tested))tested=firstNumber(base.textContent);
+ const total=rosterCount('');
+ if(!list||tested===null||!Number.isFinite(tested)||!total||tested>total)return;
+ const absent=Math.max(0,total-tested),rate=tested/total*100;
+ base.dataset.participationKind='total';
+ base.dataset.testedCount=String(tested);
+ base.textContent=`إجمالي الطلاب: ${ar(total)} طالبًا.`;
+ const testedItem=ensureWeeklyItem(list,'tested','اختبر',base);
+ testedItem.textContent=`اختبر: ${ar(tested)} طالبًا (${ar(rate)}٪).`;
+ const absentItem=ensureWeeklyItem(list,'absent','لم يختبر',testedItem);
+ absentItem.textContent=`لم يختبر: ${ar(absent)} طالبًا.`;
+ report.dataset.participation='true';
 }
 function applyAll(){
  document.querySelectorAll('.subject-analysis-sheet').forEach(applySheet);
