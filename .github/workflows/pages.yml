@@ -25,7 +25,7 @@ jobs:
         run: |
           for file in *.js; do node --check "$file"; done
           node --check supabase/functions/nafes-exam/index.ts
-          node --test question-bank/scripts/test-reviewed-contract.mjs question-bank/scripts/test-assessments.mjs
+          node --test question-bank/scripts/test-reviewed-contract.mjs question-bank/scripts/test-assessments.mjs question-bank/scripts/test-analysis-contract.mjs
           node question-bank/scripts/verify-reviewed-release.mjs
       - name: Verify the published reviewed tests
         run: node question-bank/scripts/verify-reviewed-release.mjs --live
