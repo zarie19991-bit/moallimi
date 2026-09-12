@@ -66,5 +66,19 @@
 <section id="result" class="panel result-panel hidden"></section>
 </main>
 <script src="nafes-reading.js?v=20260909-final"></script><script src="nafes-math.js?v=20260909-final"></script><script src="nafes-science.js?v=20260909-final"></script><script src="question-media.js?v=20260909-final"></script>
+<script src="edge-retry.js?v=20260912-exam1"></script>
 <script src="exam.js?v=20260909-final"></script>
+<script>
+(function(){
+  const target=document.body;
+  const fix=()=>{
+    const el=document.getElementById('saveState');
+    if(el&&el.textContent==='تعذر الحفظ — سيعاد تلقائيًا'){
+      el.textContent='تعذر الحفظ بعد عدة محاولات — ستتم محاولة الحفظ مع إجابتك التالية وعند التسليم.';
+    }
+  };
+  new MutationObserver(fix).observe(target,{subtree:true,childList:true,characterData:true});
+  fix();
+})();
+</script>
 </body></html>
