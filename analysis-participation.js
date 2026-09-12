@@ -35,7 +35,20 @@ function applySheet(sheet){
  row.dataset.participation='true';
  row.setAttribute('aria-label',`الطلاب المختبرون ${tested} من أصل ${total}`);
 }
-function applyAll(){document.querySelectorAll('.subject-analysis-sheet').forEach(applySheet);}
+function applyWeekly(report){
+ if(!ready||!report)return;
+ const item=[...report.querySelectorAll('li')].find(li=>/عدد الطلاب الذين أدوا الاختبار|^اختبر\s/.test(String(li.textContent||'').trim()));
+ if(!item)return;
+ const tested=firstNumber(item.textContent),total=rosterCount('');
+ if(tested===null||!total||tested>total)return;
+ const rate=tested/total*100;
+ item.textContent=`اختبر ${ar(tested)} طالبًا من أصل ${ar(total)} طالبًا (${ar(rate)}٪ مشاركة).`;
+ item.dataset.participation='true';
+}
+function applyAll(){
+ document.querySelectorAll('.subject-analysis-sheet').forEach(applySheet);
+ document.querySelectorAll('.weekly-report.report-sheet').forEach(applyWeekly);
+}
 async function loadRoster(force=false){
  if(loading||(!force&&ready))return;
  if(!T?.getKey?.())return;
@@ -53,7 +66,10 @@ let queued=false;
 function queueApply(){if(queued)return;queued=true;queueMicrotask(()=>{queued=false;applyAll();});}
 const observer=new MutationObserver(mutations=>{
  if(!ready)return;
- if(mutations.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.subject-analysis-sheet')||n.querySelector?.('.subject-analysis-sheet')))))queueApply();
+ const relevant=mutations.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(
+   n.matches?.('.subject-analysis-sheet,.weekly-report.report-sheet')||n.querySelector?.('.subject-analysis-sheet,.weekly-report.report-sheet')
+ )));
+ if(relevant)queueApply();
 });
 function init(){
  observer.observe(document.body,{childList:true,subtree:true});
