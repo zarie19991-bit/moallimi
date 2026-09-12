@@ -1,13 +1,6 @@
-name: QA load 140
+name: QA load 140 (seeded fixture)
 on:
-  push:
-    paths:
-      - '.github/workflows/qa-load-140.yml'
-      - 'qa/load-140.mjs'
-      - 'edge-retry.js'
-      - 'e.html'
-      - 'e.js'
-      - 'supabase/functions/nafes-exam/**'
+  workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,4 +10,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Require isolated QA fixture
+        run: |
+          echo "This load harness requires the isolated QALOAD22 fixture to be seeded immediately before the run and cleaned immediately after it."
       - run: node qa/load-140.mjs
