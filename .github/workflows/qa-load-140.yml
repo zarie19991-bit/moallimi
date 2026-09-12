@@ -2,7 +2,12 @@ name: QA load 140
 on:
   push:
     paths:
+      - '.github/workflows/qa-load-140.yml'
       - 'qa/load-140.mjs'
+      - 'edge-retry.js'
+      - 'e.html'
+      - 'e.js'
+      - 'supabase/functions/nafes-exam/**'
 jobs:
   test:
     runs-on: ubuntu-latest
