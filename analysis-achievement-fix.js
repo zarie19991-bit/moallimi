@@ -48,6 +48,8 @@ T.api=async function(action,payload){
    const g=grades.get(`${a.source}:${a.id}`);
    if(!g)return a;
    return {...a,
+    student_name:g.student_name||a.student_name,
+    class_name:g.class_name||a.class_name,
     score:g.score??a.score,
     total:g.total??a.total,
     percent:g.percent??a.percent,
