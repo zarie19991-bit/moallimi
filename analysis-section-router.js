@@ -17,12 +17,21 @@ function show(view){
   if(view==='subjectReport')setTimeout(()=>$('reportSubjectSelect')?.dispatchEvent(new Event('change',{bubbles:true})),0);
 }
 
+function loadParticipation(){
+  if(document.querySelector('script[data-analysis-participation]'))return;
+  const script=document.createElement('script');
+  script.src='analysis-participation.js?v=20260912-1';
+  script.dataset.analysisParticipation='true';
+  document.head.appendChild(script);
+}
+
 function install(){
   document.querySelectorAll('.main-tab').forEach(b=>{
     // Replace the legacy three-tab onclick handler so there is one router only.
     b.onclick=e=>{e.preventDefault();show(b.dataset.view);};
   });
   show(document.querySelector('.main-tab.active')?.dataset.view||'overview');
+  loadParticipation();
 
   // Legacy data loaders may try to restore the old three-tab state after an async refresh.
   // Keep the user's selected section authoritative.
