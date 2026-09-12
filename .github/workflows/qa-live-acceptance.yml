@@ -14,13 +14,13 @@ jobs:
           node-version: '24'
       - name: Run live API acceptance v2
         env:
-          QA_TEACHER_KEY: qa-v2-20260912
+          QA_TEACHER_KEY: eb6694221458df1d0b9ea98040474100f1ed61d5c70bee3ffbc532226505dd89
         run: node qa/acceptance-v2.mjs
       - name: Install browser driver
         run: npm install --no-save playwright-core@1.55.0
       - name: Run live browser acceptance v2
         env:
-          QA_TEACHER_KEY: qa-v2-20260912
+          QA_TEACHER_KEY: eb6694221458df1d0b9ea98040474100f1ed61d5c70bee3ffbc532226505dd89
         run: |
           CHROME_PATH="$(which google-chrome || which chromium || which chromium-browser || true)"
           test -n "$CHROME_PATH"
