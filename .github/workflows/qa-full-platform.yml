@@ -2,7 +2,18 @@ name: QA full platform
 on:
   push:
     paths:
+      - '.github/workflows/qa-full-platform.yml'
       - 'qa/full-platform-student-flow.mjs'
+      - 'create.html'
+      - 'create.js'
+      - 'simulation-catalog-route.js'
+      - 'teacher-access.js'
+      - 'e.html'
+      - 'e.js'
+      - 'exam.html'
+      - 'exam.js'
+      - 'edge-retry.js'
+      - 'supabase/functions/nafes-exam/**'
 jobs:
   test:
     runs-on: ubuntu-latest
