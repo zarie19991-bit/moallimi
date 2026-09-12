@@ -31,10 +31,12 @@ async function requireTeacher(req: Request) {
   return data;
 }
 
-async function allRows(table: string, columns: string) {
+async function allRows(table: string, columns: string, submittedOnly = true) {
   const rows: Record<string, unknown>[] = [];
   for (let start = 0;; start += 500) {
-    const { data, error } = await db.from(table).select(columns).not("submitted_at", "is", null).order("submitted_at", { ascending: true }).range(start, start + 499);
+    let query = db.from(table).select(columns).order(submittedOnly ? "submitted_at" : "created_at", { ascending: true }).range(start, start + 499);
+    if (submittedOnly) query = query.not("submitted_at", "is", null);
+    const { data, error } = await query;
     if (error) throw error;
     rows.push(...(data || []));
     if (!data || data.length < 500) break;
@@ -47,15 +49,24 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   try {
     await requireTeacher(req);
-    const [assessment, simulation, exam] = await Promise.all([
+    const [assessment, simulation, exam, students] = await Promise.all([
       allRows("nafes_assessment_attempts", "id,assessment_id,student_id,student_key,score,total,percent,section_scores,submitted_at"),
       allRows("nafes_simulation_attempts", "id,simulation_key,student_id,student_key,score,total,percent,section_scores,submitted_at"),
       allRows("nafes_exam_attempts", "id,subject_key,outcome_code,indicator_index,model_no,student_id,student_key,score,percent,rendered_questions,submitted_at"),
+      allRows("nafes_students", "id,full_name,class_name,created_at", false),
     ]);
+    const studentMap = new Map((students as any[]).map((s) => [String(s.id), s]));
+    const withStudent = (r: any) => {
+      const student = studentMap.get(String(r.student_id || ""));
+      return {
+        student_name: student?.full_name || null,
+        class_name: student?.class_name || null,
+      };
+    };
     const grades = [
-      ...assessment.map((r: any) => ({ source: "assessment", id: r.id, test_id: r.assessment_id, student_id: r.student_id, student_key: r.student_key, score: r.score, total: r.total, percent: r.percent, section_scores: Array.isArray(r.section_scores) ? r.section_scores : [], submitted_at: r.submitted_at })),
-      ...simulation.map((r: any) => ({ source: "simulation", id: r.id, test_id: `simulation:${r.simulation_key}`, student_id: r.student_id, student_key: r.student_key, score: r.score, total: r.total, percent: r.percent, section_scores: Array.isArray(r.section_scores) ? r.section_scores : [], submitted_at: r.submitted_at })),
-      ...exam.map((r: any) => ({ source: "exam", id: r.id, test_id: `exam:${r.subject_key}:${r.outcome_code}:i${r.indicator_index}:m${r.model_no}`, student_id: r.student_id, student_key: r.student_key, score: r.score, total: Array.isArray(r.rendered_questions) ? r.rendered_questions.length : 15, percent: r.percent, section_scores: [], submitted_at: r.submitted_at })),
+      ...assessment.map((r: any) => ({ source: "assessment", id: r.id, test_id: r.assessment_id, student_id: r.student_id, student_key: r.student_key, ...withStudent(r), score: r.score, total: r.total, percent: r.percent, section_scores: Array.isArray(r.section_scores) ? r.section_scores : [], submitted_at: r.submitted_at })),
+      ...simulation.map((r: any) => ({ source: "simulation", id: r.id, test_id: `simulation:${r.simulation_key}`, student_id: r.student_id, student_key: r.student_key, ...withStudent(r), score: r.score, total: r.total, percent: r.percent, section_scores: Array.isArray(r.section_scores) ? r.section_scores : [], submitted_at: r.submitted_at })),
+      ...exam.map((r: any) => ({ source: "exam", id: r.id, test_id: `exam:${r.subject_key}:${r.outcome_code}:i${r.indicator_index}:m${r.model_no}`, student_id: r.student_id, student_key: r.student_key, ...withStudent(r), score: r.score, total: Array.isArray(r.rendered_questions) ? r.rendered_questions.length : 15, percent: r.percent, section_scores: [], submitted_at: r.submitted_at })),
     ];
     return json({ ok: true, grades });
   } catch (error) {
