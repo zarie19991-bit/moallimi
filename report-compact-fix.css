@@ -1,0 +1,38 @@
+/* Compact two-page report patch. Keeps uploaded logos crisp and prevents page spill. */
+.wr-topbar{grid-template-columns:1.25fr .95fr .95fr!important;gap:18px!important}
+.wr-ministry,.wr-school{min-width:0!important}
+.wr-logo-card{width:190px!important;height:118px!important;background:#fff!important;border-radius:14px!important;padding:8px 10px!important;box-shadow:0 5px 14px rgba(0,0,0,.12)!important;overflow:hidden!important}
+.wr-logo-card img{display:block!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:contain!important;object-position:center!important;image-rendering:auto!important;filter:none!important;transform:none!important}
+.wr-follow-sheet .wr-student-table td{padding:8px 7px!important;line-height:1.35!important}
+.wr-follow-sheet .wr-student-name{font-size:11px!important}
+.wr-follow-sheet .wr-student-class{margin-top:2px!important}
+.wr-follow-sheet .wr-student-indicators{gap:3px!important}
+.wr-follow-sheet .wr-student-ind{padding:4px 5px!important}
+.wr-more-note{margin:8px 0 0;padding:7px 10px;background:#fff8e9;border:1px solid #ecd6a5;border-radius:9px;font-size:10.5px;color:#78591a;text-align:center}
+.wr-remedial{margin-top:12px;border:1px solid #d8e5e7;border-radius:13px;overflow:hidden;background:#fff}
+.wr-remedial h3{margin:0;background:#5f2495;color:#fff;text-align:center;padding:8px 10px;font-size:13px}
+.wr-remedial table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}
+.wr-remedial th{background:#f3eef8;color:#4f1f7b;padding:7px 6px;border-bottom:1px solid #dfd2eb;text-align:center}
+.wr-remedial td{padding:7px 6px;border-top:1px solid #edf1f2;border-left:1px solid #edf1f2;vertical-align:top;line-height:1.45}
+.wr-remedial th:nth-child(1),.wr-remedial td:nth-child(1){width:11%}
+.wr-remedial th:nth-child(2),.wr-remedial td:nth-child(2){width:27%}
+.wr-remedial th:nth-child(3),.wr-remedial td:nth-child(3){width:14%}
+.wr-remedial th:nth-child(4),.wr-remedial td:nth-child(4){width:27%}
+.wr-remedial th:nth-child(5),.wr-remedial td:nth-child(5){width:21%}
+@media print{
+  .weekly-report.report-sheet{height:297mm!important;min-height:297mm!important;max-height:297mm!important;overflow:hidden!important}
+  .wr-topbar{grid-template-columns:1.25fr .9fr .9fr!important;gap:4mm!important}
+  .wr-logo-card{width:38mm!important;height:24mm!important;padding:1.2mm 1.5mm!important;border-radius:2.5mm!important;box-shadow:none!important}
+  .wr-logo-card img{width:100%!important;height:100%!important;object-fit:contain!important}
+  .wr-follow-sheet .wr-student-table th{padding:1.3mm .8mm!important;font-size:6.5pt!important}
+  .wr-follow-sheet .wr-student-table td{padding:1.2mm .9mm!important;font-size:6.2pt!important;line-height:1.25!important}
+  .wr-follow-sheet .wr-student-name{font-size:6.8pt!important;line-height:1.25!important}
+  .wr-follow-sheet .wr-student-class{font-size:5.5pt!important;margin-top:.3mm!important}
+  .wr-follow-sheet .wr-student-ind{padding:.6mm .7mm!important;gap:.5mm!important}
+  .wr-more-note{font-size:6pt!important;margin:1.2mm 0 0!important;padding:1mm!important}
+  .wr-remedial{margin-top:2mm!important;border-radius:2mm!important;break-inside:avoid!important}
+  .wr-remedial h3{padding:1.3mm 2mm!important;font-size:7.8pt!important}
+  .wr-remedial table{font-size:5.8pt!important;line-height:1.25!important}
+  .wr-remedial th,.wr-remedial td{padding:1mm .8mm!important}
+  .wr-follow-sheet .wr-signatures{margin-top:2.2mm!important}
+}
