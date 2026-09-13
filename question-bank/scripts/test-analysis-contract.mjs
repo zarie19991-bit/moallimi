@@ -29,9 +29,10 @@ assert.match(signature, /\.sar-signatures span::before/);
 assert.match(signature, /\.sar-signatures span::after/);
 
 assert.match(examHtml, /edge-retry\.js\?v=20260912-1/);
-assert.match(examHtml, /edge-retry-ui\.js\?v=20260913-advanced1/);
+assert.match(examHtml, /edge-retry-ui\.js\?v=20260913-advanced2/);
 assert.match(retry, /502,503,504/);
 assert.match(retry, /nafes:edge-retry/);
 assert.match(retryUi, /جارٍ إعادة الاتصال تلقائيًا/);
+assert.match(retryUi, /function setHidden\(el,value\)/);
 
 console.log('Analysis, print, saved-grade and transient-retry contracts passed.');
