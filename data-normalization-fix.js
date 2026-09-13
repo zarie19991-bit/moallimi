@@ -27,14 +27,28 @@ A.normalizeAttempt=function(raw){
 };
 A.__nafesNormalizationFix=true;
 
-/* Share result reads between the analysis modules on this page. */
+/* Share result reads between analysis modules and use a light roster endpoint. */
 const T=window.NafesTeacher;
 if(T?.api&&!T.__analysisSharedReadCache){
   const baseApi=T.api.bind(T);
+  const LITE_STUDENTS_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-students-lite';
   const readActions=new Set(['teacher_data','teacher_students_list']);
   const shared=new Map();
   const key=(action,body)=>`${action}|${JSON.stringify(body||{})}`;
   const clear=()=>shared.clear();
+  async function liteStudents(body={}){
+    const teacherKey=T.getKey?.();
+    if(!teacherKey||teacherKey==='__qa__')return baseApi('teacher_students_list',body);
+    const response=await fetch(LITE_STUDENTS_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-teacher-key':teacherKey},
+      body:JSON.stringify({include_archived:body?.include_archived===true}),
+      cache:'no-store'
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data?.error)throw new Error(data?.error||'تعذر تحميل قائمة الطلاب.');
+    return data;
+  }
   T.api=async function(action,body={}){
     if(!readActions.has(action)){
       const data=await baseApi(action,body);
@@ -43,7 +57,9 @@ if(T?.api&&!T.__analysisSharedReadCache){
     }
     const k=key(action,body);
     if(shared.has(k))return shared.get(k);
-    const pending=Promise.resolve(baseApi(action,body));
+    const pending=action==='teacher_students_list'
+      ? Promise.resolve(liteStudents(body))
+      : Promise.resolve(baseApi(action,body));
     shared.set(k,pending);
     try{return await pending;}
     catch(error){if(shared.get(k)===pending)shared.delete(k);throw error;}
