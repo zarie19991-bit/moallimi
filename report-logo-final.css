@@ -1,4 +1,4 @@
-/* Final report header/logo correction: keep school name in official admin text only. */
+/* Final report header/logo + print fidelity correction. */
 .wr-admin strong{
   display:block!important;
   margin-top:3px!important;
@@ -6,13 +6,34 @@
   font-weight:900!important;
 }
 
-/* White logo holders with a tight, even frame around both logos. */
 .wr-ministry,.wr-school{
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
   min-width:0!important;
 }
+
+/* Never render a second school-name caption under the school logo. */
+.wr-school{
+  font-size:0!important;
+  color:transparent!important;
+}
+.wr-school::before,.wr-school::after{
+  content:none!important;
+  display:none!important;
+}
+.wr-school > :not(.wr-logo-card){
+  display:none!important;
+}
+.wr-school .wr-school-name,
+.wr-school .school-name,
+.wr-school figcaption,
+.wr-school small,
+.wr-school strong{
+  display:none!important;
+}
+
+/* White logo holders with a tight, even frame around both logos. */
 .wr-logo-card{
   box-sizing:border-box!important;
   width:auto!important;
@@ -47,51 +68,316 @@
   background:#fff!important;
   border:1px dashed #aebbc0!important;
   color:#61767c!important;
+  font-size:11px!important;
   line-height:1.5!important;
 }
-/* Never render a separate school-name caption below the school logo. */
-.wr-school .wr-school-name,
-.wr-school .school-name,
-.wr-school figcaption,
-.wr-school small,
-.wr-school strong{
-  display:none!important;
-}
 
+@page{size:A4 portrait;margin:0}
+
+/* Print the same composition seen in the website preview.
+   Chrome scales the 1040px preview to A4 without rebuilding the layout. */
 @media print{
+  html,body,.weekly-report,.weekly-report *{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
+  html,body{
+    margin:0!important;
+    padding:0!important;
+    width:auto!important;
+    background:#fff!important;
+  }
+  .no-print,.modal,.weekly-report-settings{display:none!important}
+  .manual-print-date-line{display:none!important}
+  .print-root{
+    display:block!important;
+    width:210mm!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:visible!important;
+  }
+  .weekly-report.report-sheet{
+    box-sizing:border-box!important;
+    width:1040px!important;
+    max-width:1040px!important;
+    min-height:0!important;
+    height:auto!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:0 42px 42px!important;
+    background:#fff!important;
+    border:1px solid #dde6e8!important;
+    border-radius:20px!important;
+    box-shadow:none!important;
+    overflow:hidden!important;
+    position:relative!important;
+    zoom:.755!important;
+    break-after:page!important;
+    page-break-after:always!important;
+  }
+  .weekly-report.report-sheet:last-child{
+    break-after:auto!important;
+    page-break-after:auto!important;
+  }
+
+  /* Header: exactly the same geometry as preview. */
+  .wr-topbar{
+    height:164px!important;
+    margin:0 -42px!important;
+    display:grid!important;
+    grid-template-columns:1.28fr .86fr .86fr!important;
+    column-gap:28px!important;
+    row-gap:0!important;
+    align-items:center!important;
+    padding:20px 48px!important;
+    color:#fff!important;
+    border-top:9px solid transparent!important;
+    border-image:linear-gradient(90deg,#2f8fd0,#2eae76) 1!important;
+    background:linear-gradient(135deg,#103e49,#155965)!important;
+  }
+  .wr-admin{
+    display:grid!important;
+    gap:4px!important;
+    text-align:right!important;
+    line-height:1.45!important;
+  }
+  .wr-admin>b{font-size:15px!important}
+  .wr-admin span{font-size:12px!important;opacity:.95!important}
   .wr-admin strong{
     display:block!important;
-    margin-top:.7mm!important;
+    font-size:14px!important;
+    margin-top:3px!important;
     color:#fff!important;
-    font-size:8.5pt!important;
   }
+  .wr-ministry,.wr-school{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    min-width:0!important;
+  }
+  .wr-school{
+    font-size:0!important;
+    color:transparent!important;
+  }
+  .wr-school::before,.wr-school::after{
+    content:none!important;
+    display:none!important;
+  }
+  .wr-school > :not(.wr-logo-card){display:none!important}
   .wr-logo-card{
     box-sizing:border-box!important;
     width:auto!important;
     height:auto!important;
-    max-width:36mm!important;
-    max-height:21mm!important;
+    max-width:184px!important;
+    max-height:104px!important;
     background:#fff!important;
-    border:.3mm solid #d0d7db!important;
-    border-radius:2mm!important;
-    padding:1mm 1.3mm!important;
+    border:1px solid #d6dde1!important;
+    border-radius:10px!important;
+    padding:5px 7px!important;
     box-shadow:none!important;
     overflow:hidden!important;
     display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    line-height:0!important;
   }
   .wr-logo-card img{
+    display:block!important;
     width:auto!important;
     height:auto!important;
-    max-width:32.7mm!important;
-    max-height:18.3mm!important;
+    max-width:170px!important;
+    max-height:92px!important;
     object-fit:contain!important;
     object-position:center!important;
   }
+  .wr-school .wr-logo-card img{display:none!important}
   .wr-school .wr-logo-card::before{
-    width:32.7mm!important;
-    height:18.3mm!important;
+    width:170px!important;
+    height:92px!important;
     background-size:contain!important;
     background-position:center!important;
     background-repeat:no-repeat!important;
   }
+
+  /* Main report: use preview dimensions and typography. */
+  .wr-title-pill{
+    width:min(470px,72%)!important;
+    margin:0 auto 12px!important;
+    padding:11px 18px!important;
+    font-size:20px!important;
+    border-radius:0 0 12px 12px!important;
+    border-bottom:4px solid #16b7c0!important;
+  }
+  .wr-report-meta{
+    display:grid!important;
+    grid-template-columns:1.5fr 1.15fr .85fr .95fr!important;
+    gap:8px!important;
+    margin:0 0 15px!important;
+  }
+  .wr-report-meta>div{
+    padding:9px 11px!important;
+    border-radius:11px!important;
+    gap:8px!important;
+  }
+  .wr-report-meta span{font-size:11px!important}
+  .wr-report-meta b{font-size:12px!important}
+
+  .wr-kpis{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    gap:10px!important;
+    margin-bottom:16px!important;
+  }
+  .wr-kpis article{
+    min-height:92px!important;
+    padding:13px 15px!important;
+    border-radius:14px!important;
+    border-top-width:4px!important;
+  }
+  .wr-kpis span{font-size:12px!important}
+  .wr-kpis strong{font-size:25px!important}
+  .wr-kpis .wr-kpi-text{font-size:17px!important}
+  .wr-kpis small{font-size:10.5px!important}
+
+  .wr-section-title{margin-bottom:10px!important;gap:12px!important}
+  .wr-section-title>span{font-size:16px!important}
+  .wr-section-title small{font-size:10.5px!important}
+  .wr-focus{
+    padding:14px 15px!important;
+    border-radius:16px!important;
+    margin-bottom:16px!important;
+  }
+  .wr-indicator-grid{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:10px!important;
+  }
+  .wr-indicator-card{border-radius:13px!important}
+  .wr-indicator-card header{padding:9px 11px!important;gap:7px!important}
+  .wr-indicator-card header b{font-size:13px!important}
+  .wr-indicator-card header span{font-size:9.5px!important}
+  .wr-indicator-item{
+    padding:9px 10px!important;
+    grid-template-columns:1fr auto!important;
+    gap:8px!important;
+    font-size:11px!important;
+    line-height:1.55!important;
+  }
+  .wr-indicator-item strong{
+    font-size:10px!important;
+    padding:3px 6px!important;
+    border-radius:8px!important;
+  }
+  .wr-indicator-empty{padding:15px 10px!important;font-size:10.5px!important}
+
+  .wr-two{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:11px!important;
+    margin-bottom:16px!important;
+  }
+  .wr-callout{
+    min-height:130px!important;
+    padding:14px 15px!important;
+    border-radius:15px!important;
+  }
+  .wr-callout h3{margin:0 0 9px!important;font-size:14px!important}
+  .wr-clean-list{
+    padding-right:20px!important;
+    font-size:11.5px!important;
+    line-height:1.7!important;
+  }
+  .wr-clean-list li{margin:5px 0!important}
+
+  .wr-performance{
+    padding:14px 15px!important;
+    border-radius:16px!important;
+    margin-bottom:12px!important;
+  }
+  .wr-performance-grid{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    gap:9px!important;
+  }
+  .wr-performance-card{padding:12px!important;border-radius:12px!important}
+  .wr-performance-card>b{font-size:12px!important}
+  .wr-performance-card>strong{font-size:20px!important}
+  .wr-performance-card>span{font-size:10.5px!important}
+  .wr-source-note{
+    font-size:9.8px!important;
+    padding:8px 11px!important;
+    line-height:1.55!important;
+    margin:10px 0 0!important;
+  }
+  .wr-footer-curve{
+    height:30px!important;
+    margin:24px -42px -42px!important;
+    border-bottom-width:10px!important;
+  }
+  .wr-footer-curve:before{top:6px!important;border-top-width:3px!important}
+
+  /* Follow-up page uses the same table shown in preview. */
+  .wr-follow-meta{
+    padding:9px 12px!important;
+    margin-bottom:13px!important;
+    font-size:11px!important;
+    border-radius:11px!important;
+  }
+  .wr-follow-meta b{font-size:13px!important}
+  .wr-student-table-wrap{border-radius:14px!important;overflow:hidden!important}
+  .wr-student-table{
+    width:100%!important;
+    table-layout:fixed!important;
+    font-size:11px!important;
+    line-height:1.55!important;
+  }
+  .wr-student-table th{
+    padding:10px 8px!important;
+    font-size:11px!important;
+  }
+  .wr-student-table td{
+    padding:8px 7px!important;
+    font-size:11px!important;
+    line-height:1.35!important;
+  }
+  .wr-student-name{font-size:11px!important;line-height:1.55!important}
+  .wr-student-class{font-size:9.7px!important;margin-top:2px!important}
+  .wr-result-cell strong{font-size:13px!important;margin-top:4px!important}
+  .wr-weak-subject span{font-size:10px!important}
+  .wr-student-indicators{gap:3px!important}
+  .wr-student-ind{
+    grid-template-columns:auto 1fr auto!important;
+    gap:6px!important;
+    padding:4px 5px!important;
+    border-radius:8px!important;
+  }
+  .wr-ind-subject{font-size:9.5px!important}
+  .wr-ind-text{font-size:10px!important;line-height:1.45!important}
+  .wr-student-ind strong{font-size:9px!important}
+  .wr-more-note{
+    margin:8px 0 0!important;
+    padding:7px 10px!important;
+    font-size:10.5px!important;
+    border-radius:9px!important;
+  }
+
+  .wr-remedial{
+    margin-top:12px!important;
+    border-radius:13px!important;
+    overflow:hidden!important;
+    break-inside:avoid!important;
+  }
+  .wr-remedial h3{padding:8px 10px!important;font-size:13px!important}
+  .wr-remedial table{font-size:10px!important;line-height:1.45!important}
+  .wr-remedial th,.wr-remedial td{padding:7px 6px!important}
+
+  .wr-signatures{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:12px!important;
+    margin-top:20px!important;
+  }
+  .wr-signatures>div{padding:10px 12px!important;gap:7px!important}
+  .wr-signatures span{font-size:10px!important}
+  .wr-signatures b{font-size:12px!important}
 }
