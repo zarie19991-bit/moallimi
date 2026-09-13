@@ -4,6 +4,7 @@ const T=window.NafesTeacher;
 if(!T?.api||T.__savedGradeAnalysisWrapped)return;
 T.__savedGradeAnalysisWrapped=true;
 const baseApi=T.api.bind(T);
+const LITE_STUDENTS_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-students-lite';
 const CLEAR_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-results-admin';
 let rosterCache=null,rosterLoading=null;
 
@@ -11,9 +12,18 @@ async function roster(){
  if(rosterCache)return rosterCache;
  if(rosterLoading)return rosterLoading;
  rosterLoading=(async()=>{
-  const result=await baseApi('teacher_students_list',{include_archived:false});
+  const key=T.getKey?.();
+  if(!key||key==='__qa__')return new Map();
+  const res=await fetch(LITE_STUDENTS_ENDPOINT,{
+   method:'POST',
+   headers:{'content-type':'application/json','x-teacher-key':key},
+   body:JSON.stringify({include_archived:false}),
+   cache:'no-store'
+  });
+  const body=await res.json().catch(()=>({}));
+  if(!res.ok||body?.error)throw new Error(body?.error||'تعذر تحميل قائمة الطلاب.');
   const map=new Map();
-  for(const student of result?.students||[]){
+  for(const student of body?.students||[]){
    if(student?.id)map.set(String(student.id),student);
   }
   rosterCache=map;
@@ -41,12 +51,13 @@ T.api=async function(action,payload={}){
  if(action==='teacher_tests_bulk_clear')return await clearResults(payload);
  if(action!=='teacher_data')return await baseApi(action,payload);
 
- /* Load the small student roster in parallel with the result page. */
+ /* Load the small roster in parallel with the result page, without rescanning result tables. */
  const rosterPromise=roster();
  const result=await baseApi(action,payload);
  if(!Array.isArray(result?.attempts))return result;
  try{
   const students=await rosterPromise;
+  if(!students.size)return result;
   return {...result,attempts:result.attempts.map(a=>{
    const student=students.get(String(a?.student_id||''));
    if(!student)return a;
