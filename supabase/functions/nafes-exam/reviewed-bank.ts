@@ -1,5 +1,6 @@
 /** Runtime checks preserve an item review; they do not perform semantic review. */
 export const REVIEW_VERSION = 'question-review-v4';
+export const SCIENCE_REVIEW_VERSION = 'semantic-contract-v3';
 const normalize = (value: unknown) => String(value ?? '').normalize('NFC').trim().replace(/\s+/g, ' ');
 const levels = ['knowledge', 'application', 'reasoning'];
 export type ReviewedRow = {
@@ -21,8 +22,6 @@ export function reviewedImage(row: ReviewedRow | Record<string, any>) {
 }
 
 export function itemContentKey(row: ReviewedRow) {
-  // Candidate sets can contain the mathematical givens (for example, four
-  // triples of side lengths). Reordering them does not create a new task.
   const candidates = Array.isArray(row.options) ? row.options.map(normalize).sort() : [];
   return JSON.stringify([normalize(row.context_text), normalize(row.question_text), reviewedImage(row)?.url || '', candidates]);
 }
@@ -30,15 +29,30 @@ export function itemContentKey(row: ReviewedRow) {
 export function hasCurrentReview(row: ReviewedRow | Record<string, any>, expectedFocus = String(row.measurement_focus || '')) {
   const e = row.alignment_evidence;
   const options = Array.isArray(row.options) ? row.options.map(String) : [];
-  return row.alignment_verified === true && e?.validator === REVIEW_VERSION &&
-    row.alignment_profile === `${expectedFocus}:reviewed-v4` &&
-    e.indicator_text === row.indicator_text && e.measurement_focus === expectedFocus &&
-    e.source_task === row.question_text && e.source_context === (row.context_text || '') &&
-    JSON.stringify(e.source_options) === JSON.stringify(options) &&
-    e.source_answer === options[row.correct_index] && e.explanation === row.explanation &&
-    typeof e.target_aspect === 'string' && !!e.target_aspect.trim() &&
-    /^[a-f0-9]{64}$/.test(String(e.content_sha256 || '')) &&
-    ['indicator_alignment', 'single_answer', 'distractors', 'independence', 'grade9_level'].every(k => e.checks?.[k] === true);
+  if (row.alignment_verified !== true || !e) return false;
+
+  if (e.validator === REVIEW_VERSION) {
+    return row.alignment_profile === `${expectedFocus}:reviewed-v4` &&
+      e.indicator_text === row.indicator_text && e.measurement_focus === expectedFocus &&
+      e.source_task === row.question_text && e.source_context === (row.context_text || '') &&
+      JSON.stringify(e.source_options) === JSON.stringify(options) &&
+      e.source_answer === options[row.correct_index] && e.explanation === row.explanation &&
+      typeof e.target_aspect === 'string' && !!e.target_aspect.trim() &&
+      /^[a-f0-9]{64}$/.test(String(e.content_sha256 || '')) &&
+      ['indicator_alignment', 'single_answer', 'distractors', 'independence', 'grade9_level'].every(k => e.checks?.[k] === true);
+  }
+
+  if (e.validator === SCIENCE_REVIEW_VERSION) {
+    return String(row.alignment_profile || '').startsWith(`${expectedFocus}:`) &&
+      e.source_task === row.question_text &&
+      e.source_answer === options[row.correct_index] &&
+      e.source_explanation === row.explanation &&
+      e.cognitive_operation === row.cognitive_level &&
+      typeof e.generator_profile === 'string' && !!e.generator_profile.trim() &&
+      typeof e.base_task === 'string' && !!e.base_task.trim();
+  }
+
+  return false;
 }
 
 export function inspectReviewedBank(rows: ReviewedRow[], indicatorText: string, focus: string, subject: string) {
@@ -73,8 +87,6 @@ export function inspectReviewedBank(rows: ReviewedRow[], indicatorText: string, 
     keys.add(key);
   }
   if (rows.length === 15 && Math.max(...answerCounts) - Math.min(...answerCounts) > 1) issues.push('answer_distribution');
-  // A fixed 3/7/5 quota mislabeled narrow indicator tasks. Keep the actual
-  // reviewed levels and report their distribution without rewriting questions.
   return { ready: issues.length === 0, issues: [...new Set(issues)], approved_count: rows.length,
     required_count: 15, answer_distribution: answerCounts,
     cognitive_levels: levels.filter(x => levelCounts[x] > 0), cognitive_distribution: levelCounts,
