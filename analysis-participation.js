@@ -16,20 +16,6 @@ function rosterCount(cls=''){
  const active=activeRoster();
  return cls?active.filter(s=>String(s.class_name||'').trim()===String(cls).trim()).length:active.length;
 }
-function configureAnalysisScope(){
- for(const id of ['overviewClass','subjectClass','reportSubjectClass']){
-  const select=document.getElementById(id);if(!select)continue;
-  const all=[...select.options].find(o=>o.value==='');
-  if(all)all.textContent='كل الفصول (أ، ب، ج، د) — ١٤٠ طالبًا';
-  if(!select.dataset.scopeInitialized){select.value='';select.dataset.scopeInitialized='true';}
- }
- const overview=document.querySelector('#overviewView .section-control-card .muted');
- if(overview)overview.textContent='التحليل الأساسي يجمع جميع طلاب الثالث المتوسط في الفصول أ، ب، ج، د معًا (١٤٠ طالبًا). ويمكن اختيار فصل منفرد فقط عند الحاجة.';
- const subject=document.querySelector('#subjectView .section-control-card .muted');
- if(subject)subject.textContent='افتراضيًا تُحلل المادة لجميع الفصول الأربعة معًا. استخدم اختيار الفصل فقط إذا أردت تحليل فصل منفرد.';
- const subjectReport=document.querySelector('#subjectReportView .subject-report-controls .muted');
- if(subjectReport)subjectReport.textContent='التقرير الافتراضي لجميع طلاب الثالث المتوسط في الفصول أ، ب، ج، د. ويمكن تضييقه إلى فصل واحد عند الحاجة.';
-}
 function baseStudentStat(sheet){
  return [...sheet.querySelectorAll('.sar-stat-list > div')].find(row=>{
    const label=String(row.querySelector('span')?.textContent||'').trim();
@@ -49,9 +35,6 @@ function ensureStatRow(list,kind,label,after){
 }
 function applySheet(sheet){
  if(!ready||!sheet)return;
- const cls=selectedClass(sheet);
- const meta=sheet.querySelector('.sar-meta > div:first-child b');
- if(!cls&&meta)meta.textContent='الثالث المتوسط · كل الفصول (أ، ب، ج، د)';
  const list=sheet.querySelector('.sar-stat-list');
  const totalRow=baseStudentStat(sheet);
  const value=totalRow?.querySelector('b');
@@ -59,7 +42,7 @@ function applySheet(sheet){
  let tested=Number(totalRow.dataset.testedCount);
  if(!Number.isFinite(tested))tested=firstNumber(value.textContent);
  if(tested===null||!Number.isFinite(tested))return;
- const total=rosterCount(cls);
+ const total=rosterCount(selectedClass(sheet));
  if(!total||tested>total){console.warn('analysis participation count mismatch',{tested,total});return;}
  const absent=Math.max(0,total-tested),rate=total?tested/total*100:0;
  totalRow.dataset.participationKind='total';
@@ -107,7 +90,6 @@ function applyWeekly(report){
  report.dataset.participation='true';
 }
 function applyAll(){
- configureAnalysisScope();
  document.querySelectorAll('.subject-analysis-sheet').forEach(applySheet);
  document.querySelectorAll('.weekly-report.report-sheet').forEach(applyWeekly);
 }
@@ -134,10 +116,9 @@ const observer=new MutationObserver(mutations=>{
  if(relevant)queueApply();
 });
 function init(){
- configureAnalysisScope();
  observer.observe(document.body,{childList:true,subtree:true});
  addEventListener('beforeprint',applyAll);
- addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated){ready=false;configureAnalysisScope();loadRoster(true);}else{roster=[];ready=false;}});
+ addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated){ready=false;loadRoster(true);}else{roster=[];ready=false;}});
  loadRoster();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
