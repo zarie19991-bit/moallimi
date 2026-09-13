@@ -27,25 +27,398 @@
   box-shadow:none!important;
   transform:none!important;
 }
+
+/* Modern official analysis — the screen preview and print use the same composition. */
+.official-analysis-preview{
+  background:linear-gradient(180deg,#f5f9f9 0%,#eef5f5 100%)!important;
+  border:1px solid #d9e5e6!important;
+  border-radius:22px!important;
+  padding:24px!important;
+  margin-top:18px!important;
+}
+.official-analysis-sheet{
+  --oa-deep:#123f49;
+  --oa-deep2:#185b63;
+  --oa-green:#12a27b;
+  --oa-cyan:#18aeba;
+  --oa-purple:#65289b;
+  --oa-border:#d9e6e7;
+  --oa-soft:#f7fbfb;
+  box-sizing:border-box!important;
+  max-width:980px!important;
+  min-height:0!important;
+  margin:0 auto 28px!important;
+  padding:0 28px 26px!important;
+  background:#fff!important;
+  border:1px solid var(--oa-border)!important;
+  border-radius:22px!important;
+  box-shadow:0 18px 45px rgba(16,61,71,.10)!important;
+  overflow:hidden!important;
+  color:#20383e!important;
+  font-family:Tahoma,Arial,sans-serif!important;
+}
+.official-analysis-sheet .sar-head{
+  direction:ltr!important;
+  display:grid!important;
+  grid-template-columns:1fr 150px 1fr!important;
+  grid-template-areas:'form logo admin'!important;
+  align-items:center!important;
+  gap:22px!important;
+  min-height:112px!important;
+  margin:0 -28px 18px!important;
+  padding:18px 30px!important;
+  background:linear-gradient(135deg,var(--oa-deep),var(--oa-deep2))!important;
+  border-top:7px solid transparent!important;
+  border-image:linear-gradient(90deg,#2c8fd0,#2db278) 1!important;
+}
+.official-analysis-sheet .sar-admin{
+  grid-area:admin!important;
+  direction:rtl!important;
+  color:#fff!important;
+  text-align:right!important;
+  line-height:1.65!important;
+  padding:0!important;
+}
+.official-analysis-sheet .sar-admin b{font-size:15px!important;color:#fff!important}
+.official-analysis-sheet .sar-admin span{font-size:13px!important;color:#fff!important;opacity:.96!important;margin-top:3px!important}
+.official-analysis-sheet .sar-ministry{
+  grid-area:logo!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:78px!important;
+}
+.official-analysis-sheet .sar-ministry img,
+.official-analysis-sheet .sar-logo-fallback{
+  box-sizing:border-box!important;
+  max-width:138px!important;
+  max-height:82px!important;
+  background:#fff!important;
+  border:1px solid rgba(255,255,255,.76)!important;
+  border-radius:12px!important;
+  padding:7px 9px!important;
+  object-fit:contain!important;
+  box-shadow:none!important;
+}
+.official-analysis-sheet .sar-logo-fallback{height:78px!important;padding-top:28px!important}
+.official-analysis-sheet .sar-form-no{
+  grid-area:form!important;
+  justify-self:start!important;
+  margin:0!important;
+  min-width:96px!important;
+  height:auto!important;
+  padding:9px 14px!important;
+  background:#fff!important;
+  border:1px solid rgba(255,255,255,.8)!important;
+  border-radius:11px!important;
+  color:#24464e!important;
+  font-size:13px!important;
+  font-weight:900!important;
+  text-align:center!important;
+}
+.official-analysis-sheet>h1{
+  box-sizing:border-box!important;
+  width:min(620px,78%)!important;
+  max-width:none!important;
+  margin:-2px auto 16px!important;
+  padding:11px 22px!important;
+  background:linear-gradient(90deg,#56208d,#762daf)!important;
+  color:#fff!important;
+  border:0!important;
+  border-bottom:4px solid var(--oa-cyan)!important;
+  border-radius:0 0 13px 13px!important;
+  font-size:21px!important;
+  line-height:1.25!important;
+  font-weight:900!important;
+  text-align:center!important;
+}
+.official-analysis-sheet>h1::before,.official-analysis-sheet>h1::after{display:none!important;content:none!important}
+.official-analysis-sheet .sar-meta{
+  direction:ltr!important;
+  display:grid!important;
+  grid-template-columns:repeat(3,1fr)!important;
+  grid-template-areas:'degree term phase'!important;
+  gap:10px!important;
+  margin:0 0 15px!important;
+  padding:0!important;
+}
+.official-analysis-sheet .sar-meta::after{display:none!important;content:none!important}
+.official-analysis-sheet .sar-meta>div{
+  direction:rtl!important;
+  min-height:66px!important;
+  padding:14px 12px 10px!important;
+  background:var(--oa-soft)!important;
+  border:1px solid var(--oa-border)!important;
+  border-top:3px solid var(--oa-cyan)!important;
+  border-radius:12px!important;
+  box-shadow:none!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  text-align:center!important;
+}
+.official-analysis-sheet .sar-meta>div:nth-child(2){border-top-color:#d9952f!important}
+.official-analysis-sheet .sar-meta>div:nth-child(1){border-top-color:var(--oa-purple)!important}
+.official-analysis-sheet .sar-meta span{
+  position:static!important;
+  display:block!important;
+  background:transparent!important;
+  padding:0!important;
+  margin:0 0 5px!important;
+  color:#667d82!important;
+  font-size:11.5px!important;
+  font-weight:900!important;
+  white-space:normal!important;
+}
+.official-analysis-sheet .sar-meta b{font-size:16px!important;color:#173f48!important;font-weight:900!important}
+.official-analysis-sheet .sar-analysis-grid{
+  direction:ltr!important;
+  display:grid!important;
+  grid-template-columns:1.05fr 1fr!important;
+  grid-template-areas:'achievement stats'!important;
+  gap:12px!important;
+  margin:0 0 15px!important;
+  align-items:stretch!important;
+  break-inside:avoid!important;
+  page-break-inside:avoid!important;
+}
+.official-analysis-sheet .sar-stats,
+.official-analysis-sheet .sar-achievement{
+  box-sizing:border-box!important;
+  padding:13px!important;
+  background:#fff!important;
+  border:1px solid var(--oa-border)!important;
+  border-radius:14px!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+}
+.official-analysis-sheet .sar-stats{grid-area:stats!important;direction:rtl!important}
+.official-analysis-sheet .sar-achievement{grid-area:achievement!important;direction:rtl!important}
+.official-analysis-sheet .sar-stats>h2,
+.official-analysis-sheet .sar-achievement>h2{
+  display:block!important;
+  position:static!important;
+  margin:0 0 9px!important;
+  padding:0!important;
+  background:transparent!important;
+  color:var(--oa-green)!important;
+  font-size:14px!important;
+  font-weight:900!important;
+  text-align:center!important;
+}
+.official-analysis-sheet .sar-stat-list{display:grid!important;grid-template-columns:1fr!important;gap:6px!important}
+.official-analysis-sheet .sar-stat-list>div{
+  direction:ltr!important;
+  display:grid!important;
+  grid-template-columns:.85fr 1.15fr!important;
+  gap:6px!important;
+  padding:0!important;
+  margin:0!important;
+  background:transparent!important;
+  border:0!important;
+}
+.official-analysis-sheet .sar-stat-list span,
+.official-analysis-sheet .sar-stat-list b{
+  box-sizing:border-box!important;
+  min-height:31px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:6px 7px!important;
+  border:1px solid #d2dddd!important;
+  border-radius:7px!important;
+  background:#fff!important;
+  font-size:12px!important;
+  font-weight:900!important;
+  text-align:center!important;
+}
+.official-analysis-sheet .sar-stat-list span{color:var(--oa-green)!important;border-color:#9bd4c2!important}
+.official-analysis-sheet .sar-stat-list b{color:#283f45!important}
+.official-analysis-sheet .sar-achievement table{
+  width:100%!important;
+  border-collapse:separate!important;
+  border-spacing:5px 5px!important;
+  table-layout:fixed!important;
+  font-size:11.5px!important;
+}
+.official-analysis-sheet .sar-achievement th{
+  border:0!important;
+  background:transparent!important;
+  color:#63777c!important;
+  padding:2px 4px!important;
+  font-size:11px!important;
+  font-weight:900!important;
+}
+.official-analysis-sheet .sar-achievement td{
+  border:1px solid #d5dfe0!important;
+  background:#fff!important;
+  border-radius:6px!important;
+  padding:6px!important;
+  color:#2b4147!important;
+  text-align:center!important;
+}
+.official-analysis-sheet .sar-level-tag{padding:5px 6px!important;font-size:11.5px!important;border-radius:5px!important}
+.official-analysis-sheet .sar-chart-card{
+  box-sizing:border-box!important;
+  position:relative!important;
+  display:block!important;
+  min-height:0!important;
+  margin:0 0 14px!important;
+  padding:14px 15px 13px!important;
+  background:#fff!important;
+  border:1px solid var(--oa-border)!important;
+  border-radius:14px!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+  break-inside:avoid!important;
+  page-break-inside:avoid!important;
+}
+.official-analysis-sheet .sar-chart-card>h2{
+  position:static!important;
+  transform:none!important;
+  display:block!important;
+  margin:0 0 11px!important;
+  padding:0!important;
+  background:transparent!important;
+  color:var(--oa-green)!important;
+  font-size:13.5px!important;
+  font-weight:900!important;
+  text-align:center!important;
+  white-space:normal!important;
+  break-after:avoid!important;
+  page-break-after:avoid!important;
+}
+.official-analysis-sheet .sar-rings{
+  direction:rtl!important;
+  display:grid!important;
+  grid-template-columns:repeat(5,1fr)!important;
+  gap:12px!important;
+  align-items:center!important;
+  padding:0 8px!important;
+  overflow:visible!important;
+}
+.official-analysis-sheet .sar-ring{width:78px!important;height:78px!important;margin:auto!important}
+.official-analysis-sheet .sar-ring:after{inset:9px!important}
+.official-analysis-sheet .sar-ring b,.official-analysis-sheet .sar-ring strong{font-size:10px!important}
+.official-analysis-sheet .sar-bars{
+  direction:rtl!important;
+  height:132px!important;
+  display:grid!important;
+  grid-template-columns:repeat(5,1fr)!important;
+  gap:26px!important;
+  align-items:end!important;
+  padding:7px 28px 0!important;
+}
+.official-analysis-sheet .sar-bar-track{height:90px!important;background:#e9eded!important;border-radius:7px 7px 3px 3px!important}
+.official-analysis-sheet .sar-bar-item span{font-size:10px!important;margin-top:6px!important}
+.official-analysis-sheet .sar-bar-track i b{font-size:10px!important;top:-18px!important}
+.official-analysis-sheet .sar-signatures{
+  direction:ltr!important;
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:40px!important;
+  margin:16px 44px 0!important;
+  padding:0!important;
+  break-inside:avoid!important;
+  page-break-inside:avoid!important;
+}
+.official-analysis-sheet .sar-signatures>div{
+  direction:rtl!important;
+  min-height:46px!important;
+  padding:9px 12px!important;
+  background:#f8fbfb!important;
+  border:1px solid #e0e8e9!important;
+  border-radius:11px!important;
+  text-align:center!important;
+}
+.official-analysis-sheet .sar-signatures b{font-size:12px!important;color:#344d53!important}
+.official-analysis-sheet .sar-signatures span{display:block!important;margin-top:5px!important;font-size:11.5px!important;color:#233e45!important}
+.official-analysis-sheet::after{height:7px!important;background:linear-gradient(90deg,#2d8ecb,#2daf72)!important}
+.analysis-semester-control select{min-width:180px!important;font-weight:800!important}
+
+@media(max-width:900px){
+  .official-analysis-preview{padding:12px!important}
+  .official-analysis-sheet{max-width:100%!important;padding:0 15px 20px!important;border-radius:16px!important}
+  .official-analysis-sheet .sar-head{margin-inline:-15px!important;grid-template-columns:1fr 110px 1fr!important;padding:14px 16px!important;gap:10px!important}
+  .official-analysis-sheet .sar-analysis-grid{grid-template-columns:1fr!important;grid-template-areas:'stats' 'achievement'!important}
+  .official-analysis-sheet .sar-rings{grid-template-columns:repeat(5,minmax(68px,1fr))!important;overflow:auto!important}
+  .official-analysis-sheet .sar-signatures{margin-inline:0!important;gap:10px!important}
+}
+
 @media print{
-  .official-analysis-sheet .sar-signatures span,
-  .print-root .official-analysis-sheet .sar-signatures span{
-    position:static!important;
-    text-decoration:none!important;
-    text-decoration-line:none!important;
-    text-shadow:none!important;
-    -webkit-text-stroke:0!important;
-    background:none!important;
+  @page{size:A4 portrait;margin:0}
+  html,body,#printRoot,.print-root{margin:0!important;padding:0!important;background:#fff!important}
+  #printRoot,.print-root{display:block!important;width:210mm!important;overflow:visible!important}
+  .print-root .official-analysis-sheet,
+  #printRoot .official-analysis-sheet,
+  .official-analysis-sheet{
+    box-sizing:border-box!important;
+    width:210mm!important;
+    max-width:210mm!important;
+    min-width:210mm!important;
+    height:297mm!important;
+    min-height:297mm!important;
+    max-height:297mm!important;
+    margin:0!important;
+    padding:0 8mm 6mm!important;
     border:0!important;
+    border-radius:0!important;
     box-shadow:none!important;
-    outline:0!important;
+    overflow:hidden!important;
+    zoom:1!important;
+    transform:none!important;
+    break-inside:avoid-page!important;
+    page-break-inside:avoid!important;
+    break-after:page!important;
+    page-break-after:always!important;
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
   }
-  .official-analysis-sheet .sar-signatures span::before,
-  .official-analysis-sheet .sar-signatures span::after,
-  .print-root .official-analysis-sheet .sar-signatures span::before,
-  .print-root .official-analysis-sheet .sar-signatures span::after{
-    content:none!important;
-    display:none!important;
-    visibility:hidden!important;
+  .print-root .official-analysis-sheet:last-child,#printRoot .official-analysis-sheet:last-child{break-after:auto!important;page-break-after:auto!important}
+  .official-analysis-sheet .sar-head{
+    grid-template-columns:1fr 34mm 1fr!important;
+    min-height:27mm!important;
+    height:27mm!important;
+    margin:0 -8mm 3.2mm!important;
+    padding:3mm 8mm!important;
+    gap:4mm!important;
+    border-top-width:2mm!important;
   }
+  .official-analysis-sheet .sar-admin{line-height:1.45!important}
+  .official-analysis-sheet .sar-admin b{font-size:8.7pt!important}.official-analysis-sheet .sar-admin span{font-size:7.7pt!important}
+  .official-analysis-sheet .sar-ministry{min-height:20mm!important}
+  .official-analysis-sheet .sar-ministry img,.official-analysis-sheet .sar-logo-fallback{max-width:30mm!important;max-height:19mm!important;border-radius:2.5mm!important;padding:1.2mm 1.8mm!important}
+  .official-analysis-sheet .sar-form-no{min-width:21mm!important;padding:2mm 3mm!important;font-size:8pt!important;border-radius:2mm!important}
+  .official-analysis-sheet>h1{width:70%!important;margin:0 auto 3mm!important;padding:2.2mm 4mm!important;font-size:11.5pt!important;border-bottom-width:1mm!important;border-radius:0 0 3mm 3mm!important}
+  .official-analysis-sheet .sar-meta{gap:2mm!important;margin-bottom:3mm!important}
+  .official-analysis-sheet .sar-meta>div{min-height:16mm!important;padding:2.5mm 2mm 2mm!important;border-radius:2.5mm!important;border-top-width:.8mm!important}
+  .official-analysis-sheet .sar-meta span{font-size:7pt!important;margin-bottom:1mm!important}.official-analysis-sheet .sar-meta b{font-size:9.2pt!important}
+  .official-analysis-sheet .sar-analysis-grid{gap:2.5mm!important;margin-bottom:3mm!important;break-inside:avoid-page!important;page-break-inside:avoid!important}
+  .official-analysis-sheet .sar-stats,.official-analysis-sheet .sar-achievement{padding:2.6mm!important;border-radius:3mm!important}
+  .official-analysis-sheet .sar-stats>h2,.official-analysis-sheet .sar-achievement>h2{font-size:8.3pt!important;margin-bottom:1.6mm!important}
+  .official-analysis-sheet .sar-stat-list{gap:1.1mm!important}.official-analysis-sheet .sar-stat-list>div{gap:1.1mm!important}
+  .official-analysis-sheet .sar-stat-list span,.official-analysis-sheet .sar-stat-list b{min-height:6.4mm!important;padding:1mm!important;font-size:7.1pt!important;border-radius:1.5mm!important}
+  .official-analysis-sheet .sar-achievement table{border-spacing:1mm 1mm!important;font-size:6.8pt!important}
+  .official-analysis-sheet .sar-achievement th{font-size:6.5pt!important;padding:.5mm!important}.official-analysis-sheet .sar-achievement td{padding:1mm!important;border-radius:1.2mm!important}
+  .official-analysis-sheet .sar-level-tag{padding:1mm!important;font-size:6.8pt!important;border-radius:1mm!important}
+  .official-analysis-sheet .sar-chart-card{
+    margin:0 0 2.6mm!important;
+    padding:2.6mm 3mm 2.3mm!important;
+    border-radius:3mm!important;
+    break-inside:avoid-page!important;
+    page-break-inside:avoid!important;
+    orphans:3!important;
+    widows:3!important;
+  }
+  .official-analysis-sheet .sar-chart-card>h2{font-size:8pt!important;margin:0 0 2mm!important;break-after:avoid-page!important;page-break-after:avoid!important}
+  .official-analysis-sheet .sar-rings{gap:2mm!important;padding:0 2mm!important;break-inside:avoid!important}
+  .official-analysis-sheet .sar-ring{width:16mm!important;height:16mm!important}.official-analysis-sheet .sar-ring:after{inset:1.8mm!important}.official-analysis-sheet .sar-ring b,.official-analysis-sheet .sar-ring strong{font-size:5.8pt!important}
+  .official-analysis-sheet .sar-bars{height:27mm!important;gap:6mm!important;padding:1mm 7mm 0!important;break-inside:avoid!important}
+  .official-analysis-sheet .sar-bar-track{height:18mm!important;border-radius:1.5mm 1.5mm .7mm .7mm!important}.official-analysis-sheet .sar-bar-item span{font-size:5.8pt!important;margin-top:1mm!important}.official-analysis-sheet .sar-bar-track i b{font-size:5.8pt!important;top:-3.8mm!important}
+  .official-analysis-sheet .sar-signatures{gap:8mm!important;margin:2.5mm 10mm 0!important;break-inside:avoid-page!important;page-break-inside:avoid!important}
+  .official-analysis-sheet .sar-signatures>div{min-height:10mm!important;padding:1.6mm 2mm!important;border-radius:2mm!important}.official-analysis-sheet .sar-signatures b{font-size:6.8pt!important}.official-analysis-sheet .sar-signatures span{font-size:6.5pt!important;margin-top:1mm!important}
+  .official-analysis-sheet::after{height:1.6mm!important}
+  .official-analysis-sheet .sar-chart-card>h2,
+  .official-analysis-sheet .sar-chart-card .sar-rings,
+  .official-analysis-sheet .sar-chart-card .sar-bars{page-break-before:auto!important;page-break-after:auto!important}
 }
