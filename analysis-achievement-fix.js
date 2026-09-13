@@ -4,24 +4,23 @@ const T=window.NafesTeacher;
 if(!T?.api||T.__savedGradeAnalysisWrapped)return;
 T.__savedGradeAnalysisWrapped=true;
 const baseApi=T.api.bind(T);
-const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-analysis-grades';
 const CLEAR_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-results-admin';
-let cache=null,cacheAt=0,loading=null;
+let rosterCache=null,rosterLoading=null;
 
-async function savedGrades(){
- const key=T.getKey?.();
- if(!key)return new Map();
- if(cache&&Date.now()-cacheAt<30000)return cache;
- if(loading)return loading;
- loading=(async()=>{
-  const res=await fetch(ENDPOINT,{method:'POST',headers:{'content-type':'application/json','x-teacher-key':key},body:'{}'});
-  const body=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error(body?.error||'تعذر تحميل الدرجات المحفوظة.');
+async function roster(){
+ if(rosterCache)return rosterCache;
+ if(rosterLoading)return rosterLoading;
+ rosterLoading=(async()=>{
+  const result=await baseApi('teacher_students_list',{include_archived:false});
   const map=new Map();
-  for(const row of body.grades||[])map.set(`${row.source}:${row.id}`,row);
-  cache=map;cacheAt=Date.now();loading=null;return map;
- })().catch(err=>{loading=null;throw err});
- return loading;
+  for(const student of result?.students||[]){
+   if(student?.id)map.set(String(student.id),student);
+  }
+  rosterCache=map;
+  rosterLoading=null;
+  return map;
+ })().catch(error=>{rosterLoading=null;throw error});
+ return rosterLoading;
 }
 
 async function clearResults(payload){
@@ -38,29 +37,29 @@ async function clearResults(payload){
  return body;
 }
 
-T.api=async function(action,payload){
+T.api=async function(action,payload={}){
  if(action==='teacher_tests_bulk_clear')return await clearResults(payload);
+ if(action!=='teacher_data')return await baseApi(action,payload);
+
+ /* Load the small student roster in parallel with the result page. */
+ const rosterPromise=roster();
  const result=await baseApi(action,payload);
- if(action!=='teacher_data'||!Array.isArray(result?.attempts))return result;
+ if(!Array.isArray(result?.attempts))return result;
  try{
-  const grades=await savedGrades();
+  const students=await rosterPromise;
   return {...result,attempts:result.attempts.map(a=>{
-   const g=grades.get(`${a.source}:${a.id}`);
-   if(!g)return a;
+   const student=students.get(String(a?.student_id||''));
+   if(!student)return a;
    return {...a,
-    student_name:g.student_name||a.student_name,
-    class_name:g.class_name||a.class_name,
-    score:g.score??a.score,
-    total:g.total??a.total,
-    percent:g.percent??a.percent,
-    section_scores:Array.isArray(g.section_scores)?g.section_scores:(a.section_scores||[])
+    student_name:a.student_name||student.full_name||a.full_name,
+    class_name:a.class_name||student.class_name||''
    };
   })};
  }catch(err){
-  console.error('saved grade analysis enrichment failed',err);
+  console.error('analysis roster enrichment failed',err);
   return result;
  }
 };
 
-addEventListener('nafes:auth-changed',()=>{cache=null;cacheAt=0;loading=null;});
+addEventListener('nafes:auth-changed',()=>{rosterCache=null;rosterLoading=null;});
 })();
