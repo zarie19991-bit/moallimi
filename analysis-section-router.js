@@ -4,6 +4,7 @@ const $=id=>document.getElementById(id);
 const panels={overview:'overviewView',subject:'subjectView',subjectReport:'subjectReportView',report:'reportView'};
 let activeView='overview';
 let enforcing=false;
+const ALL_GRADE_LABEL='الثالث متوسط (أ - ب - ج - د)';
 
 function show(view){
   if(!panels[view])view='overview';
@@ -25,16 +26,55 @@ function loadParticipation(){
   document.head.appendChild(script);
 }
 
+function replaceAllClassesLabels(){
+  ['overviewClass','subjectClass','reportSubjectClass'].forEach(id=>{
+    const select=$(id); if(!select)return;
+    const all=[...select.options].find(o=>o.value==='');
+    if(all)all.textContent=ALL_GRADE_LABEL;
+  });
+}
+
+function semesterText(value){return value==='second'?'الفصل الدراسي الثاني':'الفصل الدراسي الأول';}
+function semesterForSheet(sheet){
+  if(sheet.closest('#subjectOfficialPreview')||sheet.closest('#subjectView'))return $('subjectSemester')?.value||'first';
+  return $('overviewSemester')?.value||'first';
+}
+function applySemesterToSheets(root=document){
+  root.querySelectorAll?.('.official-analysis-sheet').forEach(sheet=>{
+    const term=sheet.querySelector('.sar-meta > div:nth-child(2) b');
+    if(term)term.textContent=semesterText(semesterForSheet(sheet));
+    const grade=sheet.querySelector('.sar-meta > div:nth-child(1) b');
+    if(grade&&/كل الفصول/.test(grade.textContent||''))grade.textContent=ALL_GRADE_LABEL;
+  });
+}
+function addSemesterSelect(toolbar,id){
+  if(!toolbar||$(id))return;
+  const label=document.createElement('label');
+  label.className='analysis-semester-control';
+  label.innerHTML=`<span>الفصل الدراسي</span><select id="${id}"><option value="first">الفصل الدراسي الأول</option><option value="second">الفصل الدراسي الثاني</option></select>`;
+  const firstButton=toolbar.querySelector('button');
+  toolbar.insertBefore(label,firstButton||null);
+  label.querySelector('select').addEventListener('change',()=>{
+    applySemesterToSheets(document);
+    const preview=id==='overviewSemester'?$('overviewOfficialPreview'):$('subjectOfficialPreview');
+    if(preview)applySemesterToSheets(preview);
+  });
+}
+function installSemesterControls(){
+  addSemesterSelect(document.querySelector('#overviewView .toolbar'),'overviewSemester');
+  addSemesterSelect(document.querySelector('#subjectView .toolbar'),'subjectSemester');
+  replaceAllClassesLabels();
+  applySemesterToSheets(document);
+}
+
 function install(){
   document.querySelectorAll('.main-tab').forEach(b=>{
-    // Replace the legacy three-tab onclick handler so there is one router only.
     b.onclick=e=>{e.preventDefault();show(b.dataset.view);};
   });
   show(document.querySelector('.main-tab.active')?.dataset.view||'overview');
   loadParticipation();
+  installSemesterControls();
 
-  // Legacy data loaders may try to restore the old three-tab state after an async refresh.
-  // Keep the user's selected section authoritative.
   const nav=document.querySelector('.main-tabs');
   if(nav){
     const observer=new MutationObserver(()=>{
@@ -44,8 +84,22 @@ function install(){
     });
     observer.observe(nav,{subtree:true,attributes:true,attributeFilter:['class']});
   }
-  $('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>show(activeView),500));
-  addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>show(activeView),500)});
+
+  const sheetObserver=new MutationObserver(mutations=>{
+    let changed=false;
+    for(const m of mutations){
+      for(const n of m.addedNodes){
+        if(n.nodeType===1&&(n.matches?.('.official-analysis-sheet')||n.querySelector?.('.official-analysis-sheet'))){changed=true;break;}
+      }
+      if(changed)break;
+    }
+    if(changed)queueMicrotask(()=>applySemesterToSheets(document));
+  });
+  sheetObserver.observe(document.body,{childList:true,subtree:true});
+  addEventListener('beforeprint',()=>applySemesterToSheets(document));
+
+  $('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{show(activeView);installSemesterControls();},500));
+  addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>{show(activeView);installSemesterControls();},500)});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
