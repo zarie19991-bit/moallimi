@@ -51,12 +51,12 @@ function sheet(subject,id,cls=''){
  const counts=Object.fromEntries(LEVELS.map(l=>[l.key,vals.filter(p=>level(p)===l.key).length]));const maxCount=Math.max(1,...Object.values(counts));
  const s=settings(),t=testMeta(id),term=t.term||t.academic_term||t.semester||'—',classLabel=cls||t.class_name||'كل الفصول';
  const rows=LEVELS.map(l=>`<tr><td><span class="sar-level-tag ${l.key}">${l.label}</span></td><td>${l.range}</td><td>${ar(counts[l.key])}</td></tr>`).join('');
- return `<article class="subject-analysis-sheet official-analysis-sheet" data-grade-source="saved">
+ return `<article class="subject-analysis-sheet official-analysis-sheet" data-grade-source="saved" data-class-name="${esc(cls)}">
  <header class="sar-head"><div class="sar-admin"><b>الإدارة العامة للتعليم بمنطقة نجران</b><span>${esc(s.schoolName||'مدرسة /')}</span></div><div class="sar-ministry">${logo(s.ministryLogo)}</div><div class="sar-form-no">١</div></header>
  <h1>تحليل نتائج اختبار مادة [${esc(N[subject])}]</h1>
  <div class="sar-meta"><div><span>المرحلة الدراسية / الصف:</span><b>الثالث المتوسط${classLabel&&classLabel!=='كل الفصول'?` / ${esc(classLabel)}`:''}</b></div><div><span>السنة / الفصل الدراسي:</span><b>${esc(term)}</b></div><div><span>درجة القياس (الاختبار):</span><b>${ar(degree)}</b></div></div>
  <div class="sar-analysis-grid"><section class="sar-stats"><h2>الإحصائيات الأساسية</h2><div class="sar-stat-list">
- <div><span>عدد الطلاب</span><b>${ar(n)}</b></div><div><span>أعلى درجة</span><b>${ar(highest)}</b></div><div><span>أقل درجة</span><b>${ar(lowest)}</b></div><div><span>متوسط الدرجات</span><b>${ar(avg)}</b></div><div><span>نسبة التحصيل</span><b>${pct(achievement)}</b></div><div><span>مجموع الدرجات</span><b>${ar(sum)}</b></div>
+ <div data-participation-kind="total" data-tested-count="${n}"><span>إجمالي عدد الطلاب</span><b>—</b></div><div data-participation-kind="tested"><span>عدد الطلاب المختبرين</span><b>${ar(n)}</b></div><div><span>أعلى درجة</span><b>${ar(highest)}</b></div><div><span>أقل درجة</span><b>${ar(lowest)}</b></div><div><span>متوسط الدرجات</span><b>${ar(avg)}</b></div><div><span>نسبة التحصيل</span><b>${pct(achievement)}</b></div><div><span>مجموع الدرجات</span><b>${ar(sum)}</b></div>
  </div></section><section class="sar-achievement"><h2>الإحصائيات التحصيلية</h2><table><thead><tr><th>المستوى</th><th>النطاق</th><th>عدد الطلاب</th></tr></thead><tbody>${rows}</tbody></table></section></div>
  <section class="sar-chart-card"><h2>رسم بياني (نسب الطلاب لكل تقدير)</h2><div class="sar-rings">${LEVELS.map(l=>ring(l,counts[l.key],n)).join('')}</div></section>
  <section class="sar-chart-card"><h2>رسم بياني (عدد الطلاب لكل تقدير)</h2><div class="sar-bars">${LEVELS.map(l=>bar(l,counts[l.key],maxCount)).join('')}</div></section>

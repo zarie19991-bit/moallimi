@@ -8,6 +8,7 @@ const allScopeLabel='الثالث متوسط (أ - ب - ج - د)';
 function latinDigits(v){return String(v??'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));}
 function firstNumber(v){const m=latinDigits(v).replace(/,/g,'').match(/\d+(?:\.\d+)?/);return m?Number(m[0]):null;}
 function selectedClass(sheet){
+ if(sheet.hasAttribute('data-class-name'))return sheet.dataset.className;
  const text=String(sheet.querySelector('.sar-meta > div:first-child b')?.textContent||'').trim();
  const m=text.match(/[\/·]\s*(?:فصل\s*)?\(?([أبجد])\)?(?:\s|$)/);
  return m?m[1]:'';
@@ -32,7 +33,7 @@ function rosterCount(cls=''){
 function baseStudentStat(sheet){
  return [...sheet.querySelectorAll('.sar-stat-list > div')].find(row=>{
    const label=String(row.querySelector('span')?.textContent||'').trim();
-   return ['عدد الطلاب','الطلاب المختبرون','إجمالي الطلاب'].includes(label)&&!row.dataset.participationKind;
+   return ['عدد الطلاب','الطلاب المختبرون','إجمالي الطلاب','إجمالي عدد الطلاب'].includes(label)&&!row.dataset.participationKind;
  })||sheet.querySelector('.sar-stat-list > div[data-participation-kind="total"]');
 }
 function ensureStatRow(list,kind,label,after){
@@ -58,14 +59,14 @@ function applySheet(sheet){
  if(tested===null||!Number.isFinite(tested))return;
  const total=rosterCount(selectedClass(sheet));
  if(!total||tested>total){console.warn('analysis participation count mismatch',{tested,total});return;}
- const absent=Math.max(0,total-tested),rate=total?tested/total*100:0;
+ const absent=Math.max(0,total-tested);
  totalRow.dataset.participationKind='total';
  totalRow.dataset.testedCount=String(tested);
- totalRow.querySelector('span').textContent='إجمالي الطلاب';
+ totalRow.querySelector('span').textContent='إجمالي عدد الطلاب';
  value.textContent=ar(total);
- const testedRow=ensureStatRow(list,'tested','اختبر',totalRow);
- testedRow.querySelector('b').innerHTML=`${ar(tested)} <small>(${ar(rate)}٪)</small>`;
- testedRow.setAttribute('aria-label',`اختبر ${tested} من أصل ${total}`);
+ const testedRow=ensureStatRow(list,'tested','عدد الطلاب المختبرين',totalRow);
+ testedRow.querySelector('b').textContent=ar(tested);
+ testedRow.setAttribute('aria-label',`عدد الطلاب المختبرين ${tested} من أصل ${total}`);
  const absentRow=ensureStatRow(list,'absent','لم يختبر',testedRow);
  absentRow.querySelector('b').textContent=ar(absent);
  absentRow.setAttribute('aria-label',`لم يختبر ${absent} من أصل ${total}`);
