@@ -4,12 +4,24 @@ const T=window.NafesTeacher;
 let roster=[],ready=false,loading=false;
 const nf=new Intl.NumberFormat('ar-SA',{maximumFractionDigits:1});
 const ar=v=>nf.format(Number(v)||0);
+const allScopeLabel='الثالث متوسط (أ - ب - ج - د)';
 function latinDigits(v){return String(v??'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));}
 function firstNumber(v){const m=latinDigits(v).replace(/,/g,'').match(/\d+(?:\.\d+)?/);return m?Number(m[0]):null;}
 function selectedClass(sheet){
  const text=String(sheet.querySelector('.sar-meta > div:first-child b')?.textContent||'').trim();
  const m=text.match(/[\/·]\s*(?:فصل\s*)?\(?([أبجد])\)?(?:\s|$)/);
  return m?m[1]:'';
+}
+function applyScopeLabels(root=document){
+ for(const id of ['overviewClass','subjectClass','reportSubjectClass']){
+   const select=root.getElementById?root.getElementById(id):document.getElementById(id);
+   const option=select?.querySelector('option[value=""]');
+   if(option)option.textContent=allScopeLabel;
+ }
+ root.querySelectorAll?.('.sar-meta > div:first-child b').forEach(el=>{
+   const text=String(el.textContent||'').trim();
+   if(text.includes('كل الفصول'))el.textContent=allScopeLabel;
+ });
 }
 function activeRoster(){return roster.filter(s=>s&&s.is_active!==false);}
 function rosterCount(cls=''){
@@ -35,6 +47,7 @@ function ensureStatRow(list,kind,label,after){
 }
 function applySheet(sheet){
  if(!ready||!sheet)return;
+ applyScopeLabels(sheet);
  const list=sheet.querySelector('.sar-stat-list');
  const totalRow=baseStudentStat(sheet);
  const value=totalRow?.querySelector('b');
@@ -90,6 +103,7 @@ function applyWeekly(report){
  report.dataset.participation='true';
 }
 function applyAll(){
+ applyScopeLabels();
  document.querySelectorAll('.subject-analysis-sheet').forEach(applySheet);
  document.querySelectorAll('.weekly-report.report-sheet').forEach(applyWeekly);
 }
@@ -109,6 +123,7 @@ async function loadRoster(force=false){
 let queued=false;
 function queueApply(){if(queued)return;queued=true;queueMicrotask(()=>{queued=false;applyAll();});}
 const observer=new MutationObserver(mutations=>{
+ applyScopeLabels();
  if(!ready)return;
  const relevant=mutations.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(
    n.matches?.('.subject-analysis-sheet,.weekly-report.report-sheet')||n.querySelector?.('.subject-analysis-sheet,.weekly-report.report-sheet')
@@ -116,6 +131,7 @@ const observer=new MutationObserver(mutations=>{
  if(relevant)queueApply();
 });
 function init(){
+ applyScopeLabels();
  observer.observe(document.body,{childList:true,subtree:true});
  addEventListener('beforeprint',applyAll);
  addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated){ready=false;loadRoster(true);}else{roster=[];ready=false;}});
