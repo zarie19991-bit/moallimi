@@ -34,26 +34,29 @@ const fmt=iso=>new Intl.DateTimeFormat('ar-SA',{timeZone:'Asia/Riyadh',dateStyle
 function parseBody(init){try{return typeof init?.body==='string'?JSON.parse(init.body):null;}catch{return null;}}
 function availability(info){const s=info?.settings||{},now=Date.now(),opens=s.opens_at?new Date(s.opens_at).getTime():null,closes=s.closes_at?new Date(s.closes_at).getTime():null;if(opens&&Number.isFinite(opens)&&now<opens)return{state:'pending',opens,closes};if(closes&&Number.isFinite(closes)&&now>=closes)return{state:'closed',opens,closes};return{state:'open',opens,closes};}
 function ensureAvailabilityBox(){const intro=document.getElementById('intro');if(!intro)return null;let box=document.getElementById('availabilityState');if(!box){box=document.createElement('div');box.id='availabilityState';box.style.cssText='margin:14px 0;padding:14px 16px;border-radius:14px;font-weight:800;line-height:1.8;border:1px solid #cfe1dd;background:#f5faf8;color:#17324d';document.getElementById('sections')?.after(box);}return box;}
+function setHidden(el,value){if(el&&el.hidden!==value)el.hidden=value;}
+function setDisabled(el,value){if(el&&el.disabled!==value)el.disabled=value;}
 function applyAvailability(){
   if(!lastInfo)return;
   const a=availability(lastInfo),form=document.getElementById('identity'),btn=document.getElementById('startBtn'),msg=document.getElementById('message'),box=ensureAvailabilityBox();
   if(!form||!btn||!msg||!box)return;
   if(a.state==='pending'){
-    form.hidden=true;btn.disabled=true;form.dataset.scheduleBlocked='1';
+    if(form.dataset.scheduleBlocked!=='1')form.dataset.scheduleBlocked='1';
+    setHidden(form,true);setDisabled(btn,true);
     const text=`لم يبدأ الاختبار بعد. يفتح يوم ${fmt(lastInfo.settings.opens_at)}${a.closes?` ويغلق يوم ${fmt(lastInfo.settings.closes_at)}`:''}.`;
-    box.textContent=text;box.style.background='#fff8e8';box.style.borderColor='#efd69c';box.style.color='#77520b';msg.textContent=text;return;
+    if(box.textContent!==text)box.textContent=text;box.style.background='#fff8e8';box.style.borderColor='#efd69c';box.style.color='#77520b';if(msg.textContent!==text)msg.textContent=text;return;
   }
   if(a.state==='closed'){
-    form.hidden=true;btn.disabled=true;form.dataset.scheduleBlocked='1';
+    if(form.dataset.scheduleBlocked!=='1')form.dataset.scheduleBlocked='1';
+    setHidden(form,true);setDisabled(btn,true);
     const text=`هذا الاختبار مغلق منذ ${fmt(lastInfo.settings.closes_at)}.`;
-    box.textContent=text;box.style.background='#fff1f1';box.style.borderColor='#e8b7b7';box.style.color='#8b2525';msg.textContent=text;return;
+    if(box.textContent!==text)box.textContent=text;box.style.background='#fff1f1';box.style.borderColor='#e8b7b7';box.style.color='#8b2525';if(msg.textContent!==text)msg.textContent=text;return;
   }
-  if(form.dataset.scheduleBlocked==='1'){
-    delete form.dataset.scheduleBlocked;form.hidden=false;btn.disabled=false;
-    if(msg.textContent.includes('لم يبدأ الاختبار')||msg.textContent.includes('هذا الاختبار مغلق'))msg.textContent='';
-  }
+  if(form.dataset.scheduleBlocked==='1')delete form.dataset.scheduleBlocked;
+  setHidden(form,false);setDisabled(btn,false);
+  if(msg.textContent.includes('لم يبدأ الاختبار')||msg.textContent.includes('هذا الاختبار مغلق'))msg.textContent='';
   const end=lastInfo.settings?.closes_at?` · يغلق ${fmt(lastInfo.settings.closes_at)}`:'';
-  box.textContent=`الاختبار متاح الآن${end}`;box.style.background='#eef8f4';box.style.borderColor='#c6e2d7';box.style.color='#155d4f';
+  const text=`الاختبار متاح الآن${end}`;if(box.textContent!==text)box.textContent=text;box.style.background='#eef8f4';box.style.borderColor='#c6e2d7';box.style.color='#155d4f';
 }
 function captureResponse(action,data){
   if(!data||typeof data!=='object')return;
@@ -80,7 +83,7 @@ function renderCorrectAnswers(){
   result.appendChild(wrap);
 }
 function init(){
-  const form=document.getElementById('identity');if(form)new MutationObserver(()=>applyAvailability()).observe(form,{attributes:true,attributeFilter:['hidden']});
+  const form=document.getElementById('identity');if(form)new MutationObserver(()=>{if(lastInfo)applyAvailability();}).observe(form,{attributes:true,attributeFilter:['hidden']});
   const result=document.getElementById('result');if(result)new MutationObserver(()=>renderCorrectAnswers()).observe(result,{childList:true,subtree:false,attributes:true,attributeFilter:['hidden']});
   availabilityTimer=setInterval(applyAvailability,15000);setTimeout(applyAvailability,0);
 }
