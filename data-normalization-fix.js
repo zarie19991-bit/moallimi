@@ -27,7 +27,7 @@ A.normalizeAttempt=function(raw){
 };
 A.__nafesNormalizationFix=true;
 
-/* Share result reads between analysis modules and use a light roster endpoint. */
+/* Share result reads between analysis modules and use the cached light roster. */
 const T=window.NafesTeacher;
 if(T?.api&&!T.__analysisSharedReadCache){
   const baseApi=T.api.bind(T);
@@ -37,6 +37,7 @@ if(T?.api&&!T.__analysisSharedReadCache){
   const key=(action,body)=>`${action}|${JSON.stringify(body||{})}`;
   const clear=()=>shared.clear();
   async function liteStudents(body={}){
+    if(body?.include_archived!==true&&typeof T.getAnalysisRoster==='function')return await T.getAnalysisRoster();
     const teacherKey=T.getKey?.();
     if(!teacherKey||teacherKey==='__qa__')return baseApi('teacher_students_list',body);
     const response=await fetch(LITE_STUDENTS_ENDPOINT,{
