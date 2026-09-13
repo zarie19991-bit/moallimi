@@ -16,7 +16,8 @@ function applyScopeLabels(root=document){
  for(const id of ['overviewClass','subjectClass','reportSubjectClass']){
    const select=root.getElementById?root.getElementById(id):document.getElementById(id);
    const option=select?.querySelector('option[value=""]');
-   if(option)option.textContent=allScopeLabel;
+   // Assigning even the same text creates another childList mutation.
+   if(option&&option.textContent!==allScopeLabel)option.textContent=allScopeLabel;
  }
  root.querySelectorAll?.('.sar-meta > div:first-child b').forEach(el=>{
    const text=String(el.textContent||'').trim();

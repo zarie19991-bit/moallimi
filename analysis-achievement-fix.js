@@ -6,30 +6,43 @@ T.__savedGradeAnalysisWrapped=true;
 const baseApi=T.api.bind(T);
 const LITE_STUDENTS_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-students-lite';
 const CLEAR_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-results-admin';
-let rosterCache=null,rosterLoading=null;
+const ROSTER_TIMEOUT_MS=10000;
+let rosterCache=null,rosterLoading=null,rosterVersion=0,rosterError=null,retryAfter=0;
+function clearRoster(){rosterCache=null;rosterLoading=null;rosterError=null;retryAfter=0;rosterVersion++;}
 
 async function roster(){
  if(rosterCache)return rosterCache;
  if(rosterLoading)return rosterLoading;
+ if(rosterError&&Date.now()<retryAfter)throw rosterError;
+ const version=rosterVersion;
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),ROSTER_TIMEOUT_MS);
  rosterLoading=(async()=>{
+  try{
   const key=T.getKey?.();
   if(!key||key==='__qa__')return new Map();
   const res=await fetch(LITE_STUDENTS_ENDPOINT,{
    method:'POST',
    headers:{'content-type':'application/json','x-teacher-key':key},
    body:JSON.stringify({include_archived:false}),
-   cache:'no-store'
+   cache:'no-store',signal:controller.signal
   });
-  const body=await res.json().catch(()=>({}));
-  if(!res.ok||body?.error)throw new Error(body?.error||'تعذر تحميل قائمة الطلاب.');
+  const body=await res.json();
+  if(!res.ok||body?.error||!Array.isArray(body?.students))throw new Error(body?.error||'تعذر تحميل قائمة الطلاب.');
   const map=new Map();
   for(const student of body?.students||[]){
    if(student?.id)map.set(String(student.id),student);
   }
-  rosterCache=map;
-  rosterLoading=null;
+  if(version===rosterVersion){rosterCache=map;rosterError=null;retryAfter=0;}
   return map;
- })().catch(error=>{rosterLoading=null;throw error});
+  }catch(error){
+   if(version===rosterVersion){rosterError=error;retryAfter=Date.now()+10000;}
+   throw error;
+  }finally{
+   clearTimeout(timer);
+   if(version===rosterVersion)rosterLoading=null;
+  }
+ })();
  return rosterLoading;
 }
 T.getAnalysisRoster=async()=>({ok:true,students:[...(await roster()).values()]});
@@ -53,11 +66,14 @@ T.api=async function(action,payload={}){
  if(action!=='teacher_data')return await baseApi(action,payload);
 
  /* Load the small roster in parallel with the result page, without rescanning result tables. */
- const rosterPromise=roster();
+ // Handle failure immediately, even if the result request is still pending.
+ const rosterPromise=roster().then(students=>({students}),error=>({error}));
  const result=await baseApi(action,payload);
  if(!Array.isArray(result?.attempts))return result;
  try{
-  const students=await rosterPromise;
+  const rosterResult=await rosterPromise;
+  if(rosterResult.error)throw rosterResult.error;
+  const students=rosterResult.students;
   if(!students.size)return result;
   return {...result,attempts:result.attempts.map(a=>{
    const student=students.get(String(a?.student_id||''));
@@ -73,5 +89,8 @@ T.api=async function(action,payload={}){
  }
 };
 
-addEventListener('nafes:auth-changed',()=>{rosterCache=null;rosterLoading=null;});
+addEventListener('nafes:auth-changed',clearRoster);
+document.addEventListener('click',e=>{
+ if(e.target?.closest?.('#refreshBtn,#retryBtn'))clearRoster();
+},true);
 })();

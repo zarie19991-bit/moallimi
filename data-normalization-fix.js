@@ -1,7 +1,9 @@
 (()=>{
 'use strict';
-const A=window.NafesAnalytics;
-if(!A||typeof A.normalizeAttempt!=='function'||A.__nafesNormalizationFix)return;
+const core=window.NafesAnalytics;
+if(!core||typeof core.normalizeAttempt!=='function'||core.__nafesNormalizationFix)return;
+// The pure analytics API is frozen. Extend a new facade, preserving the core.
+const A={...core};
 const original=A.normalizeAttempt.bind(A);
 const normalizedMemo=new WeakMap();
 const clean=v=>String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ');
@@ -26,6 +28,7 @@ A.normalizeAttempt=function(raw){
   return out;
 };
 A.__nafesNormalizationFix=true;
+window.NafesAnalytics=Object.freeze(A);
 
 /* Share result reads between analysis modules and use the cached light roster. */
 const T=window.NafesTeacher;
@@ -40,15 +43,19 @@ if(T?.api&&!T.__analysisSharedReadCache){
     if(body?.include_archived!==true&&typeof T.getAnalysisRoster==='function')return await T.getAnalysisRoster();
     const teacherKey=T.getKey?.();
     if(!teacherKey||teacherKey==='__qa__')return baseApi('teacher_students_list',body);
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),10000);
+    try{
     const response=await fetch(LITE_STUDENTS_ENDPOINT,{
       method:'POST',
       headers:{'Content-Type':'application/json','x-teacher-key':teacherKey},
       body:JSON.stringify({include_archived:body?.include_archived===true}),
-      cache:'no-store'
+      cache:'no-store',signal:controller.signal
     });
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok||data?.error)throw new Error(data?.error||'تعذر تحميل قائمة الطلاب.');
+    const data=await response.json();
+    if(!response.ok||data?.error||!Array.isArray(data?.students))throw new Error(data?.error||'تعذر تحميل قائمة الطلاب.');
     return data;
+    }finally{clearTimeout(timer);}
   }
   T.api=async function(action,body={}){
     if(!readActions.has(action)){
@@ -58,9 +65,19 @@ if(T?.api&&!T.__analysisSharedReadCache){
     }
     const k=key(action,body);
     if(shared.has(k))return shared.get(k);
-    const pending=action==='teacher_students_list'
+    const request=action==='teacher_students_list'
       ? Promise.resolve(liteStudents(body))
       : Promise.resolve(baseApi(action,body));
+    const pending=request.then(data=>{
+      if(action==='teacher_data'){
+        const next=data?.next_cursor;
+        if(!Array.isArray(data?.attempts)||next===undefined||
+          (next!==null&&(!Number.isSafeInteger(next)||next<=Number(body.cursor||0)))){
+          throw new Error('لم تصل بيانات التحليل كاملة. اضغط إعادة المحاولة.');
+        }
+      }
+      return data;
+    });
     shared.set(k,pending);
     try{return await pending;}
     catch(error){if(shared.get(k)===pending)shared.delete(k);throw error;}
@@ -69,7 +86,10 @@ if(T?.api&&!T.__analysisSharedReadCache){
   T.__analysisSharedReadCache=true;
   addEventListener('nafes:auth-changed',clear);
   document.addEventListener('click',e=>{
-    if(e.target?.closest?.('#refreshBtn,#retryBtn,#resetTrialDataBtn'))clear();
+    if(e.target?.closest?.('#refreshBtn,#retryBtn,#resetTrialDataBtn')){
+      clear();
+      T.clearReadCache?.();
+    }
   },true);
 }
 })();
