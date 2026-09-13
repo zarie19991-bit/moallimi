@@ -2,9 +2,10 @@
 .wr-topbar{grid-template-columns:1.28fr .86fr .86fr!important;column-gap:28px!important;row-gap:0!important}
 .wr-ministry,.wr-school{min-width:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
 .wr-admin strong{display:none!important}
-.wr-logo-card{width:184px!important;height:104px!important;background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;box-shadow:none!important;overflow:visible!important;display:flex!important;align-items:center!important;justify-content:center!important}
-.wr-logo-card img{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important;image-rendering:auto!important;filter:none!important;transform:none!important}
-.wr-logo-card-empty{background:transparent!important;border:1px dashed rgba(255,255,255,.45)!important;color:#e2eef0!important;box-shadow:none!important}
+/* Transparent logo slots: visible border hugs the actual logo with only a small safety inset. */
+.wr-logo-card{box-sizing:border-box!important;width:auto!important;height:auto!important;max-width:184px!important;max-height:104px!important;background:transparent!important;border:1px solid rgba(255,255,255,.72)!important;border-radius:10px!important;padding:5px 7px!important;box-shadow:none!important;overflow:hidden!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;line-height:0!important}
+.wr-logo-card img{display:block!important;width:auto!important;height:auto!important;max-width:170px!important;max-height:92px!important;object-fit:contain!important;object-position:center!important;image-rendering:auto!important;filter:none!important;transform:none!important}
+.wr-logo-card-empty{min-width:120px!important;min-height:62px!important;background:transparent!important;border:1px dashed rgba(255,255,255,.55)!important;color:#e2eef0!important;box-shadow:none!important;line-height:1.5!important}
 .wr-follow-sheet .wr-student-table td{padding:8px 7px!important;line-height:1.35!important}
 .wr-follow-sheet .wr-student-name{font-size:11px!important}
 .wr-follow-sheet .wr-student-class{margin-top:2px!important}
@@ -26,8 +27,9 @@
   .wr-topbar{grid-template-columns:1.28fr .86fr .86fr!important;column-gap:6mm!important;row-gap:0!important}
   .wr-ministry,.wr-school{display:flex!important;align-items:center!important;justify-content:center!important}
   .wr-admin strong{display:none!important}
-  .wr-logo-card{width:36mm!important;height:21mm!important;background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;box-shadow:none!important;overflow:visible!important}
-  .wr-logo-card img{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important}
+  .wr-logo-card{box-sizing:border-box!important;width:auto!important;height:auto!important;max-width:36mm!important;max-height:21mm!important;background:transparent!important;border:.35mm solid rgba(255,255,255,.75)!important;border-radius:2mm!important;padding:1mm 1.3mm!important;box-shadow:none!important;overflow:hidden!important;display:inline-flex!important}
+  .wr-logo-card img{width:auto!important;height:auto!important;max-width:32.7mm!important;max-height:18.3mm!important;object-fit:contain!important;object-position:center!important}
+  .wr-logo-card-empty{min-width:24mm!important;min-height:13mm!important;font-size:6pt!important;line-height:1.4!important}
   .wr-follow-sheet .wr-student-table th{padding:1.3mm .8mm!important;font-size:6.5pt!important}
   .wr-follow-sheet .wr-student-table td{padding:1.2mm .9mm!important;font-size:6.2pt!important;line-height:1.25!important}
   .wr-follow-sheet .wr-student-name{font-size:6.8pt!important;line-height:1.25!important}
