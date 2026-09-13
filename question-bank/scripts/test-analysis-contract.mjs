@@ -23,7 +23,7 @@ assert.match(subject, /section_scores/);
 assert.match(general, /savedMeasure/);
 assert.match(general, /score\/total\*100/);
 
-assert.match(html, /analysis-achievement-fix\.js\?v=20260913-speed3/);
+assert.match(html, /analysis-achievement-fix\.js\?v=[^"\s]+/);
 assert.match(signature, /content:none!important/);
 assert.match(signature, /\.sar-signatures span::before/);
 assert.match(signature, /\.sar-signatures span::after/);
