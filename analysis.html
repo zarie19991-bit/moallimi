@@ -49,7 +49,7 @@
       <section class="card section-control-card">
         <div class="section-head"><div><h2>تحليل جميع المواد</h2><p class="muted">اختر اختبارًا للقراءة واختبارًا للرياضيات واختبارًا للعلوم. ينشئ النظام ثلاث أوراق تحليل رسمية بنفس النموذج الذي أرسلته، ويمكن طباعتها معًا.</p></div></div>
         <div class="toolbar">
-          <label><span>الفصل</span><select id="overviewClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
+          <label><span>الفصل</span><select id="overviewClass"><option value="">الثالث متوسط (أ - ب - ج - د)</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
           <button id="printOverviewAnalysisBtn" class="btn primary" type="button">طباعة تحليل جميع المواد</button>
         </div>
       </section>
@@ -61,7 +61,7 @@
         <div class="section-head"><div><h2>تحليل مادة منفصلة</h2><p class="muted">اختر المادة ثم الاختبار والفصل. تظهر ورقة التحليل الرسمية بنفس عناصر النموذج: الإحصائيات الأساسية، الإحصائيات التحصيلية، ونوعا الرسم البياني.</p></div></div>
         <div class="toolbar">
           <label><span>المادة</span><select id="subjectSelect"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
-          <label><span>الفصل</span><select id="subjectClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
+          <label><span>الفصل</span><select id="subjectClass"><option value="">الثالث متوسط (أ - ب - ج - د)</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
           <button id="printSubjectAnalysisBtn" class="btn primary" type="button">طباعة تحليل المادة</button>
         </div>
       </section>
@@ -76,7 +76,7 @@
         <div class="toolbar subject-report-toolbar">
           <label><span>المادة</span><select id="reportSubjectSelect"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
           <label class="wide"><span>الاختبار</span><select id="reportSubjectTest"><option value="">جارٍ تحميل الاختبارات…</option></select></label>
-          <label><span>الفصل</span><select id="reportSubjectClass"><option value="">كل الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
+          <label><span>الفصل</span><select id="reportSubjectClass"><option value="">الثالث متوسط (أ - ب - ج - د)</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label>
           <button id="buildSubjectReportBtn" class="btn primary" type="button">إنشاء تقرير المادة</button>
           <button id="printSubjectReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button>
         </div>
@@ -98,14 +98,14 @@
 
 <script src="teacher-access.js?v=20260911-speed1"></script>
 <script src="analysis-core.js?v=20260909-final"></script>
-<script src="data-normalization-fix.js?v=20260911-1"></script>
+<script src="analysis-achievement-fix.js?v=20260913-speed1"></script>
+<script src="data-normalization-fix.js?v=20260913-speed1"></script>
 <script src="analysis.js?v=20260911-unified2"></script>
 <script src="analysis-all-subjects.js?v=20260911-5"></script>
 <script src="subject-report-separate.js?v=20260911-saved1"></script>
 <script data-analysis-participation="true" src="analysis-participation.js?v=20260913-rollback1"></script>
 <script src="analysis-section-router.js?v=20260912-1"></script>
 <script src="analysis-print.js?v=20260911-4"></script>
-<script src="analysis-achievement-fix.js?v=20260912-1"></script>
 <script src="report-test-options.js?v=20260913-report2"></script>
 <script src="report-remedial-plan.js?v=20260913-2"></script>
 <script src="manual-print-date.js?v=20260913-report2"></script>
