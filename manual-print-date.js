@@ -40,6 +40,8 @@ function applyDate(root){
   if(!root||!d)return;
   root.querySelectorAll('.manual-print-date-line').forEach(x=>x.remove());
   root.querySelectorAll('.report-sheet').forEach(sheet=>{
+    const metaDate=sheet.querySelector('.wr-report-meta>div:nth-child(2) b');
+    if(metaDate){metaDate.textContent=d;return;}
     const line=document.createElement('div');
     line.className='manual-print-date-line';
     line.innerHTML=`<span>التاريخ</span><b>${E(d)}</b>`;
