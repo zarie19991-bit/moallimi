@@ -32,6 +32,7 @@ async function roster(){
  })().catch(error=>{rosterLoading=null;throw error});
  return rosterLoading;
 }
+T.getAnalysisRoster=async()=>({ok:true,students:[...(await roster()).values()]});
 
 async function clearResults(payload){
  const key=T.getKey?.();
