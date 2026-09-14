@@ -35,6 +35,7 @@ subject-analysis-report.css
 official-analysis-template.css
 official-analysis-template-tune.css
 official-analysis-signature-fix.css
+analysis-print-signatures-first-page.css
 report-logo-final.css
 report-print-exact.css
 report-absentees.css
