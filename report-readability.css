@@ -1,0 +1,165 @@
+/* Readable report typography, real table grids, and unscaled A4 printing. */
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot){--report-rule:#52666d;--report-ink:#182b32}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet){color:var(--report-ink)!important;font-family:Tahoma,Arial,sans-serif!important;font-size:16px!important;line-height:1.6!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(p,li,th,td,small,.sar-meta span,.sar-meta b,.sar-stat-list span,.sar-stat-list b,.sar-level-tag,.sar-signatures b,.sar-signatures span,.wr-report-meta span,.wr-report-meta b,.wr-follow-meta,.wr-follow-meta b,.wr-student-name,.wr-student-class,.wr-ind-text,.wr-ind-subject,.wr-student-ind strong,.wr-source-note,.wr-more-note,.wr-signatures span,.wr-signatures b,.na-head span,.na-counts span,.na-footer){font-size:16px!important;line-height:1.6!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(h2,h3,h4){font-size:20px!important;line-height:1.5!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.sar-stats,.sar-achievement,.sar-chart-card,.sar-meta>div,.wr-focus,.wr-callout,.wr-performance,.wr-indicator-card,.wr-performance-card,.wr-report-meta>div,.wr-kpis>article,.wr-follow-meta,.na-counts>div){border:1.3px solid var(--report-rule)!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) table{border-collapse:collapse!important;border-spacing:0!important;table-layout:fixed!important;width:100%!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(th,td){border:1.3px solid var(--report-rule)!important;border-radius:0!important;padding:9px!important;overflow-wrap:break-word!important;vertical-align:top!important;color:var(--report-ink)!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) th{background:#e4ecee!important;color:#142a32!important;font-weight:800!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) td{background:#fff!important;font-weight:500!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) .sar-stat-list>div{border:1.3px solid var(--report-rule)!important;border-radius:4px!important;gap:0!important;overflow:hidden}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) .sar-stat-list :is(span,b){border:0!important;border-radius:0!important;color:var(--report-ink)!important;background:#fff!important;padding:7px!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) .sar-stat-list b{border-inline-start:1.3px solid var(--report-rule)!important;font-weight:800!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.sar-signatures>div,.wr-signatures>div,.na-footer){border-top:1.3px solid var(--report-rule)!important;color:var(--report-ink)!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) .wr-student-ind{display:block!important;border-color:var(--report-rule)!important}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) .wr-student-ind>*{margin-inline-end:5px}
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) .wr-remedial{border:1.3px solid var(--report-rule)!important;overflow:visible!important}
+
+@media print{
+ @page{size:A4 portrait;margin:9mm 10mm}
+ html,body,#printRoot,.print-root{width:auto!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;background:#fff!important}
+ #printRoot .official-analysis-sheet,
+ #printRoot .weekly-report.report-sheet,
+ #printRoot .nafes-absence-sheet,
+ #printRoot .weekly-report.report-sheet.nafes-absence-sheet{
+  display:block!important;width:100%!important;min-width:0!important;max-width:none!important;
+  height:auto!important;min-height:0!important;max-height:none!important;
+  zoom:1!important;transform:none!important;overflow:visible!important;
+  margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+  break-inside:auto!important;page-break-inside:auto!important;
+  break-before:auto!important;page-break-before:auto!important;
+  break-after:page!important;page-break-after:always!important;
+  font-size:12pt!important;line-height:1.5!important;
+ }
+ #printRoot>.official-analysis-sheet:last-child,
+ #printRoot>.weekly-report.report-sheet:last-child,
+ #printRoot>.nafes-absence-sheet:last-child,
+ #printRoot>.weekly-report.report-sheet.nafes-absence-sheet:last-child{break-after:auto!important;page-break-after:auto!important}
+ #printRoot :is(p,li,td,th,small,.sar-meta span,.sar-meta b,.sar-stat-list span,.sar-stat-list b,.sar-level-tag,.sar-signatures b,.sar-signatures span,.wr-report-meta span,.wr-report-meta b,.wr-follow-meta,.wr-follow-meta b,.wr-student-name,.wr-student-class,.wr-ind-text,.wr-ind-subject,.wr-student-ind strong,.wr-source-note,.wr-more-note,.wr-signatures span,.wr-signatures b,.na-head span,.na-counts span,.na-footer){font-size:12pt!important;line-height:1.5!important}
+ #printRoot :is(h2,h3,h4,.wr-section-title>span){font-size:14pt!important;line-height:1.45!important;break-after:avoid!important;page-break-after:avoid!important}
+ #printRoot :is(.wr-title-pill,.official-analysis-sheet>h1,.nafes-absence-sheet h2){font-size:17pt!important;line-height:1.5!important;width:auto!important;max-width:100%!important;margin:4mm 0!important;padding:2mm 3mm!important}
+ #printRoot :is(th,td){border:.35mm solid var(--report-rule)!important;padding:2mm!important;color:var(--report-ink)!important;font-size:12pt!important;line-height:1.5!important}
+ #printRoot th{background:#e4ecee!important;color:#142a32!important;font-weight:800!important}
+ #printRoot td{background:#fff!important}
+ #printRoot :is(thead){display:table-header-group!important}
+ #printRoot tr{break-inside:avoid!important;page-break-inside:avoid!important}
+ #printRoot :is(table,tbody,.wr-student-table-wrap,.sar-student-table,.wr-remedial){break-inside:auto!important;page-break-inside:auto!important;overflow:visible!important;min-width:0!important;max-height:none!important;height:auto!important}
+ #printRoot :is(.sar-stats,.sar-achievement,.sar-chart-card,.wr-focus,.wr-callout,.wr-performance,.wr-indicator-card,.wr-performance-card,.wr-kpis>article,.na-counts>div){padding:3mm!important;border:.35mm solid var(--report-rule)!important;border-radius:2mm!important;min-height:0!important;height:auto!important;break-inside:avoid!important;page-break-inside:avoid!important}
+ #printRoot :is(.sar-meta>div,.wr-report-meta>div,.wr-follow-meta){border:.35mm solid var(--report-rule)!important;padding:2.5mm!important;border-radius:2mm!important;min-height:0!important}
+ #printRoot :is(.sar-analysis-grid,.sar-meta,.sar-rings,.sar-bars,.wr-report-meta,.wr-kpis,.wr-indicator-grid,.wr-performance-grid,.wr-two,.na-counts){gap:3mm!important;overflow:visible!important}
+ #printRoot :is(.sar-meta,.sar-analysis-grid,.sar-chart-card,.wr-focus,.wr-two,.wr-performance,.wr-kpis){margin:0 0 4mm!important}
+
+ /* Official subject and analysis papers. */
+ #printRoot .official-analysis-sheet::after{display:none!important}
+ #printRoot .official-analysis-sheet .sar-head{height:auto!important;min-height:30mm!important;margin:0 0 4mm!important;padding:3mm!important;grid-template-columns:1fr 30mm 1.8fr!important;gap:3mm!important;break-inside:avoid!important;page-break-inside:avoid!important}
+ #printRoot .official-analysis-sheet .sar-admin{line-height:1.5!important}
+ #printRoot .official-analysis-sheet .sar-admin b{font-size:12pt!important}
+ #printRoot .official-analysis-sheet .sar-admin span{font-size:11pt!important;line-height:1.5!important;margin-top:.7mm!important;opacity:1!important}
+ #printRoot .official-analysis-sheet .sar-form-no{font-size:11pt!important;min-width:0!important;padding:2mm!important;direction:rtl!important;text-align:center!important;justify-self:stretch!important}
+ #printRoot .official-analysis-sheet .sar-meta{grid-template-columns:repeat(3,minmax(0,1fr))!important;padding-bottom:3mm!important}
+ #printRoot .official-analysis-sheet .sar-meta:after{border-bottom:.35mm solid var(--report-rule)!important}
+ #printRoot .official-analysis-sheet .sar-meta span{font-size:11pt!important;color:#253f48!important}
+ #printRoot .official-analysis-sheet .sar-analysis-grid{grid-template-columns:1fr 1.2fr!important;break-inside:avoid!important;page-break-inside:avoid!important}
+ #printRoot .official-analysis-sheet .sar-stat-list{display:grid!important;grid-template-columns:1fr!important;gap:1.5mm!important}
+ #printRoot .official-analysis-sheet .sar-stat-list>div{display:grid!important;grid-template-columns:17mm minmax(0,1fr)!important;border:.35mm solid var(--report-rule)!important;border-radius:1mm!important;gap:0!important}
+ #printRoot .official-analysis-sheet .sar-stat-list :is(span,b){min-height:0!important;padding:1.6mm!important;font-size:11pt!important;line-height:1.5!important}
+ #printRoot .official-analysis-sheet .sar-stat-list b{border-inline-start:.35mm solid var(--report-rule)!important}
+ #printRoot .official-analysis-sheet .sar-achievement table{border-spacing:0!important;font-size:11pt!important}
+ #printRoot .official-analysis-sheet .sar-achievement :is(th,td){font-size:11pt!important;padding:1.8mm 1mm!important}
+ #printRoot .official-analysis-sheet .sar-achievement :is(th,td):nth-child(1){width:30%!important}
+ #printRoot .official-analysis-sheet .sar-achievement :is(th,td):nth-child(2){width:48%!important}
+ #printRoot .official-analysis-sheet .sar-achievement :is(th,td):nth-child(3){width:22%!important}
+ #printRoot .official-analysis-sheet .sar-level-tag{font-size:11pt!important;min-width:0!important;display:block!important;padding:1mm!important;background:transparent!important;color:var(--report-ink)!important}
+ #printRoot .official-analysis-sheet .sar-rings{grid-template-columns:repeat(5,minmax(0,1fr))!important;padding:0!important}
+ #printRoot .official-analysis-sheet .sar-ring{width:25mm!important;height:25mm!important}
+ #printRoot .official-analysis-sheet .sar-ring:after{inset:2.4mm!important}
+ #printRoot .official-analysis-sheet .sar-ring :is(b,strong){font-size:10.5pt!important;line-height:1.4!important}
+ #printRoot .official-analysis-sheet .sar-bars{grid-template-columns:repeat(5,minmax(0,1fr))!important;height:39mm!important;padding:2mm 3mm 0!important}
+ #printRoot .official-analysis-sheet .sar-bar-track{height:28mm!important}
+ #printRoot .official-analysis-sheet .sar-bar-item span,#printRoot .official-analysis-sheet .sar-bar-track i b{font-size:10.5pt!important;line-height:1.4!important}
+ #printRoot .official-analysis-sheet .sar-bar-track i b{top:-5.5mm!important}
+ #printRoot .official-analysis-sheet .sar-signatures{margin:5mm 0 0!important;gap:6mm!important;break-inside:avoid!important;page-break-inside:avoid!important}
+ #printRoot .official-analysis-sheet .sar-signatures>div{padding:2.5mm!important;min-height:14mm!important;border-top:.35mm solid var(--report-rule)!important}
+ #printRoot .official-analysis-sheet .sar-signatures :is(b,span){font-size:11pt!important;color:var(--report-ink)!important}
+ #printRoot .official-analysis-sheet .sar-student-table{display:block!important;break-before:auto!important;page-break-before:auto!important;margin:5mm 0 0!important;padding-top:0!important}
+ #printRoot .sar-student-table :is(th,td):nth-child(1){width:6%!important}
+ #printRoot .sar-student-table :is(th,td):nth-child(2){width:33%!important}
+ #printRoot .sar-student-table :is(th,td):nth-child(3){width:10%!important}
+ #printRoot .sar-student-table :is(th,td):nth-child(4){width:19%!important}
+ #printRoot .sar-student-table :is(th,td):nth-child(5){width:15%!important}
+ #printRoot .sar-student-table :is(th,td):nth-child(6){width:17%!important}
+
+ /* General report: physical page width, with no fractional shrinking. */
+ #printRoot .wr-topbar{height:auto!important;min-height:30mm!important;margin:0!important;padding:3mm!important;grid-template-columns:1.6fr .7fr .7fr!important;gap:3mm!important;break-inside:avoid!important;page-break-inside:avoid!important}
+ #printRoot .wr-admin{gap:.7mm!important;line-height:1.5!important}
+ #printRoot .wr-admin>b,#printRoot .wr-admin strong{font-size:12pt!important;line-height:1.5!important}
+ #printRoot .wr-admin span{font-size:11pt!important;line-height:1.5!important;opacity:1!important}
+ #printRoot .wr-logo-card{max-width:30mm!important;max-height:23mm!important;padding:1mm!important}
+ #printRoot .wr-logo-card img{max-width:28mm!important;max-height:21mm!important}
+ #printRoot .wr-school .wr-logo-card::before{width:28mm!important;height:21mm!important}
+ #printRoot .wr-logo-card-empty{min-width:0!important;min-height:18mm!important;font-size:10pt!important;line-height:1.4!important}
+ #printRoot .wr-report-meta{grid-template-columns:repeat(2,minmax(0,1fr))!important;margin-bottom:4mm!important}
+ #printRoot .wr-report-meta>div{gap:2mm!important}
+ #printRoot .wr-report-meta span{font-size:11pt!important;color:#253f48!important}
+ #printRoot .wr-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+ #printRoot .wr-kpis span,#printRoot .wr-performance-card>b{font-size:12pt!important;color:var(--report-ink)!important}
+ #printRoot .wr-kpis strong,#printRoot .wr-performance-card>strong{font-size:19pt!important}
+ #printRoot .wr-kpis .wr-kpi-text{font-size:13pt!important}
+ #printRoot .wr-kpis small,#printRoot .wr-performance-card>span{font-size:11pt!important;color:#253f48!important}
+ #printRoot :is(.wr-indicator-grid,.wr-performance-grid){grid-template-columns:repeat(3,minmax(0,1fr))!important}
+ #printRoot .wr-indicator-card header{padding:2mm!important;display:block!important}
+ #printRoot .wr-indicator-card header b{font-size:12pt!important}
+ #printRoot .wr-indicator-card header span{display:block!important;font-size:10.5pt!important;color:#253f48!important}
+ #printRoot .wr-indicator-item{display:block!important;padding:2mm!important;font-size:11pt!important;line-height:1.5!important;border-top:.35mm solid var(--report-rule)!important}
+ #printRoot .wr-indicator-item strong{display:inline-block!important;font-size:11pt!important;margin-top:1mm!important}
+ #printRoot .wr-indicator-empty{font-size:11pt!important;padding:2mm!important;color:#253f48!important}
+ #printRoot .wr-section-title{align-items:start!important;gap:2mm!important}
+ #printRoot .wr-section-title small{font-size:10.5pt!important;color:#253f48!important}
+ #printRoot .wr-two{grid-template-columns:repeat(2,minmax(0,1fr))!important;break-inside:avoid!important;page-break-inside:avoid!important}
+ #printRoot .wr-clean-list{font-size:12pt!important;line-height:1.5!important;padding-right:5mm!important}
+ #printRoot .wr-clean-list li{margin:1.5mm 0!important}
+ #printRoot .wr-student-table-wrap{border:0!important;border-radius:0!important}
+ #printRoot .wr-student-table{min-width:0!important;font-size:12pt!important}
+ #printRoot .wr-student-table :is(th,td):nth-child(1){width:6%!important}
+ #printRoot .wr-student-table :is(th,td):nth-child(2){width:26%!important}
+ #printRoot .wr-student-table :is(th,td):nth-child(3){width:16%!important}
+ #printRoot .wr-student-table :is(th,td):nth-child(4){width:15%!important}
+ #printRoot .wr-student-table :is(th,td):nth-child(5){width:37%!important}
+ #printRoot .wr-student-table td{font-size:11pt!important;line-height:1.5!important}
+ #printRoot :is(.wr-student-name,.wr-result-cell strong){font-size:12pt!important;color:var(--report-ink)!important}
+ #printRoot :is(.wr-student-class,.wr-weak-subject span,.wr-ind-text,.wr-ind-subject,.wr-student-ind strong,.wr-no-indicator){font-size:11pt!important;line-height:1.5!important;color:#253f48!important}
+ #printRoot .wr-student-ind{padding:1.5mm!important;display:block!important;background:#fff!important;border:.25mm solid var(--report-rule)!important}
+ #printRoot .wr-remedial{margin-top:5mm!important;border:0!important;border-radius:0!important}
+ #printRoot .wr-remedial h3{padding:2.5mm!important;font-size:14pt!important}
+ #printRoot .wr-remedial table{font-size:11pt!important}
+ #printRoot .wr-remedial :is(th,td){font-size:11pt!important;padding:2mm!important;line-height:1.5!important}
+ #printRoot .wr-remedial :is(th,td):nth-child(1){width:13%!important}
+ #printRoot .wr-remedial :is(th,td):nth-child(2){width:23%!important}
+ #printRoot .wr-remedial :is(th,td):nth-child(3){width:19%!important}
+ #printRoot .wr-remedial :is(th,td):nth-child(4){width:24%!important}
+ #printRoot .wr-remedial :is(th,td):nth-child(5){width:21%!important}
+ #printRoot .wr-remedial small{font-size:10.5pt!important}
+ #printRoot .wr-signatures{gap:6mm!important;margin-top:5mm!important;break-inside:avoid!important;page-break-inside:avoid!important}
+ #printRoot .wr-signatures>div{padding:2.5mm!important;border-top:.35mm solid var(--report-rule)!important}
+ #printRoot .wr-source-note,#printRoot .wr-more-note{font-size:11pt!important;line-height:1.5!important;color:#253f48!important;padding:2mm!important}
+ #printRoot .wr-footer-curve{height:0!important;margin:4mm 0 0!important;border:0!important;border-bottom:.7mm solid var(--report-rule)!important}
+ #printRoot .wr-footer-curve:before{display:none!important}
+
+ /* Named participation lists retain clear horizontal and vertical rules. */
+ #printRoot .nafes-absence-sheet .na-head{padding-bottom:3mm!important;break-inside:avoid!important}
+ #printRoot .nafes-absence-sheet .na-head>div{gap:1mm!important}
+ #printRoot .nafes-absence-sheet .na-head b{font-size:13pt!important}
+ #printRoot .nafes-absence-sheet .na-head :is(span,small){font-size:11pt!important;line-height:1.5!important;color:#253f48!important}
+ #printRoot .nafes-absence-sheet :is(.na-test,.na-scope){font-size:12pt!important;line-height:1.5!important;color:var(--report-ink)!important;margin:0 0 2mm!important}
+ #printRoot .nafes-absence-sheet .na-counts{margin:3mm 0!important;gap:2mm!important;break-inside:avoid!important}
+ #printRoot .nafes-absence-sheet .na-counts>div{padding:2mm!important;gap:1mm!important}
+ #printRoot .nafes-absence-sheet .na-counts span{font-size:11pt!important;color:var(--report-ink)!important}
+ #printRoot .nafes-absence-sheet .na-counts b{font-size:16pt!important}
+ #printRoot .nafes-absence-sheet .na-table{font-size:12pt!important}
+ #printRoot .nafes-absence-sheet .na-table :is(th,td){border:.35mm solid var(--report-rule)!important;padding:2mm!important;font-size:12pt!important;line-height:1.5!important}
+ #printRoot .nafes-absence-sheet .na-footer{font-size:11pt!important;line-height:1.5!important;margin-top:3mm!important;padding-top:2mm!important;border-top:.35mm solid var(--report-rule)!important;color:#253f48!important}
+ #printRoot :is(.official-analysis-sheet,.weekly-report,.nafes-absence-sheet) table :is(th,td){border:.35mm solid var(--report-rule)!important;color:var(--report-ink)!important}
+ #printRoot :is(.official-analysis-sheet,.weekly-report,.nafes-absence-sheet) table th{background:#e4ecee!important;color:#142a32!important}
+ #printRoot :is(.official-analysis-sheet,.weekly-report,.nafes-absence-sheet) table td{background:#fff!important}
+}
