@@ -2,8 +2,8 @@
 'use strict';
 const T=window.NafesTeacher,A=window.NafesAnalytics,$=id=>document.getElementById(id);
 const N={reading:'القراءة',math:'الرياضيات',science:'العلوم'}, SUBJECTS=['reading','math','science'];
-const SETTINGS_KEY='nafes_school_report_settings_v1';
-let attempts=[],tests=[],loaded=false,loading=false;
+const SETTINGS_KEY='nafes_school_report_settings_v1',DATA_CACHE='__NAFES_ANALYSIS_DATA_CACHE__';
+let attempts=[],tests=[],students=[],rosterReady=false,loaded=false,loading=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const ar=v=>num(v)===null?'—':new Intl.NumberFormat('ar-SA',{maximumFractionDigits:1}).format(Number(v));
@@ -13,7 +13,8 @@ function submitted(a){return A?.isSubmitted?A.isSubmitted(a):!!(a?.submitted_at|
 function ident(a){return A?.studentIdentity?.(a)||String(a?.student_id||a?.student_key||a?.student_no||a?.id||'');}
 function when(a){return Date.parse(a?.submitted_at||a?.completed_at||a?.finished_at||a?.started_at||0)||0;}
 function testId(a){return String(a?.test_id||a?.assessment_id||a?.exam_id||'').trim();}
-function classMatches(a,c){return !c||String(a?.class_name||'').trim()===String(c).trim();}
+function classKey(v){const raw=String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ').replace(/[إآا]/g,'أ');if(['أ','ب','ج','د'].includes(raw))return raw;const m=raw.match(/(?:^|[\s/\\\-()])([أبجد])(?:$|[\s/\\\-()])/);if(m)return m[1];const tail=raw.match(/(?:فصل|شعبة)?\s*([أبجد])$/);return tail?tail[1]:raw;}
+function classMatches(a,c){return !c||classKey(a?.class_name)===classKey(c);}
 function normSubject(v){const s=String(v||'').trim().toLowerCase();if(['reading','arabic','language','القراءة','العربية','اللغة العربية'].includes(s))return'reading';if(['math','mathematics','الرياضيات'].includes(s))return'math';if(['science','العلوم'].includes(s))return'science';return'';}
 function savedMeasure(a,subject){
  const sections=Array.isArray(a?.section_scores)?a.section_scores:[];
@@ -24,14 +25,16 @@ function savedMeasure(a,subject){
  if(subjects.length===1&&subjects[0]===subject&&score!==null&&total!==null&&total>0)return{correct:score,total,percent:percent!==null?percent:score/total*100,source:'saved_grade'};
  return null;
 }
-function measure(a,subject){
- const saved=savedMeasure(a,subject);
- return saved||{correct:0,total:0,percent:null,source:'missing_saved_grade'};
-}
+function measure(a,subject){const saved=savedMeasure(a,subject);return saved||{correct:0,total:0,percent:null,source:'missing_saved_grade'};}
 function latestRecords(id,subject,cls=''){
  const map=new Map();
  for(const a of attempts){if(!submitted(a)||testId(a)!==String(id)||!classMatches(a,cls))continue;const m=measure(a,subject);if(!m.total)continue;const k=ident(a);if(!k)continue;const old=map.get(k);if(!old||when(a)>when(old.a))map.set(k,{a,m});}
  return [...map.values()];
+}
+function participation(id,subject,cls){
+ if(!rosterReady||!window.NafesReportAbsentees?.groups)return null;
+ try{return window.NafesReportAbsentees.groups({roster:students,attempts,tests,selectedIds:[id],className:cls,subject})[0]||null;}
+ catch(error){console.warn('official analysis participation',error);return null;}
 }
 function titleOf(id){const t=tests.find(x=>String(x.id||x.test_id||'')===String(id));const a=attempts.find(x=>testId(x)===String(id));return String(t?.title||a?.title||'اختبار نافس');}
 function testMeta(id){return tests.find(x=>String(x.id||x.test_id||'')===String(id))||{};}
@@ -49,15 +52,17 @@ function sheet(subject,id,cls=''){
  const n=recs.length,sum=scores.reduce((a,b)=>a+b,0),possible=totals.reduce((a,b)=>a+b,0),achievement=possible?sum/possible*100:null;
  const degree=mode(totals)??Math.max(...totals),highest=Math.max(...scores),lowest=Math.min(...scores),avg=sum/n;
  const counts=Object.fromEntries(LEVELS.map(l=>[l.key,vals.filter(p=>level(p)===l.key).length]));const maxCount=Math.max(1,...Object.values(counts));
- const s=settings(),t=testMeta(id),term=t.term||t.academic_term||t.semester||'—',classLabel=cls||t.class_name||'كل الفصول';
+ const s=settings(),t=testMeta(id),term=t.term||t.academic_term||t.semester||'—',classLabel=cls||t.class_name||'كل الفصول',part=participation(id,subject,cls);
+ const totalStudents=part?.total??null,testedStudents=part?.tested??n,absentStudents=part?part.missing.length:null;
  const rows=LEVELS.map(l=>`<tr><td><span class="sar-level-tag ${l.key}">${l.label}</span></td><td>${l.range}</td><td>${ar(counts[l.key])}</td></tr>`).join('');
+ const unresolvedNote=part?.unresolved?`<p class="muted" style="margin:8px 0 0">تنبيه: توجد ${ar(part.unresolved)} نتيجة مسلّمة لم تُربط بطالب من الكشف بصورة مؤكدة.</p>`:'';
  return `<article class="subject-analysis-sheet official-analysis-sheet" data-grade-source="saved" data-class-name="${esc(cls)}">
- <header class="sar-head"><div class="sar-admin"><b>الإدارة العامة للتعليم بمنطقة نجران</b><span>${esc(s.schoolName||'مدرسة /')}</span></div><div class="sar-ministry">${logo(s.ministryLogo)}</div><div class="sar-form-no">١</div></header>
+ <header class="sar-head"><div class="sar-admin"><b>المملكة العربية السعودية</b><span>وزارة التعليم</span><span>الإدارة العامة للتعليم بمنطقة نجران</span><span>${esc(s.schoolName||'مدرسة ابن سينا المتوسطة')}</span></div><div class="sar-ministry">${logo(s.ministryLogo)}</div><div class="sar-form-no">تحليل نتائج</div></header>
  <h1>تحليل نتائج اختبار مادة [${esc(N[subject])}]</h1>
  <div class="sar-meta"><div><span>المرحلة الدراسية / الصف:</span><b>الثالث المتوسط${classLabel&&classLabel!=='كل الفصول'?` / ${esc(classLabel)}`:''}</b></div><div><span>السنة / الفصل الدراسي:</span><b>${esc(term)}</b></div><div><span>درجة القياس (الاختبار):</span><b>${ar(degree)}</b></div></div>
  <div class="sar-analysis-grid"><section class="sar-stats"><h2>الإحصائيات الأساسية</h2><div class="sar-stat-list">
- <div data-participation-kind="total" data-tested-count="${n}"><span>إجمالي عدد الطلاب</span><b>—</b></div><div data-participation-kind="tested"><span>عدد الطلاب المختبرين</span><b>${ar(n)}</b></div><div><span>أعلى درجة</span><b>${ar(highest)}</b></div><div><span>أقل درجة</span><b>${ar(lowest)}</b></div><div><span>متوسط الدرجات</span><b>${ar(avg)}</b></div><div><span>نسبة التحصيل</span><b>${pct(achievement)}</b></div><div><span>مجموع الدرجات</span><b>${ar(sum)}</b></div>
- </div></section><section class="sar-achievement"><h2>الإحصائيات التحصيلية</h2><table><thead><tr><th>المستوى</th><th>النطاق</th><th>عدد الطلاب</th></tr></thead><tbody>${rows}</tbody></table></section></div>
+ <div data-participation-kind="total"><span>إجمالي عدد الطلاب</span><b>${ar(totalStudents)}</b></div><div data-participation-kind="tested"><span>عدد الطلاب المختبرين</span><b>${ar(testedStudents)}</b></div><div data-participation-kind="absent"><span>عدد الطلاب الذين لم يختبروا</span><b>${ar(absentStudents)}</b></div><div><span>عدد الطلاب ذوي الدرجات المقاسة</span><b>${ar(n)}</b></div><div><span>أعلى درجة</span><b>${ar(highest)}</b></div><div><span>أقل درجة</span><b>${ar(lowest)}</b></div><div><span>متوسط الدرجات</span><b>${ar(avg)}</b></div><div><span>نسبة التحصيل</span><b>${pct(achievement)}</b></div><div><span>مجموع الدرجات</span><b>${ar(sum)}</b></div>
+ </div>${unresolvedNote}</section><section class="sar-achievement"><h2>الإحصائيات التحصيلية</h2><table><thead><tr><th>المستوى</th><th>النطاق</th><th>عدد الطلاب</th></tr></thead><tbody>${rows}</tbody></table></section></div>
  <section class="sar-chart-card"><h2>رسم بياني (نسب الطلاب لكل تقدير)</h2><div class="sar-rings">${LEVELS.map(l=>ring(l,counts[l.key],n)).join('')}</div></section>
  <section class="sar-chart-card"><h2>رسم بياني (عدد الطلاب لكل تقدير)</h2><div class="sar-bars">${LEVELS.map(l=>bar(l,counts[l.key],maxCount)).join('')}</div></section>
  <footer class="sar-signatures"><div><b>معلم/ة المادة:</b><span>${esc(s.teacherName||'')}</span></div><div><b>مدير/ة المدرسة:</b><span>${esc(s.principalName||'')}</span></div></footer></article>`;
@@ -71,8 +76,18 @@ function populate(){fill('analysisReadingTest','reading');fill('analysisMathTest
 function buildOverview(){const cls=$('overviewClass')?.value||'',ids={reading:$('analysisReadingTest')?.value,math:$('analysisMathTest')?.value,science:$('analysisScienceTest')?.value};const html=SUBJECTS.map(s=>ids[s]?sheet(s,ids[s],cls):'').filter(Boolean).join('');const host=$('overviewOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">لا توجد درجات محفوظة فعلية للاختبارات المختارة.</div>';return html;}
 function buildSubject(){const s=$('subjectSelect')?.value||'reading',id=$('analysisSubjectTest')?.value||'',cls=$('subjectClass')?.value||'',html=id?sheet(s,id,cls):'';const host=$('subjectOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">اختر اختبارًا لديه درجات محفوظة فعلية لهذه المادة.</div>';return html;}
 function printHtml(html){if(!html)return;const root=$('printRoot');root.innerHTML=html;root.setAttribute('aria-hidden','false');requestAnimationFrame(()=>window.print());}
-async function load(){if(loading||!T?.getKey?.())return;loading=true;try{let cursor=0,raw=[],ts=[];do{const d=await T.api('teacher_data',{cursor,limit:100});raw.push(...(d.attempts||[]));if(cursor===0)ts=d.tests||[];cursor=d.next_cursor}while(cursor!==null);attempts=raw.map(x=>A?.normalizeAttempt?A.normalizeAttempt(x):x);tests=ts;loaded=true;populate();}catch(e){console.error('official analysis load',e)}finally{loading=false;}}
+async function load(){
+ if(loading||!T?.getKey?.())return;loading=true;
+ try{
+  let data=null;const cached=window[DATA_CACHE];
+  if(cached?.data)data=cached.data;else if(cached?.promise)data=await cached.promise;
+  if(!data){let cursor=0,raw=[],ts=[];do{const d=await T.api('teacher_data',{cursor,limit:100});raw.push(...(d.attempts||[]));if(cursor===0)ts=d.tests||[];cursor=d.next_cursor}while(cursor!==null);data={attempts:raw.map(x=>A?.normalizeAttempt?A.normalizeAttempt(x):x),tests:ts};window[DATA_CACHE]={data,at:Date.now()};}
+  attempts=data.attempts||[];tests=data.tests||[];
+  try{const r=await T.api('teacher_students_list',{include_archived:false});students=Array.isArray(r?.students)?r.students:[];rosterReady=true;}catch(error){students=[];rosterReady=false;console.warn('official analysis roster',error)}
+  loaded=true;populate();
+ }catch(e){console.error('official analysis load',e)}finally{loading=false;}
+}
 function clear(id){const h=$(id);if(h)h.innerHTML='';}
-function init(){install();$('subjectSelect')?.addEventListener('change',()=>{if(loaded)fill('analysisSubjectTest',$('subjectSelect').value);clear('subjectOfficialPreview')});$('overviewClass')?.addEventListener('change',()=>clear('overviewOfficialPreview'));$('subjectClass')?.addEventListener('change',()=>clear('subjectOfficialPreview'));['analysisReadingTest','analysisMathTest','analysisScienceTest'].forEach(id=>$(id)?.addEventListener('change',()=>clear('overviewOfficialPreview')));$('analysisSubjectTest')?.addEventListener('change',()=>clear('subjectOfficialPreview'));$('buildOverviewOfficialBtn')?.addEventListener('click',buildOverview);$('buildSubjectOfficialBtn')?.addEventListener('click',buildSubject);$('printOverviewAnalysisBtn')?.addEventListener('click',()=>printHtml(buildOverview()));$('printSubjectAnalysisBtn')?.addEventListener('click',()=>printHtml(buildSubject()));$('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{loaded=false;load()},100));addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated){loaded=false;load()}});addEventListener('afterprint',()=>{const r=$('printRoot');if(r){r.innerHTML='';r.setAttribute('aria-hidden','true')}});load();}
+function init(){install();$('subjectSelect')?.addEventListener('change',()=>{if(loaded)fill('analysisSubjectTest',$('subjectSelect').value);clear('subjectOfficialPreview')});$('overviewClass')?.addEventListener('change',()=>clear('overviewOfficialPreview'));$('subjectClass')?.addEventListener('change',()=>clear('subjectOfficialPreview'));['analysisReadingTest','analysisMathTest','analysisScienceTest'].forEach(id=>$(id)?.addEventListener('change',()=>clear('overviewOfficialPreview')));$('analysisSubjectTest')?.addEventListener('change',()=>clear('subjectOfficialPreview'));$('buildOverviewOfficialBtn')?.addEventListener('click',buildOverview);$('buildSubjectOfficialBtn')?.addEventListener('click',buildSubject);$('printOverviewAnalysisBtn')?.addEventListener('click',()=>printHtml(buildOverview()));$('printSubjectAnalysisBtn')?.addEventListener('click',()=>printHtml(buildSubject()));$('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{loaded=false;rosterReady=false;load()},100));addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated){loaded=false;rosterReady=false;load()}});addEventListener('afterprint',()=>{const r=$('printRoot');if(r){r.innerHTML='';r.setAttribute('aria-hidden','true')}});load();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

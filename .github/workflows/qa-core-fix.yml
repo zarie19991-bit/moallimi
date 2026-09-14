@@ -1,0 +1,137 @@
+name: QA core stability fixes
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  core-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: JavaScript syntax
+        run: |
+          node --check analysis-core.js
+          node --check analysis-data-service.js
+          node --check analysis-all-subjects.js
+          node --check analysis.js
+          node --check analysis-print.js
+          node --check e.js
+          node --check exam.js
+          node --check student-session-recovery.js
+          node --check report-absentees.js
+          node --check report-remedial-plan.js
+          node --check report-test-options.js
+          node --check student-papers.js
+          node --check subject-report-separate.js
+          node --check teacher-access.js
+          node --check qa/core-browser-smoke.mjs
+          node --check qa/student-resume-smoke.mjs
+          node --check qa/student-paper-smoke.mjs
+      - name: Core policy regression checks
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const A = require('./analysis-core.js');
+          const R = require('./report-absentees.js');
+          assert.equal(A.levelFor(69).key, 'support');
+          assert.equal(A.needsSupport(69.99), true);
+          assert.equal(A.needsSupport(70), false);
+
+          const groups = R.groups({
+            roster: [
+              {id:'s1', full_name:'طالب أول', class_name:'أ', national_id_last3:'123', is_active:true},
+              {id:'s2', full_name:'طالب ثان', class_name:'ب', national_id_last3:'456', is_active:true}
+            ],
+            attempts: [
+              {id:'a1', test_id:'t1', student_id:'s1', status:'submitted', submitted_at:'2026-09-14T10:00:00Z'},
+              {id:'a2', test_id:'t1', student_id:'unknown', student_name:'طالب ثان', student_no:'456', class_name:'ب', status:'submitted', submitted_at:'2026-09-14T10:01:00Z'}
+            ],
+            tests:[{id:'t1',title:'اختبار'}],
+            selectedIds:['t1']
+          });
+          assert.equal(groups[0].total, 2);
+          assert.equal(groups[0].tested, 2);
+          assert.equal(groups[0].missing.length, 0);
+          assert.equal(groups[0].unresolved, 0);
+
+          const unsafeNameOnly = R.groups({
+            roster:[{id:'s3',full_name:'اسم متشابه',class_name:'ج',national_id_last3:'789',is_active:true}],
+            attempts:[{id:'a3',test_id:'t2',student_name:'اسم متشابه',class_name:'ج',status:'submitted',submitted_at:'2026-09-14T11:00:00Z'}],
+            tests:[{id:'t2',title:'اختبار'}],selectedIds:['t2']
+          });
+          assert.equal(unsafeNameOnly[0].tested, 0);
+          assert.equal(unsafeNameOnly[0].missing.length, 1);
+          assert.equal(unsafeNameOnly[0].unresolved, 1);
+          console.log('Core policy checks passed');
+          NODE
+      - name: Student identity privacy and class guards
+        run: |
+          ! grep -q "localStorage.setItem(identityKey" e.js
+          ! grep -q "localStorage.getItem(identityKey" e.js
+          grep -q "sessionStorage.setItem(identityKey" e.js
+          ! grep -q "localStorage.setItem('nafes_student'" exam.js
+          ! grep -q "localStorage.getItem('nafes_student'" exam.js
+          grep -q "sessionStorage.setItem(LEGACY_IDENTITY_KEY" exam.js
+          grep -q "p>=70?'قريب من الإتقان'" e.js
+          grep -q "near:70" supabase/functions/nafes-exam/assessment-engine.ts
+          grep -q "normalizeClassSection" supabase/functions/nafes-exam/assessment-engine.ts
+          ! grep -q "eq('class_name', normClass)" supabase/functions/nafes-exam/assessment-engine.ts
+          grep -q "clearLegacyPersistentIdentity" student-session-recovery.js
+      - name: Analysis data layer is single
+        run: |
+          grep -q 'analysis-data-service.js' analysis.html
+          ! grep -q 'analysis-achievement-fix.js' analysis.html
+          ! grep -q 'data-normalization-fix.js' analysis.html
+          ! grep -q 'teacher_tests_bulk_clear' analysis-data-service.js
+          grep -q 'teacher_tests_bulk_clear' results-clear-fix.js
+          ! grep -q 'analysis-participation.js' analysis-section-router.js
+          ! test -e analysis-achievement-fix.js
+          ! test -e data-normalization-fix.js
+          ! test -e analysis-participation.js
+      - name: General report participation guards
+        run: |
+          grep -q 'submittedSelected=attempts.filter' report-test-options.js
+          grep -q 'digits.length===3' report-test-options.js
+          grep -q 'كل من لديه تسليم مؤكد' report-test-options.js
+          grep -q 'عدد الطلاب الذين لم يختبروا' analysis-print.js
+          grep -q 'المملكة العربية السعودية' analysis-print.js
+      - name: Install browser driver
+        run: npm install --no-save playwright-core@1.55.0
+      - name: Start local branch site
+        shell: bash
+        run: |
+          nohup python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/qa-http.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/analysis.html >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/analysis.html >/dev/null
+          CHROME_PATH="$(which google-chrome || which chromium || which chromium-browser || true)"
+          test -n "$CHROME_PATH"
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          echo "QA_LOCAL_SITE=http://127.0.0.1:4173/" >> "$GITHUB_ENV"
+      - name: Browser QA - official analysis
+        env:
+          QA_SMOKE_ONLY: official
+        run: node qa/core-browser-smoke.mjs
+      - name: Browser QA - subject report
+        env:
+          QA_SMOKE_ONLY: subject-report
+        run: node qa/core-browser-smoke.mjs
+      - name: Browser QA - general report
+        env:
+          QA_SMOKE_ONLY: general
+        run: node qa/core-browser-smoke.mjs
+      - name: Browser QA - print readability
+        env:
+          QA_SMOKE_ONLY: print
+        run: node qa/core-browser-smoke.mjs
+      - name: Browser QA - student resume after reload
+        run: node qa/student-resume-smoke.mjs
+      - name: Browser QA - student paper strict identity
+        run: node qa/student-paper-smoke.mjs
