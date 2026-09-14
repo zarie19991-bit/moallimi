@@ -51,8 +51,15 @@ function ensureAnalysisPrintSignatureCss(){
   const link=document.createElement('link');
   link.id='analysisPrintSignaturesCss';
   link.rel='stylesheet';
-  link.href='analysis-print-signatures-first-page.css?v=20260914-3';
+  link.href='analysis-print-signatures-first-page.css?v=20260914-4';
   document.head.appendChild(link);
+}
+function ensureAnalysisPrintScaleTune(){
+  if(document.getElementById('analysisPrintScaleTune'))return;
+  const style=document.createElement('style');
+  style.id='analysisPrintScaleTune';
+  style.textContent='@media print{#printRoot .official-analysis-sheet,.print-root .official-analysis-sheet{zoom:.80!important}}';
+  document.head.appendChild(style);
 }
 function findReadabilityLink(){
   return [...document.querySelectorAll('link[rel="stylesheet"]')].find(link=>String(link.href||'').includes('report-readability.css'))||null;
@@ -60,6 +67,7 @@ function findReadabilityLink(){
 function enterAnalysisPrintMode(){
   removeDuplicateMeasuredCount(document);
   ensureAnalysisPrintSignatureCss();
+  ensureAnalysisPrintScaleTune();
   readabilityLink=findReadabilityLink();
   if(readabilityLink&&!analysisPrintMode){
     previousReadabilityMedia=readabilityLink.getAttribute('media')||'';
@@ -102,6 +110,7 @@ function installSemesterControls(){
 
 function install(){
   ensureAnalysisPrintSignatureCss();
+  ensureAnalysisPrintScaleTune();
   document.querySelectorAll('.main-tab').forEach(b=>{
     b.onclick=e=>{e.preventDefault();show(b.dataset.view);};
   });
