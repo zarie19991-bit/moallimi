@@ -46,11 +46,20 @@ function removeDuplicateMeasuredCount(root=document){
     if((row.querySelector('span')?.textContent||'').trim()===DUPLICATE_MEASURED_LABEL)row.remove();
   });
 }
+function ensureAnalysisPrintSignatureCss(){
+  if(document.getElementById('analysisPrintSignaturesCss'))return;
+  const link=document.createElement('link');
+  link.id='analysisPrintSignaturesCss';
+  link.rel='stylesheet';
+  link.href='analysis-print-signatures-first-page.css?v=20260914-1';
+  document.head.appendChild(link);
+}
 function findReadabilityLink(){
   return [...document.querySelectorAll('link[rel="stylesheet"]')].find(link=>String(link.href||'').includes('report-readability.css'))||null;
 }
 function enterAnalysisPrintMode(){
   removeDuplicateMeasuredCount(document);
+  ensureAnalysisPrintSignatureCss();
   readabilityLink=findReadabilityLink();
   if(readabilityLink&&!analysisPrintMode){
     previousReadabilityMedia=readabilityLink.getAttribute('media')||'';
@@ -92,6 +101,7 @@ function installSemesterControls(){
 }
 
 function install(){
+  ensureAnalysisPrintSignatureCss();
   document.querySelectorAll('.main-tab').forEach(b=>{
     b.onclick=e=>{e.preventDefault();show(b.dataset.view);};
   });
