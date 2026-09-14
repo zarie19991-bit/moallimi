@@ -52,14 +52,14 @@ function sheet(subject,id,cls=''){
  const n=recs.length,sum=scores.reduce((a,b)=>a+b,0),possible=totals.reduce((a,b)=>a+b,0),achievement=possible?sum/possible*100:null;
  const degree=mode(totals)??Math.max(...totals),highest=Math.max(...scores),lowest=Math.min(...scores),avg=sum/n;
  const counts=Object.fromEntries(LEVELS.map(l=>[l.key,vals.filter(p=>level(p)===l.key).length]));const maxCount=Math.max(1,...Object.values(counts));
- const s=settings(),t=testMeta(id),term=t.term||t.academic_term||t.semester||'—',classLabel=cls||t.class_name||'كل الفصول',part=participation(id,subject,cls);
+ const s=settings(),t=testMeta(id),term=t.term||t.academic_term||t.semester||'—',part=participation(id,subject,cls);
  const totalStudents=part?.total??null,testedStudents=part?.tested??n,absentStudents=part?part.missing.length:null;
  const rows=LEVELS.map(l=>`<tr><td><span class="sar-level-tag ${l.key}">${l.label}</span></td><td>${l.range}</td><td>${ar(counts[l.key])}</td></tr>`).join('');
  const unresolvedNote=part?.unresolved?`<p class="muted" style="margin:8px 0 0">تنبيه: توجد ${ar(part.unresolved)} نتيجة مسلّمة لم تُربط بطالب من الكشف بصورة مؤكدة.</p>`:'';
  return `<article class="subject-analysis-sheet official-analysis-sheet" data-grade-source="saved" data-class-name="${esc(cls)}">
  <header class="sar-head"><div class="sar-admin"><b>المملكة العربية السعودية</b><span>وزارة التعليم</span><span>الإدارة العامة للتعليم بمنطقة نجران</span><span>${esc(s.schoolName||'مدرسة ابن سينا المتوسطة')}</span></div><div class="sar-ministry">${logo(s.ministryLogo)}</div><div class="sar-form-no">تحليل نتائج</div></header>
  <h1>تحليل نتائج اختبار مادة [${esc(N[subject])}]</h1>
- <div class="sar-meta"><div><span>المرحلة الدراسية / الصف:</span><b>الثالث المتوسط${classLabel&&classLabel!=='كل الفصول'?` / ${esc(classLabel)}`:''}</b></div><div><span>السنة / الفصل الدراسي:</span><b>${esc(term)}</b></div><div><span>درجة القياس (الاختبار):</span><b>${ar(degree)}</b></div></div>
+ <div class="sar-meta"><div><span>المرحلة الدراسية / الصف:</span><b>الثالث متوسط</b></div><div><span>السنة / الفصل الدراسي:</span><b>${esc(term)}</b></div><div><span>درجة القياس (الاختبار):</span><b>${ar(degree)}</b></div></div>
  <div class="sar-analysis-grid"><section class="sar-stats"><h2>الإحصائيات الأساسية</h2><div class="sar-stat-list">
  <div data-participation-kind="total"><span>إجمالي عدد الطلاب</span><b>${ar(totalStudents)}</b></div><div data-participation-kind="tested"><span>عدد الطلاب المختبرين</span><b>${ar(testedStudents)}</b></div><div data-participation-kind="absent"><span>عدد الطلاب الذين لم يختبروا</span><b>${ar(absentStudents)}</b></div><div><span>عدد الطلاب ذوي الدرجات المقاسة</span><b>${ar(n)}</b></div><div><span>أعلى درجة</span><b>${ar(highest)}</b></div><div><span>أقل درجة</span><b>${ar(lowest)}</b></div><div><span>متوسط الدرجات</span><b>${ar(avg)}</b></div><div><span>نسبة التحصيل</span><b>${pct(achievement)}</b></div><div><span>مجموع الدرجات</span><b>${ar(sum)}</b></div>
  </div>${unresolvedNote}</section><section class="sar-achievement"><h2>الإحصائيات التحصيلية</h2><table><thead><tr><th>المستوى</th><th>النطاق</th><th>عدد الطلاب</th></tr></thead><tbody>${rows}</tbody></table></section></div>
