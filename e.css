@@ -1,24 +1,33 @@
 @import url("exam.css?v=20260908-1");
 
+/* Clear, stable Arabic typography for student tests. */
+html,body,#screen,#screen input,#screen select,#screen button,#screen textarea{font-family:Tahoma,Arial,sans-serif!important}
+#screen h1,#screen h2,#screen h3,.exam-top .brand b{font-family:Arial,Tahoma,sans-serif!important;letter-spacing:0!important}
+
 #screen .panel{border-radius:26px}
 #player .question{margin:0;padding:28px;border:1.5px solid var(--line);background:#fcfdfc;border-radius:22px}
-#player .context{font-size:15px;line-height:2.1;padding:20px 24px;border-radius:18px;background:#f3f7f5;color:#274351;border:1px solid #e2ede8}
-#player .stem{font-size:18px;line-height:2.0;font-weight:800;color:var(--ink);margin-bottom:20px}
+#player .context{font-family:Tahoma,Arial,sans-serif!important;font-size:17px!important;font-weight:400!important;line-height:2.05!important;padding:20px 24px;border-radius:18px;background:#f3f7f5;color:#213d49;border:1px solid #d9e6e1;white-space:pre-wrap}
+#player .stem{font-family:Tahoma,Arial,sans-serif!important;font-size:19px!important;line-height:1.95!important;font-weight:700!important;color:var(--ink);margin-bottom:20px}
 #player .choices{gap:12px}
-#player .choice{min-height:56px;padding:14px 18px;border-radius:16px}
-#player .choice .text{font-size:15px;line-height:1.8;color:#1c3746}
+#player .choice{min-height:58px;padding:14px 18px;border-radius:16px}
+#player .choice .letter{font-family:Tahoma,Arial,sans-serif!important;font-size:16px!important;font-weight:700!important}
+#player .choice .text{font-family:Tahoma,Arial,sans-serif!important;font-size:16px!important;line-height:1.85!important;font-weight:400!important;color:#172f3b}
+#player .choice.selected .text{font-weight:700!important}
 #player .question-figure img{max-height:560px}
+#player .question-figure figcaption{font-family:Tahoma,Arial,sans-serif!important;font-size:13px!important;line-height:1.6!important}
 
 /* Timer & Head */
-#timer{font-variant-numeric:tabular-nums;background:#eef7f4;color:var(--teal);padding:10px 16px;border-radius:14px;direction:ltr;white-space:nowrap;font-weight:900;font-size:20px}
-#screen .exam-head h2{font-size:20px;font-weight:900}
+#timer{font-variant-numeric:tabular-nums;background:#eef7f4;color:var(--teal);padding:10px 16px;border-radius:14px;direction:ltr;white-space:nowrap;font-weight:700;font-size:20px}
+#screen .exam-head h2{font-family:Arial,Tahoma,sans-serif!important;font-size:20px!important;font-weight:700!important}
+#screen .exam-head small{font-family:Tahoma,Arial,sans-serif!important;font-size:13px!important}
 
 /* Nav */
-.exam-nav button{min-height:46px;padding:0 22px;border-radius:14px;font-size:13px;font-weight:900}
+.exam-nav button{min-height:46px;padding:0 22px;border-radius:14px;font-family:Tahoma,Arial,sans-serif!important;font-size:14px!important;font-weight:700!important}
+.progress button{font-family:Tahoma,Arial,sans-serif!important;font-size:13px!important;font-weight:700!important}
 
 /* Watermark & Anti-cheat styles */
 #watermark{position:fixed;inset:-100px;z-index:99;display:none;grid-template-columns:repeat(3,1fr);gap:100px 35px;align-content:space-around;pointer-events:none;overflow:hidden;opacity:.105;animation:drift 17s ease-in-out infinite alternate}
-#watermark span{color:#142f35;font-size:16px;transform:rotate(-23deg);white-space:nowrap}
+#watermark span{color:#142f35;font-family:Tahoma,Arial,sans-serif!important;font-size:16px;transform:rotate(-23deg);white-space:nowrap}
 body.exam-active.watermarked #watermark{display:grid}
 body.no-copy #questions,body.no-copy #questionCard{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #printShield{display:none}
@@ -27,19 +36,19 @@ body.no-copy #questions,body.no-copy #questionCard{-webkit-user-select:none;user
 @page{size:A4;margin:18mm}
 @media print{
   header,.nav,.exam-nav,button,#watermark{display:none!important}
-  body,main{background:white;margin:0;padding:0}
+  body,main{background:white;margin:0;padding:0;font-family:Tahoma,Arial,sans-serif!important}
   .panel{border:0;box-shadow:none;padding:0}
   .question{break-inside:avoid}
   body.print-blocked #screen{display:none!important}
-  body.print-blocked #printShield{display:block;font-size:24px;text-align:center;padding:40px}
+  body.print-blocked #printShield{display:block;font-family:Tahoma,Arial,sans-serif!important;font-size:18pt!important;text-align:center;padding:40px}
 }
 
 @keyframes drift{from{translate:0 -14px}to{translate:23px 27px}}
 @media(max-width:768px){
   #player .question{padding:18px 16px}
-  #player .stem{font-size:16px;line-height:1.9}
-  #player .choice{padding:12px 14px;min-height:52px}
-  #player .choice .text{font-size:14px}
+  #player .context{font-size:16px!important;line-height:1.95!important;padding:16px!important}
+  #player .stem{font-size:18px!important;line-height:1.9!important}
+  #player .choice{padding:12px 14px;min-height:54px}
+  #player .choice .text{font-size:15px!important;line-height:1.8!important}
   #watermark{grid-template-columns:repeat(2,1fr)}
 }
-
