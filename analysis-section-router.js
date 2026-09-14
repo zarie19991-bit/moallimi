@@ -5,6 +5,8 @@ const panels={overview:'overviewView',subject:'subjectView',subjectReport:'subje
 let activeView='overview';
 let enforcing=false;
 const ALL_GRADE_LABEL='الثالث متوسط (أ - ب - ج - د)';
+const DUPLICATE_MEASURED_LABEL='عدد الطلاب ذوي الدرجات المقاسة';
+let readabilityLink=null,previousReadabilityMedia='',analysisPrintMode=false;
 
 function show(view){
   if(!panels[view])view='overview';
@@ -36,8 +38,37 @@ function applySemesterToSheets(root=document){
     const term=sheet.querySelector('.sar-meta > div:nth-child(2) b');
     if(term)term.textContent=semesterText(semesterForSheet(sheet));
     const grade=sheet.querySelector('.sar-meta > div:nth-child(1) b');
-    if(grade&&/كل الفصول/.test(grade.textContent||''))grade.textContent=ALL_GRADE_LABEL;
+    if(grade&&/كل الفصول/.test(grade.textContent||''))grade.textContent='الثالث متوسط';
   });
+}
+function removeDuplicateMeasuredCount(root=document){
+  root.querySelectorAll?.('.official-analysis-sheet .sar-stat-list>div').forEach(row=>{
+    if((row.querySelector('span')?.textContent||'').trim()===DUPLICATE_MEASURED_LABEL)row.remove();
+  });
+}
+function findReadabilityLink(){
+  return [...document.querySelectorAll('link[rel="stylesheet"]')].find(link=>String(link.href||'').includes('report-readability.css'))||null;
+}
+function enterAnalysisPrintMode(){
+  removeDuplicateMeasuredCount(document);
+  readabilityLink=findReadabilityLink();
+  if(readabilityLink&&!analysisPrintMode){
+    previousReadabilityMedia=readabilityLink.getAttribute('media')||'';
+    readabilityLink.setAttribute('media','screen');
+    analysisPrintMode=true;
+  }
+}
+function leaveAnalysisPrintMode(){
+  if(readabilityLink&&analysisPrintMode){
+    if(previousReadabilityMedia)readabilityLink.setAttribute('media',previousReadabilityMedia);
+    else readabilityLink.removeAttribute('media');
+  }
+  readabilityLink=null;
+  previousReadabilityMedia='';
+  analysisPrintMode=false;
+}
+function bindAnalysisPrintFidelity(){
+  ['printOverviewAnalysisBtn','printSubjectAnalysisBtn'].forEach(id=>$(id)?.addEventListener('click',enterAnalysisPrintMode,true));
 }
 function addSemesterSelect(toolbar,id){
   if(!toolbar||$(id))return;
@@ -57,6 +88,7 @@ function installSemesterControls(){
   addSemesterSelect(document.querySelector('#subjectView .toolbar'),'subjectSemester');
   replaceAllClassesLabels();
   applySemesterToSheets(document);
+  removeDuplicateMeasuredCount(document);
 }
 
 function install(){
@@ -65,6 +97,7 @@ function install(){
   });
   show(document.querySelector('.main-tab.active')?.dataset.view||'overview');
   installSemesterControls();
+  bindAnalysisPrintFidelity();
 
   const nav=document.querySelector('.main-tabs');
   if(nav){
@@ -84,13 +117,14 @@ function install(){
       }
       if(changed)break;
     }
-    if(changed)queueMicrotask(()=>applySemesterToSheets(document));
+    if(changed)queueMicrotask(()=>{applySemesterToSheets(document);removeDuplicateMeasuredCount(document);});
   });
   sheetObserver.observe(document.body,{childList:true,subtree:true});
-  addEventListener('beforeprint',()=>applySemesterToSheets(document));
+  addEventListener('beforeprint',()=>{applySemesterToSheets(document);removeDuplicateMeasuredCount(document);});
+  addEventListener('afterprint',leaveAnalysisPrintMode);
 
-  $('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{show(activeView);installSemesterControls();},500));
-  addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>{show(activeView);installSemesterControls();},500)});
+  $('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500));
+  addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500)});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
