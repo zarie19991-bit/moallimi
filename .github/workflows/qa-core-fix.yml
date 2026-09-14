@@ -1,0 +1,55 @@
+name: QA core stability fixes
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  core-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: JavaScript syntax
+        run: |
+          node --check analysis-core.js
+          node --check analysis-all-subjects.js
+          node --check analysis.js
+          node --check e.js
+          node --check report-absentees.js
+          node --check report-remedial-plan.js
+          node --check report-test-options.js
+          node --check student-papers.js
+          node --check subject-report-separate.js
+          node --check teacher-access.js
+      - name: Core policy regression checks
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const A = require('./analysis-core.js');
+          const R = require('./report-absentees.js');
+          assert.equal(A.levelFor(69).key, 'support');
+          assert.equal(A.needsSupport(69.99), true);
+          assert.equal(A.needsSupport(70), false);
+          const groups = R.groups({
+            roster: [
+              {id:'s1', full_name:'طالب أول', class_name:'أ', is_active:true},
+              {id:'s2', full_name:'طالب ثان', class_name:'ب', is_active:true}
+            ],
+            attempts: [
+              {id:'a1', test_id:'t1', student_id:'s1', status:'submitted', submitted_at:'2026-09-14T10:00:00Z'},
+              {id:'a2', test_id:'t1', student_id:'unknown', status:'submitted', submitted_at:'2026-09-14T10:01:00Z'}
+            ],
+            tests:[{id:'t1',title:'اختبار'}],
+            selectedIds:['t1']
+          });
+          assert.equal(groups[0].total, 2);
+          assert.equal(groups[0].tested, 1);
+          assert.equal(groups[0].missing.length, 1);
+          assert.equal(groups[0].missing[0].name, 'طالب ثان');
+          assert.equal(groups[0].unresolved, 1);
+          console.log('Core policy checks passed');
+          NODE
