@@ -16,6 +16,20 @@ function uniqueSubject(root){
 function allTeachersText(){
   return `القراءة: ${TEACHERS.reading} | الرياضيات: ${TEACHERS.math} | العلوم: ${TEACHERS.science}`;
 }
+function badgeStyle(){
+  return 'margin-top:8px;padding:8px 12px;border:1px solid #d8e5e6;border-radius:10px;background:#f7fbfb;color:#294d52;font-weight:900;line-height:1.65';
+}
+function ensureBanner(host,keyOrAll,className){
+  if(!host)return;
+  let line=host.querySelector(`:scope > .${className}`);
+  if(!line){
+    line=document.createElement('div');
+    line.className=className;
+    line.style.cssText=badgeStyle();
+    host.appendChild(line);
+  }
+  line.textContent=keyOrAll==='all'?`معلمو المواد: ${allTeachersText()}`:`معلم المادة: ${TEACHERS[keyOrAll]}`;
+}
 function applyOfficialSheets(root=document){
   root.querySelectorAll?.('.official-analysis-sheet').forEach(sheet=>{
     const key=uniqueSubject(sheet.querySelector('h1')||sheet);
@@ -38,6 +52,36 @@ function applySubjectCards(root=document){
     }
     line.textContent=`المعلم: ${TEACHERS[key]}`;
   });
+}
+function applyReportPickerTeachers(root=document){
+  root.querySelectorAll?.('.report-test-group').forEach(group=>{
+    const key=uniqueSubject(group.querySelector('.report-group-head')||group);
+    if(!key)return;
+    let line=group.querySelector(':scope > .report-group-teacher');
+    if(!line){
+      line=document.createElement('div');
+      line.className='report-group-teacher';
+      line.style.cssText='margin:4px 2px 9px;padding:7px 9px;border-radius:8px;background:#eef8f6;color:#165b55;font-weight:900;font-size:13px;text-align:right';
+      const head=group.querySelector('.report-group-head');
+      if(head?.nextSibling)group.insertBefore(line,head.nextSibling);else group.appendChild(line);
+    }
+    line.textContent=`المعلم: ${TEACHERS[key]}`;
+  });
+}
+function applyControlTeachers(){
+  const subject=document.getElementById('subjectSelect')?.value||'reading';
+  const subjectCard=document.querySelector('#subjectView .section-control-card');
+  if(subjectCard&&TEACHERS[subject])ensureBanner(subjectCard,subject,'subject-control-teacher');
+
+  const reportSubject=document.getElementById('reportSubjectSelect')?.value||'reading';
+  const reportCard=document.querySelector('#subjectReportView .subject-report-controls');
+  if(reportCard&&TEACHERS[reportSubject])ensureBanner(reportCard,reportSubject,'subject-report-control-teacher');
+
+  const overviewCard=document.querySelector('#overviewView .section-control-card');
+  if(overviewCard)ensureBanner(overviewCard,'all','overview-teachers');
+
+  const reportIntro=document.querySelector('#reportView > .card:not(.report-controls)');
+  if(reportIntro)ensureBanner(reportIntro,'all','general-report-teachers');
 }
 function applyWeeklySignatures(root=document){
   root.querySelectorAll?.('.weekly-report .wr-signatures').forEach(sig=>{
@@ -82,6 +126,8 @@ function applyAll(){
   pending=false;
   applyOfficialSheets(document);
   applySubjectCards(document);
+  applyReportPickerTeachers(document);
+  applyControlTeachers();
   applyWeeklySignatures(document);
   hideGenericTeacherInputs();
 }
@@ -93,6 +139,9 @@ function schedule(){
 function install(){
   applyAll();
   new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});
+  document.addEventListener('change',e=>{
+    if(['subjectSelect','reportSubjectSelect'].includes(e.target?.id))schedule();
+  });
   addEventListener('beforeprint',applyAll);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
