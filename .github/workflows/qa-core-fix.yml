@@ -7,7 +7,7 @@ on:
 jobs:
   core-checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,6 +19,7 @@ jobs:
           node --check analysis-data-service.js
           node --check analysis-all-subjects.js
           node --check analysis.js
+          node --check analysis-print.js
           node --check e.js
           node --check exam.js
           node --check student-session-recovery.js
@@ -28,6 +29,7 @@ jobs:
           node --check student-papers.js
           node --check subject-report-separate.js
           node --check teacher-access.js
+          node --check qa/core-browser-smoke.mjs
       - name: Core policy regression checks
         run: |
           node <<'NODE'
@@ -87,3 +89,21 @@ jobs:
           grep -q 'submittedSelected=attempts.filter' report-test-options.js
           grep -q 'digits.length===3' report-test-options.js
           grep -q 'كل من لديه تسليم مؤكد' report-test-options.js
+          grep -q 'عدد الطلاب الذين لم يختبروا' analysis-print.js
+          grep -q 'المملكة العربية السعودية' analysis-print.js
+      - name: Install browser driver
+        run: npm install --no-save playwright-core@1.55.0
+      - name: Run isolated browser and print smoke test
+        shell: bash
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/qa-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/analysis.html >/dev/null; then break; fi
+            sleep 1
+          done
+          CHROME_PATH="$(which google-chrome || which chromium || which chromium-browser || true)"
+          test -n "$CHROME_PATH"
+          export CHROME_PATH
+          QA_LOCAL_SITE='http://127.0.0.1:4173/' node qa/core-browser-smoke.mjs
