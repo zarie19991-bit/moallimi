@@ -7,10 +7,10 @@ import { createRequire } from 'node:module';
 const require=createRequire(import.meta.url);
 const {groups,render}=require('../../report-absentees.js');
 const roster=[
-  {id:'local-a',full_name:'طالب محلي أول',class_name:'أ',is_active:true},
-  {id:'local-b',full_name:'طالب محلي ثان',class_name:'أ',is_active:true},
-  {id:'local-c',full_name:'طالب محلي ثالث',class_name:'ب',is_active:true},
-  {id:'local-archived',full_name:'طالب مؤرشف محلي',class_name:'أ',is_active:false}
+  {id:'local-a',full_name:'طالب محلي أول',class_name:'أ',national_id_last3:'111',is_active:true},
+  {id:'local-b',full_name:'طالب محلي ثان',class_name:'أ',national_id_last3:'222',is_active:true},
+  {id:'local-c',full_name:'طالب محلي ثالث',class_name:'ب',national_id_last3:'333',is_active:true},
+  {id:'local-archived',full_name:'طالب مؤرشف محلي',class_name:'أ',national_id_last3:'444',is_active:false}
 ];
 const tests=[{id:'local-math',title:'قياس الرياضيات المحلي',subjects:['math'],class_name:'كل الفصول'},
   {id:'local-reading',title:'قياس القراءة المحلي',subjects:['reading'],class_name:'أ'}];
@@ -43,11 +43,26 @@ test('class filters use roster membership and accept the linked student key',()=
   assert.match(render([g]),/أدّى جميع الطلاب/);
 });
 
-test('unlinked results never identify a student by name or report false absentees',()=>{
+test('unlinked results never identify by name alone and never suppress confirmed missing students',()=>{
   const [g]=groups({roster,tests,selectedIds:['local-math'],
-    attempts:[attempt('', 'local-math',{student_name:roster[0].full_name})]});
-  assert.match(g.warning,/غير مرتبطة/);assert.equal(g.tested,null);assert.deepEqual(g.missing,[]);
-  assert.doesNotMatch(render([g]),/class="na-table"|أدّى جميع الطلاب/);
+    attempts:[attempt('', 'local-math',{student_name:roster[0].full_name,student_no:''})]});
+  assert.match(g.warning,/غير المرتبط/);
+  assert.equal(g.tested,0);
+  assert.equal(g.unresolved,1);
+  assert.deepEqual(g.missing.map(s=>s.name),[roster[0].full_name,roster[1].full_name,roster[2].full_name]);
+  const html=render([g]);
+  assert.match(html,/class="na-table"/);
+  assert.match(html,/طالب محلي أول/);
+  assert.doesNotMatch(html,/أدّى جميع الطلاب/);
+});
+
+test('legacy result links only with unique name plus class plus last3',()=>{
+  const [g]=groups({roster,tests,selectedIds:['local-math'],attempts:[attempt('', 'local-math',{
+    student_name:'طالب محلي ثالث',student_no:'333',class_name:'ب'
+  })]});
+  assert.equal(g.tested,1);
+  assert.equal(g.unresolved,0);
+  assert.deepEqual(g.missing.map(s=>s.name),[roster[0].full_name,roster[1].full_name]);
 });
 
 test('empty roster scope is distinct from everyone having tested',()=>{
@@ -68,7 +83,7 @@ test('long lists keep every full name, paginate, and escape imported text',()=>{
 });
 
 const source=name=>fs.readFileSync(new URL(`../../${name}`,import.meta.url),'utf8');
-const settle=async()=>{for(let i=0;i<15;i++)await Promise.resolve();};
+const settle=async()=>{for(let i=0;i<25;i++)await Promise.resolve();};
 function harness({attempts=[attempt('local-a')],rosterRead=async()=>({students:roster})}={}){
   const elements=new Map();
   const el=id=>{
@@ -77,7 +92,8 @@ function harness({attempts=[attempt('local-a')],rosterRead=async()=>({students:r
       closest(){return {style:{setProperty(){}}};}});
     return elements.get(id);
   };
-  const ctx=vm.createContext({console,Intl,localStorage:{getItem:()=>'{}'},addEventListener(){},alert(){},
+  const ctx=vm.createContext({console,Intl,Date,localStorage:{getItem:()=>'{}',setItem(){}},addEventListener(){},alert(){},
+    setTimeout(fn){fn();return 1;},clearTimeout(){},
     document:{readyState:'complete',getElementById:el,querySelector:()=>el('controls'),
       querySelectorAll:()=>[{dataset:{testId:'local-math'}},{dataset:{testId:'local-reading'}}]},
     NafesTeacher:{getKey:()=>'local-only',api:async action=>{
@@ -125,8 +141,8 @@ test('changing class during roster loading cannot replace the new report with an
 
 test('the full report prints absentees from all four classes despite class A test metadata',async()=>{
   const schoolRoster=[...roster,
-    {id:'local-j',full_name:'طالب محلي من ج',class_name:'ج',is_active:true},
-    {id:'local-d',full_name:'طالب محلي من د',class_name:'د',is_active:true}];
+    {id:'local-j',full_name:'طالب محلي من ج',class_name:'ج',national_id_last3:'555',is_active:true},
+    {id:'local-d',full_name:'طالب محلي من د',class_name:'د',national_id_last3:'666',is_active:true}];
   const h=harness({rosterRead:async()=>({students:schoolRoster}),
     attempts:[attempt('local-a'),attempt('local-a','local-reading',{subjects:['reading']})]});
   h.run('report-test-options.js');await settle();
