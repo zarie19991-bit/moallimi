@@ -59,7 +59,7 @@
    for(let start=0;start<group.missing.length;start+=18)chunks.push(group.missing.slice(start,start+18));
    if(!chunks.length)chunks.push([]);
    return chunks.map((students,page)=>`<article class="report-sheet nafes-absence-sheet${style==='weekly'?' weekly-report':''}" dir="rtl">
-    <header class="na-head"><div><b>${esc(settings.schoolName||'مدرسة ابن سينا المتوسطة')}</b><span>متابعة المشاركة في اختبارات نافس</span></div><small>${ar(page+1)} / ${ar(chunks.length)}</small></header>
+    <header class="na-head"><div><span>المملكة العربية السعودية</span><b>${esc(settings.schoolName||'مدرسة ابن سينا المتوسطة')}</b><span>متابعة المشاركة في اختبارات نافس</span></div><small>${ar(page+1)} / ${ar(chunks.length)}</small></header>
     <h2>الطلاب الذين لم يختبروا</h2>
     <p class="na-test">${esc(group.title)}</p>
     <p class="na-scope">${group.subjectLabel?`المادة: ${esc(group.subjectLabel)} · `:''}الفصل: ${esc(group.className||'جميع الفصول')}</p>
