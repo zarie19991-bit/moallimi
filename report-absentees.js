@@ -6,7 +6,7 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(root){
  'use strict';
  const clean=v=>String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ');
- const esc=v=>clean(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+ const esc=v=>clean(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const ar=v=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:0}).format(v);
  const subjects={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
  const rowsPerPage=14;
@@ -30,7 +30,6 @@
   }
   return [...new Set(selectedIds.map(clean).filter(Boolean))].map(id=>{
    const test=tests.find(t=>clean(t.id)===id)||{};
-   // Reports cover the full roster unless the teacher explicitly selects a class.
    const scope=classKey(className);
    const eligible=[...active.entries()].filter(([,s])=>!scope||classKey(s.class_name)===scope);
    const eligibleIds=new Set(eligible.map(([sid])=>sid));
@@ -40,7 +39,6 @@
     const sid=[a.student_id,a.student_key].map(clean).find(key=>knownIds.has(key));
     if(sid){if(eligibleIds.has(sid))completed.add(sid);continue;}
     if(scope&&classKey(a.class_name)&&classKey(a.class_name)!==scope)continue;
-    // Keep unresolved attempts separate; do not hide confirmed roster absences because of them.
     unresolved++;
    }
    const missing=eligible.filter(([sid])=>!completed.has(sid)).map(([,s])=>({
