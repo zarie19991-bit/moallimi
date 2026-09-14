@@ -23,7 +23,12 @@ assert.match(subject, /section_scores/);
 assert.match(general, /savedMeasure/);
 assert.match(general, /score\/total\*100/);
 
-assert.match(html, /analysis-achievement-fix\.js\?v=[^"\s]+/);
+assert.match(html, /analysis-data-service\.js\?v=[^"\s]+/);
+assert.doesNotMatch(html, /analysis-achievement-fix\.js|data-normalization-fix\.js|analysis-participation\.js/);
+assert.ok(fs.existsSync('analysis-data-service.js'));
+assert.ok(!fs.existsSync('analysis-achievement-fix.js'));
+assert.ok(!fs.existsSync('data-normalization-fix.js'));
+assert.ok(!fs.existsSync('analysis-participation.js'));
 assert.match(signature, /content:none!important/);
 assert.match(signature, /\.sar-signatures span::before/);
 assert.match(signature, /\.sar-signatures span::after/);
