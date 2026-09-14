@@ -21,9 +21,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Check application and reviewed-bank contract
+      - name: Check production application and reviewed-bank contract
         run: |
-          for file in *.js; do node --check "$file"; done
+          while IFS= read -r file; do
+            file="${file%$'\r'}"
+            case "$file" in
+              ""|\#*) continue ;;
+              *.js) node --check "$file" ;;
+            esac
+          done < production-files.txt
           node --check supabase/functions/nafes-exam/index.ts
           node --test question-bank/scripts/test-reviewed-contract.mjs question-bank/scripts/test-assessments.mjs question-bank/scripts/test-analysis-contract.mjs question-bank/scripts/test-analysis-loading.mjs question-bank/scripts/test-report-absentees.mjs
           node question-bank/scripts/verify-reviewed-release.mjs
