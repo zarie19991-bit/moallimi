@@ -1,7 +1,7 @@
 import { FRAMEWORK } from './framework.ts';
 export type Row = Record<string, any>;
 export const SUBJECTS = ['reading','math','science'];
-export const THRESHOLDS = { mastered:80, near:65, support:50 };
+export const THRESHOLDS = { mastered:80, near:70, support:50 };
 export const tidy = (x:unknown,n=160) => String(x ?? '').normalize('NFC').trim().replace(/\s+/g,' ').slice(0,n);
 export function fail(message:string,status=400):never { throw Object.assign(new Error(message),{status}); }
 export const hash = async (x:string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(x)))].map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -85,13 +85,24 @@ export function normalizeLast3Digits(digits: unknown): string {
     .slice(-3);
 }
 
+export function normalizeClassSection(value: unknown): string {
+  const raw = String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').replace(/[إآا]/g, 'أ');
+  if (!raw) return '';
+  if (['أ','ب','ج','د'].includes(raw)) return raw;
+  const token = raw.match(/(?:^|[\s/\\\-()])([أبجد])(?:$|[\s/\\\-()])/);
+  if (token) return token[1];
+  const tail = raw.match(/(?:فصل|شعبة)?\s*([أبجد])$/);
+  return tail ? tail[1] : '';
+}
+
 export async function verifyStudentIdentity(db: any, rawName: string, rawLast3: string, rawClass?: string): Promise<Row> {
   const normDigits = normalizeLast3Digits(rawLast3);
   const normName = normalizeArabicName(rawName);
-  const normClass = String(rawClass || '').trim();
+  const rawClassText = String(rawClass || '').trim();
+  const requestedSection = normalizeClassSection(rawClassText);
   const MISMATCH_MSG = 'بيانات الطالب غير متطابقة، تأكد من الاسم كما هو في كشف المدرسة وآخر ثلاثة أرقام من الهوية والفصل.';
 
-  if (!normDigits || normDigits.length !== 3 || !normName || normName.length < 2 || !normClass) {
+  if (!normDigits || normDigits.length !== 3 || !normName || normName.length < 2 || !rawClassText) {
     fail(MISMATCH_MSG, 400);
   }
 
@@ -99,12 +110,21 @@ export async function verifyStudentIdentity(db: any, rawName: string, rawLast3: 
     .from('nafes_students')
     .select('id,full_name,name_normalized,grade,class_name,national_id_last3,is_active')
     .eq('national_id_last3', normDigits)
-    .eq('class_name', normClass)
     .eq('is_active', true);
   if (error) throw error;
 
-  const exactMatches = (candidates || []).filter((c: Row) => c.name_normalized === normName);
-  if (exactMatches.length === 1) return exactMatches[0];
-  if (exactMatches.length > 1) fail('تم العثور على أكثر من طالب مطابق بنفس البيانات؛ راجع المعلم لتفادي التضارب.', 409);
-  fail(MISMATCH_MSG, 404);
+  const exactNameMatches = (candidates || []).filter((c: Row) => c.name_normalized === normName);
+  if (!exactNameMatches.length) fail(MISMATCH_MSG, 404);
+
+  if (requestedSection) {
+    const classMatches = exactNameMatches.filter((c: Row) => normalizeClassSection(c.class_name) === requestedSection);
+    if (classMatches.length === 1) return classMatches[0];
+    if (classMatches.length > 1) fail('تم العثور على أكثر من طالب مطابق بنفس البيانات داخل الفصل؛ راجع المعلم لتفادي التضارب.', 409);
+    fail(MISMATCH_MSG, 404);
+  }
+
+  // A generic class label such as "ثالث متوسط" must never reject a uniquely identified student.
+  // If more than one student shares the same normalized name + last three digits, require the section explicitly.
+  if (exactNameMatches.length === 1) return exactNameMatches[0];
+  fail('توجد أكثر من مطابقة للاسم وآخر ثلاثة أرقام؛ أدخل الشعبة بدقة مثل أ أو ب أو ج أو د.', 409);
 }
