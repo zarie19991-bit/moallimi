@@ -170,7 +170,8 @@ test('the all-classes subject report uses the selected scope in its title and ab
   h.el('reportSubjectClass').value='';
   await h.el('buildSubjectReportBtn').onclick();
   const html=h.el('subjectOfficialReport').innerHTML;
-  assert.match(html,/الثالث المتوسط · كل الفصول/);
+  assert.match(html,/الثالث متوسط/);
+  assert.doesNotMatch(html,/الثالث متوسط\s*[·/]\s*[أبجد]|الثالث المتوسط · كل الفصول/);
   assert.match(html,/طالب محلي ثالث/);assert.match(html,/الفصل: جميع الفصول/);
   h.el('printSubjectReportBtn').onclick();assert.equal(h.el('printed').innerHTML,html);
 });
