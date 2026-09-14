@@ -1,0 +1,6 @@
+@media print{
+  #printRoot .official-analysis-sheet,
+  .print-root .official-analysis-sheet{
+    zoom:.95!important;
+  }
+}
