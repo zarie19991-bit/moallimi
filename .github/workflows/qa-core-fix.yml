@@ -7,7 +7,7 @@ on:
 jobs:
   core-checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -93,17 +93,32 @@ jobs:
           grep -q 'المملكة العربية السعودية' analysis-print.js
       - name: Install browser driver
         run: npm install --no-save playwright-core@1.55.0
-      - name: Run isolated browser and print smoke test
+      - name: Start local branch site
         shell: bash
         run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/qa-http.log 2>&1 &
-          SERVER_PID=$!
-          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          nohup python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/qa-http.log 2>&1 &
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:4173/analysis.html >/dev/null; then break; fi
             sleep 1
           done
+          curl -fsS http://127.0.0.1:4173/analysis.html >/dev/null
           CHROME_PATH="$(which google-chrome || which chromium || which chromium-browser || true)"
           test -n "$CHROME_PATH"
-          export CHROME_PATH
-          QA_LOCAL_SITE='http://127.0.0.1:4173/' node qa/core-browser-smoke.mjs
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          echo "QA_LOCAL_SITE=http://127.0.0.1:4173/" >> "$GITHUB_ENV"
+      - name: Browser QA - official analysis
+        env:
+          QA_SMOKE_ONLY: official
+        run: node qa/core-browser-smoke.mjs
+      - name: Browser QA - subject report
+        env:
+          QA_SMOKE_ONLY: subject-report
+        run: node qa/core-browser-smoke.mjs
+      - name: Browser QA - general report
+        env:
+          QA_SMOKE_ONLY: general
+        run: node qa/core-browser-smoke.mjs
+      - name: Browser QA - print readability
+        env:
+          QA_SMOKE_ONLY: print
+        run: node qa/core-browser-smoke.mjs
