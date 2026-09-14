@@ -1,0 +1,38 @@
+@media print{
+  #printRoot .official-analysis-sheet,
+  .print-root .official-analysis-sheet{
+    position:relative!important;
+    padding-bottom:19mm!important;
+  }
+  #printRoot .official-analysis-sheet .sar-chart-card,
+  .print-root .official-analysis-sheet .sar-chart-card{
+    margin-bottom:1.8mm!important;
+    padding-top:2.2mm!important;
+    padding-bottom:1.9mm!important;
+  }
+  #printRoot .official-analysis-sheet .sar-bars,
+  .print-root .official-analysis-sheet .sar-bars{
+    height:24mm!important;
+  }
+  #printRoot .official-analysis-sheet .sar-bar-track,
+  .print-root .official-analysis-sheet .sar-bar-track{
+    height:16mm!important;
+  }
+  #printRoot .official-analysis-sheet .sar-signatures,
+  .print-root .official-analysis-sheet .sar-signatures{
+    position:absolute!important;
+    left:10mm!important;
+    right:10mm!important;
+    bottom:4mm!important;
+    margin:0!important;
+    gap:8mm!important;
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+    z-index:3!important;
+  }
+  #printRoot .official-analysis-sheet .sar-signatures>div,
+  .print-root .official-analysis-sheet .sar-signatures>div{
+    min-height:9mm!important;
+    padding:1.2mm 2mm!important;
+  }
+}
