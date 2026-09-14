@@ -40,13 +40,11 @@ report-print-exact.css
 report-absentees.css
 report-readability.css
 analysis-core.js
-analysis-achievement-fix.js
-data-normalization-fix.js
+analysis-data-service.js
 analysis.js
 analysis-all-subjects.js
 report-absentees.js
 subject-report-separate.js
-analysis-participation.js
 analysis-section-router.js
 analysis-print.js
 report-test-options.js
