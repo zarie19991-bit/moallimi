@@ -19,6 +19,9 @@ function allTeachersText(){
 function badgeStyle(){
   return 'margin-top:8px;padding:8px 12px;border:1px solid #d8e5e6;border-radius:10px;background:#f7fbfb;color:#294d52;font-weight:900;line-height:1.65';
 }
+function setTextIfChanged(node,value){
+  if(node&&node.textContent!==value)node.textContent=value;
+}
 function ensureBanner(host,keyOrAll,className){
   if(!host)return;
   let line=host.querySelector(`:scope > .${className}`);
@@ -28,15 +31,16 @@ function ensureBanner(host,keyOrAll,className){
     line.style.cssText=badgeStyle();
     host.appendChild(line);
   }
-  line.textContent=keyOrAll==='all'?`معلمو المواد: ${allTeachersText()}`:`معلم المادة: ${TEACHERS[keyOrAll]}`;
+  const value=keyOrAll==='all'?`معلمو المواد: ${allTeachersText()}`:`معلم المادة: ${TEACHERS[keyOrAll]}`;
+  setTextIfChanged(line,value);
 }
 function applyOfficialSheets(root=document){
   root.querySelectorAll?.('.official-analysis-sheet').forEach(sheet=>{
     const key=uniqueSubject(sheet.querySelector('h1')||sheet);
     if(!key)return;
     const value=sheet.querySelector('.sar-signatures>div:first-child span');
-    if(value&&value.textContent!==TEACHERS[key])value.textContent=TEACHERS[key];
-    sheet.dataset.subjectTeacher=TEACHERS[key];
+    setTextIfChanged(value,TEACHERS[key]);
+    if(sheet.dataset.subjectTeacher!==TEACHERS[key])sheet.dataset.subjectTeacher=TEACHERS[key];
   });
 }
 function applySubjectCards(root=document){
@@ -50,7 +54,7 @@ function applySubjectCards(root=document){
       line.style.cssText='display:block;margin-top:5px;font-weight:900;color:#50666c;line-height:1.4';
       card.appendChild(line);
     }
-    line.textContent=`المعلم: ${TEACHERS[key]}`;
+    setTextIfChanged(line,`المعلم: ${TEACHERS[key]}`);
   });
 }
 function applyReportPickerTeachers(root=document){
@@ -65,7 +69,7 @@ function applyReportPickerTeachers(root=document){
       const head=group.querySelector('.report-group-head');
       if(head?.nextSibling)group.insertBefore(line,head.nextSibling);else group.appendChild(line);
     }
-    line.textContent=`المعلم: ${TEACHERS[key]}`;
+    setTextIfChanged(line,`المعلم: ${TEACHERS[key]}`);
   });
 }
 function applyControlTeachers(){
@@ -87,18 +91,17 @@ function applyWeeklySignatures(root=document){
   root.querySelectorAll?.('.weekly-report .wr-signatures').forEach(sig=>{
     const target=sig.querySelector(':scope>div:first-child b');
     if(!target)return;
-    const value=allTeachersText();
-    if(target.textContent!==value)target.textContent=value;
-    target.style.whiteSpace='normal';
-    target.style.lineHeight='1.55';
-    target.style.fontSize='10.5px';
+    setTextIfChanged(target,allTeachersText());
+    if(target.style.whiteSpace!=='normal')target.style.whiteSpace='normal';
+    if(target.style.lineHeight!=='1.55')target.style.lineHeight='1.55';
+    if(target.style.fontSize!=='10.5px')target.style.fontSize='10.5px';
   });
 }
 function hideGenericTeacherInputs(){
   const wr=document.getElementById('wrTeacher');
   if(wr){
     const label=wr.closest('label');
-    if(label)label.style.display='none';
+    if(label&&label.style.display!=='none')label.style.display='none';
     const grid=wr.closest('.wr-settings-grid');
     if(grid&&!grid.querySelector('.fixed-subject-teachers')){
       const note=document.createElement('div');
@@ -111,7 +114,7 @@ function hideGenericTeacherInputs(){
   const modal=document.getElementById('teacherNameInput');
   if(modal){
     const label=modal.closest('label');
-    if(label)label.style.display='none';
+    if(label&&label.style.display!=='none')label.style.display='none';
     const grid=modal.closest('.settings-grid');
     if(grid&&!grid.querySelector('.fixed-subject-teachers')){
       const note=document.createElement('div');
