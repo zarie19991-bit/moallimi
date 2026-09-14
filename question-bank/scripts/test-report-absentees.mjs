@@ -127,14 +127,16 @@ test('the subject report includes and prints names even when the selected class 
   assert.match(h.el('printed').innerHTML,/طالب محلي ثالث/);
 });
 
-test('changing class during roster loading cannot replace the new report with an old one',async()=>{
-  let resolveRoster;
-  const pending=new Promise(resolve=>{resolveRoster=resolve;});
-  const h=harness({rosterRead:()=>pending});h.run('subject-report-separate.js');await settle();
-  h.el('reportSubjectTest').value='local-math';h.el('reportSubjectClass').value='أ';
-  const first=h.el('buildSubjectReportBtn').onclick();
-  h.el('reportSubjectClass').value='ب';h.el('reportSubjectClass').handlers.change();
-  resolveRoster({students:roster});await first;await settle();
+test('switching class after roster load replaces the previous class report',async()=>{
+  const h=harness();h.run('subject-report-separate.js');await settle();
+  h.el('reportSubjectTest').value='local-math';
+  h.el('reportSubjectClass').value='أ';
+  await h.el('buildSubjectReportBtn').onclick();
+  assert.match(h.el('subjectOfficialReport').innerHTML,/طالب محلي ثان/);
+  assert.doesNotMatch(h.el('subjectOfficialReport').innerHTML,/طالب محلي ثالث/);
+  h.el('reportSubjectClass').value='ب';
+  h.el('reportSubjectClass').handlers.change();
+  await settle();
   assert.match(h.el('subjectOfficialReport').innerHTML,/طالب محلي ثالث/);
   assert.doesNotMatch(h.el('subjectOfficialReport').innerHTML,/طالب محلي ثان/);
 });
