@@ -7,7 +7,7 @@ on:
 jobs:
   core-checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,6 +30,8 @@ jobs:
           node --check subject-report-separate.js
           node --check teacher-access.js
           node --check qa/core-browser-smoke.mjs
+          node --check qa/student-resume-smoke.mjs
+          node --check qa/student-paper-smoke.mjs
       - name: Core policy regression checks
         run: |
           node <<'NODE'
@@ -84,6 +86,7 @@ jobs:
           ! grep -q 'data-normalization-fix.js' analysis.html
           ! grep -q 'teacher_tests_bulk_clear' analysis-data-service.js
           grep -q 'teacher_tests_bulk_clear' results-clear-fix.js
+          ! grep -q 'analysis-participation.js' analysis-section-router.js
       - name: General report participation guards
         run: |
           grep -q 'submittedSelected=attempts.filter' report-test-options.js
@@ -122,3 +125,7 @@ jobs:
         env:
           QA_SMOKE_ONLY: print
         run: node qa/core-browser-smoke.mjs
+      - name: Browser QA - student resume after reload
+        run: node qa/student-resume-smoke.mjs
+      - name: Browser QA - student paper strict identity
+        run: node qa/student-paper-smoke.mjs
