@@ -40,6 +40,17 @@ async function statMap(root){return page.evaluate(sel=>Object.fromEntries([...do
 
 async function officialAnalysis(){
   await openAnalysis();
+  const debug=await page.evaluate(async()=>{
+    const roster=await window.NafesTeacher.api('teacher_students_list',{include_archived:false});
+    const data=await window.NafesTeacher.api('teacher_data',{cursor:0,limit:100});
+    const groups=window.NafesReportAbsentees?.groups?.({roster:roster.students,attempts:data.attempts,tests:data.tests,selectedIds:['t1'],className:'',subject:'reading'})||[];
+    return {
+      roster:(roster.students||[]).map(s=>({id:s.id,name:s.full_name,className:s.class_name,last3:s.national_id_last3})),
+      attempts:(data.attempts||[]).map(a=>({id:a.id,student_id:a.student_id,student_key:a.student_key,name:a.student_name,className:a.class_name,no:a.student_no,test_id:a.test_id,status:a.status})),
+      group:groups[0]||null
+    };
+  });
+  console.log('DEBUG_OFFICIAL_PARTICIPATION',JSON.stringify(debug));
   await page.click('button[data-view="subject"]');
   await page.selectOption('#subjectSelect','reading');
   await page.waitForFunction(()=>[...document.querySelectorAll('#analysisSubjectTest option')].some(o=>o.value==='t1'),null,{timeout:30000});
@@ -48,8 +59,9 @@ async function officialAnalysis(){
   await page.click('#buildSubjectOfficialBtn');
   await page.waitForSelector('#subjectOfficialPreview .official-analysis-sheet',{timeout:30000});
   const stats=await statMap('#subjectOfficialPreview');
+  console.log('DEBUG_OFFICIAL_STATS',JSON.stringify(stats));
   assert(stats['إجمالي عدد الطلاب']===nf.format(3),`official total ${stats['إجمالي عدد الطلاب']}`);
-  assert(stats['عدد الطلاب المختبرين']===nf.format(2),`official tested ${stats['عدد الطلاب المختبرين']}`);
+  assert(stats['عدد الطلاب المختبرين']===nf.format(2),`official tested ${stats['عدد الطلاب المختبرين']} group=${JSON.stringify(debug.group)}`);
   assert(stats['عدد الطلاب الذين لم يختبروا']===nf.format(1),`official absent ${stats['عدد الطلاب الذين لم يختبروا']}`);
   const text=await page.locator('#subjectOfficialPreview').innerText();
   for(const required of ['المملكة العربية السعودية','وزارة التعليم','الإدارة العامة للتعليم بمنطقة نجران','مدرسة ابن سينا المتوسطة'])assert(text.includes(required),`official header missing ${required}`);
