@@ -2,37 +2,65 @@
   #printRoot .official-analysis-sheet,
   .print-root .official-analysis-sheet{
     position:relative!important;
-    padding-bottom:19mm!important;
+    padding-bottom:5mm!important;
   }
+
+  /* Keep the printed title identical to the approved screen design. */
+  #printRoot .official-analysis-sheet>h1,
+  .print-root .official-analysis-sheet>h1{
+    width:70%!important;
+    margin:0 auto 2.4mm!important;
+    padding:2.2mm 4mm!important;
+    background:linear-gradient(90deg,#56208d,#762daf)!important;
+    color:#fff!important;
+    border:0!important;
+    border-bottom:1mm solid #18aeba!important;
+    border-radius:0 0 3mm 3mm!important;
+    box-shadow:none!important;
+  }
+
+  /* Reclaim only vertical space so the signature strip stays below the chart on page one. */
   #printRoot .official-analysis-sheet .sar-chart-card,
   .print-root .official-analysis-sheet .sar-chart-card{
-    margin-bottom:1.8mm!important;
-    padding-top:2.2mm!important;
-    padding-bottom:1.9mm!important;
+    margin-bottom:1.2mm!important;
+    padding-top:1.9mm!important;
+    padding-bottom:1.6mm!important;
+  }
+  #printRoot .official-analysis-sheet .sar-rings,
+  .print-root .official-analysis-sheet .sar-rings{
+    gap:1.6mm!important;
+  }
+  #printRoot .official-analysis-sheet .sar-ring,
+  .print-root .official-analysis-sheet .sar-ring{
+    width:15mm!important;
+    height:15mm!important;
   }
   #printRoot .official-analysis-sheet .sar-bars,
   .print-root .official-analysis-sheet .sar-bars{
-    height:24mm!important;
+    height:21mm!important;
+    padding-top:.6mm!important;
   }
   #printRoot .official-analysis-sheet .sar-bar-track,
   .print-root .official-analysis-sheet .sar-bar-track{
-    height:16mm!important;
+    height:14mm!important;
   }
+
+  /* The teacher/principal row is part of the normal document flow, never over the graph. */
   #printRoot .official-analysis-sheet .sar-signatures,
   .print-root .official-analysis-sheet .sar-signatures{
-    position:absolute!important;
-    left:10mm!important;
-    right:10mm!important;
-    bottom:4mm!important;
-    margin:0!important;
-    gap:8mm!important;
+    position:static!important;
+    left:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    margin:1.4mm 10mm 0!important;
+    gap:6mm!important;
     break-inside:avoid!important;
     page-break-inside:avoid!important;
-    z-index:3!important;
+    z-index:auto!important;
   }
   #printRoot .official-analysis-sheet .sar-signatures>div,
   .print-root .official-analysis-sheet .sar-signatures>div{
-    min-height:9mm!important;
-    padding:1.2mm 2mm!important;
+    min-height:8mm!important;
+    padding:.9mm 1.6mm!important;
   }
 }
