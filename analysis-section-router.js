@@ -51,7 +51,7 @@ function ensureAnalysisPrintSignatureCss(){
   const link=document.createElement('link');
   link.id='analysisPrintSignaturesCss';
   link.rel='stylesheet';
-  link.href='analysis-print-signatures-first-page.css?v=20260914-1';
+  link.href='analysis-print-signatures-first-page.css?v=20260914-3';
   document.head.appendChild(link);
 }
 function findReadabilityLink(){
