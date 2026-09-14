@@ -3,6 +3,53 @@
 const $=id=>document.getElementById(id);
 const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 
+function installPrintReadabilityGuard(){
+  if($('nafesPrintReadabilityGuard'))return;
+  const style=document.createElement('style');
+  style.id='nafesPrintReadabilityGuard';
+  style.textContent=`@media print{
+    #printRoot .weekly-report.report-sheet,
+    #printRoot .nafes-absence-sheet,
+    #printRoot .official-analysis-sheet{
+      height:auto!important;min-height:0!important;max-height:none!important;
+      overflow:visible!important;font-size:12pt!important;line-height:1.5!important;
+    }
+    #printRoot .weekly-report.report-sheet table th,
+    #printRoot .weekly-report.report-sheet table td,
+    #printRoot .nafes-absence-sheet table th,
+    #printRoot .nafes-absence-sheet table td,
+    #printRoot .official-analysis-sheet table th,
+    #printRoot .official-analysis-sheet table td{
+      font-size:12pt!important;line-height:1.5!important;
+      border:.4mm solid #52666d!important;padding:2mm!important;
+      color:#182b32!important;background:#fff!important;
+    }
+    #printRoot .weekly-report.report-sheet table th,
+    #printRoot .nafes-absence-sheet table th,
+    #printRoot .official-analysis-sheet table th{
+      background:#e4ecee!important;font-weight:800!important;
+    }
+    #printRoot .wr-follow-sheet .wr-student-name,
+    #printRoot .wr-follow-sheet .wr-student-class,
+    #printRoot .wr-follow-sheet .wr-student-ind,
+    #printRoot .wr-follow-sheet .wr-student-ind *,
+    #printRoot .wr-more-note,
+    #printRoot .wr-remedial,
+    #printRoot .wr-remedial table,
+    #printRoot .wr-remedial th,
+    #printRoot .wr-remedial td{
+      font-size:11.5pt!important;line-height:1.45!important;
+    }
+    #printRoot .wr-remedial th,
+    #printRoot .wr-remedial td,
+    #printRoot .wr-follow-sheet .wr-student-ind{
+      border-color:#52666d!important;
+    }
+    #printRoot tr{break-inside:avoid!important;page-break-inside:avoid!important;}
+  }`;
+  document.head.appendChild(style);
+}
+
 function installField(){
   if($('manualPrintDate')) return;
   const label=document.createElement('label');
@@ -74,6 +121,7 @@ function validatePrint(e){
 }
 
 function init(){
+  installPrintReadabilityGuard();
   installField();
   const input=$('manualPrintDate');
   input?.addEventListener('input',syncPreview);
