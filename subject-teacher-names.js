@@ -16,10 +16,6 @@ function uniqueSubject(root){
 function allTeachersText(){
   return `القراءة: ${TEACHERS.reading} | الرياضيات: ${TEACHERS.math} | العلوم: ${TEACHERS.science}`;
 }
-function teacherFor(root){
-  const k=uniqueSubject(root);
-  return k?TEACHERS[k]:'';
-}
 function applyOfficialSheets(root=document){
   root.querySelectorAll?.('.official-analysis-sheet').forEach(sheet=>{
     const key=uniqueSubject(sheet.querySelector('h1')||sheet);
@@ -45,14 +41,13 @@ function applySubjectCards(root=document){
 }
 function applyWeeklySignatures(root=document){
   root.querySelectorAll?.('.weekly-report .wr-signatures').forEach(sig=>{
-    const report=sig.closest('.weekly-report')||sig;
     const target=sig.querySelector(':scope>div:first-child b');
     if(!target)return;
-    const single=teacherFor(report);
-    const value=single||allTeachersText();
+    const value=allTeachersText();
     if(target.textContent!==value)target.textContent=value;
     target.style.whiteSpace='normal';
     target.style.lineHeight='1.55';
+    target.style.fontSize='10.5px';
   });
 }
 function hideGenericTeacherInputs(){
