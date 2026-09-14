@@ -36,6 +36,7 @@ official-analysis-template.css
 official-analysis-template-tune.css
 official-analysis-signature-fix.css
 analysis-print-signatures-first-page.css
+analysis-print-scale-95.css
 report-logo-final.css
 report-print-exact.css
 report-absentees.css
@@ -50,6 +51,7 @@ analysis-section-router.js
 analysis-print.js
 report-test-options.js
 report-remedial-plan.js
+subject-teacher-names.js
 manual-print-date.js
 reset-results.js
 results-clear-fix.js
