@@ -2,6 +2,7 @@ import { chromium } from 'playwright-core';
 
 const SITE=process.env.QA_LOCAL_SITE||'http://127.0.0.1:4173/';
 const CHROME=process.env.CHROME_PATH||'/usr/bin/google-chrome';
+const ONLY=process.env.QA_SMOKE_ONLY||'all';
 const students=[
   {id:'s1',full_name:'طالب أول',name_normalized:'طالب اول',class_name:'أ',national_id_last3:'123',is_active:true},
   {id:'s2',full_name:'طالب ثان',name_normalized:'طالب ثان',class_name:'ب',national_id_last3:'456',is_active:true},
@@ -13,6 +14,7 @@ const attempts=[
 ];
 const tests=[{id:'t1',title:'اختبار قراءة تجريبي',kind:'indicator',subjects:['reading'],class_name:'',term:'الفصل الدراسي الأول',total:10}];
 const key='a'.repeat(64);
+const nf=new Intl.NumberFormat('ar-SA',{maximumFractionDigits:1});
 const browser=await chromium.launch({headless:true,executablePath:CHROME,args:['--no-sandbox']});
 const context=await browser.newContext({locale:'ar-SA'});
 const page=await context.newPage();
@@ -27,16 +29,17 @@ await page.route('**/functions/v1/nafes-exam',async route=>{
   return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:`unexpected ${body.action||'action'}`})});
 });
 
-const checks=[];
-function record(name,detail){checks.push({name,detail});console.log(`PASS ${name} :: ${typeof detail==='string'?detail:JSON.stringify(detail)}`)}
 function assert(condition,message){if(!condition)throw new Error(message)}
-async function statMap(root){return page.evaluate(sel=>Object.fromEntries([...document.querySelectorAll(`${sel} .sar-stat-list>div`)].map(r=>[r.querySelector('span')?.textContent.trim(),r.querySelector('b')?.textContent.trim()])),root)}
-const nf=new Intl.NumberFormat('ar-SA',{maximumFractionDigits:1});
-
-try{
+function pass(name,detail){console.log(`PASS ${name} :: ${typeof detail==='string'?detail:JSON.stringify(detail)}`)}
+async function openAnalysis(){
+  await page.emulateMedia({media:'screen'});
   await page.goto(`${SITE}analysis.html#key=${key}`,{waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForSelector('#dashboard:not([hidden])',{timeout:30000});
+}
+async function statMap(root){return page.evaluate(sel=>Object.fromEntries([...document.querySelectorAll(`${sel} .sar-stat-list>div`)].map(r=>[r.querySelector('span')?.textContent.trim(),r.querySelector('b')?.textContent.trim()])),root)}
 
+async function officialAnalysis(){
+  await openAnalysis();
   await page.click('button[data-view="subject"]');
   await page.selectOption('#subjectSelect','reading');
   await page.waitForFunction(()=>[...document.querySelectorAll('#analysisSubjectTest option')].some(o=>o.value==='t1'),null,{timeout:30000});
@@ -44,14 +47,17 @@ try{
   await page.selectOption('#subjectClass','');
   await page.click('#buildSubjectOfficialBtn');
   await page.waitForSelector('#subjectOfficialPreview .official-analysis-sheet',{timeout:30000});
-  const official=await statMap('#subjectOfficialPreview');
-  assert(official['إجمالي عدد الطلاب']===nf.format(3),`official total ${official['إجمالي عدد الطلاب']}`);
-  assert(official['عدد الطلاب المختبرين']===nf.format(2),`official tested ${official['عدد الطلاب المختبرين']}`);
-  assert(official['عدد الطلاب الذين لم يختبروا']===nf.format(1),`official absent ${official['عدد الطلاب الذين لم يختبروا']}`);
-  const officialText=await page.locator('#subjectOfficialPreview').innerText();
-  for(const text of ['المملكة العربية السعودية','وزارة التعليم','الإدارة العامة للتعليم بمنطقة نجران','مدرسة ابن سينا المتوسطة'])assert(officialText.includes(text),`official header missing ${text}`);
-  record('official_analysis_participation',official);
+  const stats=await statMap('#subjectOfficialPreview');
+  assert(stats['إجمالي عدد الطلاب']===nf.format(3),`official total ${stats['إجمالي عدد الطلاب']}`);
+  assert(stats['عدد الطلاب المختبرين']===nf.format(2),`official tested ${stats['عدد الطلاب المختبرين']}`);
+  assert(stats['عدد الطلاب الذين لم يختبروا']===nf.format(1),`official absent ${stats['عدد الطلاب الذين لم يختبروا']}`);
+  const text=await page.locator('#subjectOfficialPreview').innerText();
+  for(const required of ['المملكة العربية السعودية','وزارة التعليم','الإدارة العامة للتعليم بمنطقة نجران','مدرسة ابن سينا المتوسطة'])assert(text.includes(required),`official header missing ${required}`);
+  pass('official_analysis_participation',stats);
+}
 
+async function subjectReport(){
+  await openAnalysis();
   await page.click('button[data-view="subjectReport"]');
   await page.selectOption('#reportSubjectSelect','reading');
   await page.waitForFunction(()=>[...document.querySelectorAll('#reportSubjectTest option')].some(o=>o.value==='t1'),null,{timeout:30000});
@@ -59,15 +65,21 @@ try{
   await page.selectOption('#reportSubjectClass','');
   await page.click('#buildSubjectReportBtn');
   await page.waitForSelector('#subjectOfficialReport .subject-analysis-sheet',{timeout:30000});
-  const subjectText=await page.locator('#subjectOfficialReport').innerText();
-  for(const text of ['المملكة العربية السعودية','وزارة التعليم','الإدارة العامة للتعليم بمنطقة نجران'])assert(subjectText.includes(text),`subject report header missing ${text}`);
-  assert(subjectText.includes('طالب ثالث'),'subject report should list confirmed non-tester');
-  record('subject_report_header_and_absentee','طالب ثالث ظاهر كغير مختبر');
+  const text=await page.locator('#subjectOfficialReport').innerText();
+  for(const required of ['المملكة العربية السعودية','وزارة التعليم','الإدارة العامة للتعليم بمنطقة نجران'])assert(text.includes(required),`subject report header missing ${required}`);
+  assert(text.includes('طالب ثالث'),'subject report should list confirmed non-tester');
+  pass('subject_report_header_and_absentee','طالب ثالث ظاهر كغير مختبر');
+}
 
+async function buildGeneral(){
+  await openAnalysis();
   await page.click('button[data-view="report"]');
   await page.waitForSelector('#reportMultiPicker input[data-test-id="t1"]',{timeout:30000});
   await page.click('#buildReportBtn');
   await page.waitForSelector('#reportPreview .weekly-report.report-sheet',{timeout:30000});
+}
+async function generalReport(){
+  await buildGeneral();
   const kpis=await page.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#reportPreview .wr-kpis article')].map(a=>[a.querySelector('span')?.textContent.trim(),a.querySelector('strong')?.textContent.trim()])));
   assert(kpis['إجمالي الطلاب في الكشف']===nf.format(3),`general total ${kpis['إجمالي الطلاب في الكشف']}`);
   assert(kpis['المختبرون في الاختبارات المحددة']===nf.format(2),`general tested ${kpis['المختبرون في الاختبارات المحددة']}`);
@@ -75,16 +87,24 @@ try{
   const followText=await page.locator('#reportPreview .wr-follow-sheet').innerText();
   assert(followText.includes('طالب ثان'),'60% student missing from support list');
   assert(!followText.includes('طالب أول'),'80% student incorrectly included in support list');
-  record('general_report_participation_and_support',kpis);
+  pass('general_report_participation_and_support',kpis);
+}
 
+async function printReadability(){
+  await buildGeneral();
   await page.evaluate(()=>{const root=document.querySelector('#printRoot');root.innerHTML=document.querySelector('#reportPreview').innerHTML;root.setAttribute('aria-hidden','false')});
   await page.emulateMedia({media:'print'});
-  const printStyle=await page.evaluate(()=>{const td=document.querySelector('#printRoot td'),th=document.querySelector('#printRoot th');const cs=getComputedStyle(td),hs=getComputedStyle(th);return{fontSize:cs.fontSize,lineHeight:cs.lineHeight,border:cs.borderTopWidth,headerFont:hs.fontSize}});
-  assert(parseFloat(printStyle.fontSize)>=15.5,`print font too small ${printStyle.fontSize}`);
-  assert(parseFloat(printStyle.border)>=1,`print border too thin ${printStyle.border}`);
-  record('print_readability',printStyle);
+  const style=await page.evaluate(()=>{const td=document.querySelector('#printRoot td'),th=document.querySelector('#printRoot th');if(!td||!th)throw new Error('print table not rendered');const cs=getComputedStyle(td),hs=getComputedStyle(th);return{fontSize:cs.fontSize,lineHeight:cs.lineHeight,border:cs.borderTopWidth,headerFont:hs.fontSize}});
+  assert(parseFloat(style.fontSize)>=15.5,`print font too small ${style.fontSize}`);
+  assert(parseFloat(style.border)>=1,`print border too thin ${style.border}`);
+  pass('print_readability',style);
+}
 
-  console.log('CORE_BROWSER_SMOKE',JSON.stringify({passed:checks.length,checks}));
+try{
+  if(ONLY==='all'||ONLY==='official')await officialAnalysis();
+  if(ONLY==='all'||ONLY==='subject-report')await subjectReport();
+  if(ONLY==='all'||ONLY==='general')await generalReport();
+  if(ONLY==='all'||ONLY==='print')await printReadability();
 } finally {
   await browser.close();
 }
