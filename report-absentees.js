@@ -6,7 +6,7 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(root){
  'use strict';
  const clean=v=>String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ');
- const esc=v=>clean(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const esc=v=>clean(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
  const ar=v=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:0}).format(v);
  const subjects={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
  const rowsPerPage=14;
@@ -40,18 +40,18 @@
     const sid=[a.student_id,a.student_key].map(clean).find(key=>knownIds.has(key));
     if(sid){if(eligibleIds.has(sid))completed.add(sid);continue;}
     if(scope&&classKey(a.class_name)&&classKey(a.class_name)!==scope)continue;
-    // Do not identify students by name alone, or mark everyone absent when linkage is missing.
+    // Keep unresolved attempts separate; do not hide confirmed roster absences because of them.
     unresolved++;
    }
    const missing=eligible.filter(([sid])=>!completed.has(sid)).map(([,s])=>({
     name:clean(s.full_name||s.student_name)||'اسم غير مسجل',className:clean(s.class_name)||'غير محدد'
    })).sort((a,b)=>a.className.localeCompare(b.className,'ar')||a.name.localeCompare(b.name,'ar'));
    const warning=!eligible.length?'لا توجد أسماء في كشف الطلاب ضمن الفصل المحدد.':
-    unresolved?'تعذر تحديد أسماء غير المختبرين بدقة لوجود نتائج غير مرتبطة بكشف الطلاب.':'';
+    unresolved?`يوجد ${ar(unresolved)} من النتائج المسلّمة غير مرتبطة بمعرف طالب في الكشف؛ عُرضت أدناه الأسماء المؤكدة من كشف الطلاب، ويجب مراجعة النتائج غير المرتبطة.`:'';
    const subjectLabel=subject?subjects[subject]:(test.subjects||[]).map(s=>subjects[s]).filter(Boolean).join('، ');
    return {id,title:clean(test.title||attempts.find(a=>testId(a)===id)?.title)||'اختبار نافس',
-    subjectLabel:subjectLabel||'',className:scope,total:eligible.length,tested:unresolved?null:completed.size,
-    missing:warning?[]:missing,warning};
+    subjectLabel:subjectLabel||'',className:scope,total:eligible.length,tested:completed.size,
+    missing,warning,unresolved};
   });
  }
  function render(groupList,{settings={},style='subject'}={}){
@@ -64,8 +64,9 @@
     <h2>الطلاب الذين لم يختبروا</h2>
     <p class="na-test">${esc(group.title)}</p>
     <p class="na-scope">${group.subjectLabel?`المادة: ${esc(group.subjectLabel)} · `:''}الفصل: ${esc(group.className||'جميع الفصول')}</p>
-    ${group.total===null?'':`<div class="na-counts"><div><span>إجمالي عدد الطلاب</span><b>${ar(group.total)}</b></div><div><span>عدد الطلاب المختبرين</span><b>${group.tested===null?'—':ar(group.tested)}</b></div><div><span>عدد الطلاب الذين لم يختبروا</span><b>${group.warning?'—':ar(group.missing.length)}</b></div></div>`}
-    ${group.warning?`<p class="na-empty">${esc(group.warning)}</p>`:students.length?`<table class="na-table"><thead><tr><th>م</th><th>اسم الطالب</th><th>الفصل</th></tr></thead><tbody>${students.map((s,i)=>`<tr><td>${ar(page*rowsPerPage+i+1)}</td><td>${esc(s.name)}</td><td>${esc(s.className)}</td></tr>`).join('')}</tbody></table>`:'<p class="na-empty">أدّى جميع الطلاب في هذا النطاق الاختبار.</p>'}
+    ${group.total===null?'':`<div class="na-counts"><div><span>إجمالي عدد الطلاب</span><b>${ar(group.total)}</b></div><div><span>عدد الطلاب المختبرين المؤكدين</span><b>${group.tested===null?'—':ar(group.tested)}</b></div><div><span>عدد الطلاب الذين لم يختبروا حسب الكشف</span><b>${ar(group.missing.length)}</b></div></div>`}
+    ${group.warning?`<p class="na-empty">${esc(group.warning)}</p>`:''}
+    ${students.length?`<table class="na-table"><thead><tr><th>م</th><th>اسم الطالب</th><th>الفصل</th></tr></thead><tbody>${students.map((s,i)=>`<tr><td>${ar(page*rowsPerPage+i+1)}</td><td>${esc(s.name)}</td><td>${esc(s.className)}</td></tr>`).join('')}</tbody></table>`:!group.warning?'<p class="na-empty">أدّى جميع الطلاب في هذا النطاق الاختبار.</p>':''}
     <footer class="na-footer">${settings.teacherName?`المعلم: ${esc(settings.teacherName)}`:'كشف متابعة الطلاب'}</footer>
    </article>`).join('');
   }).join('');
