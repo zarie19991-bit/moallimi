@@ -49,8 +49,9 @@ function patch(){
    page2.dataset.compactRemedial='1';
    const title=page2.querySelector('.wr-title-pill');if(title)title.textContent='المتابعة والخطة العلاجية للأسبوع القادم';
    const tbody=page2.querySelector('.wr-student-table tbody');
-   let total=0;
-   if(tbody){const rows=[...tbody.children];total=rows.length;rows.slice(8).forEach(r=>r.remove());if(total>8){const note=document.createElement('p');note.className='wr-more-note';note.textContent=`تم عرض أكثر 8 طلاب حاجة للمتابعة في التقرير المختصر. يوجد ${total-8} طالبًا إضافيًا تظهر تفاصيلهم كاملة في شاشة التحليل.`;page2.querySelector('.wr-student-table-wrap')?.after(note);}}
+   if(tbody){
+     page2.querySelectorAll('.wr-more-note').forEach(n=>n.remove());
+   }
    const plans=extractPlans(page1,page2);
    const sig=page2.querySelector('.wr-signatures');if(sig)sig.insertAdjacentHTML('beforebegin',planHtml(plans));else page2.insertAdjacentHTML('beforeend',planHtml(plans));
  }
