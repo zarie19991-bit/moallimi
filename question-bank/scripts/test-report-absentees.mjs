@@ -25,12 +25,12 @@ test('zero scores and repeated submitted attempts count as one tested student',(
   assert.deepEqual(g.missing.map(s=>s.name),[roster[1].full_name,roster[2].full_name]);
 });
 
-test('absence is calculated separately for each selected test and its class',()=>{
+test('absence is calculated separately for each test across all classes by default',()=>{
   const gs=groups({roster,tests,selectedIds:['local-math','local-reading'],
     attempts:[attempt('local-a'),attempt('local-b','local-reading',{subjects:['reading']})]});
-  assert.equal(gs[0].total,3);assert.equal(gs[1].total,2);
+  assert.equal(gs[0].total,3);assert.equal(gs[1].total,3);
   assert.deepEqual(gs[0].missing.map(s=>s.name),[roster[1].full_name,roster[2].full_name]);
-  assert.deepEqual(gs[1].missing.map(s=>s.name),[roster[0].full_name]);
+  assert.deepEqual(gs[1].missing.map(s=>s.name),[roster[0].full_name,roster[2].full_name]);
   assert.equal(gs[1].subjectLabel,'القراءة');
 });
 
@@ -123,14 +123,36 @@ test('changing class during roster loading cannot replace the new report with an
   assert.doesNotMatch(h.el('subjectOfficialReport').innerHTML,/طالب محلي ثان/);
 });
 
-test('the full report appends an independent printable absence list for every selected test',async()=>{
-  const h=harness({attempts:[attempt('local-a'),attempt('local-b','local-reading',{subjects:['reading']})]});
+test('the full report prints absentees from all four classes despite class A test metadata',async()=>{
+  const schoolRoster=[...roster,
+    {id:'local-j',full_name:'طالب محلي من ج',class_name:'ج',is_active:true},
+    {id:'local-d',full_name:'طالب محلي من د',class_name:'د',is_active:true}];
+  const h=harness({rosterRead:async()=>({students:schoolRoster}),
+    attempts:[attempt('local-a'),attempt('local-a','local-reading',{subjects:['reading']})]});
   h.run('report-test-options.js');await settle();
   await h.el('buildReportBtn').onclick();
   const html=h.el('reportPreview').innerHTML;
   assert.equal((html.match(/nafes-absence-sheet weekly-report/g)||[]).length,2);
   assert.match(html,/قياس الرياضيات المحلي/);assert.match(html,/قياس القراءة المحلي/);
-  assert.match(html,/طالب محلي أول/);assert.match(html,/طالب محلي ثان/);assert.match(html,/طالب محلي ثالث/);
+  const appendices=[...html.matchAll(/<article class="report-sheet nafes-absence-sheet weekly-report"[\s\S]*?<\/article>/g)].map(m=>m[0]);
+  assert.equal(appendices.length,2);
+  for(const appendix of appendices){
+    assert.match(appendix,/الفصل: جميع الفصول/);
+    for(const s of schoolRoster.filter(s=>s.is_active&&s.id!=='local-a'))assert(appendix.includes(s.full_name),`Missing ${s.class_name} from report`);
+    assert.doesNotMatch(appendix,/طالب محلي أول|طالب مؤرشف محلي/);
+  }
   assert.equal(h.el('printReportBtn').disabled,false);
   h.el('printReportBtn').onclick();assert.equal(h.el('printed').innerHTML,html);
+});
+
+test('the all-classes subject report uses the selected scope in its title and absence list',async()=>{
+  const h=harness({attempts:[attempt('local-a','local-reading',{subjects:['reading']})]});
+  h.run('subject-report-separate.js');await settle();
+  h.el('reportSubjectSelect').value='reading';h.el('reportSubjectTest').value='local-reading';
+  h.el('reportSubjectClass').value='';
+  await h.el('buildSubjectReportBtn').onclick();
+  const html=h.el('subjectOfficialReport').innerHTML;
+  assert.match(html,/الثالث المتوسط · كل الفصول/);
+  assert.match(html,/طالب محلي ثالث/);assert.match(html,/الفصل: جميع الفصول/);
+  h.el('printSubjectReportBtn').onclick();assert.equal(h.el('printed').innerHTML,html);
 });

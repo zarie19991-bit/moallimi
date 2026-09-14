@@ -19,7 +19,7 @@
  const isSubmitted=a=>!['in_progress','expired'].includes(a.status)&&
   (!!a.submitted_at||['submitted','completed','finished'].includes(a.status));
  const testId=a=>clean(a.test_id||a.assessment_id||a.exam_id);
- function groups({roster,attempts=[],tests=[],selectedIds=[],className,subject}={}){
+ function groups({roster,attempts=[],tests=[],selectedIds=[],className='',subject}={}){
   if(!Array.isArray(roster))throw new Error('تعذر تحميل كشف الطلاب.');
   const active=new Map(),knownIds=new Set();
   for(const student of roster){
@@ -29,7 +29,8 @@
   }
   return [...new Set(selectedIds.map(clean).filter(Boolean))].map(id=>{
    const test=tests.find(t=>clean(t.id)===id)||{};
-   const scope=classKey(className===undefined?test.class_name:className);
+   // Reports cover the full roster unless the teacher explicitly selects a class.
+   const scope=classKey(className);
    const eligible=[...active.entries()].filter(([,s])=>!scope||classKey(s.class_name)===scope);
    const eligibleIds=new Set(eligible.map(([sid])=>sid));
    const completed=new Set();let unresolved=0;
