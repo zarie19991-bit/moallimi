@@ -1,4 +1,4 @@
-/* Single analysis data layer: normalization, roster enrichment and admin result clearing. */
+/* Single analysis data layer: attempt normalization and roster enrichment only. */
 (()=>{
 'use strict';
 const core=window.NafesAnalytics;
@@ -6,7 +6,6 @@ const T=window.NafesTeacher;
 if(!core||!T?.api||T.__analysisDataService)return;
 T.__analysisDataService=true;
 
-/* Normalize historical attempt shapes in one place. */
 if(typeof core.normalizeAttempt==='function'&&!core.__analysisDataNormalization){
   const A={...core};
   const original=core.normalizeAttempt.bind(core);
@@ -37,7 +36,6 @@ if(typeof core.normalizeAttempt==='function'&&!core.__analysisDataNormalization)
 
 const baseApi=T.api.bind(T);
 const LITE_STUDENTS_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-students-lite';
-const CLEAR_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-results-admin';
 const ROSTER_TIMEOUT_MS=10000;
 let rosterCache=null,rosterPromise=null,retryAfter=0;
 
@@ -65,17 +63,7 @@ async function rosterMap(force=false){
 }
 T.getAnalysisRoster=async()=>({ok:true,students:[...(await rosterMap()).values()]});
 
-async function clearResults(payload){
-  const key=T.getKey?.();
-  if(!key||key==='__qa__')throw new Error('أدخل مفتاح المعلم الحقيقي أولًا.');
-  const response=await fetch(CLEAR_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','x-teacher-key':key},body:JSON.stringify({action:'teacher_tests_bulk_clear',...(payload||{})}),cache:'no-store'});
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok||data?.error)throw new Error(data?.error||'تعذر مسح النتائج.');
-  T.clearReadCache?.();resetRoster();return data;
-}
-
 T.api=async function(action,payload={}){
-  if(action==='teacher_tests_bulk_clear')return clearResults(payload);
   if(action==='teacher_students_list'&&payload?.include_archived!==true){
     try{return{ok:true,students:[...(await rosterMap()).values()]};}
     catch(error){console.error('analysis roster load failed',error);return baseApi(action,payload);}
