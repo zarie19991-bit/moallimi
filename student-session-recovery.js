@@ -9,6 +9,8 @@ const legacy=[params.get('s')||'',params.get('o')||'',params.get('i')||'',params
 const scope=testCode?`assessment:${testCode}`:`legacy:${legacy}`;
 const key=`nafes_active_student_${scope}`;
 const nativeFetch=window.fetch.bind(window);
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const retryableSaveStatuses=new Set([408,425,429,500]);
 let autoTried=false;
 
 function read(){
@@ -33,17 +35,29 @@ function identity(body){
   };
 }
 function isStart(action){return action==='assessment_start'||action==='start';}
+function isSave(action){return action==='assessment_save'||action==='save';}
 function isFinish(action,data){
   if(action==='assessment_finish'||action==='finish')return true;
   if(action==='assessment_advance'&&data?.submitted)return true;
   return false;
+}
+async function fetchSafely(input,init,action){
+  if(!isSave(action))return nativeFetch(input,init);
+  let response;
+  for(let attempt=0;attempt<2;attempt++){
+    response=await nativeFetch(input,init);
+    if(!retryableSaveStatuses.has(response.status)||attempt===1)return response;
+    if(init?.signal?.aborted)return response;
+    await wait(500+Math.floor(Math.random()*250));
+  }
+  return response;
 }
 
 window.fetch=async function(input,init={}){
   const url=typeof input==='string'?input:String(input?.url||'');
   const body=url.includes('/functions/v1/nafes-exam')?parseBody(init):null;
   const action=String(body?.action||'');
-  const response=await nativeFetch(input,init);
+  const response=await fetchSafely(input,init,action);
   if(!action||!url.includes('/functions/v1/nafes-exam'))return response;
   response.clone().json().then(data=>{
     if(!response.ok||data?.error)return;
@@ -54,7 +68,7 @@ window.fetch=async function(input,init={}){
       return;
     }
     if(isFinish(action,data)){clear();return;}
-    if((action==='assessment_save'||action==='save')&&read()){
+    if(isSave(action)&&read()){
       const old=read();
       const id=identity(body);
       write({...old,...(id.name?id:{}),attempt_id:String(body?.attempt_id||old?.attempt_id||'')});
