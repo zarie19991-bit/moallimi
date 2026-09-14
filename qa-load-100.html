@@ -1,0 +1,27 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QA Load 100</title><style>body{font-family:system-ui;margin:24px;background:#f6f8f8;color:#17324d}pre{white-space:pre-wrap;background:#fff;border:1px solid #ccd8d5;padding:16px;border-radius:12px}b{color:#0f514c}</style></head><body><h1>اختبار ضغط 100 طالب</h1><p id="status">جارٍ البدء…</p><pre id="out"></pre><script>
+(async()=>{
+const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
+const CODE='4SJJDAQW';
+const N=100;
+const status=document.getElementById('status'),out=document.getElementById('out');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const pct=(xs,p)=>{if(!xs.length)return null;const a=[...xs].sort((x,y)=>x-y);return Math.round(a[Math.min(a.length-1,Math.ceil(p*a.length)-1)]*10)/10};
+async function post(body){const t=performance.now();let http=0,data=null,err='';try{const r=await fetch(EDGE,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});http=r.status;data=await r.json().catch(()=>({}));if(!r.ok||data?.error)err=data?.error||('HTTP '+r.status);}catch(e){err=String(e?.message||e)}return {ms:performance.now()-t,http,data,err};}
+function summary(name,rows){const ok=rows.filter(x=>!x.err),bad=rows.filter(x=>x.err),times=ok.map(x=>x.ms);const errors={};for(const r of bad){const k=(r.http||0)+' '+r.err;errors[k]=(errors[k]||0)+1;}return {phase:name,total:rows.length,success:ok.length,failed:bad.length,p50_ms:pct(times,.50),p95_ms:pct(times,.95),p99_ms:pct(times,.99),max_ms:times.length?Math.round(Math.max(...times)*10)/10:null,errors};}
+const users=Array.from({length:N},(_,i)=>{const n=i+1;return {i:n,name:'Loadtest Student '+String(n).padStart(3,'0'),no:String(99+n).padStart(3,'0'),session:'load100-'+Date.now()+'-'+n+'-'+Math.random().toString(36).slice(2)}});
+const report={started_at:new Date().toISOString(),n:N,code:CODE,phases:[]};
+status.textContent='المرحلة 1/4: 100 طلب معلومات متزامن';
+let rows=await Promise.all(users.map(u=>post({action:'assessment_info',code:CODE,session_id:u.session})));report.phases.push(summary('assessment_info',rows));
+status.textContent='المرحلة 2/4: دخول 100 طالب متزامن';
+rows=await Promise.all(users.map(u=>post({action:'assessment_start',code:CODE,session_id:u.session,student_name:u.name,student_no:u.no,national_id_last3:u.no,class_name:'أ'})));
+report.phases.push(summary('assessment_start',rows));
+users.forEach((u,i)=>{u.start=rows[i];});
+const started=users.filter(u=>!u.start.err&&u.start.data?.attempt_id&&u.start.data?.access_token);
+status.textContent='المرحلة 3/4: حفظ إجابة متزامن لكل محاولة ناجحة';
+rows=await Promise.all(started.map(u=>{const d=u.start.data,q=d.sections?.[0]?.questions?.[0];const answers=q?{[q.id]:0}:{};return post({action:'assessment_save',code:CODE,session_id:u.session,attempt_id:d.attempt_id,access_token:d.access_token,answers,cursor:1});}));report.phases.push(summary('assessment_save',rows));
+status.textContent='المرحلة 4/4: استعادة المحاولة متزامنة';
+rows=await Promise.all(started.map(u=>{const d=u.start.data;return post({action:'assessment_resume',code:CODE,session_id:u.session,attempt_id:d.attempt_id,access_token:d.access_token,answers:{},cursor:1});}));report.phases.push(summary('assessment_resume',rows));
+report.finished_at=new Date().toISOString();report.started_attempts=started.length;report.pass=report.phases.every(p=>p.failed===0)&&started.length===N;
+out.textContent=JSON.stringify(report,null,2);status.textContent=report.pass?'PASS — اكتملت تجربة 100 طالب بلا أخطاء':'FAIL — توجد أخطاء، راجع التقرير أدناه';document.title=(report.pass?'PASS':'FAIL')+' QA Load 100';
+})().catch(e=>{document.getElementById('status').textContent='FAIL — '+String(e?.message||e);document.title='FAIL QA Load 100';});
+</script></body></html>
