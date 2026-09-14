@@ -74,6 +74,9 @@ jobs:
           ! grep -q "localStorage.setItem(identityKey" e.js
           ! grep -q "localStorage.getItem(identityKey" e.js
           grep -q "sessionStorage.setItem(identityKey" e.js
+          ! grep -q "localStorage.setItem('nafes_student'" exam.js
+          ! grep -q "localStorage.getItem('nafes_student'" exam.js
+          grep -q "sessionStorage.setItem(LEGACY_IDENTITY_KEY" exam.js
           grep -q "p>=70?'قريب من الإتقان'" e.js
           grep -q "near:70" supabase/functions/nafes-exam/assessment-engine.ts
           grep -q "normalizeClassSection" supabase/functions/nafes-exam/assessment-engine.ts
@@ -87,6 +90,9 @@ jobs:
           ! grep -q 'teacher_tests_bulk_clear' analysis-data-service.js
           grep -q 'teacher_tests_bulk_clear' results-clear-fix.js
           ! grep -q 'analysis-participation.js' analysis-section-router.js
+          ! test -e analysis-achievement-fix.js
+          ! test -e data-normalization-fix.js
+          ! test -e analysis-participation.js
       - name: General report participation guards
         run: |
           grep -q 'submittedSelected=attempts.filter' report-test-options.js
