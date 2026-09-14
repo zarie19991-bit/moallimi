@@ -80,3 +80,10 @@ jobs:
           grep -q 'analysis-data-service.js' analysis.html
           ! grep -q 'analysis-achievement-fix.js' analysis.html
           ! grep -q 'data-normalization-fix.js' analysis.html
+          ! grep -q 'teacher_tests_bulk_clear' analysis-data-service.js
+          grep -q 'teacher_tests_bulk_clear' results-clear-fix.js
+      - name: General report participation guards
+        run: |
+          grep -q 'submittedSelected=attempts.filter' report-test-options.js
+          grep -q 'digits.length===3' report-test-options.js
+          grep -q 'كل من لديه تسليم مؤكد' report-test-options.js
