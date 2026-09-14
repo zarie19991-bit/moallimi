@@ -16,10 +16,12 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check analysis-core.js
+          node --check analysis-data-service.js
           node --check analysis-all-subjects.js
           node --check analysis.js
           node --check e.js
           node --check exam.js
+          node --check student-session-recovery.js
           node --check report-absentees.js
           node --check report-remedial-plan.js
           node --check report-test-options.js
@@ -72,3 +74,9 @@ jobs:
           grep -q "near:70" supabase/functions/nafes-exam/assessment-engine.ts
           grep -q "normalizeClassSection" supabase/functions/nafes-exam/assessment-engine.ts
           ! grep -q "eq('class_name', normClass)" supabase/functions/nafes-exam/assessment-engine.ts
+          grep -q "clearLegacyPersistentIdentity" student-session-recovery.js
+      - name: Analysis data layer is single
+        run: |
+          grep -q 'analysis-data-service.js' analysis.html
+          ! grep -q 'analysis-achievement-fix.js' analysis.html
+          ! grep -q 'data-normalization-fix.js' analysis.html
