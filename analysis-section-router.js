@@ -18,14 +18,6 @@ function show(view){
   if(view==='subjectReport')setTimeout(()=>$('reportSubjectSelect')?.dispatchEvent(new Event('change',{bubbles:true})),0);
 }
 
-function loadParticipation(){
-  if(document.querySelector('script[data-analysis-participation]'))return;
-  const script=document.createElement('script');
-  script.src='analysis-participation.js?v=20260912-1';
-  script.dataset.analysisParticipation='true';
-  document.head.appendChild(script);
-}
-
 function replaceAllClassesLabels(){
   ['overviewClass','subjectClass','reportSubjectClass'].forEach(id=>{
     const select=$(id); if(!select)return;
@@ -72,7 +64,6 @@ function install(){
     b.onclick=e=>{e.preventDefault();show(b.dataset.view);};
   });
   show(document.querySelector('.main-tab.active')?.dataset.view||'overview');
-  loadParticipation();
   installSemesterControls();
 
   const nav=document.querySelector('.main-tabs');
