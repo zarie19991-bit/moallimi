@@ -1,0 +1,53 @@
+/* Standard report typography requested for printed/PDF reports. */
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet){
+  font-family:Tahoma,Arial,sans-serif!important;
+  font-size:12pt!important;
+  line-height:1.55!important;
+}
+
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet) :is(p,li,span,small,b,strong,th,td,label){
+  font-family:Tahoma,Arial,sans-serif!important;
+  font-size:12pt!important;
+  line-height:1.55!important;
+}
+
+/* Headings stay larger than body text for a clear official hierarchy. */
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet) :is(h2,h3,h4,.wr-section-title>span){
+  font-family:Tahoma,Arial,sans-serif!important;
+  font-size:14pt!important;
+  line-height:1.45!important;
+}
+
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.wr-title-pill,.official-analysis-sheet>h1,.nafes-absence-sheet h2){
+  font-family:Tahoma,Arial,sans-serif!important;
+  font-size:17pt!important;
+  line-height:1.45!important;
+}
+
+/* Preserve emphasis for primary numeric KPIs without reducing readability. */
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.wr-kpis strong,.wr-performance-card>strong,.na-counts b){
+  font-size:18pt!important;
+  line-height:1.35!important;
+}
+
+@media print{
+  #printRoot :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet),
+  #printRoot :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet) :is(p,li,span,small,b,strong,th,td,label){
+    font-family:Tahoma,Arial,sans-serif!important;
+    font-size:12pt!important;
+    line-height:1.5!important;
+  }
+
+  #printRoot :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet) :is(h2,h3,h4,.wr-section-title>span){
+    font-size:14pt!important;
+    line-height:1.45!important;
+  }
+
+  #printRoot :is(.wr-title-pill,.official-analysis-sheet>h1,.nafes-absence-sheet h2){
+    font-size:17pt!important;
+  }
+
+  #printRoot :is(.wr-kpis strong,.wr-performance-card>strong,.na-counts b){
+    font-size:18pt!important;
+  }
+}
