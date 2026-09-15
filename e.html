@@ -18,7 +18,39 @@
 <section id="player" class="panel exam-panel" hidden><div class="exam-head"><div><small id="sectionTitle"></small><h2 id="questionTitle"></h2></div><b class="timer" id="timer" aria-label="الوقت المتبقي"></b></div><div class="progress" id="progress"></div><div id="questions"></div><div class="nav exam-nav"><button id="prev">السابق</button><button id="review">مراجعة الإجابات</button><button id="next">التالي</button><button id="finish">تسليم القسم</button></div><button id="calcButton" hidden>آلة حاسبة</button><p id="playerError" role="alert"></p></section>
 <section id="breakPanel" class="panel" hidden><h2>استراحة بين الأقسام</h2><p id="breakText"></p></section><section id="result" class="panel" hidden></section>
 </main>
-<div id="watermark" aria-hidden="true"></div><div id="printShield">الطباعة غير متاحة أثناء الاختبار.</div><script src="question-media.js?v=20260909-final"></script><script src="edge-retry.js?v=20260912-1"></script><script src="edge-retry-ui.js?v=20260913-advanced2"></script><script src="e.js?v=20260915-classfix2"></script><script>
+<div id="watermark" aria-hidden="true"></div><div id="printShield">الطباعة غير متاحة أثناء الاختبار.</div><script src="question-media.js?v=20260909-final"></script><script src="edge-retry.js?v=20260912-1"></script><script src="edge-retry-ui.js?v=20260913-advanced2"></script><script>
+(()=>{
+  const retryFetch=window.fetch.bind(window);
+  window.fetch=async function(input,init={}){
+    const response=await retryFetch(input,init);
+    try{
+      const url=typeof input==='string'?input:String(input?.url||'');
+      if(!url.includes('/functions/v1/nafes-exam')||String(init?.method||'GET').toUpperCase()!=='POST')return response;
+      const payload=typeof init?.body==='string'?JSON.parse(init.body):null;
+      if(payload?.action!=='assessment_info')return response;
+      const data=await response.clone().json();
+      if(data&&typeof data==='object'){
+        data.settings={
+          lock_session:false,
+          allow_back:true,
+          one_per_page:true,
+          allow_copy:false,
+          disable_right_click:true,
+          disable_print:true,
+          disable_shortcuts:true,
+          log_visibility:true,
+          watermark:true,
+          ...(data.settings&&typeof data.settings==='object'?data.settings:{})
+        };
+        const headers=new Headers(response.headers);
+        headers.set('Content-Type','application/json; charset=utf-8');
+        return new Response(JSON.stringify(data),{status:response.status,statusText:response.statusText,headers});
+      }
+    }catch(_){ }
+    return response;
+  };
+})();
+</script><script src="e.js?v=20260915-loginfix3"></script><script>
 (()=>{
   let forcedClassCleared=false;
   const unlockClassField=()=>{
