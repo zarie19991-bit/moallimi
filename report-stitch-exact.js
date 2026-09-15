@@ -1,55 +1,24 @@
 (()=>{
 'use strict';
-const $=id=>document.getElementById(id), A=()=>window.NafesAnalytics||{};
-const SUBJECTS={reading:'القراءة والفهم القرائي',math:'الرياضيات والمنطق الحسابي',science:'العلوم والمفاهيم العلمية'};
-const TEACHERS={reading:'أ. زرعي شبير',math:'أ. عبدالله العماري',science:'أ. مليدان بالحارث'};
-const TARGET=70;
-let templatePromise=null;
-const clean=v=>String(v??'').trim();
-const n=v=>Number.isFinite(Number(v))?Number(v):null;
-const pct=v=>v==null?'—':`${Number(v).toFixed(1).replace('.0','')}%`;
-const submitted=a=>A().isSubmitted?A().isSubmitted(a):!!a?.submitted_at;
-const normalize=a=>A().normalizeAttempt?A().normalizeAttempt(a):a;
-const identity=a=>A().studentIdentity?.(a)||String(a?.student_id||a?.student_key||a?.id||a?.student_name||'');
-const when=a=>Date.parse(a?.submitted_at||a?.completed_at||a?.started_at||0)||0;
-const testId=a=>String(a?.test_id||a?.assessment_id||a?.exam_id||'').trim();
-function normSubject(v){const s=String(v||'').trim().toLowerCase();if(['reading','arabic','language','القراءة','العربية','اللغة العربية'].includes(s))return'reading';if(['math','mathematics','الرياضيات'].includes(s))return'math';if(['science','العلوم'].includes(s))return'science';return''}
-function savedMeasure(a,subject){const sections=Array.isArray(a?.section_scores)?a.section_scores:[],sec=sections.find(x=>normSubject(x?.subject||x?.subject_key)===subject);if(sec){const score=n(sec.score??sec.correct),total=n(sec.total),percent=n(sec.percent);if(score!==null&&total&&total>0)return{score,total,percent:percent!==null?percent:score/total*100}}const subjects=(Array.isArray(a?.subjects)?a.subjects:[]).map(normSubject).filter(Boolean),score=n(a?.score),total=n(a?.total),percent=n(a?.percent);if(subjects.length===1&&subjects[0]===subject&&score!==null&&total&&total>0)return{score,total,percent:percent!==null?percent:score/total*100};return null}
-function overallSaved(a){const score=n(a?.score),total=n(a?.total),percent=n(a?.percent);if(score!==null&&total&&total>0)return{score,total,percent:percent!==null?percent:score/total*100};const ms=['reading','math','science'].map(k=>savedMeasure(a,k)).filter(Boolean);if(!ms.length)return null;const s=ms.reduce((x,m)=>x+m.score,0),t=ms.reduce((x,m)=>x+m.total,0);return{score:s,total:t,percent:t?s/t*100:null}}
-function latestSelected(attempts,selected){const m=new Map();for(const raw of attempts){const a=normalize(raw);if(!submitted(a)||!selected.has(testId(a))||!overallSaved(a))continue;const k=`${testId(a)}::${identity(a)}`,old=m.get(k);if(!old||when(a)>when(old))m.set(k,a)}return[...m.values()]}
-function aggregateStudents(atts){const m=new Map();for(const a of atts){const id=identity(a);if(!id)continue;const r=m.get(id)||{id,name:a.student_name||'',className:a.class_name||'غير محدد',score:0,total:0,measures:{reading:{score:0,total:0},math:{score:0,total:0},science:{score:0,total:0}}};const o=overallSaved(a);if(!o)continue;r.score+=o.score;r.total+=o.total;for(const k of Object.keys(r.measures)){const sm=savedMeasure(a,k);if(sm){r.measures[k].score+=sm.score;r.measures[k].total+=sm.total}}m.set(id,r)}return[...m.values()].map(r=>({...r,percent:r.total?r.score/r.total*100:null}))}
-function subjectStats(atts,key){const ms=atts.map(a=>savedMeasure(a,key)).filter(Boolean),score=ms.reduce((s,x)=>s+x.score,0),total=ms.reduce((s,x)=>s+x.total,0);return{achievement:total?score/total*100:null,count:ms.length}}
-function indicatorStats(atts,key){const g=new Map();for(const a of atts)for(const q of a.questions||[]){if(normSubject(q?.subject||q?.subject_key)!==key)continue;const scorable=A().isScorable?A().isScorable(q):typeof q?.correct==='boolean';if(!scorable)continue;const ik=A().indicatorKey?A().indicatorKey(q):(q?.indicator_key||q?.indicator_text);if(!ik)continue;const x=g.get(ik)||{text:q.indicator_text||String(ik),c:0,t:0};x.t++;if(q.correct===true)x.c++;g.set(ik,x)}return[...g.values()].map(x=>({...x,p:x.t?x.c/x.t*100:null})).filter(x=>x.p!==null).sort((a,b)=>a.p-b.p)}
-function numberFromText(t){return Number(String(t||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[^0-9.]/g,''))||0}
-function modelFromOld(oldRoot){const selected=new Set([...document.querySelectorAll('#reportMultiPicker input[data-test-id]:checked')].map(x=>x.dataset.testId));const cache=window.__NAFES_ANALYSIS_DATA_CACHE__?.data||{attempts:[]};const atts=latestSelected(cache.attempts||[],selected),students=aggregateStudents(atts);const subj={};for(const k of Object.keys(SUBJECTS)){subj[k]=subjectStats(atts,k);subj[k].indicators=indicatorStats(atts,k);subj[k].support=students.filter(s=>s.measures[k].total&&s.measures[k].score/s.measures[k].total*100<70).length}
- const measured=students.length,score=students.reduce((s,x)=>s+x.score,0),total=students.reduce((s,x)=>s+x.total,0),overall=total?score/total*100:0;
- const ranked=Object.keys(subj).filter(k=>subj[k].achievement!==null).sort((a,b)=>subj[b].achievement-subj[a].achievement),best=ranked[0]||'reading',worst=ranked[ranked.length-1]||'math';
- const kpis=[...oldRoot.querySelectorAll('.wr-kpis')];let roster=0,tested=0,missing=0;if(kpis[0]){const vals=[...kpis[0].querySelectorAll('strong')].map(x=>numberFromText(x.textContent));[roster,tested,missing]=vals}
- const classes=[...new Set(students.map(x=>clean(x.className)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));const classRows=classes.map(c=>{const ss=students.filter(s=>clean(s.className)===c),cs=ss.reduce((z,x)=>z+x.score,0),ct=ss.reduce((z,x)=>z+x.total,0),row={name:c,count:ss.length,percent:ct?cs/ct*100:0,support:ss.filter(x=>x.percent<70).length,subjects:{}};for(const k of Object.keys(SUBJECTS)){const ms=ss.map(s=>s.measures[k]).filter(x=>x.total),a=ms.reduce((z,x)=>z+x.score,0),b=ms.reduce((z,x)=>z+x.total,0);row.subjects[k]=b?a/b*100:null}return row});
- const levels={advanced:students.filter(s=>s.percent>=75).length,proficient:students.filter(s=>s.percent>=70&&s.percent<75).length,support:students.filter(s=>s.percent<70).length};
- const settings=(()=>{try{return JSON.parse(localStorage.getItem('nafes_school_report_settings_v1')||'{}')}catch(_){return{}}})();
- return{selectedCount:selected.size,students,measured,overall,subj,best,worst,roster:roster||measured,tested:tested||measured,missing,classes:classRows,levels,settings};
-}
-function text(el,val){if(el)el.textContent=val}
-function updateTemplate(doc,m){
- const setMetric=(key,fn)=>{const c=doc.querySelector(`[data-metric-card="${key}"]`);if(c)fn(c)};
- setMetric('measured',c=>{text(c.querySelector('.font-data-metric'),m.measured);const x=[...c.querySelectorAll('.font-body-sm span')].pop();text(x,`موزعون على ${m.classes.length||'—'} فصول`)});
- setMetric('overall',c=>{text(c.querySelector('.font-data-metric'),pct(m.overall));const chip=c.querySelector('.bg-emerald-100');text(chip,`${m.overall>=TARGET?'+':''}${(m.overall-TARGET).toFixed(1)}%`)});
- const part=m.roster?m.tested/m.roster*100:0;setMetric('participation',c=>{text(c.querySelector('.font-data-metric'),pct(part));text(c.querySelector('.font-body-sm'),`حضور ${m.tested} من أصل ${m.roster}`)});
- setMetric('support',c=>{text(c.querySelector('.font-data-metric'),m.levels.support);const p=[...c.querySelectorAll('span')].find(x=>/^\(.*%\)$/.test(clean(x.textContent)));text(p,`(${pct(m.measured?m.levels.support/m.measured*100:0)})`)});
- setMetric('best',c=>{const vals=c.children[1];text(vals?.querySelector('.font-title-md'),SUBJECTS[m.best]);text(vals?.querySelector('.font-data-metric'),pct(m.subj[m.best].achievement))});
- setMetric('worst',c=>{const vals=c.children[1];text(vals?.querySelector('.font-title-md'),SUBJECTS[m.worst]);text(vals?.querySelector('.font-data-metric'),pct(m.subj[m.worst].achievement))});
- for(const k of Object.keys(SUBJECTS)){const c=doc.querySelector(`[data-subject-card="${k}"]`);if(!c)continue;const st=m.subj[k],ach=st.achievement||0,inds=st.indicators||[],weak=inds[0],strong=inds[inds.length-1];const teacher=[...c.querySelectorAll('span')].find(x=>clean(x.textContent).startsWith('المعلم المسؤول:'));text(teacher,`المعلم المسؤول: ${TEACHERS[k]}`);const pill=[...c.querySelectorAll('span')].find(x=>clean(x.textContent).match(/^\d+(\.\d+)?%$/));text(pill,pct(ach));const bar=c.querySelector('.w-full.bg-surface-container.rounded-full.h-2 > div');if(bar)bar.style.width=`${Math.max(0,Math.min(100,ach))}%`;const rows=c.querySelectorAll('.space-y-2\\.5 > div');if(rows[0])text(rows[0].querySelector('span:last-child'),`${st.support} طلاب (${pct(m.measured?st.support/m.measured*100:0)})`);if(rows[1])text(rows[1].querySelector('span:last-child'),strong?`${strong.text} (${pct(strong.p)})`:'لا يوجد قياس');if(rows[2])text(rows[2].querySelector('span:last-child'),weak?`${weak.text} (${pct(weak.p)})`:'لا يوجد قياس');const strongs=c.querySelectorAll('.mt-4 strong');if(strongs[0])text(strongs[0],ach>=75?'مستوى متقدم':ach>=70?'مستوى متمكن':'يتطلب تدخلاً عاجلاً');if(strongs[1])text(strongs[1],`${ach>=TARGET?'+':''}${(ach-TARGET).toFixed(1)}%`)}
- }
- const cards=[...doc.querySelectorAll('[data-class-card]')],parent=cards[0]?.parentElement,sample=cards[0];if(parent&&sample){cards.forEach(x=>x.remove());m.classes.forEach((row,i)=>{const c=sample.cloneNode(true);c.dataset.classCard=String(i+1);text(c.querySelector('h4'),`الصف: ثالث / ${row.name}`);const info=c.querySelector('h4')?.parentElement?.querySelector('span');if(info)text(info,`${row.count} طالباً`);const right=c.querySelector('.text-left'),big=right?.querySelector('.font-title-md');text(big,pct(row.percent));const state=right?.querySelector('span');text(state,row.percent>=75?'ضمن نطاق التميز المدرسي':row.percent>=70?'مستوى مقبول يحتاج تعزيزاً':'يتطلب متابعة تدريسية');const bar=c.children[1]?.firstElementChild;if(bar)bar.style.width=`${Math.min(100,row.percent)}%`;const foot=[...c.children[2]?.querySelectorAll('span')||[]];if(foot[0])text(foot[0],`القراءة: ${pct(row.subjects.reading)}`);if(foot[1])text(foot[1],`الرياضيات: ${pct(row.subjects.math)}`);if(foot[2])text(foot[2],`العلوم: ${pct(row.subjects.science)}`);if(foot[3])text(foot[3],`المحتاجون للدعم: ${row.support} طلاب`);parent.appendChild(c)})}
- const perf=doc.querySelector('[data-performance-summary]');if(perf){const center=[...perf.querySelectorAll('*')].find(x=>clean(x.textContent)==='118');text(center,m.measured);for(const k of ['advanced','proficient','support']){const r=perf.querySelector(`[data-level-row="${k}"]`),count=m.levels[k],per=m.measured?count/m.measured*100:0;if(!r)continue;const vals=[...r.querySelector('.text-left').children];text(vals[0],`${count} طالباً`);text(vals[1],pct(per))}}
- text(doc.querySelector('[data-field="data-status"]'),'بيانات فعلية مرتبطة بنتائج منصة معلّمي');doc.querySelectorAll('[data-field="school-code"]').forEach(x=>text(x,'—'));
- const schoolName=m.settings.schoolName||'مدرسة ابن سينا المتوسطة';doc.querySelectorAll('*').forEach(el=>{if(el.children.length===0&&clean(el.textContent).includes('مدرسة ابن سينا المتوسطة'))el.textContent=el.textContent.replace('مدرسة ابن سينا المتوسطة',schoolName)});
- const logo=m.settings.ministryLogo;if(logo){const img=[...doc.querySelectorAll('img')].find(x=>(x.alt||'').includes('شعار وزارة التعليم'));if(img)img.src=logo}
- const worstName=SUBJECTS[m.worst];doc.querySelectorAll('h4').forEach(h=>{if(clean(h.textContent).includes('تعزيز حصص الدعم الإثرائي للرياضيات'))h.textContent=`تعزيز حصص الدعم الإثرائي لـ ${worstName}`;if(clean(h.textContent).includes('تكثيف اختبارات المحاكاة'))h.textContent=`تكثيف اختبارات المحاكاة لـ ${m.levels.support} طالباً`});return doc;
-}
-async function exactify(){const preview=$('reportPreview');if(!preview||!preview.querySelector('.weekly-report'))return;const old=preview.cloneNode(true),model=modelFromOld(old);templatePromise ||= Promise.all([1,2,3,4,5,6].map(i=>fetch(`stitch-report-template.part${i}?v=20260915-exact2`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('تعذر تحميل قالب Stitch الأصلي');return r.text()}))).then(parts=>parts.join(''));const html=await templatePromise,doc=new DOMParser().parseFromString(html,'text/html');updateTemplate(doc,model);const src='<!doctype html>\n'+doc.documentElement.outerHTML;preview.className='stitch-exact-host';preview.innerHTML='<iframe id="stitchExactReportFrame" title="التقرير العام لنتائج نافس" style="display:block;width:100%;border:0;background:#f8f9ff;min-height:1600px"></iframe>';const frame=$('stitchExactReportFrame');frame.srcdoc=src;frame.addEventListener('load',()=>{try{const resize=()=>{frame.style.height=Math.max(1600,frame.contentDocument.documentElement.scrollHeight+8)+'px'};resize();setTimeout(resize,800);setTimeout(resize,1800)}catch(_){}});$('printReportBtn').disabled=false}
-function install(){const b=$('buildReportBtn'),p=$('printReportBtn');if(!b||!p)return false;if(b.dataset.stitchExactWrapped)return true;const original=b.onclick;if(typeof original!=='function')return false;b.dataset.stitchExactWrapped='1';b.onclick=async function(e){const out=original.call(this,e);if(out?.then)await out;try{await exactify()}catch(err){console.error('Stitch exact report:',err);alert('تم إنشاء التقرير، لكن تعذر تحميل قالب Stitch الأصلي.')}};const oldPrint=p.onclick;p.onclick=function(e){const f=$('stitchExactReportFrame');if(f?.contentWindow){f.contentWindow.focus();f.contentWindow.print();return}return oldPrint?.call(this,e)};return true}
-function boot(){if(install())return;let tries=0;const t=setInterval(()=>{if(install()||++tries>40)clearInterval(t)},100)}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,0));else setTimeout(boot,0);
+const OLD_COMMIT='1aade7ee46e0230c00039e26a8253325ca198eec';
+const RAW_BASE=`https://raw.githubusercontent.com/zarie19991-bit/moallimi/${OLD_COMMIT}/`;
+const CDN_BASE=`https://cdn.jsdelivr.net/gh/zarie19991-bit/moallimi@${OLD_COMMIT}/`;
+const nativeFetch=window.fetch.bind(window);
+window.fetch=function(input,init){
+  const url=typeof input==='string'?input:(input&&input.url)||'';
+  const m=url.match(/(?:^|\/)(stitch-report-template\.part[1-6])(?:\?.*)?$/);
+  if(m){
+    return nativeFetch(RAW_BASE+m[1],{...(init||{}),cache:'no-store',mode:'cors'});
+  }
+  return nativeFetch(input,init);
+};
+const s=document.createElement('script');
+s.src=CDN_BASE+'report-stitch-exact.js';
+s.async=false;
+s.onload=()=>console.info('Stitch exact renderer loaded');
+s.onerror=()=>{
+  console.error('تعذر تحميل مولد تقرير Stitch');
+  alert('تعذر تحميل تصميم التقرير المطابق. حدّث الصفحة وحاول مرة أخرى.');
+};
+document.head.appendChild(s);
 })();
