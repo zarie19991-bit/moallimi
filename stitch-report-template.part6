@@ -1,0 +1,93 @@
+-4 gap-space-md">
+<!-- Signer 1: Nafes Coordinator -->
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col justify-between gap-4">
+<div class="text-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant block">المسؤول عن إدخال وتدقيق البيانات</span>
+<h5 class="font-title-md text-title-md font-bold text-on-surface mt-1">منسق الاختبارات الوطنية</h5>
+<p class="font-body-sm text-body-sm text-primary font-medium mt-0.5">أ. حسين مانع آل دويس</p>
+</div>
+<div class="h-20 bg-surface-container-lowest rounded-lg flex flex-col items-center justify-center p-2 text-center">
+<span class="material-symbols-outlined text-emerald-800 text-[26px]">check_circle</span>
+<span class="font-label-sm text-label-sm text-emerald-900 font-bold mt-1">تمت المصادقة والمطابقة الرقمية</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">1446/02/18هـ</span>
+</div>
+<div class="flex justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>التوقيع: <strong class="text-on-surface">إلكتروني موثق</strong></span>
+<span>الرمز: <strong class="font-mono">SIG-901</strong></span>
+</div>
+</div>
+<!-- Signer 2: Academic Affairs Agent -->
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col justify-between gap-4">
+<div class="text-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant block">مراجعة التحصيل والخطط الإجرائية</span>
+<h5 class="font-title-md text-title-md font-bold text-on-surface mt-1">وكيل الشؤون التعليمية</h5>
+<p class="font-body-sm text-body-sm text-primary font-medium mt-0.5">أ. ناصر مهدي آل صليع</p>
+</div>
+<div class="h-20 bg-surface-container-lowest rounded-lg flex flex-col items-center justify-center p-2 text-center">
+<span class="material-symbols-outlined text-emerald-800 text-[26px]">verified</span>
+<span class="font-label-sm text-label-sm text-emerald-900 font-bold mt-1">اعتمدت خطط التدخل الصفية</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">1446/02/18هـ</span>
+</div>
+<div class="flex justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>التوقيع: <strong class="text-on-surface">إلكتروني موثق</strong></span>
+<span>الرمز: <strong class="font-mono">SIG-902</strong></span>
+</div>
+</div>
+<!-- Signer 3: Educational Supervisor -->
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col justify-between gap-4">
+<div class="text-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant block">الإشراف التربوي - مكتب التعليم</span>
+<h5 class="font-title-md text-title-md font-bold text-on-surface mt-1">المشرف التربوي الزائر</h5>
+<p class="font-body-sm text-body-sm text-primary font-medium mt-0.5">د. راشد محمد آل منصور</p>
+</div>
+<div class="h-20 bg-surface-container-lowest rounded-lg flex flex-col items-center justify-center p-2 text-center">
+<span class="material-symbols-outlined text-secondary text-[26px]">draw</span>
+<span class="font-label-sm text-label-sm text-secondary font-bold mt-1">اطلع وأوصى بالتنفيذ الإداري</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">1446/02/19هـ</span>
+</div>
+<div class="flex justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>التوقيع: <strong class="text-on-surface">معتمد وزارياً</strong></span>
+<span>الرمز: <strong class="font-mono">SIG-SUP-44</strong></span>
+</div>
+</div>
+<!-- Signer 4: School Principal + Official Seal Zone -->
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col justify-between gap-4">
+<div class="text-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant block">الاعتماد النهائي والختم المؤسسي</span>
+<h5 class="font-title-md text-title-md font-bold text-on-surface mt-1">مدير مدرسة ابن سينا المتوسطة</h5>
+<p class="font-body-sm text-body-sm text-primary font-medium mt-0.5">أ. سعد هادي القحطاني</p>
+</div>
+<div class="h-20 bg-emerald-100 rounded-lg flex flex-col items-center justify-center p-2 text-center relative overflow-hidden">
+<div class="flex items-center gap-1.5 text-primary">
+<span class="material-symbols-outlined text-[24px]">verified_user</span>
+<span class="font-title-md text-title-md font-bold">الختم والاعتماد الرسمي</span>
+</div>
+<span class="font-label-sm text-label-sm text-emerald-950 font-bold mt-0.5">إدارة مدرسة ابن سينا المتوسطة</span>
+<span class="font-label-sm text-label-sm text-emerald-800 font-mono">CODE: NFS-SEAL-89240</span>
+</div>
+<div class="flex justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>التاريخ: <strong class="text-on-surface font-mono">1446/02/19هـ</strong></span>
+<span class="text-primary font-semibold">حالة الاعتماد: منجز</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Document Print Verification & Metadata Strip -->
+<div class="w-full bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 text-on-surface-variant font-body-sm text-body-sm">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-surface-container rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[20px]">qr_code_2</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-bold text-on-surface">رمز التحقق الإلكتروني للوثيقة: NFS-NJR-482910-2024</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">تم استخراج التقرير آلياً عبر نظام معلّمي للتقويم المدرسي والتحصيل الوطني</span>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-4 text-left">
+<span class="font-label-sm text-label-sm bg-surface-container px-2.5 py-1 rounded-md">معيار الطباعة: ISO A4 Standard</span>
+<span class="font-label-sm text-label-sm bg-surface-container px-2.5 py-1 rounded-md">وقت الإصدار: 10:45 ص</span>
+<span class="font-label-sm text-label-sm font-semibold text-primary">صفحة 1 من 1</span>
+</div>
+</div>
+</div>
+</div></main><footer class="w-full bg-surface-container-low mt-auto no-print"><div class="max-w-[1380px] mx-auto px-gutter py-space-md flex flex-col md:flex-row items-center justify-between gap-3 text-on-surface-variant font-label-sm text-label-sm"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-primary">verified_user</span><span>نظام التقويم المدرسي والتحصيل الوطني (نافس) • الصف الثالث المتوسط • العام الدراسي 1445-1446هـ</span></div><div class="flex items-center gap-4"><span>رمز التحقق: <strong class="font-mono text-on-surface">NFS-NJR-8924</strong></span><span>تاريخ الاستخراج: 1446/02/18هـ</span></div></div></footer></body></html>
