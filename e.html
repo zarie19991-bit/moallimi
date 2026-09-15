@@ -1,4 +1,4 @@
-<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#065f46"><title>اختبار نافس | معلّمي</title><link rel="stylesheet" href="e.css?v=20260914-type1"><link rel="stylesheet" href="stitch-platform-theme.css?v=20260915-1"></head><body class="page-exam">
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#065f46"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>اختبار نافس | معلّمي</title><link rel="stylesheet" href="e.css?v=20260914-type1"><link rel="stylesheet" href="stitch-platform-theme.css?v=20260915-1"></head><body class="page-exam">
 <header class="exam-top">
   <div class="brand"><span>م</span><div><b>معلّمي</b><small>منصة الاختبارات المدرسية</small></div></div>
   <div class="top-meta"><span id="code" class="exam-code-pill"></span><span id="saveState" role="status" class="save-state-indicator"></span></div>
@@ -6,23 +6,29 @@
 <main id="screen" class="exam-shell">
 <section id="intro" class="panel intro-panel">
   <div class="intro-badge">الاختبارات الوطنية المدرسية</div><h1 id="title">جارٍ تحميل الاختبار…</h1><div id="subjectPill" class="subject-pill"></div><p id="details" class="intro-details"></p><div id="sections" class="intro-sections"></div>
-  <div class="student-instructions-box security-notice" id="securityNotice"><b>تعليمات دخول الاختبار:</b><ul><li>أدخل اسمك الثلاثي أو الرباعي بدقة كما هو مدون في كشف المدرسة.</li><li>أدخل آخر ٣ أرقام من سجلك المدني (الهوية الوطنية) لتأكيد هويتك.</li><li>أدخل فصلك كما هو في كشف المدرسة، مثل: أ أو ب أو ج أو د.</li><li>لا تغلق المتصفح أو تغادر صفحة الاختبار حتى تنتهي من التسليم.</li><li>تطبق إجراءات حماية الاختبار للحد من النسخ والتصوير قدر الإمكان فقط مع علامة مائية باسمك لضمان النزاهة.</li></ul></div>
+  <div class="student-instructions-box security-notice" id="securityNotice"><b>تعليمات دخول الاختبار:</b><ul><li>أدخل اسمك الثلاثي أو الرباعي بدقة كما هو مدون في كشف المدرسة.</li><li>أدخل آخر ٣ أرقام من سجلك المدني (الهوية الوطنية) لتأكيد هويتك.</li><li>اختر فصلك كما هو في كشف المدرسة: أ أو ب أو ج أو د.</li><li>لا تغلق المتصفح أو تغادر صفحة الاختبار حتى تنتهي من التسليم.</li><li>تطبق إجراءات حماية الاختبار للحد من النسخ والتصوير قدر الإمكان فقط مع علامة مائية باسمك لضمان النزاهة.</li></ul></div>
   <p id="message" role="alert" class="intro-error-msg"></p>
   <form id="identity" class="entry-form" hidden>
     <div class="form-field"><label for="studentName">اسم الطالب الكامل *</label><input id="studentName" required autocomplete="name" maxlength="120" placeholder="مثال: عبد العزيز محمد الغامدي"></div>
     <div class="form-field"><label for="studentNo">آخر ٣ أرقام من الهوية الوطنية *</label><div class="id3-wrap"><input id="studentNo" required maxlength="3" inputmode="numeric" pattern="[0-9]{3}" placeholder="مثال: 456" autocomplete="off"><span class="id3-badge-hint">٣ أرقام فقط</span></div><small class="id3-helper-text">أدخل آخر ثلاثة أرقام فقط من سجلك المدني للتحقق من هوية الطالب.</small></div>
-    <div class="form-field form-field-class" id="classFieldWrap"><label for="className">الفصل *</label><input id="className" required list="classOptions" maxlength="80" autocomplete="off" placeholder="مثال: أ"><datalist id="classOptions"><option value="أ"><option value="ب"><option value="ج"><option value="د"></datalist><small class="id3-helper-text">اكتب الفصل كما هو مسجل في كشف المدرسة.</small></div>
+    <div class="form-field form-field-class" id="classFieldWrap"><label for="className">الفصل *</label><input id="className" required list="classOptions" maxlength="80" autocomplete="off" placeholder="اختر: أ أو ب أو ج أو د"><datalist id="classOptions"><option value="أ"><option value="ب"><option value="ج"><option value="د"></datalist><small class="id3-helper-text">اختر الفصل المطابق لكشف المدرسة.</small></div>
     <button type="submit" class="btn-start-exam" id="startBtn">دخول الاختبار</button>
   </form>
 </section>
 <section id="player" class="panel exam-panel" hidden><div class="exam-head"><div><small id="sectionTitle"></small><h2 id="questionTitle"></h2></div><b class="timer" id="timer" aria-label="الوقت المتبقي"></b></div><div class="progress" id="progress"></div><div id="questions"></div><div class="nav exam-nav"><button id="prev">السابق</button><button id="review">مراجعة الإجابات</button><button id="next">التالي</button><button id="finish">تسليم القسم</button></div><button id="calcButton" hidden>آلة حاسبة</button><p id="playerError" role="alert"></p></section>
 <section id="breakPanel" class="panel" hidden><h2>استراحة بين الأقسام</h2><p id="breakText"></p></section><section id="result" class="panel" hidden></section>
 </main>
-<div id="watermark" aria-hidden="true"></div><div id="printShield">الطباعة غير متاحة أثناء الاختبار.</div><script src="question-media.js?v=20260909-final"></script><script src="edge-retry.js?v=20260912-1"></script><script src="edge-retry-ui.js?v=20260913-advanced2"></script><script src="e.js?v=20260914-resume2"></script><script>
+<div id="watermark" aria-hidden="true"></div><div id="printShield">الطباعة غير متاحة أثناء الاختبار.</div><script src="question-media.js?v=20260909-final"></script><script src="edge-retry.js?v=20260912-1"></script><script src="edge-retry-ui.js?v=20260913-advanced2"></script><script src="e.js?v=20260915-classfix2"></script><script>
 (()=>{
+  let forcedClassCleared=false;
   const unlockClassField=()=>{
     const el=document.getElementById('className');
     if(!el)return;
+    const wasLocked=el.readOnly||el.disabled||el.hasAttribute('readonly')||el.hasAttribute('disabled');
+    if(wasLocked&&!forcedClassCleared){
+      el.value='';
+      forcedClassCleared=true;
+    }
     el.readOnly=false;
     el.disabled=false;
     el.removeAttribute('readonly');
