@@ -1,0 +1,110 @@
+غير المختبرين</a></nav><div class="hidden lg:flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm"><span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-primary">verified</span>البيانات معتمدة رسمياً</span></div></div></div></header><main class="w-full pt-28 bg-surface flex-1"><div class="flex flex-col w-full">
+<!-- Official Report Outer Canvas -->
+<div class="w-full max-w-[1380px] mx-auto px-gutter py-space-lg flex flex-col gap-space-lg">
+<!-- System Notice Bar: RLS & Sample State -->
+<div class="w-full bg-surface-container-high text-on-surface rounded-xl p-space-sm flex flex-wrap items-center justify-between gap-3 shadow-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+<span class="font-label-md text-label-md font-bold text-primary">صلاحية الوصول: دور المشرف العام والإدارة المدرسية (Admin Role - RLS Active)</span>
+<span class="hidden md:inline-block w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">معرف التشفير المؤسسي: SEC-RLS-482910-ADM</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-label-sm text-label-sm font-semibold flex items-center gap-1" data-field="data-status">
+<span class="material-symbols-outlined text-[14px]">info</span>
+          بيانات تجريبية للمعاينة والمطابقة (Sample Data / Preview)
+        </span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">الفصل الدراسي الثاني 1445-1446هـ</span>
+</div>
+</div>
+<!-- Institutional Letterhead & Actions -->
+<section class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<!-- Action Toolbar (Hidden in Print) -->
+<div class="flex flex-wrap items-center justify-between gap-3 pb-space-sm no-print">
+<div class="flex items-center gap-2">
+<a class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container text-on-surface rounded-xl font-label-md text-label-md transition-all hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+<span>العودة للوحة الإشراف العام</span>
+</a>
+<span class="px-2.5 py-1 bg-surface-container-low text-primary rounded-xl font-label-sm text-label-sm">
+            كود الاستعراض الموحد: #NAFES-GEN-2024-B
+          </span>
+</div>
+<div class="flex items-center gap-2">
+<button class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-on-primary rounded-xl font-label-md text-label-md font-semibold transition-all hover:bg-primary-container shadow-sm" onclick="window.print()">
+<span class="material-symbols-outlined text-[18px]">print</span>
+<span>طباعة التقرير الشامل (A4)</span>
+</button>
+<button class="inline-flex items-center gap-1.5 px-3 py-2 bg-secondary text-on-secondary rounded-xl font-label-md text-label-md font-medium transition-all hover:bg-on-secondary-container shadow-sm" onclick="window.print()">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+<span>تصدير PDF عالي الدقة</span>
+</button>
+</div>
+</div>
+<!-- Formal Ministry Crest & Header Grid -->
+<div class="grid grid-cols-1 md:grid-cols-12 items-center gap-4 pt-space-xs">
+<div class="md:col-span-4 flex items-center gap-3">
+<img alt="شعار وزارة التعليم السعودية" class="w-20 h-20 object-contain rounded-lg p-1 bg-surface-container-low" src="https://lh3.googleusercontent.com/aida/AEtjO1U3wcjXw47SWy42DM5iIv_93INLUIhV836DzAe1j9KP9N3VlBPK0Qavx6iLQiI8Qf-cnAlJrUu-PbNZjBAGPVtLwlp-rtu6XhR0naRjS20jbhhF3z8GcVgHPld-PTWc_O3LW52lnl2vGhoIgm_B8CXYdt0xsawl7S6Kw50XiMpEUf7KKRjqhoP4XzjnSXraXGDRTSlR4u0aY_XV5mUs09nhba0hKnmFiTaeWRxJblU4yHZpVLZExEV7CDc"/>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md font-bold text-primary">المملكة العربية السعودية</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold">وزارة التعليم • الإدارة العامة للتعليم بنجران</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">مكتب التعليم بالإدارة • مدرسة ابن سينا المتوسطة للبنين</span>
+</div>
+</div>
+<div class="md:col-span-5 flex flex-col items-center justify-center text-center">
+<span class="px-3 py-0.5 rounded-full bg-surface-container text-primary font-label-sm text-label-sm font-semibold mb-1">البرنامج الوطني للتقويم المدرسي والاختبارات التحصيلية</span>
+<h1 class="font-headline-xl text-headline-xl font-bold text-on-surface tracking-tight leading-snug">التقرير العام لنتائج اختبارات نافس الوطنية</h1>
+<p class="font-body-md text-body-md text-on-surface-variant font-medium">التحليل المؤسسي الشامل لنتائج الصف الثالث المتوسط — المستوى المدرسي</p>
+</div>
+<div class="md:col-span-3 flex flex-col items-start md:items-end justify-center gap-1 bg-surface-container-low p-3 rounded-xl">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">الرمز الوزاري للمدرسة:</span>
+<span class="font-title-md text-title-md font-bold text-primary font-mono" data-field="school-code">482910</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">الفئة المستهدفة:</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">الصف الثالث متوسط (3 فصول)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">العام الأكاديمي:</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">1445-1446هـ • الفصل الثاني</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Key Performance Metrics Grid (6 Metrics) -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+<!-- Metric 1: Cohort Count -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col justify-between" data-metric-card="measured">
+<div class="flex items-center justify-between text-on-surface-variant mb-2">
+<span class="font-label-sm text-label-sm font-semibold">إجمالي الطلاب المقاسين</span>
+<span class="material-symbols-outlined text-primary text-[20px]">groups</span>
+</div>
+<div>
+<div class="font-data-metric text-data-metric text-on-surface">118</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-1 flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span>موزعون على 3 فصول</span>
+</div>
+</div>
+</div>
+<!-- Metric 2: School Average -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col justify-between relative overflow-hidden" data-metric-card="overall">
+<div class="flex items-center justify-between text-on-surface-variant mb-2">
+<span class="font-label-sm text-label-sm font-semibold">متوسط التحصيل المدرسي</span>
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+<div>
+<div class="flex items-baseline gap-2">
+<div class="font-data-metric text-data-metric text-primary">74.2%</div>
+<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold">4.2%+</span>
+</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+            المستهدف الوطني: 70.0%
+          </div>
+</div>
+</div>
+<!-- Metric 3: Participation Rate -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col justify-between" data-metric-card="participation">
+<div class="flex items-center justify-between text-on-surface-variant mb-2">
+<span class="
