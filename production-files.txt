@@ -5,6 +5,7 @@ index.html
 styles.css
 tests.css
 students.css
+stitch-platform-theme.css
 nafes-reading.js
 nafes-math.js
 nafes-science.js
@@ -53,6 +54,7 @@ report-test-options.js
 report-remedial-plan.js
 subject-teacher-names.js
 manual-print-date.js
+report-stitch-exact.js
 reset-results.js
 results-clear-fix.js
 
