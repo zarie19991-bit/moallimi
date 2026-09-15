@@ -42,6 +42,7 @@ report-logo-final.css
 report-print-exact.css
 report-absentees.css
 report-readability.css
+report-font-12.css
 analysis-core.js
 analysis-data-service.js
 analysis.js
