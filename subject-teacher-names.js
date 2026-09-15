@@ -3,6 +3,19 @@
 const TEACHERS={reading:'زرعي شبير',math:'عبدالله العماري',science:'مليدان بالحارث'};
 const LABELS={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const KEYS=['reading','math','science'];
+const RELEVANT_SELECTOR=[
+  '.official-analysis-sheet',
+  '.wr-performance-card',
+  '.wr-indicator-card',
+  '.report-test-group',
+  '.weekly-report',
+  '#subjectView .section-control-card',
+  '#subjectReportView .subject-report-controls',
+  '#overviewView .section-control-card',
+  '#reportView',
+  '#weeklyReportSettings',
+  '#settingsModal'
+].join(',');
 let pending=false;
 
 function subjectKeys(root){
@@ -21,6 +34,9 @@ function badgeStyle(){
 }
 function setTextIfChanged(node,value){
   if(node&&node.textContent!==value)node.textContent=value;
+}
+function setStyleIfChanged(node,property,value){
+  if(node&&node.style[property]!==value)node.style[property]=value;
 }
 function ensureBanner(host,keyOrAll,className){
   if(!host)return;
@@ -92,16 +108,16 @@ function applyWeeklySignatures(root=document){
     const target=sig.querySelector(':scope>div:first-child b');
     if(!target)return;
     setTextIfChanged(target,allTeachersText());
-    if(target.style.whiteSpace!=='normal')target.style.whiteSpace='normal';
-    if(target.style.lineHeight!=='1.55')target.style.lineHeight='1.55';
-    if(target.style.fontSize!=='10.5px')target.style.fontSize='10.5px';
+    setStyleIfChanged(target,'whiteSpace','normal');
+    setStyleIfChanged(target,'lineHeight','1.55');
+    setStyleIfChanged(target,'fontSize','10.5px');
   });
 }
 function hideGenericTeacherInputs(){
   const wr=document.getElementById('wrTeacher');
   if(wr){
     const label=wr.closest('label');
-    if(label&&label.style.display!=='none')label.style.display='none';
+    setStyleIfChanged(label,'display','none');
     const grid=wr.closest('.wr-settings-grid');
     if(grid&&!grid.querySelector('.fixed-subject-teachers')){
       const note=document.createElement('div');
@@ -114,7 +130,7 @@ function hideGenericTeacherInputs(){
   const modal=document.getElementById('teacherNameInput');
   if(modal){
     const label=modal.closest('label');
-    if(label&&label.style.display!=='none')label.style.display='none';
+    setStyleIfChanged(label,'display','none');
     const grid=modal.closest('.settings-grid');
     if(grid&&!grid.querySelector('.fixed-subject-teachers')){
       const note=document.createElement('div');
@@ -139,13 +155,33 @@ function schedule(){
   pending=true;
   queueMicrotask(applyAll);
 }
+function nodeIsRelevant(node){
+  if(!node||node.nodeType!==1)return false;
+  if(node.matches?.(RELEVANT_SELECTOR))return true;
+  return !!node.querySelector?.(RELEVANT_SELECTOR);
+}
 function install(){
   applyAll();
-  new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});
+  const observer=new MutationObserver(mutations=>{
+    for(const mutation of mutations){
+      for(const node of mutation.addedNodes||[]){
+        if(nodeIsRelevant(node)){
+          schedule();
+          return;
+        }
+      }
+    }
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
   document.addEventListener('change',e=>{
     if(['subjectSelect','reportSubjectSelect'].includes(e.target?.id))schedule();
   });
+  document.addEventListener('click',e=>{
+    if(e.target?.closest?.('#buildReportBtn,#buildSubjectReportBtn,[data-view="report"],[data-view="subjectReport"]')){
+      setTimeout(schedule,0);
+    }
+  });
   addEventListener('beforeprint',applyAll);
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
