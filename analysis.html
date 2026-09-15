@@ -37,7 +37,7 @@
 <main class="shell no-print">
   <section class="hero">
     <div><span class="eyebrow">الصف الثالث المتوسط</span><h1>تحليل نتائج نافس</h1><p>التحليل لقراءة الأداء، أما التقارير فهي أوراق رسمية مستقلة للطباعة والحفظ.</p></div>
-    <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
+    <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="resetTrialDataBtn" class="btn ghost" type="button">تصفير النتائج</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
   </section>
   <section id="authPanel" class="card auth-card" hidden><h2>دخول المعلم</h2><p>أدخل مفتاح المعلم للوصول إلى النتائج الحقيقية فقط.</p><form id="authForm" class="inline-form"><input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم"><button class="btn primary" type="submit">دخول</button></form><p id="authError" class="error"></p></section>
   <div id="loadState" class="state"></div>
@@ -71,17 +71,6 @@
       <div class="toolbar card report-controls"><label class="wide"><span>الاختبارات</span><select id="reportTest"></select></label><label><span>الأسبوع / الفترة</span><input id="reportWeek" type="text" placeholder="مثال: الأسبوع الرابع"></label><button id="buildReportBtn" class="btn primary" type="button">إنشاء التقرير العام</button><button id="printReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button></div>
       <div id="reportPreview" class="report-preview-empty">اختر الاختبارات التي تريد إدخالها في التقرير، ثم اضغط «إنشاء التقرير العام».</div>
     </section>
-
-    <section class="card" style="margin-top:28px;border:1px solid #f0d58c;background:#fffaf0">
-      <div class="section-head" style="margin-bottom:10px">
-        <div>
-          <h2 style="color:#7a5600">تصفير نتائج الاختبارات</h2>
-          <p class="muted">يمكنك تصفير نتائج اختبار محدد، أو حذف نتيجة طالب من اختبار محدد، أو مسح جميع النتائج. لن تُحذف الاختبارات أو الروابط أو الطلاب.</p>
-        </div>
-        <button id="resetTrialDataBtn" class="btn ghost" type="button">فتح التصفير وإدارة النتائج</button>
-      </div>
-      <p class="muted" style="margin:0;color:#8a5b00">تنبيه: لا يتم الحذف إلا بعد اختيار النتائج والتأكيد داخل نافذة التصفير.</p>
-    </section>
   </section>
 </main>
 
@@ -102,6 +91,6 @@
 <script src="subject-teacher-names.js?v=20260914-3"></script>
 <script src="manual-print-date.js?v=20260913-report2"></script>
 <script src="report-stitch-exact.js?v=20260915-exact2"></script>
-<script src="reset-results.js?v=20260911-3"></script>
+<script src="reset-results.js?v=20260915-top1"></script>
 <script src="results-clear-fix.js?v=20260911-1"></script>
 </body></html>
