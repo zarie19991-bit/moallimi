@@ -25,6 +25,8 @@ lugati.html
 lugati-login.css
 lugati-login.js
 lugati-dashboard.html
+lugati-dashboard.css
+lugati-dashboard.js
 
 create.html
 create.css
