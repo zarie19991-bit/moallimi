@@ -1,6 +1,82 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>منصة لغتي</title>
-<style>@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap');:root{--teal:#0b765f;--ink:#17352f;--muted:#75857f;--line:#dfe9e5;--bg:#f5f8f7}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:'IBM Plex Sans Arabic',Tahoma,Arial,sans-serif;color:var(--ink)}[hidden]{display:none!important}.wrap{max-width:1100px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:25px}.brand{display:flex;gap:10px;align-items:center}.mark{width:46px;height:46px;border-radius:14px;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:21px;font-weight:800}.brand b{display:block}.brand small{color:var(--muted)}button{font:inherit;border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px 13px;cursor:pointer}.hero{padding:28px;border-radius:22px;background:linear-gradient(125deg,#0b765f,#085547);color:#fff;margin-bottom:18px}.hero h1{margin:0 0 7px}.hero p{margin:0;color:#cfe6df}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px}.card span{font-size:28px}.card h3{margin:11px 0 5px}.card p{color:var(--muted);font-size:12px;line-height:1.7;margin:0}.note{margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;color:var(--muted);font-size:12px}.loading{min-height:60vh;display:grid;place-items:center;color:var(--muted)}.loading[hidden]{display:none!important}@media(max-width:700px){.cards{grid-template-columns:1fr}.wrap{padding:16px}.top{align-items:flex-start}.hero{padding:22px}}</style></head>
-<body><div id="loading" class="loading">جارٍ التحقق من جلسة الدخول...</div><main id="app" class="wrap" hidden><div class="top"><div class="brand"><div class="mark">لُ</div><div><b>منصة لغتي</b><small>التفاعلية</small></div></div><button id="logout">تسجيل الخروج</button></div><section class="hero"><h1 id="welcome">مرحبًا بك في منصة لغتي</h1><p id="identity"></p></section><section class="cards"><article class="card"><span>📖</span><h3>القراءة</h3><p>الدروس والتدريبات ومؤشرات نافس والخطط العلاجية والإثرائية.</p></article><article class="card"><span>➗</span><h3>الرياضيات</h3><p>تحليل المؤشرات وبناء تدريب فردي حسب النتيجة الفعلية.</p></article><article class="card"><span>🔬</span><h3>العلوم</h3><p>تدريب موجه وقياس أثر بعد تنفيذ الخطة.</p></article></section><div class="note">نتائج الاختبارات الأصلية تُقرأ من «معلّمي» دون تعديلها، وتُستخدم داخل «لغتي» لبناء التحليل والتدريب الشخصي.</div></main>
-<script>(()=>{'use strict';const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-auth',K='lugati_session_v1';const stores=[sessionStorage,localStorage];let token='';for(const s of stores){try{const t=s.getItem(K);if(t){token=t;break}}catch(_){}}const loading=document.getElementById('loading'),app=document.getElementById('app');async function call(action){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),15000);try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({action}),cache:'no-store',signal:controller.signal});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||'تعذر التحقق');return d}finally{clearTimeout(timeout)}}function clear(){for(const s of stores){try{s.removeItem(K);s.removeItem('lugati_profile_v1');s.removeItem('lugati_role_v1')}catch(_){}}}function showApp(){loading.hidden=true;loading.style.display='none';app.hidden=false}if(!token){location.replace('./lugati.html');return}(async()=>{try{const d=await call('verify');showApp();const p=d.profile||{};document.getElementById('welcome').textContent=d.role==='student'?`مرحبًا ${p.full_name||''}`:'مرحبًا بك في منصة لغتي';const scope=p.subject_scope==='all'?'جميع المواد':(p.subject_scope==='reading'?'القراءة':p.subject_scope==='math'?'الرياضيات':p.subject_scope==='science'?'العلوم':p.subject_scope||'جميع المواد');document.getElementById('identity').textContent=d.role==='student'?`الطالب · ${p.grade||''}${p.class_name?` · الفصل ${p.class_name}`:''}`:`حساب المعلم · نطاق المادة: ${scope}`;}catch(err){clear();location.replace('./lugati.html?session=expired')}})();document.getElementById('logout').onclick=async()=>{try{await call('logout')}catch(_){}clear();location.replace('./lugati.html')}})();</script></body></html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#087f68"><title>منصة لغتي التفاعلية</title>
+<link rel="stylesheet" href="./lugati-dashboard.css">
+</head>
+<body>
+<div id="sessionLoader" class="session-loader">جارٍ تحميل بيانات منصة لغتي...</div>
+<div id="globalMessage" class="global-message"></div>
+<div id="toast" class="toast"></div>
+<div id="app" class="app-shell" hidden>
+<aside class="sidebar">
+  <div class="side-brand"><div class="brand-mark">لُ</div><div><b>منصة لغتي</b><small>التفاعلية</small></div></div>
+  <nav class="nav">
+    <button class="nav-item active" data-scroll="home"><span>⌂</span><div><b>الرئيسية</b><small>نظرة عامة</small></div></button>
+    <button class="nav-item" data-scroll="learning"><span>▦</span><div><b>التعلّم والتدريب</b><small>دروس وأوراق عمل</small></div></button>
+    <button class="nav-item" data-scroll="analysis"><span>◫</span><div><b>تحليل نافس</b><small>قراءة · رياضيات · علوم</small></div></button>
+    <button class="nav-item" data-scroll="plans"><span>✦</span><div><b>العلاج والإثراء</b><small>مسارات مبنية على النتائج</small></div></button>
+    <button class="nav-item" data-scroll="support" data-teacher-only><span>♙</span><div><b>ملفات الطلاب</b><small>الدعم والمتابعة</small></div></button>
+    <button class="nav-item" data-scroll="recent"><span>▤</span><div><b>سجل النتائج</b><small>آخر الاختبارات</small></div></button>
+  </nav>
+  <div class="side-note"><b>اتصال معلّمي</b><span class="dot"></span><p>قراءة فقط — لا يتم تعديل درجات منصة معلّمي.</p></div>
+</aside>
+
+<main class="main-content">
+  <header class="topbar">
+    <button id="mobileMenu" class="mobile-menu" type="button">☰</button>
+    <div class="top-title"><small>لوحة منصة لغتي</small><h1>التعلّم والتحليل الشخصي</h1></div>
+    <div class="top-actions"><div class="sync"><span class="dot"></span><span id="lastSync">متصل</span></div><div class="profile-chip"><div class="avatar">ل</div><div><b id="profileName">—</b><small id="profileMeta">—</small></div><span id="roleBadge" class="role-badge">—</span></div><button id="logoutBtn" class="logout-btn">تسجيل الخروج</button></div>
+  </header>
+
+  <section id="home" class="hero section-anchor">
+    <div class="hero-copy"><span class="hero-tag">منصة تعليمية ذكية مبنية على الأداء الفعلي</span><h2 id="heroTitle">مرحبًا بك</h2><p id="heroText"></p></div>
+    <div id="heroStats" class="hero-stats"></div>
+  </section>
+
+  <section id="learning" class="section-block section-anchor">
+    <div class="section-head"><div><small>الوصول السريع</small><h2>أقسام منصة لغتي</h2></div><p>الأقسام الفعلية تُربط تدريجيًا دون استبدال بياناتك أو استخدام بيانات تجريبية.</p></div>
+    <div class="quick-grid">
+      <button class="quick-card primary" data-soon="الدروس التفاعلية"><span>▣</span><b>الدروس التفاعلية</b><small>شرح وأنشطة داخل الدرس</small></button>
+      <button class="quick-card" data-soon="الاستراتيجيات التعليمية"><span>◈</span><b>الاستراتيجيات</b><small>استراتيجيات متنوعة للدرس</small></button>
+      <button class="quick-card" data-soon="الألعاب التعليمية"><span>✺</span><b>الألعاب التعليمية</b><small>تعلم بالمنافسة والتحدي</small></button>
+      <button class="quick-card" data-scroll="plans"><span>▤</span><b>أوراق العمل</b><small>علاجية وتعزيزية وإثرائية</small></button>
+      <button class="quick-card" data-soon="الواجبات"><span>✓</span><b>الواجبات</b><small>تكليف ومتابعة الإنجاز</small></button>
+      <button class="quick-card" data-soon="التقويم"><span>◎</span><b>التقويم</b><small>تشخيصي وتكويني وختامي</small></button>
+      <button class="quick-card accent" data-scroll="analysis"><span>◫</span><b>تحليل نتائج نافس</b><small>من درجات معلّمي الحقيقية</small></button>
+      <button class="quick-card" data-scroll="plans"><span>✦</span><b>الخطة العلاجية والإثرائية</b><small>حسب نتيجة كل مؤشر</small></button>
+      <button class="quick-card" data-scroll="support" data-teacher-only><span>♙</span><b>ملفات الطلاب</b><small>متابعة فردية وتحسن</small></button>
+      <button class="quick-card" data-soon="التقارير" data-teacher-only><span>▥</span><b>التقارير</b><small>طباعة وتوثيق الأداء</small></button>
+    </div>
+  </section>
+
+  <section id="analysis" class="section-block section-anchor">
+    <div class="section-head"><div><small>متصل بمنصة معلّمي</small><h2>تحليل نتائج نافس</h2></div><p>تظهر النسب من أحدث نتيجة فعلية لكل طالب في كل مادة.</p></div>
+    <div id="subjectCards" class="subject-grid"></div>
+    <div class="panel indicator-panel"><div class="panel-head"><div><small>تحليل دقيق</small><h3 id="indicatorHeading">أكثر المؤشرات حاجة إلى تدخل</h3></div><span class="live-pill">مؤشرات فعلية</span></div><div id="indicatorList" class="indicator-list"></div></div>
+  </section>
+
+  <section id="plans" class="section-block section-anchor">
+    <div class="section-head"><div><small>التدريب الشخصي</small><h2>الخطة العلاجية والتعزيزية والإثرائية</h2></div><p>التصنيف يعتمد على أحدث أداء: أقل من ٧٠٪ علاجي، ٧٠–أقل من ٩٠٪ تعزيز، ٩٠٪ فأعلى إثراء.</p></div>
+    <div class="plan-grid">
+      <article class="plan-card remedial"><span class="plan-icon">↺</span><div><small>المسار العلاجي</small><h3><b id="planSupport">—</b> نتيجة</h3><p>مؤشرات ومواد تحتاج تدريبًا موجّهًا ثم قياس تحقق.</p></div></article>
+      <article class="plan-card strengthen"><span class="plan-icon">↗</span><div><small>مسار التعزيز</small><h3><b id="planStrength">—</b> نتيجة</h3><p>تدريب مركز للطلاب القريبين من الإتقان.</p></div></article>
+      <article class="plan-card enrich"><span class="plan-icon">★</span><div><small>المسار الإثرائي</small><h3><b id="planEnrich">—</b> نتيجة</h3><p>مهام أعلى تفكيرًا للمؤشرات المتقنة بدرجة مرتفعة.</p></div></article>
+    </div>
+    <div class="info-strip"><b>ورقة العمل الفردية</b><span>ستُنشأ من بنك الأسئلة المعتمد للمؤشر نفسه مع استبعاد الأسئلة التي سبق للطالب رؤيتها، ولن تُستخدم أسئلة وهمية.</span></div>
+  </section>
+
+  <section id="support" class="section-block section-anchor">
+    <div class="panel"><div class="panel-head"><div><small>أولوية المتابعة</small><h3 id="supportPanelTitle">طلاب يحتاجون إلى دعم الآن</h3></div><span class="live-pill danger">حسب أحدث نتيجة</span></div><div id="supportContent"></div></div>
+  </section>
+
+  <section id="recent" class="section-block section-anchor">
+    <div class="panel"><div class="panel-head"><div><small>سجل حي</small><h3 id="recentTitle">أحدث نتائج الطلاب</h3></div><span class="live-pill">قراءة فقط من معلّمي</span></div><div id="recentContent"></div></div>
+  </section>
+
+  <footer>منصة لغتي التفاعلية · ابن سينا المتوسطة · البيانات التحليلية مرتبطة بمنصة معلّمي</footer>
+</main>
+</div>
+<script src="./lugati-dashboard.js"></script>
+</body>
+</html>
