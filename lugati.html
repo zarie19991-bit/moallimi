@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b765f">
+  <title>منصة لغتي | تسجيل الدخول</title><link rel="stylesheet" href="./lugati-login.css">
+</head>
+<body>
+<main class="login-shell">
+<section class="brand-panel" aria-label="نبذة عن منصة لغتي">
+  <div class="brand-mark">لُ</div><div class="eyebrow">منصة تعليمية تفاعلية</div><h1>لغتي</h1>
+  <p>تعلم، تدريب، تحليل، وخطة شخصية لكل طالب مبنية على أدائه الفعلي.</p>
+  <div class="feature-grid">
+    <div><span>📖</span><b>القراءة</b><small>دروس ومؤشرات نافس</small></div>
+    <div><span>➗</span><b>الرياضيات</b><small>تدريب موجه حسب التحليل</small></div>
+    <div><span>🔬</span><b>العلوم</b><small>علاج وإثراء وقياس أثر</small></div>
+  </div>
+  <div class="secure-note">🔒 بيانات الدخول تستخدم للتحقق فقط، وتبقى درجات «معلّمي» مصدرًا للقراءة دون تعديل.</div>
+</section>
+<section class="login-panel"><div class="login-card">
+  <div class="mobile-logo"><div class="brand-mark small">لُ</div><div><b>منصة لغتي</b><small>التفاعلية</small></div></div>
+  <div class="card-heading"><span>مرحبًا بك</span><h2>تسجيل الدخول</h2><p>اختر نوع الحساب ثم أدخل بياناتك.</p></div>
+  <div class="role-tabs" role="tablist" aria-label="نوع الدخول"><button class="role-tab active" data-role="student" type="button">دخول الطالب</button><button class="role-tab" data-role="teacher" type="button">دخول المعلم</button></div>
+  <div id="message" class="message" aria-live="polite"></div>
+  <form id="studentForm" class="auth-form" autocomplete="off">
+    <label><span>اسم الطالب</span><input id="studentName" type="text" required minlength="3" placeholder="انسخ اسمك كما هو في كشف المدرسة" autocomplete="off"></label>
+    <div class="two-cols">
+      <label><span>الفصل</span><select id="className" required><option value="">اختر الفصل</option><option value="أ">أ</option><option value="ب">ب</option><option value="ج">ج</option><option value="د">د</option></select></label>
+      <label><span>آخر ٣ أرقام من الهوية</span><input id="studentNo" inputmode="numeric" maxlength="3" required placeholder="•••" autocomplete="off"></label>
+    </div>
+    <button class="primary-btn" type="submit"><span>دخول منصة لغتي</span><b>←</b></button><p class="form-help">إذا تعذر الدخول، تأكد من الاسم والفصل وآخر ثلاثة أرقام كما هي مسجلة في كشف المدرسة.</p>
+  </form>
+  <form id="teacherForm" class="auth-form hidden" autocomplete="off">
+    <label><span>مفتاح المعلم</span><div class="password-wrap"><input id="teacherKey" type="password" required placeholder="أدخل مفتاح المعلم" autocomplete="off" spellcheck="false" dir="ltr"><button id="toggleKey" type="button">إظهار</button></div></label>
+    <label class="remember-row"><input id="rememberTeacher" type="checkbox"><span>تذكر الدخول على هذا الجهاز</span></label>
+    <button class="primary-btn" type="submit"><span>دخول لوحة المعلم</span><b>←</b></button><p class="form-help">يُستخدم مفتاح المعلم الحالي نفسه للتحقق من صلاحية الدخول.</p>
+  </form>
+  <div id="sessionCard" class="session-card hidden"><div class="success-icon">✓</div><h3>تم تسجيل الدخول</h3><p id="sessionText"></p><a class="primary-btn link-btn" href="./lugati-dashboard.html"><span>فتح منصة لغتي</span><b>←</b></a><button id="logoutBtn" class="ghost-btn" type="button">تسجيل الخروج</button></div>
+</div><footer>منصة لغتي التفاعلية · دخول آمن للطلاب والمعلمين</footer></section>
+</main>
+<script src="./lugati-login.js"></script>
+</body></html>
