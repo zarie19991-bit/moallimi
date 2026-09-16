@@ -57,6 +57,7 @@ subject-teacher-names.js
 manual-print-date.js
 report-stitch-exact.js
 reset-results.js
+student-result-delete.js
 results-clear-fix.js
 
 student-papers.html
