@@ -37,7 +37,7 @@
 <main class="shell no-print">
   <section class="hero">
     <div><span class="eyebrow">الصف الثالث المتوسط</span><h1>تحليل نتائج نافس</h1><p>التحليل لقراءة الأداء، أما التقارير فهي أوراق رسمية مستقلة للطباعة والحفظ.</p></div>
-    <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="resetTrialDataBtn" class="btn ghost" type="button">تصفير النتائج</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
+    <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="deleteStudentResultsBtn" class="btn ghost" type="button">حذف نتائج طالب</button><button id="resetTrialDataBtn" class="btn ghost" type="button">تصفير النتائج</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
   </section>
   <section id="authPanel" class="card auth-card" hidden><h2>دخول المعلم</h2><p>أدخل مفتاح المعلم للوصول إلى النتائج الحقيقية فقط.</p><form id="authForm" class="inline-form"><input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم"><button class="btn primary" type="submit">دخول</button></form><p id="authError" class="error"></p></section>
   <div id="loadState" class="state"></div>
@@ -92,5 +92,6 @@
 <script src="manual-print-date.js?v=20260913-report2"></script>
 <script src="report-stitch-exact.js?v=20260915-exact2"></script>
 <script src="reset-results.js?v=20260915-top1"></script>
+<script src="student-result-delete.js?v=20260916-1"></script>
 <script src="results-clear-fix.js?v=20260911-1"></script>
 </body></html>
