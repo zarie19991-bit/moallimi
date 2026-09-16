@@ -20,6 +20,12 @@ excel-engine.js
 students.js
 app.js
 
+# منصة لغتي — دخول مستقل وجلسة مصادقة حقيقية.
+lugati.html
+lugati-login.css
+lugati-login.js
+lugati-dashboard.html
+
 create.html
 create.css
 simulation-catalog-route.js
