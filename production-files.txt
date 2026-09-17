@@ -33,6 +33,9 @@ lugati-worksheet.css
 lugati-worksheet.js
 lugati-worksheet-v3.css
 lugati-worksheet-v3.js
+lugati-reading-worksheets-data.js
+lugati-reading-worksheets-ui.js
+lugati-reading-worksheets-ui.css
 
 create.html
 create.css
