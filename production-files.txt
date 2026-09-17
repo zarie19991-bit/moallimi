@@ -37,6 +37,12 @@ lugati-reading-worksheets-data.js
 lugati-reading-worksheets-ui.js
 lugati-reading-worksheets-ui.css
 
+# منصة لغتي الكاملة — نسخة مستقلة جديدة لا تستبدل النسخة الحالية.
+lugati-complete.html
+lugati-complete.css
+lugati-complete.js
+lugati-indicators.js
+
 create.html
 create.css
 simulation-catalog-route.js
