@@ -41,7 +41,9 @@ lugati-reading-worksheets-ui.css
 lugati-complete.html
 lugati-complete.css
 lugati-complete.js
+lugati-role-router.js
 lugati-roster-bridge.js
+lugati-student.html
 lugati-student-view.js
 lugati-indicators.js
 
