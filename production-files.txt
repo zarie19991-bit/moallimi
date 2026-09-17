@@ -42,6 +42,7 @@ lugati-complete.html
 lugati-complete.css
 lugati-complete.js
 lugati-roster-bridge.js
+lugati-student-view.js
 lugati-indicators.js
 
 create.html
