@@ -1,53 +1,226 @@
-/* Standard report typography requested for printed/PDF reports. */
+/* Final report typography and print contract for analysis + official reports.
+   Loaded after the older report layers so this file is the final authority for
+   readable 12pt Arabic output. */
 :is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet){
   font-family:Tahoma,Arial,sans-serif!important;
   font-size:12pt!important;
+  font-weight:700!important;
   line-height:1.55!important;
+  direction:rtl!important;
 }
 
 :is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet) :is(p,li,span,small,b,strong,th,td,label){
   font-family:Tahoma,Arial,sans-serif!important;
   font-size:12pt!important;
+  font-weight:700!important;
   line-height:1.55!important;
 }
 
-/* Headings stay larger than body text for a clear official hierarchy. */
 :is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet) :is(h2,h3,h4,.wr-section-title>span){
   font-family:Tahoma,Arial,sans-serif!important;
   font-size:14pt!important;
+  font-weight:800!important;
   line-height:1.45!important;
 }
 
 :is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.wr-title-pill,.official-analysis-sheet>h1,.nafes-absence-sheet h2){
   font-family:Tahoma,Arial,sans-serif!important;
-  font-size:17pt!important;
+  font-size:16pt!important;
+  font-weight:800!important;
   line-height:1.45!important;
 }
 
-/* Preserve emphasis for primary numeric KPIs without reducing readability. */
 :is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) :is(.wr-kpis strong,.wr-performance-card>strong,.na-counts b){
   font-size:18pt!important;
+  font-weight:800!important;
   line-height:1.35!important;
 }
 
+/* One teacher line at the beginning of each subject section. */
+:is(#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) .sar-subject-teacher-first{
+  margin:0 0 12px!important;
+  padding:8px 12px!important;
+  border:1px solid #9fb2b8!important;
+  border-radius:8px!important;
+  background:#f7fbfb!important;
+  color:#20383e!important;
+  font-size:12pt!important;
+  font-weight:800!important;
+  line-height:1.5!important;
+  text-align:right!important;
+}
+
+:is(#reportPreview,#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot) .wr-subject-teacher{
+  font-size:12pt!important;
+  font-weight:800!important;
+  line-height:1.5!important;
+}
+
+@page{
+  size:A4 portrait;
+  margin:10mm;
+}
+
 @media print{
+  html,body{
+    margin:0!important;
+    padding:0!important;
+    background:#fff!important;
+    direction:rtl!important;
+  }
+
+  #printRoot,.print-root{
+    display:block!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:visible!important;
+    background:#fff!important;
+    direction:rtl!important;
+    text-align:right!important;
+  }
+
+  /* Never shrink the whole report to force it onto one page. */
+  #printRoot .official-analysis-sheet,
+  #printRoot .weekly-report.report-sheet,
+  #printRoot .nafes-absence-sheet,
+  .print-root .official-analysis-sheet,
+  .print-root .weekly-report.report-sheet,
+  .print-root .nafes-absence-sheet{
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:visible!important;
+    zoom:1!important;
+    transform:none!important;
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+    font-family:Tahoma,Arial,sans-serif!important;
+    font-size:12pt!important;
+    font-weight:700!important;
+    line-height:1.5!important;
+    direction:rtl!important;
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
+
   #printRoot :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet),
   #printRoot :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet) :is(p,li,span,small,b,strong,th,td,label){
     font-family:Tahoma,Arial,sans-serif!important;
     font-size:12pt!important;
+    font-weight:700!important;
     line-height:1.5!important;
   }
 
   #printRoot :is(.weekly-report,.official-analysis-sheet,.nafes-absence-sheet) :is(h2,h3,h4,.wr-section-title>span){
     font-size:14pt!important;
+    font-weight:800!important;
     line-height:1.45!important;
+    break-after:avoid!important;
+    page-break-after:avoid!important;
   }
 
   #printRoot :is(.wr-title-pill,.official-analysis-sheet>h1,.nafes-absence-sheet h2){
-    font-size:17pt!important;
+    font-size:16pt!important;
+    font-weight:800!important;
+    line-height:1.45!important;
   }
 
   #printRoot :is(.wr-kpis strong,.wr-performance-card>strong,.na-counts b){
     font-size:18pt!important;
+    font-weight:800!important;
+  }
+
+  #printRoot table{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    border-collapse:collapse!important;
+    border-spacing:0!important;
+    table-layout:fixed!important;
+    overflow:visible!important;
+  }
+
+  #printRoot :is(th,td){
+    border:1px solid #444!important;
+    padding:6px!important;
+    vertical-align:middle!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important;
+    white-space:normal!important;
+    color:#182b32!important;
+    font-size:12pt!important;
+    font-weight:700!important;
+    line-height:1.5!important;
+  }
+
+  #printRoot th{
+    background:#e4ecee!important;
+    color:#142a32!important;
+    font-weight:800!important;
+  }
+
+  #printRoot td{background:#fff!important}
+  #printRoot thead{display:table-header-group!important}
+  #printRoot tfoot{display:table-footer-group!important}
+  #printRoot tr{break-inside:avoid!important;page-break-inside:avoid!important}
+
+  #printRoot :is(.sar-student-table,.wr-student-table-wrap,.wr-remedial,.na-table,tbody,table){
+    overflow:visible!important;
+    max-height:none!important;
+    height:auto!important;
+  }
+
+  #printRoot :is(.sar-stats,.sar-achievement,.sar-chart-card,.analysis-card,.analysis-section,.report-section,.wr-focus,.wr-callout,.wr-performance,.wr-indicator-card,.wr-performance-card,.wr-kpis>article,.na-counts>div){
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+
+  #printRoot :is(.sar-meta,.sar-analysis-grid,.sar-rings,.sar-bars,.wr-report-meta,.wr-kpis,.wr-indicator-grid,.wr-performance-grid,.wr-two,.na-counts){
+    overflow:visible!important;
+    max-height:none!important;
+    height:auto!important;
+  }
+
+  #printRoot .sar-subject-teacher-first,
+  #printRoot .wr-subject-teacher,
+  #printRoot .subject-teacher-boundary{
+    font-size:12pt!important;
+    font-weight:800!important;
+    line-height:1.5!important;
+    color:#182b32!important;
+  }
+
+  /* If the whole subject fits on one physical page, keep the teacher once only. */
+  #printRoot .official-analysis-sheet.subject-teacher-single-page .sar-signatures>div:first-child,
+  #printRoot .official-analysis-sheet.subject-teacher-footer-suppressed .sar-signatures>div:first-child{
+    display:none!important;
+  }
+
+  #printRoot .official-analysis-sheet.subject-teacher-single-page .sar-signatures,
+  #printRoot .official-analysis-sheet.subject-teacher-footer-suppressed .sar-signatures{
+    grid-template-columns:1fr!important;
+  }
+
+  #printRoot .na-footer.subject-teacher-boundary{
+    border-top:1px solid #444!important;
+    padding-top:6px!important;
+    text-align:center!important;
+  }
+
+  #printRoot *{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
   }
 }
