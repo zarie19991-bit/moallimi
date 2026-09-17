@@ -6,7 +6,7 @@
 <main id="screen" class="exam-shell">
 <section id="intro" class="panel intro-panel">
   <div class="intro-badge">الاختبارات الوطنية المدرسية</div><h1 id="title">جارٍ تحميل الاختبار…</h1><div id="subjectPill" class="subject-pill"></div><p id="details" class="intro-details"></p><div id="sections" class="intro-sections"></div>
-  <div class="student-instructions-box security-notice" id="securityNotice"><b>تعليمات دخول الاختبار:</b><ul><li>أدخل اسمك الثلاثي أو الرباعي بدقة كما هو مدون في كشف المدرسة.</li><li>أدخل آخر ٣ أرقام من سجلك المدني (الهوية الوطنية) لتأكيد هويتك.</li><li>اختر فصلك كما هو في كشف المدرسة: أ أو ب أو ج أو د.</li><li>لا تغلق المتصفح أو تغادر صفحة الاختبار حتى تنتهي من التسليم.</li><li>تطبق إجراءات حماية الاختبار للحد من النسخ والتصوير قدر الإمكان فقط مع علامة مائية باسمك لضمان النزاهة.</li></ul></div>
+  <div class="student-instructions-box security-notice" id="securityNotice"><b>تعليمات دخول الاختبار:</b><ul><li>أدخل اسمك الثلاثي أو الرباعي بدقة كما هو مدون في كشف المدرسة.</li><li>أدخل آخر ٣ أرقام من سجلك المدني (الهوية الوطنية) لتأكيد هويتك.</li><li>اختر فصلك كما هو في كشف المدرسة: أ أو ب أو ج أو د.</li><li>إذا حدّثت الصفحة أو أغلقتها فلن يُسلَّم الاختبار؛ يمكنك العودة إلى المحاولة نفسها قبل انتهاء الوقت، والوقت يستمر من بدايته.</li><li>تطبق إجراءات حماية الاختبار للحد من النسخ والتصوير قدر الإمكان فقط مع علامة مائية باسمك لضمان النزاهة.</li></ul></div>
   <p id="message" role="alert" class="intro-error-msg"></p>
   <form id="identity" class="entry-form" hidden>
     <div class="form-field"><label for="studentName">اسم الطالب الكامل *</label><input id="studentName" required autocomplete="name" maxlength="120" placeholder="مثال: عبد العزيز محمد الغامدي"></div>
@@ -50,7 +50,7 @@
     return response;
   };
 })();
-</script><script src="e.js?v=20260915-loginfix4"></script><script>
+</script><script src="exam-session-guard.js?v=20260917-1"></script><script src="e.js?v=20260915-loginfix4"></script><script>
 (()=>{
   let forcedClassCleared=false;
   const unlockClassField=()=>{
