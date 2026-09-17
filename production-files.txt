@@ -31,6 +31,8 @@ lugati-modules.css
 lugati-modules.js
 lugati-worksheet.css
 lugati-worksheet.js
+lugati-worksheet-v3.css
+lugati-worksheet-v3.js
 
 create.html
 create.css
