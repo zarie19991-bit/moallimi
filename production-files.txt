@@ -85,6 +85,7 @@ e.css
 edge-retry.js
 edge-retry-ui.js
 student-session-recovery.js
+exam-session-guard.js
 e.js
 
 exam.html
