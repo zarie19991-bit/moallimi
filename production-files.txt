@@ -45,6 +45,8 @@ lugati-role-router.js
 lugati-roster-bridge.js
 lugati-student.html
 lugati-student-view.js
+lugati-student-adaptive.js
+lugati-teacher-adaptive.js
 lugati-indicators.js
 
 create.html
