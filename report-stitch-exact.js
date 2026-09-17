@@ -21,7 +21,8 @@ const FRAME_PRINT_CSS=`
 @media print{
   html,body{margin:0!important;padding:0!important;background:#fff!important;direction:rtl!important;zoom:1!important;transform:none!important}
   body{font-family:Tahoma,Arial,sans-serif!important;font-size:12pt!important;font-weight:700!important;line-height:1.5!important;color:#182b32!important}
-  body :is(p,li,span,small,b,strong,label,th,td){font-family:Tahoma,Arial,sans-serif!important;font-size:12pt!important;font-weight:700!important;line-height:1.5!important}
+  body :is(p,li,span,small,b,strong,label,th,td):not(.material-symbols-outlined){font-family:Tahoma,Arial,sans-serif!important;font-size:12pt!important;font-weight:700!important;line-height:1.5!important}
+  body .material-symbols-outlined{font-family:'Material Symbols Outlined'!important;font-weight:400!important;line-height:1!important}
   body :is(h2,h3,h4,.font-headline-lg,.font-headline-md,.font-title-md){font-family:Tahoma,Arial,sans-serif!important;font-size:14pt!important;font-weight:800!important;line-height:1.45!important}
   body :is(h1,.font-headline-xl){font-family:Tahoma,Arial,sans-serif!important;font-size:16pt!important;font-weight:800!important;line-height:1.45!important}
   body .font-data-metric{font-size:18pt!important;font-weight:800!important;line-height:1.35!important}
