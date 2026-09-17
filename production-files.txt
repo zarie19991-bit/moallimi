@@ -29,6 +29,8 @@ lugati-dashboard.css
 lugati-dashboard.js
 lugati-modules.css
 lugati-modules.js
+lugati-worksheet.css
+lugati-worksheet.js
 
 create.html
 create.css
