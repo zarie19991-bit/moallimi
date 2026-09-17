@@ -56,6 +56,16 @@
   line-height:1.5!important;
 }
 
+/* Screen previews are continuous pages, so do not repeat the same subject teacher
+   in the middle signature block. The final print copy restores the final teacher
+   only when the subject actually spans more than one physical page. */
+:is(#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview) .official-analysis-sheet .sar-signatures>div:first-child{
+  display:none!important;
+}
+:is(#subjectOfficialReport,#overviewOfficialPreview,#subjectOfficialPreview) .official-analysis-sheet .sar-signatures{
+  grid-template-columns:1fr!important;
+}
+
 @page{
   size:A4 portrait;
   margin:10mm;
@@ -202,7 +212,9 @@
     color:#182b32!important;
   }
 
-  /* If the whole subject fits on one physical page, keep the teacher once only. */
+  /* The footer teacher is the last-page occurrence. Hide it when the same
+     subject continues into participation sheets, or when the whole subject is
+     only one printed page. */
   #printRoot .official-analysis-sheet.subject-teacher-single-page .sar-signatures>div:first-child,
   #printRoot .official-analysis-sheet.subject-teacher-footer-suppressed .sar-signatures>div:first-child{
     display:none!important;
