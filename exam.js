@@ -8,8 +8,10 @@ const $=id=>document.getElementById(id);const letters=['أ','ب','ج','د'];let 
 const code=()=>`N3-${({reading:'R',math:'M',science:'S'}[P.subject]||'X')}-${String(P.outcome).replace(/[^0-9A-Za-z]/g,'')}-I${String(P.indicator).padStart(2,'0')}-M${String(P.model).padStart(2,'0')}`;
 const ACTIVE_EXAM_KEY=()=>'nafes_active_exam_'+code(),ACTIVE_EXAM_MAX_AGE=12*60*60*1000;
 function clearActiveSession(){try{localStorage.removeItem(ACTIVE_EXAM_KEY());sessionStorage.removeItem(ACTIVE_EXAM_KEY())}catch(_){}}
-function readActiveSession(){try{const raw=localStorage.getItem(ACTIVE_EXAM_KEY())||sessionStorage.getItem(ACTIVE_EXAM_KEY())||'null',x=JSON.parse(raw);if(!x?.attempt_id)return null;const expired=x.expires_at&&Date.now()>new Date(x.expires_at).getTime(),stale=x.saved_at&&Date.now()-Number(x.saved_at)>ACTIVE_EXAM_MAX_AGE;if(expired||stale){clearActiveSession();return null}return x}catch(_){return null}}
-function saveActiveSession(extra={}){try{const cur=readActiveSession()||{},record={...cur,attempt_id:attempt||cur.attempt_id||'',student_name:$('studentName')?.value?.trim()||cur.student_name||'',student_no:$('studentNo')?.value?.trim()||cur.student_no||'',class_name:$('className')?.value?.trim()||cur.class_name||'',answers:{...answers},current,saved_at:Date.now(),...extra};if(!record.attempt_id)return;const val=JSON.stringify(record);localStorage.setItem(ACTIVE_EXAM_KEY(),val);sessionStorage.setItem(ACTIVE_EXAM_KEY(),val)}catch(_){}}
+function validActive(x){if(!x?.attempt_id)return null;const expired=x.expires_at&&Date.now()>new Date(x.expires_at).getTime(),stale=x.saved_at&&Date.now()-Number(x.saved_at)>ACTIVE_EXAM_MAX_AGE;if(expired||stale){clearActiveSession();return null}return x}
+function readActiveSession(){try{return validActive(JSON.parse(sessionStorage.getItem(ACTIVE_EXAM_KEY())||'null'))}catch(_){return null}}
+function readActiveMarker(){try{return validActive(JSON.parse(localStorage.getItem(ACTIVE_EXAM_KEY())||'null'))}catch(_){return null}}
+function saveActiveSession(extra={}){try{const cur=readActiveSession()||{},record={...cur,attempt_id:attempt||cur.attempt_id||'',student_name:$('studentName')?.value?.trim()||cur.student_name||'',student_no:$('studentNo')?.value?.trim()||cur.student_no||'',class_name:$('className')?.value?.trim()||cur.class_name||'',answers:{...answers},current,saved_at:Date.now(),...extra};if(!record.attempt_id)return;sessionStorage.setItem(ACTIVE_EXAM_KEY(),JSON.stringify(record));localStorage.setItem(ACTIVE_EXAM_KEY(),JSON.stringify({attempt_id:record.attempt_id,expires_at:record.expires_at||'',saved_at:record.saved_at}))}catch(_){}}
 $('modelCode').textContent=code();$('examTitle').textContent=subj?`${subj.title} · اختبار ${String(P.model).padStart(2,'0')}`:'اختبار نافس';$('indicatorText').textContent=indicatorText||'تعذر تحديد المؤشر من الرابط.';
 async function call(body){const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...P,indicator_text:indicatorText,outcome_title:out?.title||'',...body})});const d=await r.json().catch(()=>({error:'تعذر قراءة استجابة الخادم'}));if(!r.ok)throw new Error(d.error||'تعذر تنفيذ الطلب');return d}
 function readiness(type,text){$('readiness').className='readiness '+type;$('readiness').textContent=text}
@@ -25,13 +27,15 @@ async function init(){
   if(!p.ready){readiness('bad',p.error||'تعذر تجهيز اختبار هذا المؤشر.');return}
   readiness('good',`الاختبار جاهز · ${p.settings.question_count||15} سؤالًا · ${p.settings.duration_minutes||20} دقيقة · تُحفظ نتيجتك لقياس إتقان المؤشر.`);
   $('startForm').classList.remove('hidden');
-  const active=readActiveSession(),saved=readSessionIdentity();
+  const active=readActiveSession(),marker=readActiveMarker(),saved=readSessionIdentity();
   $('studentName').value=active?.student_name||saved.name||'';
   $('studentNo').value=active?.student_no||'';
   if((active?.class_name||saved.class)&&$('className'))$('className').value=active?.class_name||saved.class;
   if(active?.attempt_id&&active?.student_name&&active?.student_no&&active?.class_name){
    readiness('good','تم العثور على محاولة سارية — جارٍ استعادتها...');
    queueMicrotask(()=>$('startForm').requestSubmit());
+  }else if(marker?.attempt_id){
+   readiness('good','توجد محاولة سابقة سارية على هذا الجهاز. أدخل بياناتك للتحقق واستئنافها.');
   }
  }catch(e){readiness('bad',e.message||'تعذر الاتصال بمحرك الاختبار.')}
 }
