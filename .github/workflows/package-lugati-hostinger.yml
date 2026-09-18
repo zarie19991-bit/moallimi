@@ -28,16 +28,16 @@ jobs:
           cp lugati-student-adaptive.js hostinger-lugati/
           cp lugati-teacher-adaptive.js hostinger-lugati/
           cp lugati-indicators.js hostinger-lugati/
-          cat > hostinger-lugati/README-HOSTINGER.txt <<'EOF'
-منصة لغتي - حزمة Hostinger
-
-1) ارفع جميع محتويات هذه الحزمة داخل public_html.
-2) index.html هو الصفحة الرئيسية، وهو نسخة من lugati-complete.html.
-3) لا تنشئ قاعدة بيانات داخل Hostinger.
-4) البيانات والمصادقة وتحليل نافس والخطط والتدريبات تبقى في Supabase.
-5) صفحة الطالب: lugati-student.html
-6) إذا كان public_html يحتوي صفحة افتراضية قديمة، احذفها أو استبدلها قبل رفع هذه الملفات.
-EOF
+          printf '%s\n' \
+            'منصة لغتي - حزمة Hostinger' \
+            '' \
+            '1) ارفع جميع محتويات هذه الحزمة داخل public_html.' \
+            '2) index.html هو الصفحة الرئيسية، وهو نسخة من lugati-complete.html.' \
+            '3) لا تنشئ قاعدة بيانات داخل Hostinger.' \
+            '4) البيانات والمصادقة وتحليل نافس والخطط والتدريبات تبقى في Supabase.' \
+            '5) صفحة الطالب: lugati-student.html' \
+            '6) إذا كان public_html يحتوي صفحة افتراضية قديمة، احذفها أو استبدلها قبل رفع هذه الملفات.' \
+            > hostinger-lugati/README-HOSTINGER.txt
 
       - name: Upload package
         uses: actions/upload-artifact@v4
