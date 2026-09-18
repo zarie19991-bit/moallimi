@@ -48,7 +48,8 @@ lugati-student-view.js
 lugati-student-adaptive.js
 lugati-student-mastery.js
 lugati-teacher-adaptive.js
-lugati-teacher-mastery.js\nlugati-teacher-archive.js
+lugati-teacher-mastery.js
+lugati-teacher-archive.js
 lugati-indicators.js
 
 create.html
