@@ -1,0 +1,123 @@
+name: Package Lugati for AI Studio
+
+on:
+  push:
+    paths:
+      - '.github/workflows/package-lugati-ai.yml'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare package
+        shell: bash
+        run: |
+          set -e
+          mkdir -p lugati-ai-studio
+          cp lugati-complete.html lugati-ai-studio/
+          cp lugati-complete.css lugati-ai-studio/
+          cp lugati-complete.js lugati-ai-studio/
+          cp lugati-role-router.js lugati-ai-studio/
+          cp lugati-roster-bridge.js lugati-ai-studio/
+          cp lugati-student.html lugati-ai-studio/
+          cp lugati-student-adaptive.js lugati-ai-studio/
+          cp lugati-teacher-adaptive.js lugati-ai-studio/
+          cp lugati-indicators.js lugati-ai-studio/
+          cat > lugati-ai-studio/README-AI-STUDIO.md <<'EOF'
+# منصة لغتي — حزمة Google AI Studio
+
+هذه الحزمة تحتوي على ملفات منصة لغتي الحالية فقط، وليست نسخة من منصة معلّمي كاملة.
+
+## الهدف
+استخدم هذه الحزمة داخل Google AI Studio لمراجعة وتصميم واجهة منصة لغتي مع الحفاظ على الربط الحقيقي مع منصة معلّمي وSupabase.
+
+## الملفات
+- lugati-complete.html
+- lugati-complete.css
+- lugati-complete.js
+- lugati-role-router.js
+- lugati-roster-bridge.js
+- lugati-student.html
+- lugati-student-adaptive.js
+- lugati-teacher-adaptive.js
+- lugati-indicators.js
+
+## الخلفية الحالية
+Supabase project:
+- udznpifopbnrcgxtpzza
+
+Edge Functions المستخدمة:
+- lugati-auth
+- lugati-moallimi-read
+- lugati-adaptive-plan
+- lugati-question-bank-read
+
+مهم:
+- لا تضع SUPABASE_SERVICE_ROLE_KEY في الواجهة الأمامية.
+- لا تستخدم بيانات Mock.
+- لا تنشئ أسماء أو درجات أو أعداد طلاب وهمية.
+- عند عدم وجود بيانات حقيقية، أظهر حالة فارغة واضحة.
+- لا تعدّل جداول أو نتائج نافس الأصلية من الواجهة.
+
+## قواعد التصنيف
+- أقل من 70%: علاجي
+- من 70% إلى أقل من 90%: تعزيز
+- 90% فأعلى: إثرائي
+- الطالب الذي لم يختبر: علاج تمهيدي، بدون تسجيل 0%
+
+## منطق الربط المطلوب
+1. الطالب يسجل دخولًا حقيقيًا.
+2. نتائج نافس تُقرأ من معلّمي عبر backend فقط.
+3. التحليل يحدد المؤشرات حسب آخر أداء حقيقي.
+4. الخطة التلقائية تظهر للطالب.
+5. المعلم يستطيع إرسال تدريب مباشر لطالب.
+6. تدريب المعلم يظهر للطالب في حسابه.
+7. بدء الطالب للتدريب يغيّر الحالة إلى قيد التدريب.
+8. عند التسليم، تُحفظ الدرجة والحالة.
+9. صفحة المعلم تعرض نفس الحالة والنتيجة.
+10. تحديث الطالب والمعلم يجب أن يكون متزامنًا.
+
+## تعليمات لـ AI Studio
+ابدأ بقراءة المشروع فقط.
+لا تعيد بناء المشروع من الصفر.
+لا تستبدل التصميم الحالي إلا بطلب صريح.
+لا تنشر قبل المراجعة.
+لا تحذف أي جزء مستقر يعمل.
+EOF
+
+          cat > lugati-ai-studio/AI-STUDIO-PROMPT.txt <<'EOF'
+اقرأ هذا المشروع أولًا دون تعديل.
+
+المطلوب مراجعة منصة لغتي الحالية وتصميمها بنفس الهوية الاحترافية الموجودة في مشروع Google AI Studio السابق، مع الإبقاء على الربط الحقيقي مع منصة معلّمي وSupabase.
+
+راجع بالتحديد:
+1) اختلاف واجهة الطالب عن المعلم.
+2) وصول الخطة التلقائية من تحليل نافس.
+3) إرسال المعلم تدريبًا مباشرًا لطالب.
+4) ظهور التدريب في صفحة الطالب.
+5) بدء الطالب للتدريب وتغيير حالته.
+6) تسليم النتيجة وعودتها إلى صفحة المعلم.
+7) التحديث التلقائي بين الصفحتين.
+8) الألعاب والتدريبات يجب أن تستخدم أسئلة حقيقية من بنك نافس.
+9) لا توجد بيانات Mock.
+10) لا تنشر أي تعديل قبل عرض خطة التعديل.
+
+قواعد الأداء:
+- أقل من 70% علاجي
+- 70 إلى أقل من 90% تعزيز
+- 90% فأعلى إثرائي
+- لم يختبر = علاج تمهيدي دون صفر
+
+أعطني أولًا تقريرًا واضحًا عن الأجزاء المكتملة وغير المكتملة، ثم انتظر موافقتي قبل التعديل.
+EOF
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lugati-ai-studio-package
+          path: lugati-ai-studio/
+          if-no-files-found: error
