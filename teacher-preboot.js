@@ -8,7 +8,9 @@ try{
  const p=raw?JSON.parse(raw):null;
  if(!p||!['reading','math','science'].includes(p.subject_scope))return;
  const page=(location.pathname.split('/').pop()||'index.html').toLowerCase();
- if(page===''||page==='index.html'){location.replace('teacher.html');return;}
+ // Never redirect from cached profile data before the current teacher key is verified.
+ // teacher-access.js performs any subject-scoped redirect after a live profile check.
+ if(page===''||page==='index.html')return;
  const html=document.documentElement;
  html.classList.add('teacher-scoped-preboot');
  html.dataset.prebootTeacherLabel=p.label||'معلم المادة';
