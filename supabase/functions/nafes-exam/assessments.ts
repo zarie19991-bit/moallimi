@@ -452,7 +452,7 @@ async function teacherTestsBulkClear(db: any, b: Row, owner?: Row) {
 
 async function teacher(db:any,req:Request) {
  const key=tidy(req.headers.get('x-teacher-key'),128);
- if(!/^[a-f0-9]{48,96}$/i.test(key))fail('أدخل مفتاح دخول المعلم لعرض النتائج وإعداد الاختبارات.',401);
+ if(!/^(?:[0-9]{10}|[a-f0-9]{48,96})$/i.test(key))fail('أدخل رقم أو مفتاح دخول المعلم لعرض النتائج وإعداد الاختبارات.',401);
  const row=must(await db.from('nafes_teacher_access').select('id,label,subject_scope').eq('key_hash',await hash(key)).eq('active',true).maybeSingle());
  if(!row)fail('مفتاح دخول المعلم غير صحيح.',401);
  return {...row,subject_scope:SUBJECTS.includes(String(row.subject_scope))?String(row.subject_scope):'all'};
