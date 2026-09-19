@@ -8,11 +8,11 @@ function goStudent(){
   if(!location.pathname.endsWith('/lugati-student.html')) location.replace(STUDENT_PAGE);
 }
 try{
-  if(isStudent(localStorage.getItem(KEY))) goStudent();
+  if(isStudent(sessionStorage.getItem(KEY)||localStorage.getItem(KEY))) goStudent();
   const nativeSet=Storage.prototype.setItem;
   Storage.prototype.setItem=function(key,value){
     nativeSet.call(this,key,value);
-    if(this===localStorage&&key===KEY&&isStudent(value)) setTimeout(goStudent,0);
+    if((this===sessionStorage||this===localStorage)&&key===KEY&&isStudent(value)) setTimeout(goStudent,0);
   };
 }catch(e){console.warn('lugati role router',e)}
 })();
