@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#065f46">
+<title>حساب المعلم | معلّمي</title>
+<link rel="stylesheet" href="styles.css?v=20260909-final">
+<link rel="stylesheet" href="stitch-platform-theme.css?v=20260915-1">
+<style>
+body{margin:0;background:#f3f7f6;color:#17324d;font-family:Tahoma,Arial,sans-serif}
+.account-shell{max-width:980px;margin:auto;padding:28px 18px 50px}
+.account-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:24px}
+.account-brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:#17324d}.account-brand .mark{width:48px;height:48px;border-radius:15px;background:#0f6b63;color:#fff;display:grid;place-items:center;font-weight:900;font-size:23px}
+.account-actions{display:flex;gap:9px;flex-wrap:wrap}
+.account-actions a,.account-actions button,.quick-card{font:inherit}
+.account-btn{border:0;border-radius:11px;padding:10px 15px;text-decoration:none;cursor:pointer;font-weight:800}.account-btn.primary{background:#0f6b63;color:#fff}.account-btn.ghost{background:#fff;color:#17324d;border:1px solid #cbdad8}.account-btn.danger{background:#fff4f4;color:#a32828;border:1px solid #ecc4c4}
+.profile-card{background:#fff;border:1px solid #d8e4e2;border-radius:22px;padding:24px;box-shadow:0 18px 55px #17324d12}.eyebrow{color:#0f6b63;font-weight:800;font-size:13px}.profile-card h1{margin:7px 0 4px;font-size:28px}.scope-pill{display:inline-flex;background:#eaf6f3;color:#0f655d;border-radius:999px;padding:7px 12px;font-weight:800;margin-top:8px}
+.profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:22px}.info{background:#f7faf9;border:1px solid #e0e9e7;border-radius:14px;padding:15px}.info small{display:block;color:#71817f;margin-bottom:5px}.info b{font-size:16px}
+.quick-title{margin:28px 0 12px}.quick-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.quick-card{background:#fff;border:1px solid #d8e4e2;border-radius:18px;padding:18px;text-decoration:none;color:#17324d}.quick-card strong{display:block;margin-bottom:6px}.quick-card small{line-height:1.7;color:#61716f}
+.logged-out{display:none;background:#fff;border:1px solid #d8e4e2;border-radius:22px;padding:28px;text-align:center}.logged-out h1{margin-top:0}.logged-out p{line-height:1.8;color:#667775}
+@media(max-width:700px){.profile-grid,.quick-grid{grid-template-columns:1fr}.profile-card h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="account-shell">
+ <header class="account-top">
+  <a class="account-brand" href="./"><span class="mark">م</span><div><b>معلّمي</b><small style="display:block;color:#70817f">حساب المعلم</small></div></a>
+  <div class="account-actions">
+   <a class="account-btn ghost" href="./">الرئيسية</a>
+   <button class="account-btn danger" type="button" data-teacher-logout data-logout-target="teacher.html">تسجيل الخروج</button>
+  </div>
+ </header>
+
+ <section id="profileCard" class="profile-card">
+  <span class="eyebrow">الحساب الحالي</span>
+  <h1 data-teacher-label>حساب المعلم</h1>
+  <span class="scope-pill">المادة: <span data-teacher-scope-label style="margin-inline-start:5px">—</span></span>
+  <div class="profile-grid">
+   <div class="info"><small>نوع الصلاحية</small><b id="roleText">حساب معلم</b></div>
+   <div class="info"><small>نطاق العمل</small><b id="scopeText">جاري التحقق…</b></div>
+   <div class="info"><small>إنشاء الاختبارات</small><b id="createScope">بحسب صلاحية الحساب</b></div>
+   <div class="info"><small>التحليل والتقارير</small><b id="analysisScope">بحسب صلاحية الحساب</b></div>
+  </div>
+ </section>
+
+ <section id="loggedOut" class="logged-out">
+  <h1>دخول المعلم</h1>
+  <p>أدخل رقم دخول المعلم، أو المفتاح الرئيسي للحساب الشامل.</p>
+  <button class="account-btn primary" type="button" data-teacher-login>تسجيل الدخول</button>
+ </section>
+
+ <h2 class="quick-title" id="quickTitle">أدوات المعلم</h2>
+ <section class="quick-grid" id="quickGrid">
+  <a class="quick-card" href="create.html"><strong>✏️ إنشاء اختبار</strong><small>اختر مؤشرًا واحدًا أو عدة مؤشرات وحدد عدد الأسئلة ثم راجعها قبل النشر.</small></a>
+  <a class="quick-card" href="analysis.html"><strong>📊 تحليل النتائج</strong><small>عرض نتائج الطلاب وتحليل المؤشرات والتقارير بحسب المادة المسموحة للحساب.</small></a>
+  <a class="quick-card" href="student-papers.html"><strong>📄 أوراق الطلاب</strong><small>استعراض أوراق الإجابات والاختبارات المرتبطة بالمادة.</small></a>
+ </section>
+</div>
+<script src="teacher-access.js?v=20260919-account1"></script>
+<script>
+(async()=>{
+ const profileCard=document.getElementById('profileCard'),loggedOut=document.getElementById('loggedOut'),quickGrid=document.getElementById('quickGrid'),quickTitle=document.getElementById('quickTitle');
+ function renderSignedOut(){profileCard.style.display='none';loggedOut.style.display='block';quickGrid.style.display='none';quickTitle.style.display='none';}
+ function render(p){
+  profileCard.style.display='block';loggedOut.style.display='none';quickGrid.style.display='grid';quickTitle.style.display='block';
+  const scope=p?.subject_scope||'all',label=window.NafesTeacher.subjectLabel(scope);
+  document.getElementById('roleText').textContent=scope==='all'?'الحساب الرئيسي الشامل':'معلم مادة';
+  document.getElementById('scopeText').textContent=scope==='all'?'القراءة + الرياضيات + العلوم':label+' فقط';
+  document.getElementById('createScope').textContent=scope==='all'?'جميع المواد':'اختبارات '+label;
+  document.getElementById('analysisScope').textContent=scope==='all'?'جميع المواد والتقارير':'تحليل وتقارير '+label;
+ }
+ if(!window.NafesTeacher.getKey()){renderSignedOut();return;}
+ try{render(await window.NafesTeacher.ensureProfile());}catch(_){renderSignedOut();}
+ addEventListener('nafes:auth-changed',e=>{if(!e.detail.authenticated)renderSignedOut();});
+ addEventListener('nafes:teacher-profile',e=>render(e.detail));
+})();
+</script>
+</body>
+</html>
