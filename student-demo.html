@@ -64,7 +64,7 @@ function render(d){
  $('state').textContent='عدد الاختبارات المنشورة: '+tests.length;
 }
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginError').textContent='';const code=$('demoCode').value.trim();try{await load(code);}catch(err){$('loginError').textContent=err.message;}};
-$('tests').onclick=e=>{const b=e.target.closest('[data-open]');if(!b||b.disabled)return;const code=b.dataset.open;if(code){const demoCode=sessionStorage.getItem(SESSION)||'';location.href='e.html?t='+encodeURIComponent(code)+'&demo_code='+encodeURIComponent(demoCode);}};
+$('tests').onclick=e=>{const b=e.target.closest('[data-open]');if(!b||b.disabled)return;const code=b.dataset.open;if(code){const demoCode=sessionStorage.getItem(SESSION)||'';location.href='demo-exam.html?t='+encodeURIComponent(code)+'&demo_code='+encodeURIComponent(demoCode);}};
 $('logout').onclick=()=>{sessionStorage.removeItem(SESSION);sessionStorage.removeItem(IDENTITY);$('dashboard').classList.add('hidden');$('loginCard').classList.remove('hidden');$('logout').classList.add('hidden');$('demoCode').value='';};
 const saved=sessionStorage.getItem(SESSION);if(saved)load(saved).catch(()=>{sessionStorage.removeItem(SESSION);sessionStorage.removeItem(IDENTITY);});
 })();
