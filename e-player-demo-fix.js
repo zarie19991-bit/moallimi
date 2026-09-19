@@ -43,6 +43,28 @@ function restoreIdentity(){try{
  return !!demo;
 }catch(_){return false;} }
 async function resumeAttempt(){const saved=readResume();if(!saved)return false;try{await claim();access=saved.access_token;state={attempt_id:saved.attempt_id};const d=await api('assessment_resume',{attempt_id:saved.attempt_id,access_token:saved.access_token});state={...state,...d};access=d.access_token||access;answers=d.answers||{};cursor=d.cursor||0;saveLocal();if(state.submitted){showResult(state);}else{render();clearInterval(timer);timer=setInterval(tick,1000);}$('message').textContent='';return true;}catch(e){clearResume();lockRelease?.();locked=false;$('message').textContent='تعذر استعادة المحاولة السابقة تلقائيًا. تحقق من بياناتك ثم ادخل الاختبار مرة واحدة.';return false;}}
+async function startDemoDirect(){
+ if(!/^\d{6}$/.test(demoAccessCode))return false;
+ clearResume();
+ $('identity').hidden=true;
+ $('message').textContent='جارٍ فتح الاختبار بالحساب التجريبي…';
+ try{
+  await claim();
+  state=await api('assessment_start',{demo_code:demoAccessCode});
+  access=state.access_token||'';
+  answers=state.answers||{};
+  cursor=state.cursor||0;
+  saveLocal();
+  if(state.submitted)showResult(state);
+  else{render();clearInterval(timer);timer=setInterval(tick,1000);}
+  $('message').textContent='';
+  return true;
+ }catch(e){
+  lockRelease?.();locked=false;
+  $('message').textContent=e.message||'تعذر فتح الاختبار بالحساب التجريبي.';
+  throw e;
+ }
+}
 function save(action='assessment_save',extra={}){const payload={...authBody(),...extra};saving=saving.catch(()=>{}).then(async()=>{if(!active&&action!=='assessment_resume')return state;$('saveState').textContent='جارٍ الحفظ…';const d=await api(action,payload);state={...state,...d};if(d.submitted){answers=d.answers||answers;showResult(d);}else {if(d.current_section!==undefined&&(d.current_section!==currentSection||d.cursor!==cursor&&action==='assessment_advance')){answers=d.answers||answers;cursor=d.cursor||0;render();}}$('saveState').textContent='تم الحفظ';$('playerError').textContent='';return d;}).catch(e=>{$('saveState').textContent='لم يكتمل الحفظ';$('playerError').textContent=e.message;throw e;});return saving;}
 let currentSection=0;
 function remaining(){const s=state.sections[state.current_section];return Math.min(new Date(state.expires_at).getTime(),new Date(state.section_started_at).getTime()+s.duration_minutes*60000)-Date.now();}
@@ -101,5 +123,30 @@ document.addEventListener('visibilitychange',()=>event(document.hidden?'hidden':
 addEventListener('pagehide',()=>{if(active){navigator.sendBeacon(EDGE,new Blob([JSON.stringify({action:'assessment_event',code,session_id:session,...authBody(),event:{type:'page_leave'}})],{type:'application/json'}));}lockRelease?.();});
 setInterval(()=>{if(active)save().catch(()=>{});},15000);setInterval(watermark,10000);
 $('calcButton').onclick=()=>$('calculator').showModal();$('calcClose').onclick=()=>$('calculator').close();$('calcGo').onclick=()=>{const a=Number($('calcA').value),b=Number($('calcB').value),op=$('calcOp').value;const v=op==='+'?a+b:op==='−'?a-b:op==='×'?a*b:b===0?NaN:a/b;$('calcResult').textContent=Number.isFinite(v)?ar(v):'لا يمكن القسمة على صفر';};
-(async()=>{try{await resolveDemoIdentity();info=await api('assessment_info');if(info.legacy_url){const u=new URL(info.legacy_url,location.href);if(/^\d{6}$/.test(demoAccessCode))u.searchParams.set('demo_code',demoAccessCode);location.replace(u.href);return;}$('code').textContent=code;$('title').textContent=info.title;$('details').textContent=[info.school_name,info.class_name,info.teacher_name].filter(Boolean).join(' · ');$('sections').innerHTML=info.sections.map(s=>`<p>${names[s.subject]}: ${ar(s.question_count)} سؤالًا · ${ar(s.duration_minutes)} دقيقة</p>`).join('');const configuredSection=classSection(info.class_name);$('className').value=configuredSection||'';$('className').readOnly=!!configuredSection;const demoMode=restoreIdentity();if(demoMode)clearResume();const resumeMarker=demoMode?null:readResumeMarker();if(!demoMode&&info.identity_mode==='email'){const label=document.querySelector('label[for="studentNo"]');if(label)label.textContent='البريد المدرسي *';$('studentNo').type='email';$('studentNo').removeAttribute('maxlength');$('studentNo').removeAttribute('pattern');}if(await resumeAttempt())return;if(resumeMarker?.attempt_id&&!demoMode)$('message').textContent='توجد محاولة سابقة سارية على هذا الجهاز. أدخل بياناتك نفسها للتحقق واستئنافها.';$('identity').hidden=false;if(demoMode){$('message').textContent='جارٍ فتح الاختبار بالحساب التجريبي…';queueMicrotask(()=>$('identity').requestSubmit());}}catch(e){$('title').textContent='تعذر فتح الاختبار';$('message').textContent=e.message;}})();
+(async()=>{try{
+ info=await api('assessment_info');
+ if(info.legacy_url){const u=new URL(info.legacy_url,location.href);if(/^\d{6}$/.test(demoAccessCode))u.searchParams.set('demo_code',demoAccessCode);location.replace(u.href);return;}
+ $('code').textContent=code;
+ $('title').textContent=info.title;
+ $('details').textContent=[info.school_name,info.class_name,info.teacher_name].filter(Boolean).join(' · ');
+ $('sections').innerHTML=info.sections.map(s=>`<p>${names[s.subject]}: ${ar(s.question_count)} سؤالًا · ${ar(s.duration_minutes)} دقيقة</p>`).join('');
+ if(/^\d{6}$/.test(demoAccessCode)){await startDemoDirect();return;}
+ const configuredSection=classSection(info.class_name);
+ $('className').value=configuredSection||'';
+ $('className').readOnly=!!configuredSection;
+ const demoMode=restoreIdentity();
+ if(demoMode)clearResume();
+ const resumeMarker=demoMode?null:readResumeMarker();
+ if(!demoMode&&info.identity_mode==='email'){
+  const label=document.querySelector('label[for="studentNo"]');
+  if(label)label.textContent='البريد المدرسي *';
+  $('studentNo').type='email';
+  $('studentNo').removeAttribute('maxlength');
+  $('studentNo').removeAttribute('pattern');
+ }
+ if(await resumeAttempt())return;
+ if(resumeMarker?.attempt_id&&!demoMode)$('message').textContent='توجد محاولة سابقة سارية على هذا الجهاز. أدخل بياناتك نفسها للتحقق واستئنافها.';
+ $('identity').hidden=false;
+ if(demoMode){$('message').textContent='جارٍ فتح الاختبار بالحساب التجريبي…';queueMicrotask(()=>$('identity').requestSubmit());}
+}catch(e){$('title').textContent='تعذر فتح الاختبار';$('message').textContent=e.message;}})();
 })();
