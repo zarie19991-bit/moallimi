@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam', $=id=>document.getElementById(id), code=new URLSearchParams(location.search).get('t')||'';
+const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam', $=id=>document.getElementById(id), params=new URLSearchParams(location.search), code=params.get('t')||'', demoAccessCode=params.get('demo_code')||'';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ar=x=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:2}).format(x),names={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const sessionKey='nafes_session_'+code;let session;try{session=sessionStorage.getItem(sessionKey)||crypto.randomUUID();sessionStorage.setItem(sessionKey,session);}catch(_){session=crypto.randomUUID();}
@@ -16,6 +16,14 @@ function readResume(){try{const x=JSON.parse(sessionStorage.getItem(resumeKey)||
 function readResumeMarker(){try{const x=JSON.parse(localStorage.getItem(resumeMarkerKey)||'null');if(!x?.attempt_id)return null;const expired=x.expires_at&&Date.now()>new Date(x.expires_at).getTime(),stale=x.saved_at&&Date.now()-Number(x.saved_at)>RESUME_MARKER_MAX_AGE;if(expired||stale){localStorage.removeItem(resumeMarkerKey);return null}return x;}catch(_){return null;}}
 function clearIdentity(){try{sessionStorage.removeItem(identityKey);}catch(_){} }
 function readDemoIdentity(){try{const d=JSON.parse(sessionStorage.getItem(demoIdentityKey)||'null');return d?.demo===true?d:null;}catch(_){return null;}}
+async function resolveDemoIdentity(){
+ if(!/^\d{6}$/.test(demoAccessCode))return readDemoIdentity();
+ const d=await api('assessment_demo_catalog',{demo_code:demoAccessCode});
+ const student=d?.student||{};
+ const demo={demo:true,name:student.full_name||'طالب تجريبي',no:String(student.national_id_last3||'000'),class:student.class_name||'أ'};
+ try{sessionStorage.setItem(demoIdentityKey,JSON.stringify(demo));}catch(_){}
+ return demo;
+}
 function restoreIdentity(){try{
  const demo=readDemoIdentity();
  const id=demo||JSON.parse(sessionStorage.getItem(identityKey)||'{}');
@@ -93,5 +101,5 @@ document.addEventListener('visibilitychange',()=>event(document.hidden?'hidden':
 addEventListener('pagehide',()=>{if(active){navigator.sendBeacon(EDGE,new Blob([JSON.stringify({action:'assessment_event',code,session_id:session,...authBody(),event:{type:'page_leave'}})],{type:'application/json'}));}lockRelease?.();});
 setInterval(()=>{if(active)save().catch(()=>{});},15000);setInterval(watermark,10000);
 $('calcButton').onclick=()=>$('calculator').showModal();$('calcClose').onclick=()=>$('calculator').close();$('calcGo').onclick=()=>{const a=Number($('calcA').value),b=Number($('calcB').value),op=$('calcOp').value;const v=op==='+'?a+b:op==='−'?a-b:op==='×'?a*b:b===0?NaN:a/b;$('calcResult').textContent=Number.isFinite(v)?ar(v):'لا يمكن القسمة على صفر';};
-(async()=>{try{info=await api('assessment_info');if(info.legacy_url){location.replace(info.legacy_url);return;}$('code').textContent=code;$('title').textContent=info.title;$('details').textContent=[info.school_name,info.class_name,info.teacher_name].filter(Boolean).join(' · ');$('sections').innerHTML=info.sections.map(s=>`<p>${names[s.subject]}: ${ar(s.question_count)} سؤالًا · ${ar(s.duration_minutes)} دقيقة</p>`).join('');const configuredSection=classSection(info.class_name);$('className').value=configuredSection||'';$('className').readOnly=!!configuredSection;const demoMode=restoreIdentity();if(demoMode)clearResume();const resumeMarker=demoMode?null:readResumeMarker();if(!demoMode&&info.identity_mode==='email'){const label=document.querySelector('label[for="studentNo"]');if(label)label.textContent='البريد المدرسي *';$('studentNo').type='email';$('studentNo').removeAttribute('maxlength');$('studentNo').removeAttribute('pattern');}if(await resumeAttempt())return;if(resumeMarker?.attempt_id&&!demoMode)$('message').textContent='توجد محاولة سابقة سارية على هذا الجهاز. أدخل بياناتك نفسها للتحقق واستئنافها.';$('identity').hidden=false;if(demoMode){$('message').textContent='جارٍ فتح الاختبار بالحساب التجريبي…';queueMicrotask(()=>$('identity').requestSubmit());}}catch(e){$('title').textContent='تعذر فتح الاختبار';$('message').textContent=e.message;}})();
+(async()=>{try{await resolveDemoIdentity();info=await api('assessment_info');if(info.legacy_url){const u=new URL(info.legacy_url,location.href);if(/^\d{6}$/.test(demoAccessCode))u.searchParams.set('demo_code',demoAccessCode);location.replace(u.href);return;}$('code').textContent=code;$('title').textContent=info.title;$('details').textContent=[info.school_name,info.class_name,info.teacher_name].filter(Boolean).join(' · ');$('sections').innerHTML=info.sections.map(s=>`<p>${names[s.subject]}: ${ar(s.question_count)} سؤالًا · ${ar(s.duration_minutes)} دقيقة</p>`).join('');const configuredSection=classSection(info.class_name);$('className').value=configuredSection||'';$('className').readOnly=!!configuredSection;const demoMode=restoreIdentity();if(demoMode)clearResume();const resumeMarker=demoMode?null:readResumeMarker();if(!demoMode&&info.identity_mode==='email'){const label=document.querySelector('label[for="studentNo"]');if(label)label.textContent='البريد المدرسي *';$('studentNo').type='email';$('studentNo').removeAttribute('maxlength');$('studentNo').removeAttribute('pattern');}if(await resumeAttempt())return;if(resumeMarker?.attempt_id&&!demoMode)$('message').textContent='توجد محاولة سابقة سارية على هذا الجهاز. أدخل بياناتك نفسها للتحقق واستئنافها.';$('identity').hidden=false;if(demoMode){$('message').textContent='جارٍ فتح الاختبار بالحساب التجريبي…';queueMicrotask(()=>$('identity').requestSubmit());}}catch(e){$('title').textContent='تعذر فتح الاختبار';$('message').textContent=e.message;}})();
 })();
