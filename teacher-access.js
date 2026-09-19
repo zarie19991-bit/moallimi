@@ -133,7 +133,33 @@
     if (READ_ACTIONS.has(action)) { const ck = cacheKey(action, body), now = Date.now(), hit = readCache.get(ck); if (hit && hit.expires > now) return hit.promise; const promise = request(action, body, key).then(data => filterResponse(action, data)); readCache.set(ck, { expires: now + READ_CACHE_TTL, promise }); try { return await promise; } catch (error) { if (readCache.get(ck)?.promise === promise) readCache.delete(ck); throw error; } }
     const data = filterResponse(action, await request(action, body, key)); clearReadCache(); return data;
   }
-  window.NafesTeacher = { api, getKey, setKey, clearKey, requireKey, clearReadCache, isQa, setQa, getProfile: () => profile, getScope: () => scope(), ensureProfile, scopeAllows };
+
+  function subjectLabel(value) {
+    return ({ reading:'القراءة', math:'الرياضيات', science:'العلوم', all:'جميع المواد' })[String(value||'all')] || 'جميع المواد';
+  }
+  function refreshAccountDom() {
+    const signedIn = !!getKey();
+    document.querySelectorAll('[data-teacher-label]').forEach(el => { el.textContent = signedIn ? (profile?.label || 'حساب المعلم') : 'غير مسجل الدخول'; });
+    document.querySelectorAll('[data-teacher-scope-label]').forEach(el => { el.textContent = signedIn ? subjectLabel(scope()) : '—'; });
+    document.querySelectorAll('[data-teacher-login]').forEach(el => { el.hidden = signedIn; });
+    document.querySelectorAll('[data-teacher-logout]').forEach(el => { el.hidden = !signedIn; });
+  }
+  function logoutAndRedirect(target='teacher.html') {
+    clearKey();
+    refreshAccountDom();
+    if (target) location.href = target;
+  }
+  document.addEventListener('click', e => {
+    const logout = e.target.closest('[data-teacher-logout]');
+    if (logout) { e.preventDefault(); logoutAndRedirect(logout.getAttribute('data-logout-target') || 'teacher.html'); return; }
+    const login = e.target.closest('[data-teacher-login]');
+    if (login) { e.preventDefault(); requireKey('أدخل رقم دخول المعلم أو المفتاح الرئيسي.'); }
+  });
+  window.addEventListener('nafes:teacher-profile', refreshAccountDom);
+  window.addEventListener('nafes:auth-changed', refreshAccountDom);
+  addEventListener('DOMContentLoaded', () => { refreshAccountDom(); if (getKey()) ensureProfile().then(refreshAccountDom).catch(()=>refreshAccountDom()); });
+
+  window.NafesTeacher = { api, getKey, setKey, clearKey, requireKey, clearReadCache, isQa, setQa, getProfile: () => profile, getScope: () => scope(), ensureProfile, scopeAllows, logoutAndRedirect, subjectLabel };
   const fragment = new URLSearchParams(location.hash.replace(/^#/, ''));
   if (fragment.has('key')) { const key = fragment.get('key'); fragment.delete('key'); history.replaceState(history.state, '', location.pathname + location.search + (fragment.toString() ? '#' + fragment.toString() : '')); setKey(key, false); }
   else if (getKey()) { ensureProfile().catch(() => {}); }
