@@ -708,7 +708,7 @@ async function studentAction(db:any,body:Row) {
    const isDemo=student.is_demo===true;
    const name=student.full_name, no=student.national_id_last3, student_id=student.id, student_key=student.id;
    const className=student.class_name || c.class_name || tidy(body.class_name,80);
-   if(c.identity_mode==='list'&&!c.roster.some((n:string)=>normalizeArabicName(n)===normalizeArabicName(name)))fail('اكتب اسمك كما هو في كشف الفصل.',403);
+   if(!isDemo&&c.identity_mode==='list'&&!c.roster.some((n:string)=>normalizeArabicName(n)===normalizeArabicName(name)))fail('اكتب اسمك كما هو في كشف الفصل.',403);
    const previous=must(await db.from('nafes_assessment_attempts').select('*').eq('assessment_id',t.id).eq('student_key',student_key).order('attempt_no',{ascending:false}));
    for(const a of previous)if(!a.submitted_at&&now>=new Date(a.expires_at).getTime())Object.assign(a,await finish(db,a));
    let active=previous.find((a:Row)=>!a.submitted_at);const access=token();
