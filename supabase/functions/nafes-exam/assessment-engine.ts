@@ -35,7 +35,7 @@ export function normalizeConfig(raw:unknown):Row {
   if(isIndicatorMode){
    for(const i of x.indicators||[]){const key=typeof i==='string'?i:i.key;const entry=FRAMEWORK.find(k=>k.key===key&&k.subject===x.subject);if(!entry||indicators.some(k=>k.key===key))fail('اختيار المؤشرات غير صحيح.');indicators.push({...entry,count:Number(i.count||0)});}
    if(!indicators.length)fail('اختر مؤشرًا واحدًا على الأقل.');
-   if(v.count_mode==='per_indicator') {if(indicators.some(i=>!Number.isInteger(i.count)||i.count<1||i.count>30))fail('عدد أسئلة المؤشر من ١ إلى ٣٠.');count=indicators.reduce((s,i)=>s+i.count,0);}
+   if(v.count_mode==='per_indicator') {if(indicators.some(i=>!Number.isInteger(i.count)||i.count<1||i.count>60))fail('عدد أسئلة المؤشر من ١ إلى ٦٠.');count=indicators.reduce((s,i)=>s+i.count,0);}
    else {if(count<indicators.length)fail('عدد الأسئلة أقل من عدد المؤشرات؛ يلزم سؤال واحد على الأقل لكل مؤشر.');indicators=indicators.map((i,n)=>({...i,count:Math.floor(count/indicators.length)+(n<count%indicators.length?1:0)}));}
   }
   if(!Number.isInteger(count)||count<(kind==='simulation'&&simulation_mode==='standard'?5:1)||count>60)fail('عدد الأسئلة غير صالح؛ الحد الأعلى ٦٠ سؤالًا للمادة.');
