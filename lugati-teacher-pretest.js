@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-pretest-worksheets';
-const EXACT='lugati_exact_session_v2',LEGACY='lugati_session_v1',LEGACY_ROLE='lugati_role_v1';
+const EXACT='lugati_exact_session_v2',LEGACY='lugati_session_v1',LEGACY_ROLE='lugati_role_v1',LEGACY_PROFILE='lugati_profile_v1';
 const SUBJECTS={
  reading:{name:'القراءة',icon:'📖',count:16},
  math:{name:'الرياضيات',icon:'➗',count:95},
@@ -10,7 +10,7 @@ const SUBJECTS={
 const S={token:'',scope:'all',subject:'reading',templates:[],cache:{reading:null,math:null,science:null},loading:false,error:''};
 const allowedSubjectEntries=()=>Object.entries(SUBJECTS).filter(([k])=>S.scope==='all'||k===S.scope);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function ses(){try{const x=JSON.parse(localStorage.getItem(EXACT)||'null');if(x?.token&&x?.role==='teacher')return x}catch{}for(const st of[sessionStorage,localStorage]){try{const token=st.getItem(LEGACY),role=st.getItem(LEGACY_ROLE);if(token&&role!=='student')return{token,role:'teacher'}}catch{}}return null}
+function ses(){try{const x=JSON.parse(localStorage.getItem(EXACT)||'null');if(x?.token&&x?.role==='teacher')return x}catch{}for(const st of[sessionStorage,localStorage]){try{const token=st.getItem(LEGACY),role=st.getItem(LEGACY_ROLE);if(token&&role!=='student')return{token,role:'teacher',profile:JSON.parse(st.getItem(LEGACY_PROFILE)||'{}')}}catch{}}return null}
 async function post(action,extra={}){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${S.token}`},body:JSON.stringify({action,...extra}),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);return d}
 function fmtDate(v){if(!v)return'';try{return new Date(v).toLocaleString('ar-SA',{dateStyle:'short',timeStyle:'short'})}catch{return''}}
 function styles(){if(document.getElementById('pretestTeacherStyles'))return;const s=document.createElement('style');s.id='pretestTeacherStyles';s.textContent=`
