@@ -6,7 +6,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const subj=s=>s==='reading'?'القراءة':s==='math'?'الرياضيات':s==='science'?'العلوم':'—';
 const ph=p=>p==='guided'?'تدريب موجه':p==='independent'?'تدريب مستقل':p==='check'?'تحقق من الإتقان':p==='review'?'مراجعة تثبيت':p==='enrichment'?'إثراء':'تدريب';
 const stat=s=>s==='mastered'?'متقن':s==='check'?'جاهز للتحقق':s==='independent'?'تدريب مستقل':s==='guided'?'تدريب موجه':s==='needs_remediation'?'يحتاج علاجًا':'لم يبدأ';
-function ses(){try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch{return null}}
+function ses(){try{return JSON.parse(sessionStorage.getItem(KEY)||localStorage.getItem(KEY)||'null')}catch{return null}}
 async function post(action,extra={}){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+S.token},body:JSON.stringify({action,...extra})});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||'تعذر الاتصال');return d}
 function icons(){try{window.lucide?.createIcons()}catch{}}
 function rec(m,b,c){if(m?.mission_type==='review')return'review';if(m?.mission_type==='challenge')return'enrichment';const s=c?.progress?.status,t=b?.assignment?.tier;if(s==='review_due')return'review';if(s==='mastered')return t==='enrichment'?'enrichment':'review';if(s==='check')return'check';if(s==='independent')return'independent';if(['guided','learning','needs_remediation'].includes(s))return'guided';if(t==='enrichment')return'check';if(t==='reinforcement')return'independent';return'guided'}
