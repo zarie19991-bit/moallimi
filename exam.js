@@ -19,19 +19,32 @@ const normalizeDigits=str=>String(str??'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦
 function clearPersistentLegacyIdentity(){try{localStorage.removeItem('nafes_student')}catch(_){}}
 function readSessionIdentity(){try{return JSON.parse(sessionStorage.getItem(LEGACY_IDENTITY_KEY)||'{}')}catch(_){return{}}}
 function readDemoIdentity(){try{const d=JSON.parse(sessionStorage.getItem(DEMO_IDENTITY_KEY)||'null');return d?.demo===true?d:null}catch(_){return null}}
+const hasDemoCode=()=>/^\d{6}$/.test(demoAccessCode);
+function seedDemoIdentity(){
+ if(!hasDemoCode())return readDemoIdentity();
+ const current=readDemoIdentity()||{demo:true,name:'طالب تجريبي',no:'000',class:'أ'};
+ try{sessionStorage.setItem(DEMO_IDENTITY_KEY,JSON.stringify(current));}catch(_){}
+ return current;
+}
 async function resolveDemoIdentity(){
- if(!/^\d{6}$/.test(demoAccessCode))return readDemoIdentity();
- const d=await call({action:'assessment_demo_catalog',demo_code:demoAccessCode});
- const student=d?.student||{};
- const demo={demo:true,name:student.full_name||'طالب تجريبي',no:String(student.national_id_last3||'000'),class:student.class_name||'أ'};
- try{sessionStorage.setItem(DEMO_IDENTITY_KEY,JSON.stringify(demo));}catch(_){}
- return demo;
+ const seeded=seedDemoIdentity();
+ if(!hasDemoCode())return seeded;
+ try{
+  const d=await call({action:'assessment_demo_catalog',demo_code:demoAccessCode});
+  const student=d?.student||{};
+  const demo={demo:true,name:student.full_name||'طالب تجريبي',no:String(student.national_id_last3||'000'),class:student.class_name||'أ'};
+  try{sessionStorage.setItem(DEMO_IDENTITY_KEY,JSON.stringify(demo));}catch(_){}
+  return demo;
+ }catch(_){
+  return seeded;
+ }
 }
 function saveSessionIdentity(name,cls){try{sessionStorage.setItem(LEGACY_IDENTITY_KEY,JSON.stringify({name,class:cls}))}catch(_){}}
 async function init(){
  clearPersistentLegacyIdentity();
  if(!subj||!out||!indicatorText||P.model<1||P.model>MODEL_COUNT){readiness('bad','رابط الاختبار غير صحيح.');return}
  try{
+  seedDemoIdentity();
   await resolveDemoIdentity();
   const p=await call({action:'preview'});
   if(!p.ready){readiness('bad',p.error||'تعذر تجهيز اختبار هذا المؤشر.');return}
@@ -64,7 +77,7 @@ $('startForm').addEventListener('submit',async e=>{
  const name=$('studentName').value.trim();
  const no=normalizeDigits($('studentNo').value.trim()).replace(/\D/g,'').slice(0,3);
  const cls=($('className')?.value||'').trim();
- const demoMode=readDemoIdentity()?.demo===true&&/^\d{6}$/.test(demoAccessCode);
+ const demoMode=hasDemoCode();
  if(!demoMode&&!name||!demoMode&&name.length<3){alert('يرجى كتابة اسم الطالب كاملًا.');return;}
  if(!demoMode&&no.length!==3){alert('يرجى إدخال آخر ٣ أرقام من الهوية الوطنية بدقة.');return;}
  if(!demoMode&&!cls){alert('يرجى إدخال الفصل كما هو في كشف المدرسة.');return;}
