@@ -689,7 +689,7 @@ Deno.serve(async (req: Request) => {
       const requestedDemoCode = String(b.demo_code || "").trim();
       let student;
       if (requestedDemoCode) {
-        if (!/^\\d{6}$/.test(requestedDemoCode)) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+        if (!/^\d{6}$/.test(requestedDemoCode)) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
         const { data: demoStudent, error: demoError } = await db
           .from("nafes_students")
           .select("id,full_name,class_name,national_id_last3,is_demo,is_active")
@@ -831,7 +831,7 @@ Deno.serve(async (req: Request) => {
     let studentId: string | null = null;
     const requestedDemoCode = String(b.demo_code || "").trim();
     if (requestedDemoCode) {
-      if (!/^\\d{6}$/.test(requestedDemoCode)) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+      if (!/^\d{6}$/.test(requestedDemoCode)) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
       const { data: demoStudent, error: demoError } = await db
         .from("nafes_students")
         .select("id,is_demo,is_active")
