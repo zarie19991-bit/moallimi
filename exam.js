@@ -36,8 +36,8 @@ async function init(){
   const p=await call({action:'preview'});
   if(!p.ready){readiness('bad',p.error||'تعذر تجهيز اختبار هذا المؤشر.');return}
   readiness('good',`الاختبار جاهز · ${p.settings.question_count||15} سؤالًا · ${p.settings.duration_minutes||20} دقيقة · تُحفظ نتيجتك لقياس إتقان المؤشر.`);
-  $('startForm').classList.remove('hidden');
   const demo=readDemoIdentity();
+  if(!demo)$('startForm').classList.remove('hidden');
   if(demo)clearActiveSession();
   const active=demo?null:readActiveSession(),marker=demo?null:readActiveMarker(),saved=demo||readSessionIdentity();
   $('studentName').value=active?.student_name||saved.name||'';
@@ -45,6 +45,9 @@ async function init(){
   if((active?.class_name||saved.class)&&$('className'))$('className').value=active?.class_name||saved.class;
   if(demo){
    $('studentName').readOnly=true;$('studentNo').readOnly=true;$('className').disabled=false;
+   $('startForm').noValidate=true;
+   $('startForm').classList.add('hidden');
+   document.querySelector('.student-instructions-box')?.classList.add('hidden');
    readiness('good','وضع الطالب التجريبي — جارٍ فتح الاختبار تلقائيًا، ولن تدخل هذه المحاولة في التحليل أو التقارير.');
    queueMicrotask(()=>$('startForm').requestSubmit());
   }else if(active?.attempt_id&&active?.student_name&&active?.student_no&&active?.class_name){
@@ -61,14 +64,14 @@ $('startForm').addEventListener('submit',async e=>{
  const name=$('studentName').value.trim();
  const no=normalizeDigits($('studentNo').value.trim()).replace(/\D/g,'').slice(0,3);
  const cls=($('className')?.value||'').trim();
- if(!name||name.length<3){alert('يرجى كتابة اسم الطالب كاملًا.');return;}
- if(no.length!==3){alert('يرجى إدخال آخر ٣ أرقام من الهوية الوطنية بدقة.');return;}
- if(!cls){alert('يرجى إدخال الفصل كما هو في كشف المدرسة.');return;}
- clearPersistentLegacyIdentity();
- saveSessionIdentity(name,cls);
+ const demoMode=readDemoIdentity()?.demo===true&&/^\d{6}$/.test(demoAccessCode);
+ if(!demoMode&&!name||!demoMode&&name.length<3){alert('يرجى كتابة اسم الطالب كاملًا.');return;}
+ if(!demoMode&&no.length!==3){alert('يرجى إدخال آخر ٣ أرقام من الهوية الوطنية بدقة.');return;}
+ if(!demoMode&&!cls){alert('يرجى إدخال الفصل كما هو في كشف المدرسة.');return;}
+ if(!demoMode){clearPersistentLegacyIdentity();saveSessionIdentity(name,cls);}
  const btn=$('startBtn')||e.submitter;btn.disabled=true;btn.textContent='جارٍ تجهيز نموذجك...';
  try{
-  const d=await call({action:'start',student_name:name,student_no:no,national_id_last3:no,class_name:cls});
+  const d=await call(demoMode?{action:'start',demo_code:demoAccessCode}:{action:'start',student_name:name,student_no:no,national_id_last3:no,class_name:cls});
   const local=readActiveSession();
   attempt=d.attempt_id;questions=d.questions||[];answers={...(d.answers||{}),...((local?.attempt_id===d.attempt_id&&local.answers)||{})};current=Number(local?.attempt_id===d.attempt_id?local.current:0)||0;
   if(d.submitted){clearActiveSession();showResult(d.percent,d.score,questions.length,'تم تسليم هذه المحاولة سابقًا.',d.review||[],name);return}
@@ -80,10 +83,10 @@ $('startForm').addEventListener('submit',async e=>{
 });
 function render(){if(!questions.length)return;const q=questions[current];$('questionMeta').textContent=`السؤال ${current+1} من ${questions.length}`;$('questionTitle').textContent=out?.title||'مؤشر نافس';$('progress').innerHTML=questions.map((x,i)=>`<button type="button" data-i="${i}" class="${i===current?'current ':''}${answers[x.id]!==undefined?'done':''}">${i+1}</button>`).join('');$('progress').querySelectorAll('button').forEach(b=>b.onclick=()=>{current=Number(b.dataset.i);render()});$('questionCard').innerHTML=`${q.context?`<div class="context">${escapeHtml(q.context)}</div>`:''}${window.NafesMedia.render(q)}<div class="stem">${escapeHtml(q.question)}</div><div class="choices">${q.options.map((x,i)=>`<label class="choice ${Number(answers[q.id])===i?'selected':''}"><input type="radio" name="q" value="${i}" ${Number(answers[q.id])===i?'checked':''}><span class="letter">${letters[i]}</span><span class="text">${escapeHtml(x)}</span></label>`).join('')}</div>`;$('questionCard').querySelectorAll('input').forEach(inp=>inp.onchange=()=>{answers[q.id]=Number(inp.value);saveActiveSession();render();saveSoon()});$('prevBtn').disabled=current===0;$('nextBtn').disabled=current===questions.length-1;$('prevBtn').onclick=()=>{if(current>0){current--;render()}};$('nextBtn').onclick=()=>{if(current<questions.length-1){current++;render()}};$('reviewBtn').onclick=showReview}
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]))}
-let saveTimer=null;function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(saveAnswers,500)}async function saveAnswers(){if(!attempt||saving||finishing)return;saving=true;saveState('يتم حفظ إجاباتك...');try{await call({action:'save',attempt_id:attempt,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers});saveState('تم الحفظ')}catch(_){saveState('تعذر الحفظ — سيعاد تلقائيًا')}finally{saving=false}}
+let saveTimer=null;function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(saveAnswers,500)}async function saveAnswers(){if(!attempt||saving||finishing)return;saving=true;saveState('يتم حفظ إجاباتك...');try{await call({action:'save',attempt_id:attempt,demo_code:/^\d{6}$/.test(demoAccessCode)?demoAccessCode:undefined,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers});saveState('تم الحفظ')}catch(_){saveState('تعذر الحفظ — سيعاد تلقائيًا')}finally{saving=false}}
 function saveState(t){let x=$('saveState');if(!x){x=document.createElement('div');x.id='saveState';x.className='save-state';document.body.appendChild(x)}x.textContent=t;x.classList.add('show');setTimeout(()=>x.classList.remove('show'),1200)}
 function showReview(){const done=questions.filter(q=>answers[q.id]!==undefined).length;$('questionCard').innerHTML=`<div class="review-panel"><b>مراجعة قبل التسليم</b><p>أجبت عن ${done} من ${questions.length} أسئلة.</p><div class="review-grid">${questions.map((q,i)=>`<button type="button" class="${answers[q.id]!==undefined?'done':''}" data-i="${i}">السؤال ${i+1} · ${answers[q.id]!==undefined?'تمت الإجابة':'بدون إجابة'}</button>`).join('')}</div><div class="submit-row"><button type="button" id="backToQ">العودة للأسئلة</button><button type="button" class="submit" id="submitExam">تسليم الاختبار</button></div></div>`;$('questionCard').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{current=Number(b.dataset.i);render()});$('backToQ').onclick=render;$('submitExam').onclick=()=>{const b=$('submitExam');if(b?.disabled)return;finish(false)}}
-async function finish(auto){if(finishing)return;if(!auto&&!confirm('هل تريد تسليم الاختبار نهائيًا؟'))return;finishing=true;clearInterval(timerId);const b=$('submitExam');if(b){b.disabled=true;b.textContent='جارٍ التسليم...'}try{const d=await call({action:'finish',attempt_id:attempt,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers});clearActiveSession();showResult(d.percent,d.score,d.total,auto?'انتهى الوقت وتم تسليم الإجابات المحفوظة تلقائيًا.':'تم تسليم الاختبار بنجاح.',d.review||[],$('studentName').value.trim())}catch(e){finishing=false;if(b){b.disabled=false;b.textContent='تسليم الاختبار'}alert(e.message);if(!auto)startTimer(new Date(Date.now()+60000).toISOString())}}
+async function finish(auto){if(finishing)return;if(!auto&&!confirm('هل تريد تسليم الاختبار نهائيًا؟'))return;finishing=true;clearInterval(timerId);const b=$('submitExam');if(b){b.disabled=true;b.textContent='جارٍ التسليم...'}try{const d=await call({action:'finish',attempt_id:attempt,demo_code:/^\d{6}$/.test(demoAccessCode)?demoAccessCode:undefined,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers});clearActiveSession();showResult(d.percent,d.score,d.total,auto?'انتهى الوقت وتم تسليم الإجابات المحفوظة تلقائيًا.':'تم تسليم الاختبار بنجاح.',d.review||[],$('studentName').value.trim())}catch(e){finishing=false;if(b){b.disabled=false;b.textContent='تسليم الاختبار'}alert(e.message);if(!auto)startTimer(new Date(Date.now()+60000).toISOString())}}
 function showResult(percent,score,total,msg,review=[],studentName=''){
  clearActiveSession();
  $('intro').classList.add('hidden');$('examArea').classList.add('hidden');$('result').classList.remove('hidden');
@@ -92,6 +95,6 @@ function showResult(percent,score,total,msg,review=[],studentName=''){
  $('result').innerHTML=`<div class="completion-container"><div class="completion-badge">✓</div><h1>تم تسليم الاختبار بنجاح</h1>${studentName?`<div class="completion-student-info"><b>${escapeHtml(studentName)}</b></div>`:''}<div class="result-score"><b>${Math.round(Number(percent||0))}%</b></div><h2>الدرجة: ${score??0} من ${total||questions.length}</h2><p class="completion-msg">${escapeHtml(msg||'تم حفظ نتيجتك بنجاح في سجلات المعلم.')}<br>يمكنك إغلاق هذه الصفحة الآن بأمان.</p>${reviewHtml}</div>`;
 }
 function startTimer(expiresAt){clearInterval(timerId);const end=new Date(expiresAt).getTime();const tick=()=>{const ms=end-Date.now();if(ms<=0){$('timer').textContent='00:00';clearInterval(timerId);finish(true);return}const sec=Math.floor(ms/1000),m=Math.floor(sec/60),s=sec%60;$('timer').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;$('timer').className='timer'+(sec<=60?' danger':sec<=300?' warn':'')};tick();timerId=setInterval(tick,1000)}
-window.addEventListener('beforeunload',()=>{if(attempt&&!finishing){try{navigator.sendBeacon?.(EDGE,new Blob([JSON.stringify({...P,indicator_text:indicatorText,outcome_title:out?.title||'',action:'save',attempt_id:attempt,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers})],{type:'application/json'}))}catch(_){}}});
+window.addEventListener('beforeunload',()=>{if(attempt&&!finishing){try{navigator.sendBeacon?.(EDGE,new Blob([JSON.stringify({...P,indicator_text:indicatorText,outcome_title:out?.title||'',action:'save',attempt_id:attempt,demo_code:/^\d{6}$/.test(demoAccessCode)?demoAccessCode:undefined,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers})],{type:'application/json'}))}catch(_){}}});
 init();
 })();
