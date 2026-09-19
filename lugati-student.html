@@ -25,7 +25,7 @@
   <script>
     (function(){
       const KEY='lugati_exact_session_v2';
-      let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
+      let s=null;try{s=JSON.parse(sessionStorage.getItem(KEY)||localStorage.getItem(KEY)||'null')}catch{}
       if(!s||s.role!=='student') location.replace('./lugati-complete.html');
     })();
   </script>
