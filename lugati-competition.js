@@ -41,6 +41,8 @@ function renderTeacher(el){
  '<div class="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6">'+teacherRules()+'</div></section>'+
  teacherHistory(history)+'</div>';
  wireArenaTabs();document.getElementById('resetSeasonBtn')?.addEventListener('click',resetSeason);
+ document.querySelectorAll('[data-history-result]').forEach(b=>b.addEventListener('click',()=>openTeacherResults(b.dataset.historyResult)));
+ document.querySelectorAll('[data-history-preview]').forEach(b=>b.addEventListener('click',()=>openPreview(b.dataset.historyPreview)));
  if(current){document.getElementById('closeRoundBtn')?.addEventListener('click',()=>closeRound(current.id));document.getElementById('roundResultsBtn')?.addEventListener('click',()=>openTeacherResults(current.id));document.getElementById('previewRoundBtn')?.addEventListener('click',()=>openPreview(current.id))}
  else wireCreate();
 }
