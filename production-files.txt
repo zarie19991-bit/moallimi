@@ -16,6 +16,7 @@ teacher-preboot.js
 teacher.html
 student-demo.html
 demo-exam.html
+demo-exam.js
 qr.js
 qr-vendor.js
 tests.js
