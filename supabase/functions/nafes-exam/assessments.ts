@@ -6,7 +6,7 @@ const BANK_COLUMNS='id,subject_key,outcome_code,indicator_index,indicator_text,m
 const isUUID=(s:unknown)=>/^[a-f0-9-]{36}$/i.test(String(s));
 function must(result:Row) {if(result.error)throw result.error;return result.data;}
 function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:row.context_text||null,question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
-async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {const all:Row[]=[];const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];for(let start=0;;start+=500){let query=db.from('nafes_question_bank').select(BANK_COLUMNS).eq('grade_key','middle_3').eq('subject_key',subject).eq('is_active',true).eq('review_status','approved').lte('model_no',2).order('id');if(scoped.length)query=query.in('outcome_code',[...new Set(scoped.map(i=>i!.outcome))]).in('indicator_index',[...new Set(scoped.map(i=>i!.indicator))]);if(ids?.length)query=query.in('id',ids);const page=must(await query.range(start,start+499));for(const q of page||[])if(hasCurrentReview(q))all.push(rendered(q));if(!page||page.length<500)break;}return all;}
+async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {const all:Row[]=[];const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];for(let start=0;;start+=500){let query=db.from('nafes_question_bank').select(BANK_COLUMNS).eq('grade_key','middle_3').eq('subject_key',subject).eq('is_active',true).eq('review_status','approved').lte('model_no',4).order('id');if(scoped.length)query=query.in('outcome_code',[...new Set(scoped.map(i=>i!.outcome))]).in('indicator_index',[...new Set(scoped.map(i=>i!.indicator))]);if(ids?.length)query=query.in('id',ids);const page=must(await query.range(start,start+499));for(const q of page||[])if(hasCurrentReview(q))all.push(rendered(q));if(!page||page.length<500)break;}return all;}
 
 const SIM_BANK_COLUMNS='id,grade_key,subject_key,outcome_code,indicator_index,indicator_key,indicator_text,context_text,question_text,normalized_content_text,options,correct_index,explanation,difficulty,cognitive_level,review_status,content_sha256,semantic_similarity_cleared,semantic_review_evidence,is_active';
 
@@ -450,8 +450,51 @@ async function teacherTestsBulkClear(db: any, b: Row, owner?: Row) {
   return rpcRes.data;
 }
 
-async function teacher(db:any,req:Request) {const key=tidy(req.headers.get('x-teacher-key'),128);if(!/^[a-f0-9]{48,96}$/i.test(key))fail('أدخل مفتاح دخول المعلم لعرض النتائج وإعداد الاختبارات.',401);const row=must(await db.from('nafes_teacher_access').select('id,label').eq('key_hash',await hash(key)).eq('active',true).maybeSingle());if(!row)fail('مفتاح دخول المعلم غير صحيح.',401);return row;}
-function testInfo(t:Row) {const c=t.config||{};return{id:t.kind==='legacy'?legacyTestId(t.legacy_target):t.id,title:t.title,kind:t.kind==='legacy'?'indicator':t.kind,simulation_mode:c.simulation_mode,bank_source:c.bank_source,subjects:(c.sections||[]).map((s:Row)=>s.subject),class_name:c.class_name||'',term:c.term||c.academic_term||'',academic_term:c.academic_term||c.term||'',school_name:c.school_name||'',teacher_name:c.teacher_name||'',principal_name:c.principal_name||'',grade_key:'middle_3',created_at:t.published_at||t.created_at,total:(c.sections||[]).reduce((n:number,s:Row)=>n+s.question_count,0),short_code:t.short_code};}
+async function teacher(db:any,req:Request) {
+ const key=tidy(req.headers.get('x-teacher-key'),128);
+ if(!/^[a-f0-9]{48,96}$/i.test(key))fail('أدخل مفتاح دخول المعلم لعرض النتائج وإعداد الاختبارات.',401);
+ const row=must(await db.from('nafes_teacher_access').select('id,label,subject_scope').eq('key_hash',await hash(key)).eq('active',true).maybeSingle());
+ if(!row)fail('مفتاح دخول المعلم غير صحيح.',401);
+ return {...row,subject_scope:SUBJECTS.includes(String(row.subject_scope))?String(row.subject_scope):'all'};
+}
+function teacherScope(owner:Row){return SUBJECTS.includes(String(owner?.subject_scope))?String(owner.subject_scope):'all';}
+function scopeAllows(owner:Row,subject:unknown){const s=teacherScope(owner);return s==='all'||s===String(subject||'');}
+function assertSubjectScope(owner:Row,subject:unknown){if(!scopeAllows(owner,subject))fail('هذه المادة ليست ضمن صلاحية حساب المعلم.',403);}
+function assertIndicatorBuilderConfig(owner:Row,c:Row){
+ if(c.kind==='simulation'||c.bank_source==='simulation_bank')fail('تم إيقاف قسم الاختبارات المحاكية. استخدم اختبار المؤشرات واختر مؤشرًا واحدًا أو عدة مؤشرات.',400);
+ const sections=Array.isArray(c.sections)?c.sections:[];
+ if(!sections.length)fail('اختر مادة واحدة على الأقل.');
+ for(const s of sections)assertSubjectScope(owner,s.subject);
+}
+function scopedAttempt(a:Row,owner:Row){
+ if(a?.source==='simulation')return null;
+ const scope=teacherScope(owner);
+ if(scope==='all')return a;
+ const questions=(a?.questions||[]).filter((q:Row)=>String(q.subject||'')===scope);
+ if(!questions.length)return null;
+ const scorable=questions.filter((q:Row)=>q.scorable!==false&&q.correct!==null&&q.correct!==undefined);
+ const submitted=a.status==='submitted'||!!a.submitted_at;
+ const correct=scorable.filter((q:Row)=>q.correct===true).length;
+ const total=scorable.length||questions.length;
+ return {...a,questions,subjects:[scope],score:submitted?correct:null,total,percent:submitted&&total?Math.round(correct*10000/total)/100:(submitted?0:null)};
+}
+async function teacherDirectory(db:any){
+ const rows=must(await db.from('nafes_teacher_access').select('id,label,subject_scope').eq('active',true));
+ return new Map((rows||[]).map((x:Row)=>[String(x.id),x]));
+}
+async function scopedTeacherData(db:any,b:Row,owner:Row){
+ const data=await teacherData(db,b);
+ const scope=teacherScope(owner);
+ const dir=await teacherDirectory(db);
+ const attempts=(data.attempts||[]).map((a:Row)=>scopedAttempt(a,owner)).filter(Boolean);
+ const tests=(data.tests||[]).filter((t:Row)=>t.kind!=='simulation'&&(scope==='all'||(t.subjects||[]).includes(scope))).map((t:Row)=>{
+   const creator=dir.get(String(t.owner_id||''));
+   return {...t,created_by_label:creator?.label||((t.owner_id)?'حساب معلم':'النظام'),created_by_scope:creator?.subject_scope||null};
+ });
+ const indicators=(data.indicators||[]).filter((i:Row)=>scope==='all'||i.subject===scope);
+ return {...data,attempts,tests,indicators};
+}
+function testInfo(t:Row) {const c=t.config||{};return{id:t.kind==='legacy'?legacyTestId(t.legacy_target):t.id,owner_id:t.owner_id||null,title:t.title,kind:t.kind==='legacy'?'indicator':t.kind,simulation_mode:c.simulation_mode,bank_source:c.bank_source,subjects:(c.sections||[]).map((s:Row)=>s.subject),class_name:c.class_name||'',term:c.term||c.academic_term||'',academic_term:c.academic_term||c.term||'',school_name:c.school_name||'',teacher_name:c.teacher_name||'',principal_name:c.principal_name||'',grade_key:'middle_3',created_at:t.published_at||t.created_at,total:(c.sections||[]).reduce((n:number,s:Row)=>n+s.question_count,0),short_code:t.short_code};}
 function legacyTestId(t:Row) {return`exam:${t.subject||t.subject_key}:${t.outcome||t.outcome_code}:i${t.indicator||t.indicator_index}:m${t.model||t.model_no}`;}
 
 async function simulationCatalogCounts(db:any):Promise<Map<string,number>> {
@@ -687,13 +730,14 @@ const submitted=!!a.submitted_at;const levelTotal=a.total||qs.length;return{id:a
 async function teacherData(db:any,b:Row) {
  const limit=Math.min(100,Math.max(1,Math.trunc(Number(b.limit)||100))),cursor=Math.max(0,Math.trunc(Number(b.cursor)||0));
  const page=must(await db.rpc('nafes_teacher_attempt_page',{p_cursor:cursor,p_limit:limit}));const attempts:Row[]=[];const offset=page.total;for(const source of Object.keys(SOURCES)){const rows=page.rows.filter((x:Row)=>x.source===source).map((x:Row)=>x.row);if(!rows.length)continue;const map=await metadata(db,rows,source);attempts.push(...rows.map((a:Row)=>canonical(a,source,map)));}
- let tests:Row[]=[];if(cursor===0){const published=must(await db.from('nafes_assessments').select('id,title,kind,status,config,short_code,created_at,published_at,legacy_target').eq('status','published'));tests=published.map(testInfo);const known=new Set(tests.map(t=>t.id));for(const i of FRAMEWORK)for(let model=1;model<=2;model++){const id=legacyTestId({...i,model});if(!known.has(id))tests.push({id,title:`${i.subject==='reading'?'القراءة':i.subject==='math'?'الرياضيات':'العلوم'} — ${i.text} — النموذج ${model}`,kind:'indicator',subjects:[i.subject],class_name:'',grade_key:'middle_3',total:15});}
+ let tests:Row[]=[];if(cursor===0){const published=must(await db.from('nafes_assessments').select('id,owner_id,title,kind,status,config,short_code,created_at,published_at,legacy_target').eq('status','published'));tests=published.map(testInfo);const known=new Set(tests.map(t=>t.id));for(const i of FRAMEWORK)for(let model=1;model<=2;model++){const id=legacyTestId({...i,model});if(!known.has(id))tests.push({id,title:`${i.subject==='reading'?'القراءة':i.subject==='math'?'الرياضيات':'العلوم'} — ${i.text} — النموذج ${model}`,kind:'indicator',subjects:[i.subject],class_name:'',grade_key:'middle_3',total:15});}
  const sims=must(await db.from('nafes_simulation_attempts').select('simulation_key,config,started_at').order('started_at'));for(const a of sims){const id=`simulation:${a.simulation_key}`;if(known.has(id))continue;known.add(id);tests.push({...testInfo({id,title:a.config.title,kind:'simulation',config:a.config,created_at:a.started_at}),id});}}
  return{attempts,tests,indicators:cursor===0?FRAMEWORK:[],thresholds:THRESHOLDS,next_cursor:cursor+limit<offset?cursor+limit:null};
 }
 export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(String(b.action).startsWith('assessment_'))return await studentAction(db,b);
  const owner=await teacher(db,req);
+ if(b.action==='teacher_build_forms')fail('تم إيقاف قسم الاختبارات المحاكية. استخدم اختبارات المؤشرات.',400);
  if(b.action==='teacher_students_list')return await teacherStudentsList(db);
  if(b.action==='teacher_student_add')return await teacherStudentAdd(db,b);
  if(b.action==='teacher_student_update')return await teacherStudentUpdate(db,b);
@@ -704,13 +748,39 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_test_clear_results')return await teacherTestClearResults(db,b,owner);
  if(b.action==='teacher_test_delete')return await teacherTestDelete(db,b,owner);
  if(b.action==='teacher_tests_bulk_clear')return await teacherTestsBulkClear(db,b,owner);
- if(b.action==='teacher_data')return await teacherData(db,b);
- if(b.action==='teacher_paper') {if(!SOURCES[b.source]||!isUUID(b.attempt_id))fail('المحاولة غير موجودة.',404);const a=must(await db.from(SOURCES[b.source]).select('*').eq('id',b.attempt_id).maybeSingle());if(!a)fail('المحاولة غير موجودة.',404);const map=await metadata(db,[a],b.source),attempt=canonical(a,b.source,map);const ss=b.source==='exam'?[{subject:a.subject_key,questions:a.rendered_questions||[]}]:a.rendered_sections;let n=0;const sections=ss.map((s:Row)=>({...s,questions:s.questions.map((q:Row)=>{const summary=attempt.questions[n++];return{...q,...summary,correctIndex:summary.correct_index};})}));return{attempt,sections,settings:a.config?.settings||{}};}
- if(b.action==='teacher_catalog')return{...await catalog(db),tests:must(await db.from('nafes_assessments').select('id,title,kind,config,short_code,created_at,published_at,legacy_target').eq('status','published')).map(testInfo)};
- if(b.action==='teacher_preview') {const config=normalizeConfig(b.config),sections=await draftSections(db,config,b.regenerate===true);const draft=must(await db.from('nafes_assessments').insert({owner_id:owner.id,kind:config.kind,title:config.title,config,rendered_sections:sections}).select().single());return preview(draft);}
+ if(b.action==='teacher_data')return await scopedTeacherData(db,b,owner);
+ if(b.action==='teacher_paper') {
+  if(!SOURCES[b.source]||!isUUID(b.attempt_id)||b.source==='simulation')fail('المحاولة غير موجودة.',404);
+  const a=must(await db.from(SOURCES[b.source]).select('*').eq('id',b.attempt_id).maybeSingle());
+  if(!a)fail('المحاولة غير موجودة.',404);
+  const map=await metadata(db,[a],b.source),rawAttempt=canonical(a,b.source,map),attempt=scopedAttempt(rawAttempt,owner);
+  if(!attempt)fail('هذه الورقة ليست ضمن مادة حساب المعلم.',403);
+  const scope=teacherScope(owner);
+  const rawSections=b.source==='exam'?[{subject:a.subject_key,questions:a.rendered_questions||[]}]:a.rendered_sections;
+  let n=0;
+  const sections=rawSections.map((s:Row)=>({...s,questions:s.questions.map((q:Row)=>{const summary=rawAttempt.questions[n++];return{...q,...summary,correctIndex:summary.correct_index};})})).filter((s:Row)=>scope==='all'||s.subject===scope);
+  return{attempt,sections,settings:a.config?.settings||{}};
+ }
+ if(b.action==='teacher_catalog'){
+  const base=await catalog(db),scope=teacherScope(owner),dir=await teacherDirectory(db);
+  const published=must(await db.from('nafes_assessments').select('id,owner_id,title,kind,config,short_code,created_at,published_at,legacy_target').eq('status','published'));
+  const tests=(published||[]).filter((t:Row)=>t.kind!=='simulation').map(testInfo).filter((t:Row)=>scope==='all'||(t.subjects||[]).includes(scope)).map((t:Row)=>{
+    const creator=dir.get(String(t.owner_id||''));
+    return {...t,created_by_label:creator?.label||'النظام',created_by_scope:creator?.subject_scope||null,can_manage:scope==='all'||String(t.owner_id||'')===String(owner.id)};
+  });
+  return {...base,indicators:(base.indicators||[]).filter((i:Row)=>scope==='all'||i.subject===scope),simulation_indicators:[],simulation_summary:{reading:0,math:0,science:0},forms:[],tests};
+ }
+ if(b.action==='teacher_preview') {
+  const config=normalizeConfig(b.config);
+  assertIndicatorBuilderConfig(owner,config);
+  const sections=await draftSections(db,config,b.regenerate===true);
+  const draft=must(await db.from('nafes_assessments').insert({owner_id:owner.id,kind:config.kind,title:config.title,config,rendered_sections:sections}).select().single());
+  return preview(draft);
+ }
  if(b.action==='teacher_replace') {
   const t=await findDraft(db,b.draft_id,owner);
-  const isSim=t.kind==='simulation'&&t.config?.bank_source==='simulation_bank';
+  const isSim=false;
+  if(t.kind==='simulation'||t.config?.bank_source==='simulation_bank')fail('تم إيقاف قسم الاختبارات المحاكية.',400);
   const sections=t.rendered_sections;
   const all=sections.flatMap((s:Row)=>s.questions),old=all.find((q:Row)=>q.id===b.question_id);
   if(!old)fail('السؤال غير موجود في المسودة.');
@@ -718,14 +788,15 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
     ?(await simulationPool(db,old.subject,[old.indicator_key])).filter(q=>q.indicator_key===old.indicator_key)
     :(await fullPool(db,old.subject,[old.indicator_key])).filter(q=>q.indicator_key===old.indicator_key);
   const candidates=pool.filter(q=>!all.some((x:Row)=>questionKey(x)===questionKey(q)));
-  if(!candidates.length)fail('لا يوجد سؤال بديل مستقل متاح لهذا المؤشر في بنك المحاكاة المستقل.');
+  if(!candidates.length)fail('لا يوجد سؤال بديل مستقل متاح لهذا المؤشر في بنك الأسئلة المعتمد.');
   const replacement=selectUnique(candidates,1,token(8))[0];
   for(const s of sections)s.questions=s.questions.map((q:Row)=>q.id===old.id?replacement:q);
   return preview(must(await db.from('nafes_assessments').update({rendered_sections:sections}).eq('id',t.id).eq('status','draft').select().single()));
  }
  if(b.action==='teacher_publish') {
   const t=await findDraft(db,b.draft_id,owner);
-  const isSim=t.kind==='simulation'&&t.config?.bank_source==='simulation_bank';
+  const isSim=false;
+  if(t.kind==='simulation'||t.config?.bank_source==='simulation_bank')fail('تم إيقاف قسم الاختبارات المحاكية.',400);
   for(const section of t.rendered_sections){
     const qIds=section.questions.map((q:Row)=>q.id);
     const pool=isSim
@@ -738,7 +809,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   const saved=must(await db.from('nafes_assessments').update({status:'published',short_code,published_at:new Date().toISOString()}).eq('id',t.id).eq('status','draft').select().single());
   return{id:saved.id,short_code,url:`${BASE}e.html?t=${short_code}`,title:saved.title};
  }
- if(b.action==='teacher_shorten_legacy') {const i=FRAMEWORK.find(i=>i.subject===b.subject&&i.outcome===b.outcome&&i.indicator===Number(b.indicator));if(!i||![1,2].includes(Number(b.model)))fail('الاختبار غير موجود.');const target={subject:i.subject,outcome:i.outcome,indicator:i.indicator,model:Number(b.model)};const pool=(await fullPool(db,i.subject,[i.key])).filter(q=>q.indicator_key===i.key&&q.model_no===target.model);if(pool.length!==15)fail('الاختبار لم يكتمل اعتماده؛ لا يمكن إنشاء باركود له.',409);const previous=must(await db.from('nafes_assessments').select('*').eq('kind','legacy').eq('status','published').contains('legacy_target',target).limit(1));let t=previous?.[0];if(!t){const code=await codeFor(db);t=must(await db.from('nafes_assessments').insert({owner_id:owner.id,short_code:code,status:'published',kind:'legacy',title:`${i.text} — النموذج ${target.model}`,config:{sections:[{subject:i.subject,question_count:15,duration_minutes:20}],settings:{},identity_mode:'manual'},legacy_target:target,published_at:new Date().toISOString()}).select().single());}return{id:t.id,short_code:t.short_code,url:`${BASE}e.html?t=${t.short_code}`,title:t.title};}
+ if(b.action==='teacher_shorten_legacy') {assertSubjectScope(owner,b.subject);const i=FRAMEWORK.find(i=>i.subject===b.subject&&i.outcome===b.outcome&&i.indicator===Number(b.indicator));if(!i||![1,2].includes(Number(b.model)))fail('الاختبار غير موجود.');const target={subject:i.subject,outcome:i.outcome,indicator:i.indicator,model:Number(b.model)};const pool=(await fullPool(db,i.subject,[i.key])).filter(q=>q.indicator_key===i.key&&q.model_no===target.model);if(pool.length!==15)fail('الاختبار لم يكتمل اعتماده؛ لا يمكن إنشاء باركود له.',409);const previous=must(await db.from('nafes_assessments').select('*').eq('kind','legacy').eq('status','published').contains('legacy_target',target).limit(1));let t=previous?.[0];if(!t){const code=await codeFor(db);t=must(await db.from('nafes_assessments').insert({owner_id:owner.id,short_code:code,status:'published',kind:'legacy',title:`${i.text} — النموذج ${target.model}`,config:{sections:[{subject:i.subject,question_count:15,duration_minutes:20}],settings:{},identity_mode:'manual'},legacy_target:target,published_at:new Date().toISOString()}).select().single());}return{id:t.id,short_code:t.short_code,url:`${BASE}e.html?t=${t.short_code}`,title:t.title};}
  if(b.action==='teacher_build_forms') {if(!SUBJECTS.includes(b.subject))fail('المادة غير صحيحة.');const pool=await fullPool(db,b.subject),expected=FRAMEWORK.filter(i=>i.subject===b.subject).length*30;if(pool.length!==expected)fail(`لم يكتمل البنك المراجع للمادة: ${pool.length} من ${expected}.`,409);const bank_hash=await hash(JSON.stringify(pool));const forms=buildForms(pool,b.subject);for(const f of forms){f.signature=await hash(f.signature);f.bank_hash=bank_hash;}const result=must(await db.rpc('replace_nafes_simulation_forms',{payload:forms}));return{ok:true,subject:b.subject,forms:60,question_slots:1800,unique_questions:new Set(forms.flatMap(f=>f.questions.map((q:Row)=>q.id))).size,result};}
  fail('إجراء غير معروف.');
 }
