@@ -23,10 +23,10 @@
   <link rel="stylesheet" href="analysis-print-scale-95.css?v=20260914-2">
   <link rel="stylesheet" href="report-font-12.css?v=20260917-print2">
   <link rel="stylesheet" href="stitch-platform-theme.css?v=20260915-1">
-</head>
+<script src="teacher-preboot.js?v=20260919-scope1"></script></head>
 <body class="page-analysis">
 <header class="top no-print">
-  <a class="brand" href="./"><span>م</span><div><b>معلّمي</b><small>تحليل نتائج نافس</small></div></a>
+  <a class="brand" href="./" data-master-home><span>م</span><div><b>معلّمي</b><small>تحليل نتائج نافس</small></div></a>
   <nav>
     <a href="./">المؤشرات</a>
     <a href="create.html">إنشاء الاختبارات</a>
@@ -38,7 +38,7 @@
 </header>
 <main class="shell no-print">
   <section class="hero">
-    <div><span class="eyebrow">الصف الثالث المتوسط</span><h1>تحليل نتائج نافس</h1><p>التحليل لقراءة الأداء، أما التقارير فهي أوراق رسمية مستقلة للطباعة والحفظ.</p></div>
+    <div><span class="eyebrow">الصف الثالث المتوسط</span><div data-teacher-area-title style="font-weight:900;color:#0f6b63;margin:6px 0">حساب المعلم</div><h1>تحليل نتائج نافس</h1><p>التحليل لقراءة الأداء، أما التقارير فهي أوراق رسمية مستقلة للطباعة والحفظ.</p></div>
     <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="deleteStudentResultsBtn" class="btn ghost" type="button">حذف نتائج طالب</button><button id="resetTrialDataBtn" class="btn ghost" type="button">تصفير النتائج</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
   </section>
   <section id="authPanel" class="card auth-card" hidden><h2>دخول المعلم</h2><p>أدخل مفتاح المعلم للوصول إلى النتائج الحقيقية فقط.</p><form id="authForm" class="inline-form"><input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم"><button class="btn primary" type="submit">دخول</button></form><p id="authError" class="error"></p></section>
@@ -79,7 +79,7 @@
 <div id="settingsModal" class="modal hidden no-print" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="modal-box"><div class="modal-head"><h2 id="settingsTitle">بيانات المدرسة والشعارات</h2><button id="closeSettingsBtn" class="close" type="button">×</button></div><div class="settings-grid"><label><span>اسم المدرسة</span><input id="schoolNameInput" type="text" placeholder="مدرسة ابن سينا المتوسطة"></label><label><span>اسم المعلم</span><input id="teacherNameInput" type="text"></label><label><span>اسم مدير المدرسة</span><input id="principalNameInput" type="text"></label><label><span>شعار وزارة التعليم</span><input id="ministryLogoInput" type="file" accept="image/*"></label><label><span>شعار المدرسة</span><input id="schoolLogoInput" type="file" accept="image/*"></label></div><p class="muted">الشعارات لا تُنشأ تلقائيًا؛ يظهر في التقرير فقط ما ترفعه أنت.</p><div class="modal-actions"><button id="saveSettingsBtn" class="btn primary" type="button">حفظ</button></div></div></div>
 <section id="printRoot" class="print-root" aria-hidden="true"></section>
 
-<script src="teacher-access.js?v=20260919-account1"></script>
+<script src="teacher-access.js?v=20260919-scope4"></script>
 <script src="analysis-core.js?v=20260914-support70"></script>
 <script src="analysis-data-service.js?v=20260914-unified1"></script>
 <script src="analysis.js?v=20260914-support70"></script>
