@@ -15,7 +15,7 @@ const tier=(p)=>p==null?'untested':Number(p)<70?'remedial':Number(p)<90?'reinfor
 const tierLabel=(p)=>p==null?'لم يختبر بعد':Number(p)<70?'علاجي':Number(p)<90?'تعزيز':'إثرائي';
 const tierText=(t)=>t==='remedial'?'تحتاج إلى علاج موجّه':t==='reinforcement'?'قريب من الإتقان':t==='enrichment'?'مستوى متقن':'ابدأ بالتدريب التمهيدي';
 const tierClasses=(t)=>t==='remedial'?'bg-rose-100 text-rose-700 border-rose-200':t==='reinforcement'?'bg-amber-100 text-amber-700 border-amber-200':t==='enrichment'?'bg-emerald-100 text-emerald-700 border-emerald-200':'bg-sky-100 text-sky-700 border-sky-200';
-function getSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}
+function getSession(){try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}
 async function post(url,body,token){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||'تعذر الاتصال');return d}
 function icon(name,cls='w-4 h-4'){return `<i data-lucide="${name}" class="${cls}"></i>`}
 function icons(){try{window.lucide?.createIcons()}catch{}}
