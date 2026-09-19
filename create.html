@@ -16,12 +16,11 @@
  <p id="catalogState" class="step" role="status"></p><form id="builder" class="builder">
   <section class="step"><header><span>١</span><div><h2>نوع الاختبار</h2><p>اختر المسار ثم المواد والمؤشرات المطلوبة.</p></div></header>
    <label class="field"><span>اسم الاختبار</span><input id="testTitle" required value="اختبار نافس" maxlength="160"></label>
+   <input type="radio" name="testType" value="custom" checked hidden aria-hidden="true">
    <div class="choice-grid">
-    <label class="choice"><input type="radio" name="testType" value="custom" checked><span><b>اختبار مؤشر / مؤشرات</b><small>من بنك المؤشرات الأساسي؛ مناسب للتدريب والقياس المباشر</small></span></label>
-    <label class="choice"><input type="radio" name="testType" value="simulation_custom"><span><b>اختبار محاكي بالمؤشرات</b><small>من بنك المحاكاة المستقل؛ ١٠ أسئلة لكل مؤشر تختاره</small></span></label>
-    <label class="choice"><input type="radio" name="testType" value="full"><span><b>محاكاة نافس شاملة</b><small>القراءة + الرياضيات + العلوم في تجربة واحدة</small></span></label>
+    <div class="choice" style="cursor:default"><span><b>اختبارات المؤشرات</b><small>اختر مؤشرًا واحدًا أو عدة مؤشرات من المادة، وحدد عدد الأسئلة ثم راجع الأسئلة واستبدل ما تريد قبل النشر.</small></span></div>
    </div>
-   <div id="customMode"><div id="regularCustomControls"><label class="field"><span>توزيع الأسئلة</span><select id="countMode"><option value="total">عدد كلي لكل مادة، يوزع على المؤشرات المختارة</option><option value="per_indicator">عدد محدد لكل مؤشر</option></select></label><label class="field"><span>النموذج في اختبار المؤشر الواحد</span><select id="fixedModel"><option value="">سحب متنوع من بنك المؤشر</option><option value="1">الاختبار الأول — ١٥ سؤالًا</option><option value="2">الاختبار الثاني — ١٥ سؤالًا</option></select></label></div><div id="simulationCustomNotice" class="identity-notice hidden" style="background:#f4fbf8;border:1px solid #cce8dd;border-radius:12px;padding:12px 16px;margin:12px 0;color:#184e3d;font-size:13px;line-height:1.7;"><b>بنك المحاكاة المستقل:</b> يحسب النظام ١٠ أسئلة لكل مؤشر تلقائيًا. الحد الأعلى ٦ مؤشرات في المادة الواحدة حتى لا يتجاوز القسم ٦٠ سؤالًا.</div></div>
+   <div id="customMode"><div id="regularCustomControls"><label class="field"><span>توزيع الأسئلة</span><select id="countMode"><option value="total">عدد كلي للمادة، يوزع تلقائيًا على المؤشرات المختارة</option><option value="per_indicator">أحدد عددًا مستقلًا لكل مؤشر</option></select></label><label class="field"><span>النموذج في اختبار المؤشر الواحد</span><select id="fixedModel"><option value="">سحب متنوع من بنك المؤشر</option><option value="1">النموذج الأول — ١٥ سؤالًا</option><option value="2">النموذج الثاني — ١٥ سؤالًا</option></select></label></div></div>
    <label class="field"><span>الصف</span><select id="grade"><option value="middle_3">الصف الثالث المتوسط</option></select></label>
    <div class="section-table" aria-label="مواد الاختبار">
     <div class="section-row head"><b>المادة</b><b>الأسئلة</b><b>الدقائق</b><b>تفعيل</b></div>
@@ -68,8 +67,8 @@
  </form>
  <section id="previewPanel" class="step hidden"><h2>معاينة الاختبار قبل النشر</h2><p>راجع الأسئلة أولًا. في الاختبارات المخصصة يمكن تبديل السؤال من المؤشر نفسه قبل النشر.</p><div id="previewMeta"></div><div id="previewQuestions"></div><div class="preview-actions"><button id="regenerate" type="button">إعادة تكوين الاختبار</button><button id="publish" type="button">نشر الاختبار وإنشاء رابط الطالب</button></div><p id="previewError" role="alert"></p></section>
  <section id="created" class="created hidden"><span class="success">تم إنشاء الرابط</span><h2>الاختبار جاهز للإرسال</h2><div id="createdSummary" class="created-summary"></div><div class="link-row"><input id="createdLink" readonly><button id="copyLink" type="button">نسخ الرابط</button></div><div id="qr"></div><div class="preview-actions"><button id="downloadQr" type="button">تحميل QR</button><button id="printQr" type="button">طباعة QR</button><a id="analysisLink" href="analysis.html">تحليل نتائج الاختبار</a></div><a id="openLink" target="_blank">فتح الاختبار</a></section>
- <section id="publishedTests" class="step"><h2>اختباراتي المنشورة</h2><p>كل الاختبارات العادية والمحاكية تظهر في قائمة واحدة.</p><div id="publishedList"></div></section>
+ <section id="publishedTests" class="step"><h2>اختبارات المؤشرات المنشورة</h2><p>تظهر هنا اختبارات المؤشرات التي تستطيع الوصول إليها حسب صلاحية حسابك.</p><div id="publishedList"></div></section>
 </main>
-<script src="nafes-reading.js?v=20260909-final"></script><script src="nafes-math.js?v=20260909-final"></script><script src="nafes-science.js?v=20260909-final"></script><script src="teacher-access.js?v=20260914-secure1"></script><script src="simulation-catalog-route.js?v=20260913-advanced1"></script><script src="qr.js?v=20260909-final"></script><script src="question-media.js?v=20260909-final"></script>
-<script src="create.js?v=20260911-unified"></script><script src="test-management.js?v=20260912-1"></script>
+<script src="nafes-reading.js?v=20260909-final"></script><script src="nafes-math.js?v=20260909-final"></script><script src="nafes-science.js?v=20260909-final"></script><script src="teacher-access.js?v=20260919-scoped2"></script><script src="qr.js?v=20260909-final"></script><script src="question-media.js?v=20260909-final"></script>
+<script src="create.js?v=20260919-indicators-only1"></script><script src="test-management.js?v=20260919-scoped1"></script>
 </body></html>
