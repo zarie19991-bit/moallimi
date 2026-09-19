@@ -5,7 +5,7 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ar=x=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:2}).format(x),names={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const sessionKey='nafes_session_'+code;let session;try{session=sessionStorage.getItem(sessionKey)||crypto.randomUUID();sessionStorage.setItem(sessionKey,session);}catch(_){session=crypto.randomUUID();}
 let info,state,access='',answers={},cursor=0,timer,saving=Promise.resolve(),saveDelay,active=false,lockRelease,locked=false,starting=false,lastEvent=0;
-const identityKey='nafes_student_identity_session', legacyIdentityKey='nafes_student_identity', resumeKey='nafes_attempt_'+code, resumeMarkerKey='nafes_attempt_marker_'+code, RESUME_MARKER_MAX_AGE=12*60*60*1000;
+const identityKey='nafes_student_identity_session', demoIdentityKey='nafes_demo_student_identity_v1', legacyIdentityKey='nafes_student_identity', resumeKey='nafes_attempt_'+code, resumeMarkerKey='nafes_attempt_marker_'+code, RESUME_MARKER_MAX_AGE=12*60*60*1000;
 try{localStorage.removeItem(legacyIdentityKey);}catch(_){}
 async function api(action,body={}){const ctrl=new AbortController(),timeout=setTimeout(()=>ctrl.abort(),30000);try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code,session_id:session,...body}),signal:ctrl.signal});const d=await r.json();if(!r.ok||d.error)throw new Error(d.error||'تعذر إتمام الطلب.');return d;}catch(e){throw new Error(e.name==='AbortError'?'تأخر الاتصال. آخر إجاباتك المحفوظة باقية؛ أعد المحاولة.':e.message);}finally{clearTimeout(timeout);}}
 function authBody(){return {attempt_id:state?.attempt_id,access_token:access,answers:{...answers},cursor};}
@@ -15,7 +15,19 @@ function clearResume(){try{sessionStorage.removeItem(resumeKey);localStorage.rem
 function readResume(){try{const x=JSON.parse(sessionStorage.getItem(resumeKey)||'null');return x?.attempt_id&&x?.access_token?x:null;}catch(_){return null;}}
 function readResumeMarker(){try{const x=JSON.parse(localStorage.getItem(resumeMarkerKey)||'null');if(!x?.attempt_id)return null;const expired=x.expires_at&&Date.now()>new Date(x.expires_at).getTime(),stale=x.saved_at&&Date.now()-Number(x.saved_at)>RESUME_MARKER_MAX_AGE;if(expired||stale){localStorage.removeItem(resumeMarkerKey);return null}return x;}catch(_){return null;}}
 function clearIdentity(){try{sessionStorage.removeItem(identityKey);}catch(_){} }
-function restoreIdentity(){try{const id=JSON.parse(sessionStorage.getItem(identityKey)||'{}');$('studentName').value=id.name||'';if(!info?.class_name&&id.class)$('className').value=id.class;}catch(_){} }
+function restoreIdentity(){try{
+ const demo=JSON.parse(sessionStorage.getItem(demoIdentityKey)||'null');
+ const id=demo?.demo===true?demo:JSON.parse(sessionStorage.getItem(identityKey)||'{}');
+ $('studentName').value=id.name||'';
+ if(id.no)$('studentNo').value=String(id.no).replace(/\D/g,'').slice(0,3);
+ if(!info?.class_name&&id.class)$('className').value=id.class;
+ if(demo?.demo===true&&!document.getElementById('demoStudentNotice')){
+  const box=document.createElement('div');box.id='demoStudentNotice';box.setAttribute('role','status');
+  box.style.cssText='margin:14px 0;padding:12px 14px;border-radius:12px;background:#fff8df;border:1px solid #ecd487;color:#70510a;font-weight:800;line-height:1.8';
+  box.textContent='وضع الطالب التجريبي: يمكنك أداء الاختبار كاملًا، لكن هذه المحاولة لا تدخل في التحليل أو التقارير أو عدد المختبرين.';
+  $('identity')?.prepend(box);
+ }
+}catch(_){} }
 async function resumeAttempt(){const saved=readResume();if(!saved)return false;try{await claim();access=saved.access_token;state={attempt_id:saved.attempt_id};const d=await api('assessment_resume',{attempt_id:saved.attempt_id,access_token:saved.access_token});state={...state,...d};access=d.access_token||access;answers=d.answers||{};cursor=d.cursor||0;saveLocal();if(state.submitted){showResult(state);}else{render();clearInterval(timer);timer=setInterval(tick,1000);}$('message').textContent='';return true;}catch(e){clearResume();lockRelease?.();locked=false;$('message').textContent='تعذر استعادة المحاولة السابقة تلقائيًا. تحقق من بياناتك ثم ادخل الاختبار مرة واحدة.';return false;}}
 function save(action='assessment_save',extra={}){const payload={...authBody(),...extra};saving=saving.catch(()=>{}).then(async()=>{if(!active&&action!=='assessment_resume')return state;$('saveState').textContent='جارٍ الحفظ…';const d=await api(action,payload);state={...state,...d};if(d.submitted){answers=d.answers||answers;showResult(d);}else {if(d.current_section!==undefined&&(d.current_section!==currentSection||d.cursor!==cursor&&action==='assessment_advance')){answers=d.answers||answers;cursor=d.cursor||0;render();}}$('saveState').textContent='تم الحفظ';$('playerError').textContent='';return d;}).catch(e=>{$('saveState').textContent='لم يكتمل الحفظ';$('playerError').textContent=e.message;throw e;});return saving;}
 let currentSection=0;
