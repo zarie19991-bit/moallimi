@@ -12,6 +12,7 @@ nafes-math.js
 nafes-science.js
 e-player-demo-fix.js
 teacher-access.js
+teacher-preboot.js
 teacher.html
 student-demo.html
 qr.js
