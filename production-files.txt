@@ -46,8 +46,10 @@ lugati-roster-bridge.js
 lugati-student.html
 lugati-student-view.js
 lugati-student-adaptive.js
+lugati-student-pretest.js
 lugati-student-mastery.js
 lugati-teacher-adaptive.js
+lugati-teacher-pretest.js
 lugati-teacher-mastery.js
 lugati-teacher-archive.js
 lugati-indicators.js
