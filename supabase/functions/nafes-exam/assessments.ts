@@ -458,6 +458,7 @@ async function teacher(db:any,req:Request) {
  return {...row,subject_scope:SUBJECTS.includes(String(row.subject_scope))?String(row.subject_scope):'all'};
 }
 function teacherScope(owner:Row){return SUBJECTS.includes(String(owner?.subject_scope))?String(owner.subject_scope):'all';}
+function assertMainAccount(owner:Row){if(teacherScope(owner)!=='all')fail('هذه العملية الإدارية متاحة للحساب الرئيسي فقط.',403);}
 function scopeAllows(owner:Row,subject:unknown){const s=teacherScope(owner);return s==='all'||s===String(subject||'');}
 function assertSubjectScope(owner:Row,subject:unknown){if(!scopeAllows(owner,subject))fail('هذه المادة ليست ضمن صلاحية حساب المعلم.',403);}
 function assertIndicatorBuilderConfig(owner:Row,c:Row){
@@ -739,15 +740,15 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  const owner=await teacher(db,req);
  if(b.action==='teacher_build_forms')fail('تم إيقاف قسم الاختبارات المحاكية. استخدم اختبارات المؤشرات.',400);
  if(b.action==='teacher_students_list')return await teacherStudentsList(db);
- if(b.action==='teacher_student_add')return await teacherStudentAdd(db,b);
- if(b.action==='teacher_student_update')return await teacherStudentUpdate(db,b);
- if(b.action==='teacher_student_delete')return await teacherStudentDelete(db,b);
- if(b.action==='teacher_student_restore')return await teacherStudentRestore(db,b);
- if(b.action==='teacher_students_bulk_import')return await teacherStudentsBulkImport(db,b);
- if(b.action==='teacher_student_hard_delete')return await teacherStudentHardDelete(db,b);
- if(b.action==='teacher_test_clear_results')return await teacherTestClearResults(db,b,owner);
- if(b.action==='teacher_test_delete')return await teacherTestDelete(db,b,owner);
- if(b.action==='teacher_tests_bulk_clear')return await teacherTestsBulkClear(db,b,owner);
+ if(b.action==='teacher_student_add'){assertMainAccount(owner);return await teacherStudentAdd(db,b);}
+ if(b.action==='teacher_student_update'){assertMainAccount(owner);return await teacherStudentUpdate(db,b);}
+ if(b.action==='teacher_student_delete'){assertMainAccount(owner);return await teacherStudentDelete(db,b);}
+ if(b.action==='teacher_student_restore'){assertMainAccount(owner);return await teacherStudentRestore(db,b);}
+ if(b.action==='teacher_students_bulk_import'){assertMainAccount(owner);return await teacherStudentsBulkImport(db,b);}
+ if(b.action==='teacher_student_hard_delete'){assertMainAccount(owner);return await teacherStudentHardDelete(db,b);}
+ if(b.action==='teacher_test_clear_results'){assertMainAccount(owner);return await teacherTestClearResults(db,b,owner);}
+ if(b.action==='teacher_test_delete'){assertMainAccount(owner);return await teacherTestDelete(db,b,owner);}
+ if(b.action==='teacher_tests_bulk_clear'){assertMainAccount(owner);return await teacherTestsBulkClear(db,b,owner);}
  if(b.action==='teacher_data')return await scopedTeacherData(db,b,owner);
  if(b.action==='teacher_paper') {
   if(!SOURCES[b.source]||!isUUID(b.attempt_id)||b.source==='simulation')fail('المحاولة غير موجودة.',404);
