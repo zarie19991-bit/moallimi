@@ -618,14 +618,18 @@ async function saveState(db:any,a:Row,body:Row) {
  const row=must(await db.from('nafes_assessment_attempts').update(update).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select().maybeSingle());if(!row)fail('تغيرت المحاولة أثناء الحفظ؛ أعد المحاولة.',409);return row;
 }
 async function studentAction(db:any,body:Row) {
- if(body.action==='assessment_demo_catalog'){
-   const demoCode=String(body.demo_code||'').trim();
+ async function demoStudentByCode(codeValue:unknown){
+   const demoCode=String(codeValue||'').trim();
    if(!/^\d{6}$/.test(demoCode))fail('رمز حساب الطالب التجريبي غير صحيح.',401);
    const demoHash=await hash(demoCode);
    const student=must(await db.from('nafes_students')
      .select('id,full_name,class_name,national_id_last3,is_demo,is_active')
      .eq('is_demo',true).eq('is_active',true).eq('demo_access_hash',demoHash).maybeSingle());
    if(!student)fail('رمز حساب الطالب التجريبي غير صحيح.',401);
+   return student;
+ }
+ if(body.action==='assessment_demo_catalog'){
+   const student=await demoStudentByCode(body.demo_code);
    const rows=must(await db.from('nafes_assessments')
      .select('id,title,short_code,kind,status,config,published_at')
      .eq('status','published').neq('kind','simulation')
@@ -704,7 +708,10 @@ async function studentAction(db:any,body:Row) {
    if(s.opens_at&&now<new Date(s.opens_at).getTime())fail('لم يبدأ وقت إتاحة الاختبار بعد.',403);
    if(s.closes_at&&now>new Date(s.closes_at).getTime())fail('انتهى وقت إتاحة الاختبار.',403);
    const session=tidy(body.session_id,96);if(!session)fail('بيانات الجلسة غير مكتملة.');
-   const student=await verifyStudentIdentity(db, String(body.student_name || ''), String(body.student_no || body.national_id_last3 || ''), String(body.class_name || ''));
+   const requestedDemo=String(body.demo_code||'').trim();
+   const student=/^\d{6}$/.test(requestedDemo)
+     ? await demoStudentByCode(requestedDemo)
+     : await verifyStudentIdentity(db, String(body.student_name || ''), String(body.student_no || body.national_id_last3 || ''), String(body.class_name || ''));
    const isDemo=student.is_demo===true;
    const name=student.full_name, no=student.national_id_last3, student_id=student.id, student_key=student.id;
    const className=student.class_name || c.class_name || tidy(body.class_name,80);
@@ -712,7 +719,7 @@ async function studentAction(db:any,body:Row) {
    const previous=must(await db.from('nafes_assessment_attempts').select('*').eq('assessment_id',t.id).eq('student_key',student_key).order('attempt_no',{ascending:false}));
    for(const a of previous)if(!a.submitted_at&&now>=new Date(a.expires_at).getTime())Object.assign(a,await finish(db,a));
    let active=previous.find((a:Row)=>!a.submitted_at);const access=token();
-   if(active){if(s.lock_session&&active.session_id!==session&&now<new Date(active.lease_until).getTime())fail('المحاولة مفتوحة في جهاز أو تبويب آخر. أغلقها هناك وانتظر ٤٥ ثانية لإكمالها هنا.',409);
+   if(active){if(!isDemo&&s.lock_session&&active.session_id!==session&&now<new Date(active.lease_until).getTime())fail('المحاولة مفتوحة في جهاز أو تبويب آخر. أغلقها هناك وانتظر ٤٥ ثانية لإكمالها هنا.',409);
     active=must(await db.from('nafes_assessment_attempts').update({session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),version:active.version+1}).eq('id',active.id).eq('version',active.version).is('submitted_at',null).select().maybeSingle());if(!active)fail('فُتحت المحاولة في تبويب آخر؛ أعد المحاولة.',409);return{...attemptResponse(active),access_token:access,resumed:true};}
    const completed=previous.find((a:Row)=>!!a.submitted_at);
    if(completed&&!isDemo&&body.start_new_attempt!==true){
