@@ -2,6 +2,9 @@
 'use strict';
 const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-competition';
 const ARENA_ORDER=['reading_1','reading_2','reading_3','math','science'];
+const teacherScope=()=>['reading','math','science'].includes(S.profile?.subject_scope)?S.profile.subject_scope:'all';
+const visibleArenaOrder=()=>S.role!=='teacher'||teacherScope()==='all'?ARENA_ORDER:ARENA_ORDER.filter(k=>(k.startsWith('reading_')?'reading':k)===teacherScope());
+const scopeName=()=>teacherScope()==='reading'?'القراءة':teacherScope()==='math'?'الرياضيات':teacherScope()==='science'?'العلوم':'جميع المواد';
 const FALLBACK={
  reading_1:{label:'القراءة 1',icon:'📘'},reading_2:{label:'القراءة 2',icon:'📗'},reading_3:{label:'القراءة 3',icon:'📙'},
  math:{label:'الرياضيات',icon:'➗'},science:{label:'العلوم',icon:'🔬'}
@@ -19,7 +22,7 @@ function mountEl(){return document.getElementById('lugatiCompetitionMount')}
 function arenaMeta(k){return S.data?.arenas?.[k]||FALLBACK[k]||{label:k,icon:'🏆'}}
 function statusText(s){return s==='open'?'مفتوحة الآن':s==='scheduled'?'مجدولة':s==='closed'?'مغلقة':'لا توجد جولة'}
 function statusClass(s){return s==='open'?'bg-emerald-100 text-emerald-800':s==='scheduled'?'bg-sky-100 text-sky-800':s==='closed'?'bg-slate-100 text-slate-600':'bg-slate-100 text-slate-500'}
-async function load(){S.busy=true;renderLoading();try{S.data=await post({action:S.role==='teacher'?'teacher_dashboard':'student_home'});S.screen='home';S.message='';if(S.role==='teacher')await loadCatalog();render()}catch(e){renderError(e.message)}finally{S.busy=false}}
+async function load(){S.busy=true;renderLoading();try{S.data=await post({action:S.role==='teacher'?'teacher_dashboard':'student_home'});S.screen='home';S.message='';if(S.role==='teacher'){const keys=visibleArenaOrder();if(!keys.includes(S.arena))S.arena=keys[0]||'reading_1';await loadCatalog()}render()}catch(e){renderError(e.message)}finally{S.busy=false}}
 async function loadCatalog(){const d=await post({action:'indicator_catalog',arena_key:S.arena});S.catalog=d.indicators||[]}
 function renderLoading(){const el=mountEl();if(el)el.innerHTML='<div class="bg-white border border-slate-200 rounded-3xl p-12 text-center text-sm text-slate-500">جارٍ تجهيز المسابقة…</div>'}
 function renderError(m){const el=mountEl();if(el)el.innerHTML='<div class="bg-rose-50 border border-rose-200 text-rose-800 rounded-3xl p-6 text-sm font-bold">'+esc(m)+'</div>'}
@@ -27,9 +30,9 @@ function render(){clearInterval(S.timer);S.timer=null;const el=mountEl();if(!el)
 function topHero(role){const season=S.data?.season;return '<section class="bg-gradient-to-l from-violet-950 via-indigo-950 to-slate-950 text-white rounded-[2rem] p-6 sm:p-8 overflow-hidden relative">'+
  '<div class="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-fuchsia-500/15 blur-3xl"></div><div class="absolute -bottom-24 right-20 w-72 h-72 rounded-full bg-amber-400/10 blur-3xl"></div>'+
  '<div class="relative flex flex-col lg:flex-row gap-5 lg:items-center lg:justify-between"><div><span class="inline-flex px-3 py-1 rounded-full bg-white/10 border border-white/10 text-xs font-black text-amber-200">🏆 تحدي المؤشرات • '+esc(season?.title||'الموسم الحالي')+'</span>'+
- '<h1 class="text-2xl sm:text-3xl font-black mt-3">'+(role==='teacher'?'إدارة مسابقة المؤشرات':'مسابقة المؤشرات')+'</h1><p class="text-xs sm:text-sm text-indigo-100 mt-2 max-w-2xl leading-7">'+(role==='teacher'?'خمس ساحات، 15 سؤالًا في كل جولة، ونتائج محفوظة من الخادم.':'أجب بدقة، حافظ على قلوبك، واجمع نقاط مؤشراتك عبر الجولات.')+'</p></div>'+
- (role==='teacher'?'<button id="resetSeasonBtn" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 hover:bg-white/15 text-xs font-black">↻ تصفير الموسم وبدء موسم جديد</button>':'')+'</div></section>'}
-function arenaTabs(){return '<div class="grid grid-cols-2 sm:grid-cols-5 gap-2">'+ARENA_ORDER.map(k=>{const m=arenaMeta(k);return '<button data-comp-arena="'+k+'" class="rounded-2xl border p-3 text-center transition '+(S.arena===k?'bg-slate-950 text-white border-slate-950 shadow-lg':'bg-white text-slate-700 border-slate-200 hover:border-indigo-300')+'"><div class="text-xl">'+m.icon+'</div><b class="text-xs block mt-1">'+esc(m.label)+'</b></button>'}).join('')+'</div>'}
+ '<h1 class="text-2xl sm:text-3xl font-black mt-3">'+(role==='teacher'?'إدارة مسابقة المؤشرات':'مسابقة المؤشرات')+'</h1><p class="text-xs sm:text-sm text-indigo-100 mt-2 max-w-2xl leading-7">'+(role==='teacher'?(teacherScope()==='all'?'خمس ساحات لجميع المواد، 15 سؤالًا في كل جولة، ونتائج محفوظة من الخادم.':'مسابقة '+scopeName()+' فقط وفق صلاحية حسابك، مع 15 سؤالًا في كل جولة.'):'أجب بدقة، حافظ على قلوبك، واجمع نقاط مؤشراتك عبر الجولات.')+'</p></div>'+
+ (role==='teacher'&&teacherScope()==='all'?'<button id="resetSeasonBtn" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 hover:bg-white/15 text-xs font-black">↻ تصفير الموسم وبدء موسم جديد</button>':'')+'</div></section>'}
+function arenaTabs(){const keys=visibleArenaOrder();return '<div class="grid grid-cols-2 sm:grid-cols-'+Math.min(5,Math.max(1,keys.length))+' gap-2">'+keys.map(k=>{const m=arenaMeta(k);return '<button data-comp-arena="'+k+'" class="rounded-2xl border p-3 text-center transition '+(S.arena===k?'bg-slate-950 text-white border-slate-950 shadow-lg':'bg-white text-slate-700 border-slate-200 hover:border-indigo-300')+'"><div class="text-xl">'+m.icon+'</div><b class="text-xs block mt-1">'+esc(m.label)+'</b></button>'}).join('')+'</div>'}
 function teacherRounds(){return S.data?.rounds_by_arena?.[S.arena]||[]}
 function renderTeacher(el){
  if(S.screen==='teacher-results'){renderTeacherResults(el);return}
