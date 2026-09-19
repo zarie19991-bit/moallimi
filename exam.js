@@ -1,7 +1,7 @@
 (()=>{
 const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
 const MODEL_COUNT=2;
-const LEGACY_IDENTITY_KEY='nafes_legacy_student_identity';
+const LEGACY_IDENTITY_KEY='nafes_legacy_student_identity',DEMO_IDENTITY_KEY='nafes_demo_student_identity_v1';
 const qs=new URLSearchParams(location.search);const P={subject:qs.get('s')||'',outcome:qs.get('o')||'',indicator:Number(qs.get('i')||0),model:Number(qs.get('m')||0)};
 const SUBJECTS=[window.NAFES_READING,window.NAFES_MATH,window.NAFES_SCIENCE].filter(Boolean);const subj=SUBJECTS.find(s=>s.key===P.subject),out=subj?.outcomes?.find(o=>o.code===P.outcome),indicatorText=out?.indicators?.[P.indicator-1]||'';
 const $=id=>document.getElementById(id);const letters=['أ','ب','ج','د'];let attempt=null,questions=[],answers={},current=0,timerId=null,saving=false,finishing=false;
@@ -18,6 +18,7 @@ function readiness(type,text){$('readiness').className='readiness '+type;$('read
 const normalizeDigits=str=>String(str??'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 function clearPersistentLegacyIdentity(){try{localStorage.removeItem('nafes_student')}catch(_){}}
 function readSessionIdentity(){try{return JSON.parse(sessionStorage.getItem(LEGACY_IDENTITY_KEY)||'{}')}catch(_){return{}}}
+function readDemoIdentity(){try{const d=JSON.parse(sessionStorage.getItem(DEMO_IDENTITY_KEY)||'null');return d?.demo===true?d:null}catch(_){return null}}
 function saveSessionIdentity(name,cls){try{sessionStorage.setItem(LEGACY_IDENTITY_KEY,JSON.stringify({name,class:cls}))}catch(_){}}
 async function init(){
  clearPersistentLegacyIdentity();
@@ -27,11 +28,17 @@ async function init(){
   if(!p.ready){readiness('bad',p.error||'تعذر تجهيز اختبار هذا المؤشر.');return}
   readiness('good',`الاختبار جاهز · ${p.settings.question_count||15} سؤالًا · ${p.settings.duration_minutes||20} دقيقة · تُحفظ نتيجتك لقياس إتقان المؤشر.`);
   $('startForm').classList.remove('hidden');
-  const active=readActiveSession(),marker=readActiveMarker(),saved=readSessionIdentity();
+  const demo=readDemoIdentity();
+  if(demo)clearActiveSession();
+  const active=demo?null:readActiveSession(),marker=demo?null:readActiveMarker(),saved=demo||readSessionIdentity();
   $('studentName').value=active?.student_name||saved.name||'';
-  $('studentNo').value=active?.student_no||'';
+  $('studentNo').value=active?.student_no||saved.no||'';
   if((active?.class_name||saved.class)&&$('className'))$('className').value=active?.class_name||saved.class;
-  if(active?.attempt_id&&active?.student_name&&active?.student_no&&active?.class_name){
+  if(demo){
+   $('studentName').readOnly=true;$('studentNo').readOnly=true;$('className').disabled=false;
+   readiness('good','وضع الطالب التجريبي — جارٍ فتح الاختبار تلقائيًا، ولن تدخل هذه المحاولة في التحليل أو التقارير.');
+   queueMicrotask(()=>$('startForm').requestSubmit());
+  }else if(active?.attempt_id&&active?.student_name&&active?.student_no&&active?.class_name){
    readiness('good','تم العثور على محاولة سارية — جارٍ استعادتها...');
    queueMicrotask(()=>$('startForm').requestSubmit());
   }else if(marker?.attempt_id){
