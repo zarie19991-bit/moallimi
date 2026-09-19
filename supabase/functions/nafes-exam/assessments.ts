@@ -66,14 +66,14 @@ async function simulationPool(db:any,subject:string,keys?:string[],ids?:string[]
 
 
 async function teacherStudentsList(db:any, b?:Row) {
-  let query = db.from('nafes_students').select('*');
+  let query = db.from('nafes_students').select('*').eq('is_demo', false);
   if (b?.include_archived !== true) {
     query = query.eq('is_active', true);
   }
   const students = must(await query.order('class_name',{ascending:true}).order('name_normalized',{ascending:true}));
   const attemptCounts = new Map<string, number>();
   for (const table of ['nafes_assessment_attempts', 'nafes_simulation_attempts', 'nafes_exam_attempts']) {
-    const { data: rows } = await db.from(table).select('student_id, student_key');
+    const { data: rows } = await db.from(table).select('student_id, student_key').eq('is_demo', false);
     for (const r of rows || []) {
       const key = r.student_id || (isUUID(r.student_key) ? r.student_key : null);
       if (key) attemptCounts.set(key, (attemptCounts.get(key) || 0) + 1);
@@ -602,7 +602,7 @@ function studentInfo(t:Row) {const c=t.config;return{id:t.id,code:t.short_code,t
 const snapshotKey=(q:Row)=>JSON.stringify([q.id,q.context||null,q.question,q.options,q.correctIndex,q.explanation||null,q.indicator_key,q.indicator_text,q.cognitive_level,q.difficulty,q.model_no,q.question_no,q.image?.url||null,q.image?.alt||null]);
 const flat=(a:Row)=>(a.rendered_sections||[]).flatMap((s:Row)=>s.questions||[]);
 async function finish(db:any,a:Row,answers=a.answers) {if(a.submitted_at)return a;const result=gradeSections(a.rendered_sections,answers);const end=new Date(Math.min(Date.now(),new Date(a.expires_at).getTime())).toISOString();const r=must(await db.from('nafes_assessment_attempts').update({answers,...result,submitted_at:end,version:a.version+1}).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select().maybeSingle());return r||must(await db.from('nafes_assessment_attempts').select('*').eq('id',a.id).single());}
-function attemptResponse(a:Row) {const c=a.config,s=c.settings;const response:Row={attempt_id:a.id,submitted:!!a.submitted_at,expires_at:a.expires_at,started_at:a.started_at,section_started_at:a.section_started_at,current_section:a.section_index,cursor:a.cursor,version:a.version,answers:a.answers,sections:publicSections(a.rendered_sections),settings:s,student_name:a.student_name};if(a.submitted_at){if(s.show_result)Object.assign(response,{score:a.score,total:a.total,percent:a.percent,section_scores:a.section_scores});else response.result_hidden=true;if(s.show_correct_count)response.correct_count=a.score;if(s.show_indicator_result){const groups=new Map<string,Row[]>();for(const q of flat(a)){const key=indicatorOf(q),g=groups.get(key)||[];g.push(q);groups.set(key,g);}response.indicators=[...groups].map(([key,qs])=>({key,text:qs[0].indicator_text,...gradeSections([{subject:qs[0].subject,questions:qs}],a.answers)}));}if(s.show_answers)response.review=flat(a).map(q=>({id:q.id,correct_index:q.correctIndex,explanation:q.explanation,indicator_text:q.indicator_text}));}return response;}
+function attemptResponse(a:Row) {const c=a.config,s=c.settings;const response:Row={attempt_id:a.id,submitted:!!a.submitted_at,expires_at:a.expires_at,started_at:a.started_at,section_started_at:a.section_started_at,current_section:a.section_index,cursor:a.cursor,version:a.version,answers:a.answers,sections:publicSections(a.rendered_sections),settings:s,student_name:a.student_name,demo_mode:a.is_demo===true};if(a.submitted_at){if(s.show_result)Object.assign(response,{score:a.score,total:a.total,percent:a.percent,section_scores:a.section_scores});else response.result_hidden=true;if(s.show_correct_count)response.correct_count=a.score;if(s.show_indicator_result){const groups=new Map<string,Row[]>();for(const q of flat(a)){const key=indicatorOf(q),g=groups.get(key)||[];g.push(q);groups.set(key,g);}response.indicators=[...groups].map(([key,qs])=>({key,text:qs[0].indicator_text,...gradeSections([{subject:qs[0].subject,questions:qs}],a.answers)}));}if(s.show_answers)response.review=flat(a).map(q=>({id:q.id,correct_index:q.correctIndex,explanation:q.explanation,indicator_text:q.indicator_text}));}return response;}
 async function saveState(db:any,a:Row,body:Row) {
  if(a.submitted_at)return a;const now=Date.now();if(now>=new Date(a.expires_at).getTime())return await finish(db,a);
  const s=a.config.settings;let index=a.section_index,cursor=a.cursor,sectionStarted=a.section_started_at;const section=a.rendered_sections[index],deadline=new Date(sectionStarted).getTime()+section.duration_minutes*60000;
@@ -618,6 +618,34 @@ async function saveState(db:any,a:Row,body:Row) {
  const row=must(await db.from('nafes_assessment_attempts').update(update).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select().maybeSingle());if(!row)fail('تغيرت المحاولة أثناء الحفظ؛ أعد المحاولة.',409);return row;
 }
 async function studentAction(db:any,body:Row) {
+ if(body.action==='assessment_demo_catalog'){
+   const demoCode=String(body.demo_code||'').trim();
+   if(!/^\d{6}$/.test(demoCode))fail('رمز حساب الطالب التجريبي غير صحيح.',401);
+   const demoHash=await hash(demoCode);
+   const student=must(await db.from('nafes_students')
+     .select('id,full_name,class_name,national_id_last3,is_demo,is_active')
+     .eq('is_demo',true).eq('is_active',true).eq('demo_access_hash',demoHash).maybeSingle());
+   if(!student)fail('رمز حساب الطالب التجريبي غير صحيح.',401);
+   const rows=must(await db.from('nafes_assessments')
+     .select('id,title,short_code,kind,status,config,published_at')
+     .eq('status','published').neq('kind','simulation')
+     .order('published_at',{ascending:false}));
+   const now=Date.now();
+   const tests=(rows||[]).map((t:Row)=>{
+     const settings=t.config?.settings||{};
+     const opens=settings.opens_at?new Date(settings.opens_at).getTime():null;
+     const closes=settings.closes_at?new Date(settings.closes_at).getTime():null;
+     const availability=opens&&now<opens?'upcoming':closes&&now>closes?'closed':'open';
+     return {
+       id:t.id,title:t.title,short_code:t.short_code,availability,
+       opens_at:settings.opens_at||null,closes_at:settings.closes_at||null,
+       subjects:(t.config?.sections||[]).map((s:Row)=>s.subject),
+       question_count:(t.config?.sections||[]).reduce((n:number,s:Row)=>n+Number(s.question_count||0),0),
+       class_name:t.config?.class_name||'',teacher_name:t.config?.teacher_name||'',published_at:t.published_at
+     };
+   });
+   return {ok:true,demo:true,student:{full_name:student.full_name,class_name:student.class_name,national_id_last3:student.national_id_last3},tests};
+ }
  if(body.action==='assessment_info')return studentInfo(await assessment(db,body.code));
  if(body.action==='assessment_training'){
    const t=await assessment(db,body.code);
@@ -677,6 +705,7 @@ async function studentAction(db:any,body:Row) {
    if(s.closes_at&&now>new Date(s.closes_at).getTime())fail('انتهى وقت إتاحة الاختبار.',403);
    const session=tidy(body.session_id,96);if(!session)fail('بيانات الجلسة غير مكتملة.');
    const student=await verifyStudentIdentity(db, String(body.student_name || ''), String(body.student_no || body.national_id_last3 || ''), String(body.class_name || ''));
+   const isDemo=student.is_demo===true;
    const name=student.full_name, no=student.national_id_last3, student_id=student.id, student_key=student.id;
    const className=student.class_name || c.class_name || tidy(body.class_name,80);
    if(c.identity_mode==='list'&&!c.roster.some((n:string)=>normalizeArabicName(n)===normalizeArabicName(name)))fail('اكتب اسمك كما هو في كشف الفصل.',403);
@@ -686,13 +715,13 @@ async function studentAction(db:any,body:Row) {
    if(active){if(s.lock_session&&active.session_id!==session&&now<new Date(active.lease_until).getTime())fail('المحاولة مفتوحة في جهاز أو تبويب آخر. أغلقها هناك وانتظر ٤٥ ثانية لإكمالها هنا.',409);
     active=must(await db.from('nafes_assessment_attempts').update({session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),version:active.version+1}).eq('id',active.id).eq('version',active.version).is('submitted_at',null).select().maybeSingle());if(!active)fail('فُتحت المحاولة في تبويب آخر؛ أعد المحاولة.',409);return{...attemptResponse(active),access_token:access,resumed:true};}
    const completed=previous.find((a:Row)=>!!a.submitted_at);
-   if(completed&&body.start_new_attempt!==true){
+   if(completed&&!isDemo&&body.start_new_attempt!==true){
      return {...attemptResponse(completed),resumed:true,completed_before:true,training_url:`${BASE}training.html?t=${t.short_code}`};
    }
-   if(previous.length>=s.attempts){if(previous[0])return{...attemptResponse(previous[0]),attempts_exhausted:true,training_url:`${BASE}training.html?t=${t.short_code}`};fail('استُنفد عدد المحاولات المسموح به.',409);}
+   if(!isDemo&&previous.length>=s.attempts){if(previous[0])return{...attemptResponse(previous[0]),attempts_exhausted:true,training_url:`${BASE}training.html?t=${t.short_code}`};fail('استُنفد عدد المحاولات المسموح به.',409);}
    const seed=token(12);const rand=randomFrom(seed);const sections=t.rendered_sections.map((section:Row)=>({...section,questions:(s.shuffle_questions?shuffle(section.questions,rand):section.questions).map((q:Row)=>s.shuffle_options?permuteQuestion(q,rand):q)}));
    const duration=c.sections.reduce((n:number,sec:Row)=>n+sec.duration_minutes,0)+s.break_minutes*(sections.length-1);const expires=new Date(Math.min(now+duration*60000,s.closes_at?new Date(s.closes_at).getTime():Infinity)).toISOString();
-   const r=await db.from('nafes_assessment_attempts').insert({assessment_id:t.id,student_id,student_name:name,student_no:no,student_key,class_name:className,attempt_no:previous.length+1,config:c,rendered_sections:sections,session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),expires_at:expires}).select().single();if(r.error?.code==='23505')fail('بدأت محاولة لهذا الطالب؛ أعد فتحها من التبويب الأصلي.',409);const created=must(r);return{...attemptResponse(created),access_token:access,resumed:false};
+   const r=await db.from('nafes_assessment_attempts').insert({assessment_id:t.id,student_id,student_name:name,student_no:no,student_key,class_name:className,attempt_no:previous.length+1,config:c,rendered_sections:sections,session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),expires_at:expires,is_demo:isDemo}).select().single();if(r.error?.code==='23505')fail('بدأت محاولة لهذا الطالب؛ أعد فتحها من التبويب الأصلي.',409);const created=must(r);return{...attemptResponse(created),access_token:access,resumed:false};
  }
  if(!isUUID(body.attempt_id)||!body.access_token)fail('تعذر التحقق من المحاولة.',403);let a=must(await db.from('nafes_assessment_attempts').select('*').eq('id',body.attempt_id).eq('access_hash',await hash(String(body.access_token))).maybeSingle());if(!a)fail('تعذر التحقق من المحاولة.',403);
  if(!a.submitted_at&&a.config.settings.lock_session&&a.session_id!==body.session_id)fail('المحاولة قيد الاستخدام في تبويب آخر.',409);
@@ -753,7 +782,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_paper') {
   if(!SOURCES[b.source]||!isUUID(b.attempt_id)||b.source==='simulation')fail('المحاولة غير موجودة.',404);
   const a=must(await db.from(SOURCES[b.source]).select('*').eq('id',b.attempt_id).maybeSingle());
-  if(!a)fail('المحاولة غير موجودة.',404);
+  if(!a||a.is_demo===true)fail('المحاولة غير موجودة.',404);
   const map=await metadata(db,[a],b.source),rawAttempt=canonical(a,b.source,map),attempt=scopedAttempt(rawAttempt,owner);
   if(!attempt)fail('هذه الورقة ليست ضمن مادة حساب المعلم.',403);
   const scope=teacherScope(owner);
