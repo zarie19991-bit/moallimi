@@ -556,7 +556,7 @@ async function handleSimulationAction(body: Record<string, unknown>) {
       const storedConfig = parseSimulationConfig(active.config)!;
       return json({ attempt_id: active.id, resumed: true, submitted: false, expires_at: active.expires_at, current_section: active.current_section || 0, answers: active.answers || {}, sections: publicSimulationSections(active.rendered_sections || []), review: [] });
     }
-    if ((previous || []).length >= config.attempts) return json({ error: "استُنفد عدد المحاولات المسموح به." }, 409);
+    if (student?.is_demo !== true && (previous || []).length >= config.attempts) return json({ error: "استُنفد عدد المحاولات المسموح به." }, 409);
 
     const attemptNumber = (previous || []).length + 1;
     const sections: Record<string, unknown>[] = [];
@@ -577,6 +577,7 @@ async function handleSimulationAction(body: Record<string, unknown>) {
       config,
       rendered_sections: sections,
       expires_at: expiresAt,
+      is_demo: student?.is_demo === true,
     }).select().single();
     if (createError) throw createError;
     return json({ attempt_id: created.id, resumed: false, submitted: false, expires_at: expiresAt, current_section: 0, answers: {}, sections: publicSimulationSections(sections), review: [] });
@@ -690,6 +691,10 @@ Deno.serve(async (req: Request) => {
       const no = student.national_id_last3;
       const studentKey = student.id;
       const studentId = student.id;
+      const isDemo = student.is_demo === true;
+      const rendered = reviewedRendered!;
+      const expires = new Date(Date.now() + (Number(s.duration_minutes) || 20) * 60000).toISOString();
+      const ids = rendered.map((q) => q.id);
 
       const { data: existing, error: existingError } = await db
         .from("nafes_exam_attempts")
@@ -701,6 +706,37 @@ Deno.serve(async (req: Request) => {
         .eq("student_key", studentKey)
         .maybeSingle();
       if (existingError) throw existingError;
+      if (existing && isDemo) {
+        const { data: reset, error: resetError } = await db.from("nafes_exam_attempts")
+          .update({
+            student_id: studentId,
+            student_name: name,
+            student_no: no,
+            question_ids: ids,
+            rendered_questions: rendered,
+            answers: {},
+            started_at: new Date().toISOString(),
+            expires_at: expires,
+            submitted_at: null,
+            score: null,
+            percent: null,
+            is_demo: true,
+          })
+          .eq("id", existing.id)
+          .select()
+          .single();
+        if (resetError) throw resetError;
+        return json({
+          attempt_id: reset.id,
+          resumed: false,
+          submitted: false,
+          expired: false,
+          demo_mode: true,
+          expires_at: reset.expires_at,
+          answers: {},
+          questions: publicQuestions(reset.rendered_questions || []),
+        });
+      }
       if (existing) {
         // Preserve the exact paper and answers from the moment this attempt began.
         const expired = Date.now() > new Date(existing.expires_at).getTime();
@@ -739,10 +775,6 @@ Deno.serve(async (req: Request) => {
             : [],
         });
       }
-
-      const rendered = reviewedRendered!;
-      const expires = new Date(Date.now() + (Number(s.duration_minutes) || 20) * 60000).toISOString();
-      const ids = rendered.map((q) => q.id);
       const { data: attempt, error: attemptError } = await db
         .from("nafes_exam_attempts")
         .insert({
@@ -757,6 +789,7 @@ Deno.serve(async (req: Request) => {
           question_ids: ids,
           rendered_questions: rendered,
           expires_at: expires,
+          is_demo: isDemo,
         })
         .select()
         .single();
@@ -769,6 +802,7 @@ Deno.serve(async (req: Request) => {
         expires_at: expires,
         answers: {},
         questions: publicQuestions(rendered),
+        demo_mode: isDemo,
       });
     }
 
