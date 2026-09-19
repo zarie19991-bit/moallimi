@@ -20,6 +20,7 @@ async function post(body){
 function nav(){return[
  ['home','الرئيسية','home'],
  ['tasks','مهامي','list-checks'],
+ ['competition','المسابقة','trophy'],
  ['progress','تقدمي','chart-no-axes-column-increasing']
 ]}
 function shell(){
@@ -52,7 +53,7 @@ function shell(){
      <section id="sview" class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto"></section>
    </main>
  </div>
- <nav id="mnav" class="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t z-40 grid grid-cols-3 p-1"></nav>
+ <nav id="mnav" class="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t z-40 grid grid-cols-4 p-1"></nav>
  </div>`;
  renderNav();renderView();wireShell();icons();
 }
@@ -116,10 +117,14 @@ function progress(){
    </section>
  </div>`;
 }
+function competition(){
+ return '<div id="lugatiCompetitionMount"><div class="bg-white border rounded-3xl p-10 text-center text-sm text-slate-400">جارٍ تحميل مسابقة المؤشرات…</div></div>';
+}
 function renderView(){
  const v=document.getElementById('sview');if(!v)return;
- v.innerHTML=S.tab==='home'?home():S.tab==='tasks'?tasks():progress();
+ v.innerHTML=S.tab==='home'?home():S.tab==='tasks'?tasks():S.tab==='competition'?competition():progress();
  renderNav();
+ if(S.tab==='competition'&&window.LugatiCompetition?.mount)window.LugatiCompetition.mount({token:S.token,role:'student',profile:S.profile});
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;renderView()});
  icons();
  window.dispatchEvent(new CustomEvent('lugati:student-view-rendered',{detail:{tab:S.tab}}));
