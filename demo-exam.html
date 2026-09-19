@@ -1,0 +1,75 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#065f46"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>اختبار الطالب التجريبي | معلّمي</title><link rel="stylesheet" href="e.css?v=20260914-type1"><link rel="stylesheet" href="stitch-platform-theme.css?v=20260915-1"></head><body class="page-exam">
+<header class="exam-top">
+  <div class="brand"><span>م</span><div><b>معلّمي</b><small>منصة الاختبارات المدرسية</small></div></div>
+  <div class="top-meta"><span id="code" class="exam-code-pill"></span><span id="saveState" role="status" class="save-state-indicator"></span></div>
+</header>
+<main id="screen" class="exam-shell">
+<section id="intro" class="panel intro-panel">
+  <div class="intro-badge">الاختبارات الوطنية المدرسية</div><h1 id="title">جارٍ تحميل الاختبار…</h1><div id="subjectPill" class="subject-pill"></div><p id="details" class="intro-details"></p><div id="sections" class="intro-sections"></div>
+  <div class="student-instructions-box security-notice" id="securityNotice"><b>وضع الطالب التجريبي:</b><ul><li>هذا الاختبار يعمل بالحساب التجريبي فقط.</li><li>لا تُحتسب المحاولة في التحليل أو التقارير أو عدد المختبرين.</li><li>لا تحتاج إلى إدخال الاسم أو رقم الهوية أو الفصل.</li></ul></div>
+  <p id="message" role="alert" class="intro-error-msg"></p>
+  <form id="identity" class="entry-form" hidden>
+    <div class="form-field"><label for="studentName">اسم الطالب الكامل *</label><input id="studentName" required autocomplete="name" maxlength="120" placeholder="مثال: عبد العزيز محمد الغامدي"></div>
+    <div class="form-field"><label for="studentNo">آخر ٣ أرقام من الهوية الوطنية *</label><div class="id3-wrap"><input id="studentNo" required maxlength="3" inputmode="numeric" pattern="[0-9]{3}" placeholder="مثال: 456" autocomplete="off"><span class="id3-badge-hint">٣ أرقام فقط</span></div><small class="id3-helper-text">أدخل آخر ثلاثة أرقام فقط من سجلك المدني للتحقق من هوية الطالب.</small></div>
+    <div class="form-field form-field-class" id="classFieldWrap"><label for="className">الفصل *</label><input id="className" required list="classOptions" maxlength="80" autocomplete="off" placeholder="اختر: أ أو ب أو ج أو د"><datalist id="classOptions"><option value="أ"><option value="ب"><option value="ج"><option value="د"></datalist><small class="id3-helper-text">اختر الفصل المطابق لكشف المدرسة.</small></div>
+    <button type="submit" class="btn-start-exam" id="startBtn">دخول الاختبار</button>
+  </form>
+</section>
+<section id="player" class="panel exam-panel" hidden><div class="exam-head"><div><small id="sectionTitle"></small><h2 id="questionTitle"></h2></div><b class="timer" id="timer" aria-label="الوقت المتبقي"></b></div><div class="progress" id="progress"></div><div id="questions"></div><div class="nav exam-nav"><button id="prev">السابق</button><button id="review">مراجعة الإجابات</button><button id="next">التالي</button><button id="finish">تسليم القسم</button></div><button id="calcButton" hidden>آلة حاسبة</button><p id="playerError" role="alert"></p></section>
+<section id="breakPanel" class="panel" hidden><h2>استراحة بين الأقسام</h2><p id="breakText"></p></section><section id="result" class="panel" hidden></section>
+</main>
+<div id="watermark" aria-hidden="true"></div><div id="printShield">الطباعة غير متاحة أثناء الاختبار.</div><script src="question-media.js?v=20260909-final"></script><script src="edge-retry.js?v=20260912-1"></script><script src="edge-retry-ui.js?v=20260913-advanced2"></script><script>
+(()=>{
+  const retryFetch=window.fetch.bind(window);
+  window.fetch=async function(input,init={}){
+    const response=await retryFetch(input,init);
+    try{
+      const url=typeof input==='string'?input:String(input?.url||'');
+      if(!url.includes('/functions/v1/nafes-exam')||String(init?.method||'GET').toUpperCase()!=='POST')return response;
+      const payload=typeof init?.body==='string'?JSON.parse(init.body):null;
+      if(payload?.action!=='assessment_info')return response;
+      const data=await response.clone().json();
+      if(data&&typeof data==='object'){
+        data.settings={
+          lock_session:false,
+          allow_back:true,
+          one_per_page:true,
+          allow_copy:false,
+          disable_right_click:true,
+          disable_print:true,
+          disable_shortcuts:true,
+          log_visibility:true,
+          watermark:true,
+          ...(data.settings&&typeof data.settings==='object'?data.settings:{})
+        };
+        const headers=new Headers(response.headers);
+        headers.set('Content-Type','application/json; charset=utf-8');
+        return new Response(JSON.stringify(data),{status:response.status,statusText:response.statusText,headers});
+      }
+    }catch(_){ }
+    return response;
+  };
+})();
+</script><script>if(!new URLSearchParams(location.search).get("demo_code"))location.replace("student-demo.html");</script><script src="e-player-demo-fix.js?v=20260919-demo10"></script><script>
+(()=>{
+  let forcedClassCleared=false;
+  const unlockClassField=()=>{
+    try{const demo=JSON.parse(sessionStorage.getItem('nafes_demo_student_identity_v1')||'null');if(demo?.demo===true)return;}catch(_){}
+    const el=document.getElementById('className');
+    if(!el)return;
+    const wasLocked=el.readOnly||el.disabled||el.hasAttribute('readonly')||el.hasAttribute('disabled');
+    if(wasLocked&&!forcedClassCleared){
+      el.value='';
+      forcedClassCleared=true;
+    }
+    el.readOnly=false;
+    el.disabled=false;
+    el.removeAttribute('readonly');
+    el.removeAttribute('disabled');
+    el.setAttribute('aria-readonly','false');
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',unlockClassField,{once:true});else unlockClassField();
+  new MutationObserver(unlockClassField).observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['readonly','disabled']});
+  window.addEventListener('pageshow',unlockClassField);
+})();
+</script></body></html>
