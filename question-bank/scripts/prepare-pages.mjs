@@ -49,7 +49,7 @@ if(fs.existsSync(assets)){
   }
 }
 
-for(const file of ['index.html','create.html','analysis.html','student-papers.html','e.html','exam.html','simulation.html','question-media.js']){
+for(const file of ['index.html','teacher.html','create.html','analysis.html','student-papers.html','e.html','exam.html','simulation.html','question-media.js']){
   if(!fs.existsSync(path.join(out,file)))throw new Error(`Missing public page: ${file}`);
 }
 console.log(`Prepared ${files.length} canonical production files and reviewed diagrams.`);
