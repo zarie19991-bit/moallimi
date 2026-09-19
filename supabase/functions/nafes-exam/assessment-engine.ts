@@ -108,7 +108,7 @@ export async function verifyStudentIdentity(db: any, rawName: string, rawLast3: 
 
   const { data: candidates, error } = await db
     .from('nafes_students')
-    .select('id,full_name,name_normalized,grade,class_name,national_id_last3,is_active')
+    .select('id,full_name,name_normalized,grade,class_name,national_id_last3,is_active,is_demo')
     .eq('national_id_last3', normDigits)
     .eq('is_active', true);
   if (error) throw error;
