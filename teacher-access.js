@@ -5,6 +5,7 @@
   const STORAGE = 'nafes_teacher_key_v1';
   const SESSION_STORAGE = 'nafes_teacher_session_key_v1';
   const QA_STORAGE = 'nafes_teacher_qa_v1';
+  const PROFILE_CACHE = 'nafes_teacher_profile_cache_v1';
   const ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
   const QA_ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-qa-teacher';
   const PROFILE_ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-teacher-profile';
@@ -24,10 +25,13 @@
     try { return sessionStorage.getItem(SESSION_STORAGE) || memoryKey || localStorage.getItem(STORAGE) || ''; } catch (_) { return memoryKey; }
   }
   function clearReadCache() { readCache.clear(); }
-  function resetProfile() { profile = null; profilePromise = null; document.documentElement.removeAttribute('data-teacher-scope'); document.getElementById('nafesTeacherScopeStyle')?.remove(); }
+  function readCachedProfile(){try{const raw=sessionStorage.getItem(PROFILE_CACHE)||localStorage.getItem(PROFILE_CACHE)||'';const p=raw?JSON.parse(raw):null;return p&&['all','reading','math','science'].includes(p.subject_scope)?p:null;}catch(_){return null;}}
+  function cacheProfile(p){try{sessionStorage.setItem(PROFILE_CACHE,JSON.stringify(p));if(localStorage.getItem(STORAGE))localStorage.setItem(PROFILE_CACHE,JSON.stringify(p));else localStorage.removeItem(PROFILE_CACHE);}catch(_){}}
+  function clearProfileCache(){try{sessionStorage.removeItem(PROFILE_CACHE);localStorage.removeItem(PROFILE_CACHE);}catch(_){}}
+  function resetProfile() { profile = null; profilePromise = null; document.documentElement.removeAttribute('data-teacher-scope'); document.documentElement.classList.remove('teacher-scoped-preboot'); document.getElementById('nafesTeacherScopeStyle')?.remove(); }
   function emit(authenticated) { window.dispatchEvent(new CustomEvent('nafes:auth-changed', { detail: { authenticated, mode: isQa() ? 'qa' : 'teacher' } })); }
   function subjectOfQuestion(q) { return String(q?.subject || q?.subject_key || '').trim().toLowerCase(); }
-  function scope() { return profile?.subject_scope || 'all'; }
+  function scope() { return profile?.subject_scope || readCachedProfile()?.subject_scope || 'all'; }
   function scopeAllows(subject) { const s = scope(); return s === 'all' || s === String(subject || '').trim().toLowerCase(); }
 
   function filterAttempt(a) {
@@ -71,31 +75,36 @@
   }
 
   function applyScopeDom() {
-    const s = scope(); document.documentElement.dataset.teacherScope = s; document.getElementById('nafesTeacherScopeStyle')?.remove(); if (s === 'all') return;
+    const s = scope(); document.documentElement.dataset.teacherScope = s; document.documentElement.classList.remove('teacher-scoped-preboot'); document.getElementById('nafesTeacherScopeStyle')?.remove();
+    const currentPage=(location.pathname.split('/').pop()||'index.html').toLowerCase();
+    if (s !== 'all' && (currentPage==='' || currentPage==='index.html')) { location.replace('teacher.html'); return; }
+    if (s === 'all') return;
     const style = document.createElement('style'); style.id = 'nafesTeacherScopeStyle'; style.textContent = `[data-subject]:not([data-subject="${s}"]){display:none!important}.selection-panel[data-select-subject]:not([data-select-subject="${s}"]){display:none!important}#navStudentsBtn,.btn-quick-manage,.simulation-secondary-btn,#deleteStudentResultsBtn,#resetTrialDataBtn{display:none!important}`; document.head.appendChild(style);
     const fix = () => {
       for (const id of ['subjectSelect','reportSubjectSelect','paperSubject']) { const sel = document.getElementById(id); if (!sel) continue; [...sel.options].forEach(o => { o.hidden = o.value && o.value !== s; o.disabled = o.value && o.value !== s; }); if ([...sel.options].some(o => o.value === s)) { sel.value = s; sel.dispatchEvent(new Event('change', { bubbles: true })); } }
       document.querySelectorAll('.section-row[data-subject]').forEach(row => { const allowed = row.dataset.subject === s; row.hidden = !allowed; const enabled = row.querySelector('.enabled'); if (enabled) { enabled.disabled = !allowed; enabled.checked = allowed; } });
       const full = document.querySelector('input[name="testType"][value="full"]'); if (full) { const label = full.closest('label'); if (label) label.style.display = 'none'; if (full.checked) { const custom = document.querySelector('input[name="testType"][value="custom"]'); if (custom) { custom.checked = true; custom.dispatchEvent(new Event('change', { bubbles: true })); } } }
       const overviewTab = document.querySelector('[data-view="overview"]'), reportTab = document.querySelector('[data-view="report"]'); if (overviewTab) overviewTab.style.display = 'none'; if (reportTab) reportTab.style.display = 'none'; if (overviewTab?.classList.contains('active')) document.querySelector('[data-view="subject"]')?.click();
+      document.querySelectorAll('[data-master-home]').forEach(a=>{a.setAttribute('href','teacher.html');a.textContent='حساب المعلم';});
+      document.querySelectorAll('[data-teacher-area-title]').forEach(el=>{el.textContent=(profile?.label||readCachedProfile()?.label||'معلم المادة')+' — '+subjectLabel(s);});
     };
     fix(); setTimeout(fix, 0); setTimeout(fix, 250);
   }
 
   async function ensureProfile(key = getKey()) {
-    if (isQa()) { profile = { label: 'دخول تجريبي', subject_scope: 'all', qa: true }; applyScopeDom(); return profile; }
+    if (isQa()) { profile = { label: 'دخول تجريبي', subject_scope: 'all', qa: true }; cacheProfile(profile); applyScopeDom(); return profile; }
     if (!key || key === '__qa__') return null; if (profile) return profile; if (profilePromise) return profilePromise;
-    profilePromise = (async () => { const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000); try { const response = await fetch(PROFILE_ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json','x-teacher-key':key}, body:'{}', signal:controller.signal, cache:'no-store' }); const data = await response.json().catch(() => ({})); if (!response.ok || data.error) throw Object.assign(new Error(data.error || 'تعذر التحقق من صلاحية المعلم.'), { status: response.status }); profile = { label: data.label || 'معلم المنصة', subject_scope: SUBJECTS.has(data.subject_scope) ? data.subject_scope : 'all' }; applyScopeDom(); window.dispatchEvent(new CustomEvent('nafes:teacher-profile', { detail: profile })); return profile; } finally { clearTimeout(timeout); profilePromise = null; } })();
+    profilePromise = (async () => { const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000); try { const response = await fetch(PROFILE_ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json','x-teacher-key':key}, body:'{}', signal:controller.signal, cache:'no-store' }); const data = await response.json().catch(() => ({})); if (!response.ok || data.error) throw Object.assign(new Error(data.error || 'تعذر التحقق من صلاحية المعلم.'), { status: response.status }); profile = { label: data.label || 'معلم المنصة', subject_scope: SUBJECTS.has(data.subject_scope) ? data.subject_scope : 'all' }; cacheProfile(profile); applyScopeDom(); window.dispatchEvent(new CustomEvent('nafes:teacher-profile', { detail: profile })); return profile; } finally { clearTimeout(timeout); profilePromise = null; } })();
     return profilePromise;
   }
 
   function setQa(enabled) {
-    memoryKey = ''; clearReadCache(); resetProfile();
+    memoryKey = ''; clearReadCache(); clearProfileCache(); resetProfile();
     try { localStorage.removeItem(STORAGE); sessionStorage.removeItem(SESSION_STORAGE); localStorage.removeItem(QA_STORAGE); if (enabled) sessionStorage.setItem(QA_STORAGE, '1'); else sessionStorage.removeItem(QA_STORAGE); } catch (_) {}
     document.getElementById('nafesTeacherLogin')?.remove(); if (enabled) ensureProfile('__qa__').catch(()=>{}); emit(!!enabled);
   }
   function setKey(value, remember = false) {
-    memoryKey = String(value || '').trim(); clearReadCache(); resetProfile();
+    memoryKey = String(value || '').trim(); clearReadCache(); clearProfileCache(); resetProfile();
     try {
       localStorage.removeItem(QA_STORAGE); sessionStorage.removeItem(QA_STORAGE);
       if (memoryKey) sessionStorage.setItem(SESSION_STORAGE, memoryKey); else sessionStorage.removeItem(SESSION_STORAGE);
@@ -104,7 +113,7 @@
     document.getElementById('nafesTeacherLogin')?.remove(); if (memoryKey) ensureProfile(memoryKey).catch(() => {}); emit(!!memoryKey);
   }
   function clearKey() {
-    memoryKey = ''; clearReadCache(); resetProfile();
+    memoryKey = ''; clearReadCache(); clearProfileCache(); resetProfile();
     try { sessionStorage.removeItem(SESSION_STORAGE); sessionStorage.removeItem(QA_STORAGE); localStorage.removeItem(STORAGE); localStorage.removeItem(QA_STORAGE); } catch (_) {}
     document.getElementById('nafesTeacherLogin')?.remove(); emit(false);
   }
@@ -139,8 +148,8 @@
   }
   function refreshAccountDom() {
     const signedIn = !!getKey();
-    document.querySelectorAll('[data-teacher-label]').forEach(el => { el.textContent = signedIn ? (profile?.label || 'حساب المعلم') : 'غير مسجل الدخول'; });
-    document.querySelectorAll('[data-teacher-scope-label]').forEach(el => { el.textContent = signedIn ? subjectLabel(scope()) : '—'; });
+    const cached=profile||readCachedProfile(); document.querySelectorAll('[data-teacher-label]').forEach(el => { el.textContent = signedIn ? (cached?.label || 'حساب المعلم') : 'غير مسجل الدخول'; });
+    document.querySelectorAll('[data-teacher-scope-label]').forEach(el => { el.textContent = signedIn ? subjectLabel(cached?.subject_scope||scope()) : '—'; });
     document.querySelectorAll('[data-teacher-login]').forEach(el => { el.hidden = signedIn; });
     document.querySelectorAll('[data-teacher-logout]').forEach(el => { el.hidden = !signedIn; });
   }
