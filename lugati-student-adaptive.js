@@ -11,7 +11,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const icon=(n,c='w-4 h-4')=>`<i data-lucide="${n}" class="${c}"></i>`;
 
 function icons(){try{window.lucide?.createIcons()}catch{}}
-function session(){try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch{return null}}
+function session(){try{return JSON.parse(sessionStorage.getItem(KEY)||localStorage.getItem(KEY)||'null')}catch{return null}}
 async function post(body){
  const r=await fetch(AUTH,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${S.token}`},body:JSON.stringify(body),cache:'no-store'});
  const d=await r.json().catch(()=>({}));
@@ -71,7 +71,7 @@ function renderNav(){
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;renderNav();renderView()});
 }
 function wireShell(){
- document.getElementById('logout').onclick=async()=>{try{await post({action:'logout'})}catch{}localStorage.removeItem(KEY);location.replace('./lugati-complete.html')};
+ document.getElementById('logout').onclick=async()=>{try{await post({action:'logout'})}catch{}sessionStorage.removeItem(KEY);localStorage.removeItem(KEY);location.replace('./lugati-complete.html')};
 }
 function home(){
  return `<div class="space-y-5 pb-24 lg:pb-8">
@@ -182,7 +182,7 @@ async function init(){
    shell();
  }catch(e){
    const msg=String(e?.message||'');
-   if(/جلسة|تسجيل الدخول/.test(msg)){localStorage.removeItem(KEY);location.replace('./lugati-complete.html?student=1&session=expired');return}
+   if(/جلسة|تسجيل الدخول/.test(msg)){sessionStorage.removeItem(KEY);localStorage.removeItem(KEY);location.replace('./lugati-complete.html?student=1&session=expired');return}
    document.getElementById('app').innerHTML=`<div class="min-h-screen flex items-center justify-center p-5"><div class="bg-white border rounded-3xl p-7 text-center max-w-md"><div class="text-rose-600 font-black">تعذر تحميل مساحة الطالب</div><div class="text-xs text-slate-500 mt-2">${esc(msg)}</div><button onclick="location.reload()" class="mt-5 px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-black">إعادة المحاولة</button></div></div>`;
  }
 }
