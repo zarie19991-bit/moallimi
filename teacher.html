@@ -21,19 +21,19 @@ body{margin:0;background:#f3f7f6;color:#17324d;font-family:Tahoma,Arial,sans-ser
 .logged-out{display:none;background:#fff;border:1px solid #d8e4e2;border-radius:22px;padding:28px;text-align:center}.logged-out h1{margin-top:0}.logged-out p{line-height:1.8;color:#667775}
 @media(max-width:700px){.profile-grid,.quick-grid{grid-template-columns:1fr}.profile-card h1{font-size:24px}}
 </style>
-</head>
+<script src="teacher-preboot.js?v=20260919-scope1"></script></head>
 <body>
 <div class="account-shell">
  <header class="account-top">
-  <a class="account-brand" href="./"><span class="mark">م</span><div><b>معلّمي</b><small style="display:block;color:#70817f">حساب المعلم</small></div></a>
+  <a class="account-brand" href="teacher.html" data-master-home><span class="mark">م</span><div><b>معلّمي</b><small style="display:block;color:#70817f">حساب المعلم</small></div></a>
   <div class="account-actions">
-   <a class="account-btn ghost" href="./">الرئيسية</a>
+   <a class="account-btn ghost" href="./" data-master-home>الرئيسية</a>
    <button class="account-btn danger" type="button" data-teacher-logout data-logout-target="teacher.html">تسجيل الخروج</button>
   </div>
  </header>
 
  <section id="profileCard" class="profile-card">
-  <span class="eyebrow">الحساب الحالي</span>
+  <span class="eyebrow">الحساب الحالي</span><div data-teacher-area-title style="margin-top:8px;font-weight:900;color:#0f6b63">حساب المعلم</div>
   <h1 data-teacher-label>حساب المعلم</h1>
   <span class="scope-pill">المادة: <span data-teacher-scope-label style="margin-inline-start:5px">—</span></span>
   <div class="profile-grid">
@@ -57,7 +57,7 @@ body{margin:0;background:#f3f7f6;color:#17324d;font-family:Tahoma,Arial,sans-ser
   <a class="quick-card" href="student-papers.html"><strong>📄 أوراق الطلاب</strong><small>استعراض أوراق الإجابات والاختبارات المرتبطة بالمادة.</small></a>\n  <a class="quick-card" href="student-demo.html"><strong>🧪 معاينة كطالب تجريبي</strong><small>ادخل إلى الاختبارات كطالب دون أن تُحسب المحاولات في التحليل أو التقارير.</small></a>
  </section>
 </div>
-<script src="teacher-access.js?v=20260919-account1"></script>
+<script src="teacher-access.js?v=20260919-scope4"></script>
 <script>
 (async()=>{
  const profileCard=document.getElementById('profileCard'),loggedOut=document.getElementById('loggedOut'),quickGrid=document.getElementById('quickGrid'),quickTitle=document.getElementById('quickTitle');
