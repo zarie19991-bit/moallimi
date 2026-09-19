@@ -12,6 +12,7 @@ nafes-math.js
 nafes-science.js
 teacher-access.js
 teacher.html
+student-demo.html
 qr.js
 qr-vendor.js
 tests.js
