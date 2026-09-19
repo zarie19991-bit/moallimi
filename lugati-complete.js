@@ -7,6 +7,9 @@ const QB=`${API}/lugati-question-bank-read`;
 const CONTENT=`${API}/lugati-content`;
 const ADAPT=`${API}/lugati-adaptive-plan`;
 const SESSION_KEY='lugati_exact_session_v2';
+const LEGACY_SESSION_KEY='lugati_session_v1';
+const LEGACY_PROFILE_KEY='lugati_profile_v1';
+const LEGACY_ROLE_KEY='lugati_role_v1';
 
 const READING_INDICATORS=[
 'يستنتج معاني المفردات من خلال توظيف خبراته السابقة (الترادف، والتضاد، والسياق، والتفسير، والتعريف، والتصنيف، والتمثيل).',
@@ -67,8 +70,9 @@ const globalIndicator=(outcome,idx)=>{const o=String(outcome||'');if(o.startsWit
 const readingTitle=(outcome,idx,fallback='')=>{const n=globalIndicator(outcome,idx);return READING_INDICATORS[n-1]||fallback||`المؤشر ${n}`};
 function icon(name,cls='w-4 h-4'){return `<i data-lucide="${name}" class="${cls}"></i>`}
 function refreshIcons(){try{window.lucide?.createIcons()}catch{}}
-function saveSession(v){if(v)localStorage.setItem(SESSION_KEY,JSON.stringify(v));else localStorage.removeItem(SESSION_KEY)}
-function getSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}
+function clearLegacySession(){for(const store of [sessionStorage,localStorage]){try{store.removeItem(LEGACY_SESSION_KEY);store.removeItem(LEGACY_PROFILE_KEY);store.removeItem(LEGACY_ROLE_KEY)}catch{}}}
+function saveSession(v){if(v){localStorage.setItem(SESSION_KEY,JSON.stringify(v));clearLegacySession()}else{try{localStorage.removeItem(SESSION_KEY);sessionStorage.removeItem(SESSION_KEY)}catch{}clearLegacySession()}}
+function getSession(){for(const store of [sessionStorage,localStorage]){try{const exact=JSON.parse(store.getItem(SESSION_KEY)||'null');if(exact?.token&&exact?.role)return exact;const token=store.getItem(LEGACY_SESSION_KEY),role=store.getItem(LEGACY_ROLE_KEY)||'';if(token&&role)return{token,role,profile:JSON.parse(store.getItem(LEGACY_PROFILE_KEY)||'{}'),expires_at:null}}catch{}}return null}
 async function post(url,body,token=state.token){const h={'Content-Type':'application/json'};if(token)h.Authorization=`Bearer ${token}`;const r=await fetch(url,{method:'POST',headers:h,body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);return d}
 function toast(msg){document.querySelector('.toast')?.remove();const e=document.createElement('div');e.className='toast';e.textContent=msg;document.body.appendChild(e);setTimeout(()=>e.remove(),3200)}
 function shuffle(arr){return [...arr].sort(()=>Math.random()-.5)}
