@@ -2,7 +2,7 @@
 const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
 const MODEL_COUNT=2;
 const LEGACY_IDENTITY_KEY='nafes_legacy_student_identity',DEMO_IDENTITY_KEY='nafes_demo_student_identity_v1';
-const qs=new URLSearchParams(location.search);const P={subject:qs.get('s')||'',outcome:qs.get('o')||'',indicator:Number(qs.get('i')||0),model:Number(qs.get('m')||0)};
+const qs=new URLSearchParams(location.search),demoAccessCode=qs.get('demo_code')||'';const P={subject:qs.get('s')||'',outcome:qs.get('o')||'',indicator:Number(qs.get('i')||0),model:Number(qs.get('m')||0)};
 const SUBJECTS=[window.NAFES_READING,window.NAFES_MATH,window.NAFES_SCIENCE].filter(Boolean);const subj=SUBJECTS.find(s=>s.key===P.subject),out=subj?.outcomes?.find(o=>o.code===P.outcome),indicatorText=out?.indicators?.[P.indicator-1]||'';
 const $=id=>document.getElementById(id);const letters=['أ','ب','ج','د'];let attempt=null,questions=[],answers={},current=0,timerId=null,saving=false,finishing=false;
 const code=()=>`N3-${({reading:'R',math:'M',science:'S'}[P.subject]||'X')}-${String(P.outcome).replace(/[^0-9A-Za-z]/g,'')}-I${String(P.indicator).padStart(2,'0')}-M${String(P.model).padStart(2,'0')}`;
@@ -19,11 +19,20 @@ const normalizeDigits=str=>String(str??'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦
 function clearPersistentLegacyIdentity(){try{localStorage.removeItem('nafes_student')}catch(_){}}
 function readSessionIdentity(){try{return JSON.parse(sessionStorage.getItem(LEGACY_IDENTITY_KEY)||'{}')}catch(_){return{}}}
 function readDemoIdentity(){try{const d=JSON.parse(sessionStorage.getItem(DEMO_IDENTITY_KEY)||'null');return d?.demo===true?d:null}catch(_){return null}}
+async function resolveDemoIdentity(){
+ if(!/^\d{6}$/.test(demoAccessCode))return readDemoIdentity();
+ const d=await call({action:'assessment_demo_catalog',demo_code:demoAccessCode});
+ const student=d?.student||{};
+ const demo={demo:true,name:student.full_name||'طالب تجريبي',no:String(student.national_id_last3||'000'),class:student.class_name||'أ'};
+ try{sessionStorage.setItem(DEMO_IDENTITY_KEY,JSON.stringify(demo));}catch(_){}
+ return demo;
+}
 function saveSessionIdentity(name,cls){try{sessionStorage.setItem(LEGACY_IDENTITY_KEY,JSON.stringify({name,class:cls}))}catch(_){}}
 async function init(){
  clearPersistentLegacyIdentity();
  if(!subj||!out||!indicatorText||P.model<1||P.model>MODEL_COUNT){readiness('bad','رابط الاختبار غير صحيح.');return}
  try{
+  await resolveDemoIdentity();
   const p=await call({action:'preview'});
   if(!p.ready){readiness('bad',p.error||'تعذر تجهيز اختبار هذا المؤشر.');return}
   readiness('good',`الاختبار جاهز · ${p.settings.question_count||15} سؤالًا · ${p.settings.duration_minutes||20} دقيقة · تُحفظ نتيجتك لقياس إتقان المؤشر.`);
