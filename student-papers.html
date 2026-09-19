@@ -9,10 +9,10 @@
   <link rel="stylesheet" href="student-papers.css?v=20260914-type1">
   <link rel="stylesheet" href="manual-print-date.css?v=20260913-1">
   <link rel="stylesheet" href="stitch-platform-theme.css?v=20260915-1">
-</head>
+<script src="teacher-preboot.js?v=20260919-scope1"></script></head>
 <body class="page-papers">
 <header class="top no-print">
-  <a class="brand" href="./"><span>م</span><div><b>معلّمي</b><small>أوراق اختبارات الطلاب</small></div></a>
+  <a class="brand" href="./" data-master-home><span>م</span><div><b>معلّمي</b><small>أوراق اختبارات الطلاب</small></div></a>
   <nav>
     <a href="./">المؤشرات</a>
     <a href="create.html">إنشاء الاختبارات</a>
@@ -22,7 +22,7 @@
 </header>
 <main class="shell no-print">
   <section class="hero">
-    <div><span class="eyebrow">نتائج حقيقية فقط</span><h1>أوراق اختبارات الطلاب</h1><p>اختر الفصل ثم المادة ثم الاختبار. تظهر الورقة الكاملة افتراضيًا، ويمكنك بعد ذلك اختيار مؤشر محدد عند الحاجة.</p></div>
+    <div><span class="eyebrow">نتائج حقيقية فقط</span><div data-teacher-area-title style="font-weight:900;color:#0f6b63;margin-bottom:6px">حساب المعلم</div><h1>أوراق اختبارات الطلاب</h1><p>اختر الفصل ثم المادة ثم الاختبار. تظهر الورقة الكاملة افتراضيًا، ويمكنك بعد ذلك اختيار مؤشر محدد عند الحاجة.</p></div>
     <div class="hero-actions"><button id="refreshBtn" class="btn ghost" hidden>تحديث البيانات</button><button id="settingsBtn" class="btn ghost" hidden>بيانات المدرسة والشعارات</button><button id="signoutBtn" class="btn ghost" hidden>تسجيل الخروج</button></div>
   </section>
   <section id="authPanel" class="card auth-card" hidden><h2>دخول المعلم</h2><form id="authForm" class="inline-form"><input id="teacherKey" type="password" required autocomplete="off" placeholder="مفتاح المعلم"><button class="btn primary" type="submit">دخول</button></form><p id="authError" class="error"></p></section>
@@ -43,7 +43,7 @@
   <div class="modal-box"><div class="modal-head"><h2>بيانات المدرسة والشعارات</h2><button id="closeSettingsBtn" class="close" type="button">×</button></div><div class="settings-grid"><label><span>اسم المدرسة</span><input id="schoolNameInput" type="text"></label><label><span>اسم المعلم</span><input id="teacherNameInput" type="text"></label><label><span>اسم مدير المدرسة</span><input id="principalNameInput" type="text"></label><label><span>شعار وزارة التعليم</span><input id="ministryLogoInput" type="file" accept="image/*"></label><label><span>شعار المدرسة</span><input id="schoolLogoInput" type="file" accept="image/*"></label></div><p class="muted">شعار الوزارة يظهر في المنتصف، وشعار المدرسة في أقصى اليسار. لا يوضع أي شعار لم ترفعه أنت.</p><div class="modal-actions"><button id="saveSettingsBtn" class="btn primary" type="button">حفظ</button></div></div>
 </div>
 <section id="printRoot" class="print-root" aria-hidden="true"></section>
-<script src="teacher-access.js?v=20260919-account1"></script>
+<script src="teacher-access.js?v=20260919-scope4"></script>
 <script src="analysis-core.js?v=20260909-final"></script>
 <script src="student-papers.js?v=20260918-1327"></script>
 <script src="student-paper-indicator-default.js?v=20260916-scorefix1"></script>
