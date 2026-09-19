@@ -686,7 +686,23 @@ Deno.serve(async (req: Request) => {
 
       const windowError = checkWindow(s);
       if (windowError) return json({ error: windowError }, 403);
-      const student = await verifyStudentIdentity(db, String(b.student_name || ""), String(b.student_no || b.national_id_last3 || ""), String(b.class_name || b.className || ""));
+      const requestedDemoCode = String(b.demo_code || "").trim();
+      let student;
+      if (requestedDemoCode) {
+        if (!/^\\d{6}$/.test(requestedDemoCode)) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+        const { data: demoStudent, error: demoError } = await db
+          .from("nafes_students")
+          .select("id,full_name,class_name,national_id_last3,is_demo,is_active")
+          .eq("is_demo", true)
+          .eq("is_active", true)
+          .eq("demo_access_hash", await hashKey(requestedDemoCode))
+          .maybeSingle();
+        if (demoError) throw demoError;
+        if (!demoStudent) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+        student = demoStudent;
+      } else {
+        student = await verifyStudentIdentity(db, String(b.student_name || ""), String(b.student_no || b.national_id_last3 || ""), String(b.class_name || b.className || ""));
+      }
       const name = student.full_name;
       const no = student.national_id_last3;
       const studentKey = student.id;
@@ -813,12 +829,28 @@ Deno.serve(async (req: Request) => {
     const cls = String(b.class_name || b.className || "").trim();
     let studentKey = "";
     let studentId: string | null = null;
-    try {
-      const student = await verifyStudentIdentity(db, name, no, cls);
-      studentKey = student.id;
-      studentId = student.id;
-    } catch (_) {
-      studentKey = await hashKey(`${norm(name)}|${norm(no)}`);
+    const requestedDemoCode = String(b.demo_code || "").trim();
+    if (requestedDemoCode) {
+      if (!/^\\d{6}$/.test(requestedDemoCode)) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+      const { data: demoStudent, error: demoError } = await db
+        .from("nafes_students")
+        .select("id,is_demo,is_active")
+        .eq("is_demo", true)
+        .eq("is_active", true)
+        .eq("demo_access_hash", await hashKey(requestedDemoCode))
+        .maybeSingle();
+      if (demoError) throw demoError;
+      if (!demoStudent) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+      studentKey = demoStudent.id;
+      studentId = demoStudent.id;
+    } else {
+      try {
+        const student = await verifyStudentIdentity(db, name, no, cls);
+        studentKey = student.id;
+        studentId = student.id;
+      } catch (_) {
+        studentKey = await hashKey(`${norm(name)}|${norm(no)}`);
+      }
     }
     const attemptId = String(b.attempt_id || "");
     if (!attemptId) return json({ error: "المحاولة غير موجودة." }, 400);
