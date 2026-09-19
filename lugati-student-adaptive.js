@@ -3,9 +3,10 @@
 
 const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1';
 const AUTH=`${API}/lugati-auth`;
+const PLAN=`${API}/lugati-adaptive-plan`;
 const KEY='lugati_exact_session_v2';
 
-const S={token:null,profile:null,tab:'home'};
+const S={token:null,profile:null,tab:'home',teacherTasks:[],taskLoading:false,activeTask:null,taskAnswers:{}};
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const icon=(n,c='w-4 h-4')=>`<i data-lucide="${n}" class="${c}"></i>`;
 
@@ -13,6 +14,12 @@ function icons(){try{window.lucide?.createIcons()}catch{}}
 function session(){try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch{return null}}
 async function post(body){
  const r=await fetch(AUTH,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${S.token}`},body:JSON.stringify(body),cache:'no-store'});
+ const d=await r.json().catch(()=>({}));
+ if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);
+ return d;
+}
+async function planPost(action,extra={}){
+ const r=await fetch(PLAN,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${S.token}`},body:JSON.stringify({action,...extra}),cache:'no-store'});
  const d=await r.json().catch(()=>({}));
  if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);
  return d;
@@ -98,12 +105,46 @@ function tasks(){
    <section class="rounded-[2rem] bg-gradient-to-l from-slate-900 via-emerald-900 to-teal-800 text-white p-6">
      <div class="text-[10px] font-black text-emerald-200">مكان واحد فقط للمهام</div>
      <h1 class="text-2xl font-black mt-2">مهامي</h1>
-     <p class="text-xs text-emerald-100 mt-2">ما يرسله المعلم لك سيظهر هنا، مرتبًا وواضحًا.</p>
+     <p class="text-xs text-emerald-100 mt-2">المسارات العلاجية التي يرسلها المعلم ورحلات ما قبل الاختبار تظهر هنا.</p>
    </section>
-   <section id="readingJourneyTaskMount">
-     <div class="bg-white border rounded-3xl p-8 text-center text-sm text-slate-400">جارٍ تحميل مهامك…</div>
+   <section>
+     <div class="mb-3"><h2 class="font-black text-slate-900">المسارات المرسلة من المعلم</h2><p class="text-[11px] text-slate-400 mt-1">تظهر بعد أن يضغط المعلم «إرسال للطلاب».</p></div>
+     <div id="teacherRemedialTaskMount"><div class="bg-white border rounded-3xl p-8 text-center text-sm text-slate-400">جارٍ تحميل المسارات…</div></div>
+   </section>
+   <section>
+     <div class="mb-3"><h2 class="font-black text-slate-900">رحلات قبل الاختبار</h2><p class="text-[11px] text-slate-400 mt-1">الرحلات التي يرسلها المعلم قبل اختبار المؤشر.</p></div>
+     <div id="readingJourneyTaskMount"><div class="bg-white border rounded-3xl p-8 text-center text-sm text-slate-400">جارٍ تحميل مهامك…</div></div>
    </section>
  </div>`;
+}
+function taskSubject(s){return s==='reading'?'القراءة':s==='math'?'الرياضيات':s==='science'?'العلوم':'—'}
+function taskStatus(s){return s==='completed'?'مكتمل ✓':s==='in_progress'?'قيد الحل':'جديد'}
+async function loadTeacherTasks(){
+ if(S.taskLoading)return;S.taskLoading=true;
+ try{const d=await planPost('my_teacher_tasks');S.teacherTasks=d.tasks||[]}catch(e){S.teacherTasks=[]}finally{S.taskLoading=false;renderTeacherTasks()}
+}
+function renderTeacherTasks(){
+ const box=document.getElementById('teacherRemedialTaskMount');if(!box)return;
+ const rows=S.teacherTasks||[];
+ if(!rows.length){box.innerHTML='<div class="bg-white border rounded-3xl p-8 text-center"><div class="text-3xl">📭</div><div class="font-black mt-2">لا توجد مسارات مرسلة الآن</div><div class="text-xs text-slate-400 mt-1">عندما يرسل المعلم مسارًا علاجيًا سيظهر هنا مباشرة.</div></div>';return}
+ box.innerHTML='<div class="space-y-3">'+rows.map(t=>'<article class="bg-white border '+(t.status==='completed'?'border-emerald-200':'border-rose-200')+' rounded-3xl p-5"><div class="flex flex-col sm:flex-row sm:items-center gap-4"><div class="w-11 h-11 rounded-2xl '+(t.tier==='enrichment'?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700')+' flex items-center justify-center text-xl">'+(t.tier==='enrichment'?'✨':'🩺')+'</div><div class="flex-1"><div class="text-[10px] text-slate-400 font-bold">'+taskSubject(t.subject_key)+' • المؤشر '+t.indicator_index+'</div><h3 class="text-sm font-black text-slate-900 mt-1">'+esc(t.title||'مسار علاجي')+'</h3><p class="text-xs text-slate-500 leading-6 mt-1">'+esc(t.indicator_text||'')+'</p><div class="flex flex-wrap gap-2 mt-2"><span class="px-2 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black">'+taskStatus(t.status)+'</span>'+(t.source_percent!=null?'<span class="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black">نتيجة المؤشر '+Number(t.source_percent).toLocaleString('ar-SA')+'%</span>':'')+(t.status==='completed'?'<span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black">نتيجة التدريب '+Number(t.percent||0).toLocaleString('ar-SA')+'%</span>':'')+'</div></div>'+(t.status==='completed'?'<div class="text-emerald-700 font-black text-xs">تم الإنجاز ✓</div>':'<button data-open-teacher-task="'+t.id+'" class="px-4 py-3 rounded-2xl bg-rose-700 text-white text-xs font-black">'+(t.status==='in_progress'?'أكمل المسار':'ابدأ المسار')+'</button>')+'</div></article>').join('')+'</div>';
+ box.querySelectorAll('[data-open-teacher-task]').forEach(b=>b.onclick=()=>openTeacherTask(b.dataset.openTeacherTask));
+}
+async function openTeacherTask(id){
+ try{const d=await planPost('start_teacher_task',{task_id:id});S.activeTask={...d.task,questions:d.questions||[]};S.taskAnswers={};renderTeacherTaskModal()}catch(e){alert(e.message)}
+}
+function closeTeacherTask(){document.getElementById('teacherTaskModal')?.remove();S.activeTask=null;S.taskAnswers={}}
+function renderTeacherTaskModal(){
+ let modal=document.getElementById('teacherTaskModal');if(!modal){modal=document.createElement('div');modal.id='teacherTaskModal';modal.className='fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto';document.body.appendChild(modal)}
+ const t=S.activeTask,qs=t?.questions||[];if(!t)return;
+ modal.innerHTML='<div class="max-w-4xl mx-auto bg-[#f7f9fc] rounded-[2rem] overflow-hidden shadow-2xl" dir="rtl"><header class="bg-gradient-to-l from-rose-900 to-slate-900 text-white p-6"><div class="flex items-start justify-between gap-3"><div><div class="text-[10px] text-rose-200 font-black">مسار مرسل من المعلم • '+taskSubject(t.subject_key)+'</div><h1 class="text-xl font-black mt-2">'+esc(t.title||'مسار علاجي')+'</h1><p class="text-xs text-slate-200 mt-2 leading-6">'+esc(t.indicator_text||'')+'</p></div><button id="closeTeacherTask" class="w-10 h-10 rounded-xl bg-white/10 text-xl">×</button></div></header><div class="p-4 sm:p-6"><div class="space-y-4">'+qs.map((q,qi)=>'<div class="bg-white border rounded-3xl p-5"><div class="flex items-center justify-between"><span class="text-[10px] font-black text-rose-700">السؤال '+(qi+1)+' من '+qs.length+'</span><span class="text-[10px] text-slate-400">'+(q.cognitive_level==='knowledge'?'معرفة':q.cognitive_level==='application'?'تطبيق':'استدلال')+'</span></div>'+(q.context_text?'<div class="mt-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 text-sm leading-8">'+esc(q.context_text)+'</div>':'')+'<h3 class="text-sm font-black leading-7 mt-3">'+esc(q.question_text)+'</h3><div class="grid sm:grid-cols-2 gap-2 mt-3">'+(q.options||[]).map((o,i)=>'<button data-task-q="'+q.id+'" data-task-opt="'+i+'" class="p-3 rounded-2xl border text-right text-xs font-bold '+(Number(S.taskAnswers[q.id])===i?'bg-rose-50 border-rose-400 text-rose-800':'bg-slate-50 border-slate-200')+'"><span class="inline-flex w-7 h-7 rounded-xl bg-white border items-center justify-center ml-2">'+['أ','ب','ج','د'][i]+'</span>'+esc(o)+'</button>').join('')+'</div></div>').join('')+'</div><button id="submitTeacherTask" '+(Object.keys(S.taskAnswers).length<qs.length?'disabled':'')+' class="mt-5 w-full py-3.5 rounded-2xl bg-rose-700 text-white font-black text-sm disabled:opacity-40">تسليم المسار العلاجي</button></div></div>';
+ document.getElementById('closeTeacherTask').onclick=closeTeacherTask;
+ modal.querySelectorAll('[data-task-q]').forEach(b=>b.onclick=()=>{S.taskAnswers[b.dataset.taskQ]=Number(b.dataset.taskOpt);renderTeacherTaskModal()});
+ const submit=document.getElementById('submitTeacherTask');if(submit)submit.onclick=submitTeacherTask;
+}
+async function submitTeacherTask(){
+ const t=S.activeTask;if(!t)return;const btn=document.getElementById('submitTeacherTask');if(btn){btn.disabled=true;btn.textContent='جارٍ التصحيح…'}
+ try{const d=await planPost('submit_teacher_task',{task_id:t.id,answers:S.taskAnswers});const modal=document.getElementById('teacherTaskModal');if(modal)modal.innerHTML='<div class="max-w-lg mx-auto mt-20 bg-white rounded-[2rem] p-8 text-center"><div class="text-5xl">'+(Number(d.percent)>=70?'✅':'📘')+'</div><h2 class="text-2xl font-black mt-4">تم تسليم المسار</h2><div class="text-3xl font-black text-rose-700 mt-4">'+Number(d.score).toLocaleString('ar-SA')+' / '+Number(d.total).toLocaleString('ar-SA')+'</div><p class="text-sm text-slate-500 mt-2">النسبة '+Number(d.percent).toLocaleString('ar-SA')+'%</p><button id="doneTeacherTask" class="mt-6 px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black">العودة إلى مهامي</button></div>';document.getElementById('doneTeacherTask').onclick=async()=>{closeTeacherTask();await loadTeacherTasks()}}catch(e){alert(e.message);renderTeacherTaskModal()}
 }
 function progress(){
  return `<div class="space-y-5 pb-24">
@@ -125,6 +166,7 @@ function renderView(){
  v.innerHTML=S.tab==='home'?home():S.tab==='tasks'?tasks():S.tab==='competition'?competition():progress();
  renderNav();
  if(S.tab==='competition'&&window.LugatiCompetition?.mount)window.LugatiCompetition.mount({token:S.token,role:'student',profile:S.profile});
+ if(S.tab==='tasks')loadTeacherTasks();
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;renderView()});
  icons();
  window.dispatchEvent(new CustomEvent('lugati:student-view-rendered',{detail:{tab:S.tab}}));
