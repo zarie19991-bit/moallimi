@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#065f46">
+<meta name="referrer" content="no-referrer">
+<title>الطالب التجريبي | معلّمي</title>
+<style>
+body{margin:0;background:#f4f8f7;color:#17324d;font-family:Tahoma,Arial,sans-serif}.wrap{max-width:980px;margin:auto;padding:28px 18px 50px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px}.brand{display:flex;align-items:center;gap:11px;color:#17324d;text-decoration:none}.mark{width:46px;height:46px;border-radius:14px;background:#0f6b63;color:#fff;display:grid;place-items:center;font-size:22px;font-weight:900}.card{background:#fff;border:1px solid #d7e4e2;border-radius:20px;padding:22px;box-shadow:0 18px 50px #17324d10}.warn{background:#fff8df;border:1px solid #ecd487;color:#70510a;border-radius:13px;padding:13px 15px;line-height:1.8;font-weight:800}.login{max-width:520px;margin:40px auto}.login h1{margin-top:0}.field{display:grid;gap:7px;margin:16px 0}.field input{font:inherit;font-size:20px;letter-spacing:4px;text-align:center;border:1px solid #b9cfcb;border-radius:12px;padding:12px}.btn{font:inherit;border:0;border-radius:11px;padding:11px 16px;cursor:pointer;font-weight:800}.primary{background:#0f6b63;color:#fff}.ghost{background:#eef5f3;color:#17324d}.tests{display:grid;gap:12px;margin-top:18px}.test{background:#fff;border:1px solid #d7e4e2;border-radius:16px;padding:17px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}.test h3{margin:0 0 6px}.meta{color:#687976;font-size:13px;line-height:1.8}.pill{display:inline-block;padding:4px 9px;border-radius:999px;background:#edf7f4;color:#0f655d;font-weight:800;margin-inline-end:6px}.closed{opacity:.62}.msg{min-height:1.5em;color:#a32828;margin-top:9px}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.hidden{display:none!important}@media(max-width:680px){.test{grid-template-columns:1fr}.test .btn{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+ <a class="brand" href="./"><span class="mark">م</span><div><b>معلّمي</b><small style="display:block;color:#71817f">حساب الطالب التجريبي</small></div></a>
+ <div class="toolbar"><a class="btn ghost" href="./" style="text-decoration:none">الرئيسية</a><button id="logout" class="btn ghost hidden" type="button">خروج</button></div>
+</header>
+
+<section id="loginCard" class="card login">
+ <h1>دخول الطالب التجريبي</h1>
+ <p>استخدم هذا الحساب لمعاينة الاختبارات كما يراها الطالب الحقيقي، دون أن تدخل النتائج في التحليل أو التقارير.</p>
+ <div class="warn">أي اختبار تؤديه من هذا الحساب لا يُحسب ضمن عدد المختبرين، ولا يظهر في التحليل، ولا يغيّر نسب الإتقان أو الدعم.</div>
+ <form id="loginForm">
+  <label class="field"><span>رمز الحساب التجريبي</span><input id="demoCode" type="password" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" required autocomplete="off" placeholder="••••••"></label>
+  <button class="btn primary" type="submit">دخول وعرض الاختبارات</button>
+  <p id="loginError" class="msg" role="alert"></p>
+ </form>
+</section>
+
+<section id="dashboard" class="hidden">
+ <section class="card">
+  <h1 style="margin-top:0">الاختبارات المتاحة للطالب التجريبي</h1>
+  <div class="warn">وضع تجريبي نشط — جميع المحاولات من هذه الصفحة مستبعدة تلقائيًا من التحليل والتقارير والإحصاءات الرسمية.</div>
+  <p id="studentInfo" class="meta"></p>
+ </section>
+ <div id="tests" class="tests"></div>
+ <p id="state" class="meta"></p>
+</section>
+</div>
+<script>
+(()=>{
+'use strict';
+const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
+const SESSION='nafes_demo_portal_v1',IDENTITY='nafes_demo_student_identity_v1';
+const $=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const names={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
+async function load(code){
+ const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'assessment_demo_catalog',demo_code:code}),cache:'no-store'});
+ const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||'تعذر تحميل الاختبارات.');
+ sessionStorage.setItem(SESSION,code);
+ sessionStorage.setItem(IDENTITY,JSON.stringify({demo:true,name:d.student.full_name,no:d.student.national_id_last3,class:d.student.class_name}));
+ render(d);return d;
+}
+function render(d){
+ $('loginCard').classList.add('hidden');$('dashboard').classList.remove('hidden');$('logout').classList.remove('hidden');
+ $('studentInfo').textContent='الحساب: '+d.student.full_name+' · الفصل: '+d.student.class_name;
+ const tests=d.tests||[];$('tests').innerHTML=tests.length?tests.map(t=>{
+  const subjects=(t.subjects||[]).map(s=>names[s]||s).join(' + ');
+  const status=t.availability==='open'?'متاح الآن':t.availability==='upcoming'?'لم يبدأ بعد':'مغلق';
+  const disabled=t.availability!=='open';
+  return '<article class="test '+(disabled?'closed':'')+'"><div><h3>'+esc(t.title)+'</h3><div class="meta"><span class="pill">'+esc(subjects||'اختبار مؤشرات')+'</span><span class="pill">'+esc(status)+'</span> '+(t.question_count?esc(t.question_count)+' سؤالًا':'')+'</div></div><button class="btn '+(disabled?'ghost':'primary')+'" data-open="'+esc(t.short_code||'')+'" '+(disabled?'disabled':'')+'>فتح كطالب</button></article>';
+ }).join(''):'<section class="card"><p>لا توجد اختبارات مؤشرات منشورة حاليًا.</p></section>';
+ $('state').textContent='عدد الاختبارات المنشورة: '+tests.length;
+}
+$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginError').textContent='';const code=$('demoCode').value.trim();try{await load(code);}catch(err){$('loginError').textContent=err.message;}};
+$('tests').onclick=e=>{const b=e.target.closest('[data-open]');if(!b||b.disabled)return;const code=b.dataset.open;if(code)location.href='e.html?t='+encodeURIComponent(code);};
+$('logout').onclick=()=>{sessionStorage.removeItem(SESSION);sessionStorage.removeItem(IDENTITY);$('dashboard').classList.add('hidden');$('loginCard').classList.remove('hidden');$('logout').classList.add('hidden');$('demoCode').value='';};
+const saved=sessionStorage.getItem(SESSION);if(saved)load(saved).catch(()=>{sessionStorage.removeItem(SESSION);sessionStorage.removeItem(IDENTITY);});
+})();
+</script>
+</body>
+</html>
