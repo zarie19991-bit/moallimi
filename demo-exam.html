@@ -18,7 +18,7 @@
 <section id="player" class="panel exam-panel" hidden><div class="exam-head"><div><small id="sectionTitle"></small><h2 id="questionTitle"></h2></div><b class="timer" id="timer" aria-label="الوقت المتبقي"></b></div><div class="progress" id="progress"></div><div id="questions"></div><div class="nav exam-nav"><button id="prev">السابق</button><button id="review">مراجعة الإجابات</button><button id="next">التالي</button><button id="finish">تسليم القسم</button></div><button id="calcButton" hidden>آلة حاسبة</button><p id="playerError" role="alert"></p></section>
 <section id="breakPanel" class="panel" hidden><h2>استراحة بين الأقسام</h2><p id="breakText"></p></section><section id="result" class="panel" hidden></section>
 </main>
-<div id="watermark" aria-hidden="true"></div><div id="printShield">الطباعة غير متاحة أثناء الاختبار.</div><script src="question-media.js?v=20260909-final"></script><script src="edge-retry.js?v=20260912-1"></script><script src="edge-retry-ui.js?v=20260913-advanced2"></script><script>
+<div id="watermark" aria-hidden="true"></div><div id="printShield">الطباعة غير متاحة أثناء الاختبار.</div><script src="question-media.js?v=20260909-final"></script><script>
 (()=>{
   const retryFetch=window.fetch.bind(window);
   window.fetch=async function(input,init={}){
@@ -50,7 +50,7 @@
     return response;
   };
 })();
-</script><script>if(!new URLSearchParams(location.search).get("demo_code"))location.replace("student-demo.html");</script><script src="e-player-demo-fix.js?v=20260919-demo10"></script><script>
+</script><script src="demo-exam.js?v=20260919-demo1"></script><script>
 (()=>{
   let forcedClassCleared=false;
   const unlockClassField=()=>{
