@@ -80,6 +80,23 @@ function home(){
      <h1 class="text-2xl sm:text-3xl font-black mt-2">مرحبًا ${esc((S.profile?.full_name||'').split(' ')[0]||'بك')} 👋</h1>
      <p class="text-sm text-emerald-100 mt-2 leading-7">ابدأ من المهمة الحالية، ثم راقب تقدمك. لا تحتاج للتنقل بين أقسام كثيرة.</p>
    </section>
+   <section class="bg-white border border-emerald-200 rounded-[2rem] p-5 sm:p-6 shadow-sm">
+     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+       <div>
+         <div class="text-[10px] font-black text-emerald-700">ابدأ من هنا</div>
+         <h2 class="text-lg sm:text-xl font-black text-slate-900 mt-1">رحلة الإتقان للمؤشر</h2>
+         <p class="text-xs text-slate-500 mt-2 leading-6">لن تبدأ باختبار مباشر: افهم المهارة، شاهد مثالًا محلولًا، تدرب بتلميحات، ثم أجب وحدك وأثبت الإتقان.</p>
+         <div class="grid grid-cols-5 gap-1.5 mt-4 max-w-2xl">
+           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">١</div><div class="text-[9px] font-bold text-slate-500 mt-1">أفهم</div></div>
+           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">٢</div><div class="text-[9px] font-bold text-slate-500 mt-1">مثال</div></div>
+           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-black">٣</div><div class="text-[9px] font-bold text-slate-500 mt-1">بتلميح</div></div>
+           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-black">٤</div><div class="text-[9px] font-bold text-slate-500 mt-1">وحدي</div></div>
+           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center text-[10px] font-black">٥</div><div class="text-[9px] font-bold text-slate-500 mt-1">إتقان</div></div>
+         </div>
+       </div>
+       <button data-open-mastery="1" class="px-5 py-3.5 rounded-2xl bg-emerald-700 text-white text-xs font-black shadow-lg shadow-emerald-700/15 shrink-0">ابدأ رحلة الإتقان ←</button>
+     </div>
+   </section>
    <section id="studentPrimaryMission">
      <div class="mb-3"><h2 class="font-black">مهمتك الآن</h2><p class="text-[11px] text-slate-400 mt-1">المهمة التي تحتاج منك العمل عليها الآن</p></div>
      <div class="bg-white border rounded-3xl p-8 text-center">
@@ -106,6 +123,11 @@ function tasks(){
      <div class="text-[10px] font-black text-emerald-200">مكان واحد فقط للمهام</div>
      <h1 class="text-2xl font-black mt-2">مهامي</h1>
      <p class="text-xs text-emerald-100 mt-2">المسارات العلاجية التي يرسلها المعلم ورحلات ما قبل الاختبار تظهر هنا.</p>
+   </section>
+   <section class="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+     <div class="w-11 h-11 rounded-2xl bg-indigo-700 text-white flex items-center justify-center text-xl shrink-0">🎯</div>
+     <div class="flex-1"><h2 class="font-black text-slate-900">رحلة تعلم قبل الحل</h2><p class="text-[11px] text-slate-500 mt-1 leading-5">شرح قصير + مثال محلول + تدريب موجه + تدريب مستقل + تحقق نهائي.</p></div>
+     <button data-open-mastery="1" class="px-4 py-2.5 rounded-xl bg-indigo-700 text-white text-xs font-black">فتح رحلة الإتقان</button>
    </section>
    <section>
      <div class="mb-3"><h2 class="font-black text-slate-900">المسارات المرسلة من المعلم</h2><p class="text-[11px] text-slate-400 mt-1">تظهر بعد أن يضغط المعلم «إرسال للطلاب».</p></div>
@@ -168,6 +190,7 @@ function renderView(){
  if(S.tab==='competition'&&window.LugatiCompetition?.mount)window.LugatiCompetition.mount({token:S.token,role:'student',profile:S.profile});
  if(S.tab==='tasks')loadTeacherTasks();
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;renderView()});
+ document.querySelectorAll('[data-open-mastery]').forEach(b=>b.onclick=()=>{if(window.LugatiMastery?.open)window.LugatiMastery.open();else alert('تعذر فتح رحلة الإتقان الآن. حدّث الصفحة وحاول مرة أخرى.');});
  icons();
  window.dispatchEvent(new CustomEvent('lugati:student-view-rendered',{detail:{tab:S.tab}}));
 }
