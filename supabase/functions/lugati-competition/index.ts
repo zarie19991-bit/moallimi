@@ -9,16 +9,16 @@ function cors(req:Request){const o=req.headers.get("origin")||"";return{"Access-
 const json=(req:Request,b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:cors(req)});
 async function sha256(v:string){const x=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return Array.from(new Uint8Array(x)).map(n=>n.toString(16).padStart(2,"0")).join("")}
 type SubjectScope="all"|"reading"|"math"|"science";
-type Access={role:"teacher"|"student";student_id?:string;teacher_access_id?:string;subject_scope?:SubjectScope};
+type Access={role:"teacher"|"student";student_id?:string;teacher_access_id?:string;subject_scope?:SubjectScope;is_demo?:boolean};
 async function access(req:Request):Promise<Access>{
  const h=tidy(req.headers.get("authorization")),token=h.toLowerCase().startsWith("bearer ")?h.slice(7).trim():"";
  if(!token)throw Object.assign(new Error("تسجيل الدخول مطلوب."),{status:401});
  const {data:s,error}=await db.from("lugati_sessions").select("role,student_id,teacher_access_id").eq("token_hash",await sha256(token)).gt("expires_at",new Date().toISOString()).maybeSingle();
  if(error)throw error;if(!s)throw Object.assign(new Error("انتهت جلسة الدخول أو أصبحت غير صالحة."),{status:401});
  if(s.role==="student"){
-  const {data:u,error:e}=await db.from("nafes_students").select("id").eq("id",s.student_id).eq("is_active",true).maybeSingle();
+  const {data:u,error:e}=await db.from("nafes_students").select("id,is_demo").eq("id",s.student_id).eq("is_active",true).maybeSingle();
   if(e)throw e;if(!u)throw Object.assign(new Error("حساب الطالب غير متاح."),{status:401});
-  return{role:"student",student_id:String(u.id)};
+  return{role:"student",student_id:String(u.id),is_demo:u.is_demo===true};
  }
  const {data:t,error:e}=await db.from("nafes_teacher_access").select("id,subject_scope").eq("id",s.teacher_access_id).eq("active",true).maybeSingle();
  if(e)throw e;if(!t)throw Object.assign(new Error("حساب المعلم غير متاح."),{status:401});
@@ -133,7 +133,7 @@ async function teacherDashboard(req:Request,a:Access){
  const s=await currentSeason();await refreshExpired(s.id);
  let rq=db.from("lugati_competition_rounds").select("*").eq("season_id",s.id).order("created_at",{ascending:false});if(teacherScope(a)!=="all")rq=rq.eq("subject_key",teacherScope(a));const {data:rounds,error}=await rq;if(error)throw error;
  const ids=(rounds||[]).map((x:any)=>x.id),counts=new Map<string,any>();
- if(ids.length){const {data:aa,error:ae}=await db.from("lugati_competition_attempts").select("round_id,status").in("round_id",ids);if(ae)throw ae;for(const x of aa||[]){const k=String(x.round_id),z=counts.get(k)||{started:0,finished:0};z.started++;if(x.status!=="in_progress")z.finished++;counts.set(k,z)}}
+ if(ids.length){const {data:aa,error:ae}=await db.from("lugati_competition_attempts").select("round_id,status,student:nafes_students(is_demo)").in("round_id",ids);if(ae)throw ae;for(const x of aa||[]){if((x as any).student?.is_demo===true)continue;const k=String(x.round_id),z=counts.get(k)||{started:0,finished:0};z.started++;if(x.status!=="in_progress")z.finished++;counts.set(k,z)}}
  const by:any={};for(const k of teacherArenaKeys(a))by[k]=[];
  for(const r of rounds||[])by[r.arena_key].push({...safeRound(r),stats:counts.get(String(r.id))||{started:0,finished:0}});
  const allowed:any={};for(const k of teacherArenaKeys(a))allowed[k]=ARENAS[k];return json(req,{ok:true,season:s,subject_scope:teacherScope(a),arenas:allowed,rounds_by_arena:by});
@@ -182,10 +182,10 @@ async function roundLeaderboards(id:string){
 async function teacherIndicatorReport(r:any){
  const [questions,attempts]=await Promise.all([
  db.from("lugati_competition_round_questions").select("id,outcome_code,indicator_index,indicator_text").eq("round_id",r.id),
- db.from("lugati_competition_attempts").select("id,student_id,status,student:nafes_students(full_name,class_name)").eq("round_id",r.id).in("status",["submitted","closed"])
+ db.from("lugati_competition_attempts").select("id,student_id,status,student:nafes_students(full_name,class_name,is_demo)").eq("round_id",r.id).in("status",["submitted","closed"])
  ]);
  if(questions.error)throw questions.error;if(attempts.error)throw attempts.error;
- const qs=questions.data||[],ats=attempts.data||[],answers:any[]=[];
+ const qs=questions.data||[],ats=(attempts.data||[]).filter((x:any)=>x.student?.is_demo!==true),answers:any[]=[];
  for(let i=0;i<ats.length;i+=50){const res=await db.from("lugati_competition_attempt_answers").select("attempt_id,round_question_id,is_correct,completed").in("attempt_id",ats.slice(i,i+50).map((x:any)=>x.id));if(res.error)throw res.error;answers.push(...res.data||[])}
  const key=(q:any)=>q.outcome_code+"|"+q.indicator_index;
  const groups=new Map<string,any>();for(const q of qs){const k=key(q),g=groups.get(k)||{indicator_text:q.indicator_text,outcome_code:q.outcome_code,indicator_index:q.indicator_index,question_ids:[],students:[]};g.question_ids.push(q.id);groups.set(k,g)}
