@@ -30,7 +30,7 @@ function navItems(){return [
 function shell(){const root=app();if(!root)return;root.innerHTML=`<div id="studentShell" class="min-h-screen bg-[#f5f7fb] text-slate-800" dir="rtl">
   <div class="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
     <aside class="hidden lg:flex bg-white border-l border-slate-200 min-h-screen sticky top-0 h-screen flex-col">
-      <div class="p-6 border-b border-slate-100"><div class="flex items-center gap-3"><div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-emerald-600/20">ل</div><div><div class="font-black text-slate-900">منصة تمكُّن</div><div class="text-[11px] text-slate-400">مساحة الطالب التعليمية</div></div></div></div>
+      <div class="p-6 border-b border-slate-100"><div class="flex items-center gap-3"><div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-emerald-600/20">ل</div><div><div class="font-black text-slate-900">مِنَصَّةُ تَمَكُّن</div><div class="text-[11px] text-slate-400">مساحة الطالب التعليمية</div></div></div></div>
       <nav id="studentNav" class="p-3 space-y-1.5 flex-1"></nav>
       <div class="p-4 border-t border-slate-100"><div class="rounded-2xl bg-emerald-50 border border-emerald-100 p-3"><div class="text-xs font-black text-emerald-900">${esc(S.profile?.full_name||'الطالب')}</div><div class="text-[10px] text-emerald-700 mt-1">الفصل ${esc(S.profile?.class_name||'—')}</div></div><button id="studentLogout" class="mt-3 w-full text-xs font-bold text-slate-500 hover:text-rose-600 py-2">تسجيل الخروج</button></div>
     </aside>
