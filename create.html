@@ -67,8 +67,28 @@
  </form>
  <section id="previewPanel" class="step hidden"><h2>معاينة الاختبار قبل النشر</h2><p>راجع الأسئلة أولًا. في الاختبارات المخصصة يمكن تبديل السؤال من المؤشر نفسه قبل النشر.</p><div id="previewMeta"></div><div id="previewQuestions"></div><div class="preview-actions"><button id="regenerate" type="button">إعادة تكوين الاختبار</button><button id="publish" type="button">نشر الاختبار وإنشاء رابط الطالب</button></div><p id="previewError" role="alert"></p></section>
  <section id="created" class="created hidden"><span class="success">تم إنشاء الرابط</span><h2>الاختبار جاهز للإرسال</h2><div id="createdSummary" class="created-summary"></div><div class="link-row"><input id="createdLink" readonly><button id="copyLink" type="button">نسخ الرابط</button></div><div id="qr"></div><div class="preview-actions"><button id="downloadQr" type="button">تحميل QR</button><button id="printQr" type="button">طباعة QR</button><a id="analysisLink" href="analysis.html">تحليل نتائج الاختبار</a></div><a id="openLink" target="_blank">فتح الاختبار</a></section>
+ <section id="questionDesigner" class="step hidden">
+  <header><span>٤</span><div><h2>تصميم سؤال جديد</h2><p>للحساب الرئيس فقط. يضاف السؤال مباشرة إلى بنك المؤشر بعد التحقق من عدم تكرار الصياغة.</p></div></header>
+  <div class="fields-grid">
+   <label class="field" style="grid-column:1/-1"><span>المؤشر</span><select id="qdIndicator"><option value="">جارٍ تحميل المؤشرات…</option></select></label>
+   <label class="field" style="grid-column:1/-1"><span>السياق / النص المساند (اختياري)</span><textarea id="qdContext" rows="4" maxlength="4000"></textarea></label>
+   <label class="field" style="grid-column:1/-1"><span>نص السؤال</span><textarea id="qdQuestion" rows="3" maxlength="2000" required></textarea></label>
+   <label class="field"><span>أ)</span><input id="qdOpt0" maxlength="800"></label>
+   <label class="field"><span>ب)</span><input id="qdOpt1" maxlength="800"></label>
+   <label class="field"><span>ج)</span><input id="qdOpt2" maxlength="800"></label>
+   <label class="field"><span>د)</span><input id="qdOpt3" maxlength="800"></label>
+   <label class="field"><span>الإجابة الصحيحة</span><select id="qdCorrect"><option value="0">أ</option><option value="1">ب</option><option value="2">ج</option><option value="3">د</option></select></label>
+   <label class="field"><span>المستوى المعرفي</span><select id="qdCognitive"><option value="knowledge">معرفة</option><option value="application" selected>تطبيق</option><option value="reasoning">استدلال</option></select></label>
+   <label class="field"><span>الصعوبة</span><select id="qdDifficulty"><option value="easy">سهل</option><option value="medium" selected>متوسط</option><option value="hard">صعب</option><option value="very_hard">صعب جدًا</option></select></label>
+   <label class="field" style="grid-column:1/-1"><span>سبب الإجابة الصحيحة / التفسير</span><textarea id="qdExplanation" rows="3" maxlength="2000"></textarea></label>
+   <label class="field" style="grid-column:1/-1"><span>رابط الصورة من بنك صور المنصة (اختياري)</span><input id="qdImageUrl" dir="ltr" placeholder="https://.../question-bank/assets/...png"></label>
+   <label class="field" style="grid-column:1/-1"><span>وصف الصورة للطالب (مطلوب عند إضافة صورة)</span><input id="qdImageAlt" maxlength="300"></label>
+  </div>
+  <div id="qdStatus" class="form-error" role="status"></div>
+  <button id="qdSave" class="create-button" type="button">اعتماد السؤال وإضافته إلى البنك</button>
+ </section>
  <section id="publishedTests" class="step"><h2>اختبارات المؤشرات المنشورة</h2><p>تظهر هنا اختبارات المؤشرات التي تستطيع الوصول إليها حسب صلاحية حسابك.</p><div id="publishedList"></div></section>
 </main>
 <script src="nafes-reading.js?v=20260909-final"></script><script src="nafes-math.js?v=20260909-final"></script><script src="nafes-science.js?v=20260909-final"></script><script src="teacher-access.js?v=20260919-scope4"></script><script src="qr.js?v=20260909-final"></script><script src="question-media.js?v=20260909-final"></script>
-<script src="create.js?v=20260919-indicators-only1"></script><script src="test-management.js?v=20260919-scoped1"></script>
+<script src="create.js?v=20260920-admin-quality1"></script><script src="test-management.js?v=20260920-admin2"></script>
 </body></html>
