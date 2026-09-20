@@ -9,6 +9,7 @@ stitch-platform-theme.css
 homepage.css
 moallimi-brand.css
 moallimi-brand-icon.webp
+moallimi-brand-icon-v2.webp
 nafes-reading.js
 nafes-math.js
 nafes-science.js
