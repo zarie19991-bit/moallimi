@@ -38,7 +38,7 @@ function shell(){
      <div class="p-6 border-b">
        <div class="flex items-center gap-3">
          <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-black text-xl">ل</div>
-         <div><div class="font-black">منصة تمكُّن</div><div class="text-[11px] text-slate-400">مساحة الطالب</div></div>
+         <div><div class="font-black">مِنَصَّةُ تَمَكُّن</div><div class="text-[11px] text-slate-400">مساحة الطالب</div></div>
        </div>
      </div>
      <nav id="snav" class="p-3 flex-1 space-y-1"></nav>
