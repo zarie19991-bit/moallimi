@@ -94,7 +94,7 @@ function home(){
            <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center text-[10px] font-black">٥</div><div class="text-[9px] font-bold text-slate-500 mt-1">إتقان</div></div>
          </div>
        </div>
-       <button data-open-mastery="1" class="px-5 py-3.5 rounded-2xl bg-emerald-700 text-white text-xs font-black shadow-lg shadow-emerald-700/15 shrink-0">ابدأ رحلة الإتقان ←</button>
+       <button data-open-journey="1" class="px-5 py-3.5 rounded-2xl bg-emerald-700 text-white text-xs font-black shadow-lg shadow-emerald-700/15 shrink-0">ابدأ رحلة الإتقان ←</button>
      </div>
    </section>
    <section id="studentPrimaryMission">
@@ -127,7 +127,7 @@ function tasks(){
    <section class="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
      <div class="w-11 h-11 rounded-2xl bg-indigo-700 text-white flex items-center justify-center text-xl shrink-0">🎯</div>
      <div class="flex-1"><h2 class="font-black text-slate-900">رحلة تعلم قبل الحل</h2><p class="text-[11px] text-slate-500 mt-1 leading-5">شرح قصير + مثال محلول + تدريب موجه + تدريب مستقل + تحقق نهائي.</p></div>
-     <button data-open-mastery="1" class="px-4 py-2.5 rounded-xl bg-indigo-700 text-white text-xs font-black">فتح رحلة الإتقان</button>
+     <button data-open-journey="1" class="px-4 py-2.5 rounded-xl bg-indigo-700 text-white text-xs font-black">فتح رحلة الإتقان</button>
    </section>
    <section>
      <div class="mb-3"><h2 class="font-black text-slate-900">المسارات المرسلة من المعلم</h2><p class="text-[11px] text-slate-400 mt-1">تظهر بعد أن يضغط المعلم «إرسال للطلاب».</p></div>
@@ -190,7 +190,7 @@ function renderView(){
  if(S.tab==='competition'&&window.LugatiCompetition?.mount)window.LugatiCompetition.mount({token:S.token,role:'student',profile:S.profile});
  if(S.tab==='tasks')loadTeacherTasks();
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;renderView()});
- document.querySelectorAll('[data-open-mastery]').forEach(b=>b.onclick=()=>{if(window.LugatiMastery?.open)window.LugatiMastery.open();else alert('تعذر فتح رحلة الإتقان الآن. حدّث الصفحة وحاول مرة أخرى.');});
+ document.querySelectorAll('[data-open-journey]').forEach(b=>b.onclick=()=>{if(window.LugatiJourney?.openCurrent)window.LugatiJourney.openCurrent();else if(window.LugatiJourney?.openMap)window.LugatiJourney.openMap('reading');else alert('تعذر فتح رحلة المؤشر الآن. حدّث الصفحة وحاول مرة أخرى.');});
  icons();
  window.dispatchEvent(new CustomEvent('lugati:student-view-rendered',{detail:{tab:S.tab}}));
 }
