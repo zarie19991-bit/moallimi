@@ -62,7 +62,7 @@ function injectHero(){
  const cur=S.current;
  const primary=document.getElementById('studentPrimaryMission');
  if(primary){
-   if(cur){const meta=SUBJECTS[cur.subject_key]||SUBJECTS.reading;primary.innerHTML=`<div class="journey-alert"><div class="journey-alert-row"><div><small>مؤشرك النشط • ${meta.icon} ${meta.name} • رقم ${cur.global_indicator}</small><h2>${esc(cur.indicator_text)}</h2><p>${stateText(cur.state,cur.assignment?.current_stage)} • لن يفتح مؤشر آخر حتى تثبت إتقان هذا المؤشر في اختبار الخروج.</p></div><button id="openCurrentJourney">أكمل المؤشر</button></div></div>`;document.getElementById('openCurrentJourney').onclick=()=>openJourney(cur.assignment.id)}
+   if(cur){const meta=SUBJECTS[cur.subject_key]||SUBJECTS.reading;primary.innerHTML=`<div class="journey-alert"><div class="journey-alert-row"><div><small>مؤشرك النشط • ${meta.icon} ${meta.name} • رقم ${cur.global_indicator}</small><h2>${esc(cur.indicator_text)}</h2><p>${stateText(cur.state,cur.assignment?.current_stage)} • لن يفتح مؤشر آخر حتى تثبت إتقان هذا المؤشر في اختبار الخروج.</p></div><button id="openCurrentJourney">أكمل المؤشر</button></div></div>`;document.getElementById('openCurrentJourney').onclick=()=>openCurrentJourney()}
    else primary.innerHTML='<div class="bg-white border rounded-3xl p-8 text-center"><div class="text-4xl">✅</div><div class="font-black mt-3">لا توجد مهمة نشطة الآن</div><div class="text-xs text-slate-400 mt-1">ابدأ أي مؤشر مرسل؛ وبعد البدء سيصبح هو المؤشر النشط حتى تتقنه.</div></div>';
  }
  const task=document.getElementById('readingJourneyTaskMount');
@@ -80,6 +80,12 @@ function openMap(subject='reading'){
  styles();S.activeSubject=SUBJECTS[subject]?subject:'reading';S.map=S.maps[S.activeSubject]||[];
  if(!document.getElementById('journeyOverlay')){const w=document.createElement('div');w.id='journeyOverlay';w.className='journey-overlay';w.innerHTML=`<div class="journey-shell"><header class="journey-head"><div class="journey-head-row"><div><small id="journeySubjectKicker"></small><h1>رحلتي نحو الجاهزية 🌟</h1><p>شاهد خريطة المؤشرات كاملة، وابدأ بما أرسله المعلم لك؛ أما بقية المؤشرات فتظل مقفلة حتى يحين وقتها.</p></div><button id="closeJourney" class="journey-close">×</button></div></header><div id="journeyBody" class="journey-body"></div></div>`;document.body.appendChild(w);document.getElementById('closeJourney').onclick=closeOverlay;w.addEventListener('click',e=>{if(e.target===w)closeOverlay()})}
  S.stage='map';renderMap();
+}
+function openCurrentJourney(){
+ const cur=S.current;
+ if(!cur?.assignment?.id){openMap('reading');return}
+ openMap(cur.subject_key||'reading');
+ openJourney(cur.assignment.id);
 }
 function closeOverlay(){clearInterval(S.timer);S.timer=null;document.getElementById('journeyOverlay')?.remove();S.stage='map';S.journey=null;S.challenge=null;S.exit=null;S.support=null;loadMap()}
 function renderMap(){
@@ -225,7 +231,7 @@ function renderRetention(){
  document.getElementById('submitRetention').onclick=async()=>{try{const d=await post('retention',{assignment_id:S.journey.assignment.id,activity_answer:S.retention.answer});S.retention.ok=d.passed;S.retention.feedback=d.feedback;S.retention.status=d.status;if(d.passed)S.retention.passed=true;renderRetention()}catch(e){S.retention.ok=false;S.retention.feedback=e.message;renderRetention()}};
 }
 function renderEnrichment(){const box=document.getElementById('enrichArea');if(!box||!S.enrich)return;if(S.enrich.completed){box.innerHTML='<div class="feedback ok">أكملت سؤال العباقرة وحصلت على 10 نقاط إضافية ✓</div>';return}const q=S.enrich.item;if(!q){box.innerHTML='';return}box.innerHTML=`${diagramHtml(q)}${q.stimulus?`<div class="activity-stimulus">${esc(q.stimulus)}</div>`:''}<div class="activity-prompt">${esc(q.prompt)}</div><div class="choice-grid">${(q.activity_data?.options||[]).map((o,i)=>`<button class="choice-btn ${S.enrich.answer?.index===i?'selected':''}" data-enrich="${i}">${esc(o)}</button>`).join('')}</div>${S.enrich.feedback?`<div class="feedback ${S.enrich.ok?'ok':'bad'}">${esc(S.enrich.feedback)}</div>`:''}<button id="submitEnrich" class="journey-action" ${S.enrich.answer==null?'disabled style="opacity:.45"':''}>تحقق واحصل على النقاط</button>`;document.querySelectorAll('[data-enrich]').forEach(x=>x.onclick=()=>{S.enrich.answer={index:Number(x.dataset.enrich)};S.enrich.feedback=null;renderEnrichment()});document.getElementById('submitEnrich').onclick=async()=>{try{const d=await post('enrichment',{assignment_id:S.journey.assignment.id,activity_answer:S.enrich.answer});S.enrich.ok=d.passed;S.enrich.feedback=d.feedback;if(d.passed)S.enrich.completed=true;renderEnrichment()}catch(e){S.enrich.ok=false;S.enrich.feedback=e.message;renderEnrichment()}}}
-window.LugatiJourney={openMap,openCurrent:()=>{const id=S.current?.assignment?.id;if(id)openJourney(id);else openMap('reading')}};
+window.LugatiJourney={openMap,openCurrent:openCurrentJourney};
 function boot(){const s=session();if(!s)return;S.token=s.token;styles();loadMap();window.addEventListener('lugati:student-view-rendered',()=>injectHero());setInterval(()=>{if(document.visibilityState==='visible'&&!S.challenge)loadMap()},30000)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
