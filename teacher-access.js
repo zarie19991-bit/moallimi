@@ -79,7 +79,7 @@
     const currentPage=(location.pathname.split('/').pop()||'index.html').toLowerCase();
     if (s !== 'all' && (currentPage==='' || currentPage==='index.html')) { location.replace('teacher.html'); return; }
     if (s === 'all') return;
-    const style = document.createElement('style'); style.id = 'nafesTeacherScopeStyle'; style.textContent = `[data-subject]:not([data-subject="${s}"]){display:none!important}.selection-panel[data-select-subject]:not([data-select-subject="${s}"]){display:none!important}#navStudentsBtn,.btn-quick-manage,.simulation-secondary-btn,#deleteStudentResultsBtn,#resetTrialDataBtn{display:none!important}`; document.head.appendChild(style);
+    const style = document.createElement('style'); style.id = 'nafesTeacherScopeStyle'; style.textContent = `[data-subject]:not([data-subject="${s}"]){display:none!important}.selection-panel[data-select-subject]:not([data-select-subject="${s}"]){display:none!important}#navStudentsBtn,.btn-quick-manage,.simulation-secondary-btn,#resetTrialDataBtn{display:none!important}`; document.head.appendChild(style);
     const fix = () => {
       for (const id of ['subjectSelect','reportSubjectSelect','paperSubject']) { const sel = document.getElementById(id); if (!sel) continue; [...sel.options].forEach(o => { o.hidden = o.value && o.value !== s; o.disabled = o.value && o.value !== s; }); if ([...sel.options].some(o => o.value === s)) { sel.value = s; sel.dispatchEvent(new Event('change', { bubbles: true })); } }
       document.querySelectorAll('.section-row[data-subject]').forEach(row => { const allowed = row.dataset.subject === s; row.hidden = !allowed; const enabled = row.querySelector('.enabled'); if (enabled) { enabled.disabled = !allowed; enabled.checked = allowed; } });
