@@ -154,8 +154,9 @@ function renderSupport(){
  b.innerHTML=`${progress(3)}<div class="journey-panel">
  <div class="result-star"><div class="star">🛟</div><h2>${fromExit?'نعالج الجزئية التي لم تثبت في اختبار الخروج':'نراجع نقطة التعثر ثم نثبت الفهم'}</h2>
  ${shownPercent!=null?`<div class="result-score" style="color:#be123c">${Number(shownPercent||0).toLocaleString('ar-SA')}%</div>`:''}
- <p class="sub">لا نخفض معيار الإتقان. نوضح سبب الخطأ، ثم نعطيك سؤال إنقاذ، وبعده سؤال خروج مختلفًا عن الذي أخطأت فيه.</p></div>
+ <p class="sub">لا نخفض معيار الإتقان. نوضح سبب الخطأ، ثم نعطيك سؤال إنقاذ واختبار خروج جديدًا. وإذا احتجت، تستطيع إعادة التدريب كاملًا من البداية دون أن يُغلق المؤشر.</p></div>
  ${reviews.map((x,i)=>`<div class="review"><div style="margin-bottom:6px"><span class="level-badge ${levelClass(x.cognitive_level)}">${levelLabel(x.cognitive_level)}</span></div><h4>${i+1}. ${esc(x.prompt)}</h4><p class="wrong">إجابتك: ${esc(x.selected)}</p><p class="correct">الإجابة الأدق: ${esc(x.correct)}</p><p>لماذا؟ ${esc(x.explanation)}</p></div>`).join('')}
+ <div style="margin-top:14px"><button id="restartJourneyTraining" class="journey-secondary" style="width:100%">↻ إعادة التدريب من البداية</button></div>
  ${r?`<div style="margin-top:18px;border-top:1px solid #e2e8f0;padding-top:18px">
    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><div class="activity-title">مرحلة الإنقاذ • ${done+1} من ${items.length}</div><span class="level-badge ${levelClass(r.cognitive_level)}">${levelLabel(r.cognitive_level)}</span></div>
    ${diagramHtml(r)}${r.stimulus?`<div class="activity-stimulus">${esc(r.stimulus)}</div>`:''}
@@ -166,6 +167,12 @@ function renderSupport(){
  </div>`:`<div class="feedback ok" style="margin-top:16px">أكملت العلاج المطلوب ✓</div>`}
  </div>`;
  document.querySelectorAll('[data-rescue]').forEach(x=>x.onclick=()=>{S.rescueAnswer={index:Number(x.dataset.rescue)};S.feedback=null;renderSupport()});
+ const restart=document.getElementById('restartJourneyTraining');
+ if(restart)restart.onclick=async()=>{
+   restart.disabled=true;restart.textContent='جارٍ إعادة التدريب…';
+   try{const aid=S.journey.assignment.id;await post('restart_training',{assignment_id:aid});S.support={reviews:[],rescue:[]};S.feedback=null;S.rescueAnswer=null;await openJourney(aid)}
+   catch(e){restart.disabled=false;restart.textContent='↻ إعادة التدريب من البداية';alert(e.message)}
+ };
  const btn=document.getElementById('submitRescue');
  if(btn)btn.onclick=async()=>{
    btn.disabled=true;
@@ -216,7 +223,7 @@ async function renderReady(){
  let e=null,r=null;try{e=await post('enrichment',{assignment_id:S.journey.assignment.id,mode:'get'})}catch{}try{r=await post('retention',{assignment_id:S.journey.assignment.id,mode:'get'})}catch{}
  S.enrich=e;S.retention=r;const p=S.journey.assignment.exit_percent;
  const due=r?.due===true;
- b.innerHTML=`${progress(4)}<div class="journey-panel result-star"><div class="star">🌟</div><div class="activity-title">إتقان مثبت</div><h2>أتقنت هذا المؤشر</h2>${p!=null?`<div class="result-score">${Number(p).toLocaleString('ar-SA')}%</div>`:''}<p class="sub">لم تُمنح النجمة من التحدي أو العلاج؛ حصلت عليها بعد اجتياز اختبار خروج مستقل. الآن فقط فُتح لك الانتقال إلى مؤشر آخر.</p>
+ b.innerHTML=`${progress(4)}<div class="journey-panel result-star"><div class="star">🌟</div><div class="activity-title">إتقان مثبت</div><h2>أتقنت هذا المؤشر</h2>${p!=null?`<div class="result-score">${Number(p).toLocaleString('ar-SA')}%</div>`:''}<p class="sub">لم تُمنح النجمة من التحدي أو العلاج؛ حصلت عليها بعد اجتياز اختبار خروج مستقل. ويمكنك في أي وقت متابعة أي مؤشر آخر أرسله المعلم.</p>
  ${due?'<div class="bonus"><h3>🔁 حان وقت تثبيت الإتقان</h3><p class="sub">سؤال جديد بعد مرور وقت للتأكد أن المهارة بقيت معك.</p><div id="retentionArea"></div></div>':S.journey.assignment.retention_due_at?`<div class="feedback ok" style="margin-top:14px">سيظهر لك سؤال تثبيت لاحق حتى نتأكد أن الإتقان ثابت.</div>`:''}
  <div class="bonus"><h3>🧠 سؤال العباقرة — اختياري</h3><p class="sub">تحدٍ إضافي بعد الإتقان للحصول على نقاط إضافية.</p><div id="enrichArea"></div></div>
  <button id="backToMapReady" class="journey-secondary" style="margin-top:16px;width:100%">العودة إلى خريطة المؤشرات</button></div>`;
