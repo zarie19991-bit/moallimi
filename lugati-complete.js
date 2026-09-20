@@ -122,6 +122,16 @@ function viewTeacherDashboard(){
      </div>
    </div>
  </section>
+ <section class="bg-white border border-emerald-200 rounded-3xl p-5 sm:p-6">
+   <div class="flex items-center justify-between gap-3 mb-4">
+     <div><div class="text-[10px] font-black text-emerald-700">ابدأ من هنا اليوم</div><h2 class="font-black text-slate-900 mt-1">مسار عمل المعلم في ٣ خطوات</h2><p class="text-xs text-slate-400 mt-1">بدل التنقل بين الأقسام: حدد الدعم، تابع الإنجاز، ثم اطبع الشاهد.</p></div>
+   </div>
+   <div class="grid md:grid-cols-3 gap-3">
+     <button data-go="plans" class="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 text-right hover:border-rose-400"><div class="flex items-center gap-3"><span class="w-9 h-9 rounded-xl bg-rose-700 text-white flex items-center justify-center font-black">١</span><div><b class="text-sm text-slate-900">أرسل الدعم المناسب</b><p class="text-[11px] text-slate-500 mt-1">اختر المؤشر والمسار العلاجي أو الإثرائي.</p></div></div></button>
+     <button data-go="students" class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 text-right hover:border-indigo-400"><div class="flex items-center gap-3"><span class="w-9 h-9 rounded-xl bg-indigo-700 text-white flex items-center justify-center font-black">٢</span><div><b class="text-sm text-slate-900">تابع من أنجز</b><p class="text-[11px] text-slate-500 mt-1">راجع الطالب ومستواه وتحسنه وما يحتاجه الآن.</p></div></div></button>
+     <button data-go="reports" class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-right hover:border-emerald-400"><div class="flex items-center gap-3"><span class="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black">٣</span><div><b class="text-sm text-slate-900">اطبع التقرير أو الورقة</b><p class="text-[11px] text-slate-500 mt-1">انتقل مباشرة إلى التقارير والطباعة.</p></div></div></button>
+   </div>
+ </section>
  <section class="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6">
    <div class="mb-4"><h2 class="font-black text-slate-900">الأدوات الأساسية</h2><p class="text-xs text-slate-400 mt-1">حذفت الأقسام المتكررة من الواجهة؛ الوظائف الأساسية فقط هي الظاهرة.</p></div>
    <div class="grid sm:grid-cols-2 xl:grid-cols-6 gap-3">
