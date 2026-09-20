@@ -40,8 +40,18 @@ function selectIndicatorQuestions(candidates:Row[],count:number,subject:string,s
   }
   const pickedIds=new Set(picked.map(q=>q.id));
   const pickedContent=new Set([...usedContent,...picked.map(questionKey)]);
-  const rest=unique.filter(q=>!pickedIds.has(q.id));
-  if(picked.length<count)picked.push(...selectUnique(rest,count-picked.length,seed+'|rest',new Map(),pickedContent));
+  const need=count-picked.length;
+  if(need>0){
+    const nonVisual=unique.filter(q=>!pickedIds.has(q.id)&&!q.image?.url);
+    if(nonVisual.length>=need)picked.push(...selectUnique(nonVisual,need,seed+'|rest-nonvisual',new Map(),pickedContent));
+    else{
+      if(nonVisual.length)picked.push(...selectUnique(nonVisual,nonVisual.length,seed+'|rest-nonvisual',new Map(),pickedContent));
+      const nowPicked=new Set(picked.map(q=>q.id));
+      const fallback=unique.filter(q=>!nowPicked.has(q.id));
+      const remaining=count-picked.length;
+      if(remaining)picked.push(...selectUnique(fallback,remaining,seed+'|rest-fallback',new Map(),new Set([...usedContent,...picked.map(questionKey)])));
+    }
+  }
   for(const q of picked){usedContent.add(questionKey(q));usedStems.add(stemKey(q));}
   return picked;
 }
@@ -787,7 +797,7 @@ async function studentAction(db:any,body:Row) {
    });
    return {ok:true,demo:true,student:{full_name:student.full_name,class_name:student.class_name,national_id_last3:student.national_id_last3},tests};
  }
- if(body.action==='assessment_info')return studentInfo(await assessment(db,body.code));
+ if(body.action==='assessment_info'){const t=await assessment(db,body.code);if(t.config?.settings?.manual_closed===true)fail('هذا الاختبار موقوف مؤقتًا من المعلم.',403);return studentInfo(t);}
  if(body.action==='assessment_training'){
    const t=await assessment(db,body.code);
    if(t.kind==='legacy')fail('التدريب المخصص متاح للاختبارات المنشورة من النظام الجديد فقط.',409);
