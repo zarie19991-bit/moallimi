@@ -1,43 +1,26 @@
-/* Moallimi brand identity — render the logo as a real image element */
-.brand .mark,
-.mark,
-.account-brand .mark{
-  width:56px!important;
-  height:56px!important;
-  min-width:56px!important;
-  flex:0 0 56px!important;
-  border-radius:16px!important;
-  background:#ffffff!important;
-  background-image:none!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  padding:0!important;
-  box-sizing:border-box!important;
-  color:transparent!important;
-  font-size:0!important;
-  line-height:0!important;
-  box-shadow:0 7px 18px rgba(0,0,0,.18),0 0 0 1px rgba(214,177,82,.34)!important;
-  overflow:hidden!important;
-}
-.brand .mark img,
-.mark img,
-.account-brand .mark img{
-  width:100%!important;
-  height:100%!important;
+/* Unified Moallimi brand logo */
+.moallimi-logo-full{
+  display:block!important;
+  width:158px!important;
+  max-width:100%!important;
+  height:auto!important;
   object-fit:contain!important;
   object-position:center!important;
-  display:block!important;
-  border:0!important;
-  border-radius:14px!important;
+  flex:0 0 auto!important;
   background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
 }
-.side .brand>div:last-child b,
-.brand>div:last-child b,
-.account-brand b{font-weight:900!important}
+.side .brand{justify-content:center!important}
+.side .brand .moallimi-logo-full{width:170px!important;margin-inline:auto!important}
+.top .brand .moallimi-logo-full,
+.exam-top .brand .moallimi-logo-full,
+.account-brand .moallimi-logo-full{width:150px!important}
+.brand>div small,.account-brand>div small{display:block}
 @media(max-width:700px){
-  .brand .mark,.mark,.account-brand .mark{
-    width:50px!important;height:50px!important;min-width:50px!important;flex-basis:50px!important;border-radius:14px!important;
-  }
-  .brand .mark img,.mark img,.account-brand .mark img{border-radius:10px!important}
+  .moallimi-logo-full{width:132px!important}
+  .side .brand .moallimi-logo-full{width:148px!important}
+  .top .brand .moallimi-logo-full,
+  .exam-top .brand .moallimi-logo-full,
+  .account-brand .moallimi-logo-full{width:128px!important}
 }
