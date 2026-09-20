@@ -78,7 +78,7 @@ function injectHero(){
 }
 function openMap(subject='reading'){
  styles();S.activeSubject=SUBJECTS[subject]?subject:'reading';S.map=S.maps[S.activeSubject]||[];
- if(!document.getElementById('journeyOverlay')){const w=document.createElement('div');w.id='journeyOverlay';w.className='journey-overlay';w.innerHTML=`<div class="journey-shell"><header class="journey-head"><div class="journey-head-row"><div><small id="journeySubjectKicker"></small><h1>رحلتي نحو الجاهزية 🌟</h1><p>لا يظهر لك إلا ما أرسله المعلم وما أنجزته؛ حتى تبقى الصفحة واضحة.</p></div><button id="closeJourney" class="journey-close">×</button></div></header><div id="journeyBody" class="journey-body"></div></div>`;document.body.appendChild(w);document.getElementById('closeJourney').onclick=closeOverlay;w.addEventListener('click',e=>{if(e.target===w)closeOverlay()})}
+ if(!document.getElementById('journeyOverlay')){const w=document.createElement('div');w.id='journeyOverlay';w.className='journey-overlay';w.innerHTML=`<div class="journey-shell"><header class="journey-head"><div class="journey-head-row"><div><small id="journeySubjectKicker"></small><h1>رحلتي نحو الجاهزية 🌟</h1><p>شاهد خريطة المؤشرات كاملة، وابدأ بما أرسله المعلم لك؛ أما بقية المؤشرات فتظل مقفلة حتى يحين وقتها.</p></div><button id="closeJourney" class="journey-close">×</button></div></header><div id="journeyBody" class="journey-body"></div></div>`;document.body.appendChild(w);document.getElementById('closeJourney').onclick=closeOverlay;w.addEventListener('click',e=>{if(e.target===w)closeOverlay()})}
  S.stage='map';renderMap();
 }
 function closeOverlay(){clearInterval(S.timer);S.timer=null;document.getElementById('journeyOverlay')?.remove();S.stage='map';S.journey=null;S.challenge=null;S.exit=null;S.support=null;loadMap()}
