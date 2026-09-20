@@ -99,5 +99,56 @@ async function loadPublished(){if(!catalog)return;try{const fresh=await NafesTea
 async function load(){if(!NafesTeacher.getKey()){NafesTeacher.requireKey();$('catalogState').textContent='ادخل بمفتاح المعلم لتكوين الاختبارات وإدارة النتائج.';return;}$('catalogState').textContent='جارٍ تحميل المؤشرات وبنوك الأسئلة…';try{catalog=await NafesTeacher.api('teacher_catalog');ensureFullControls();const p=new URLSearchParams(location.search);if(!initialized){if(p.has('s')&&p.has('o')&&p.has('i'))document.querySelector('[name=testType][value=custom]').checked=true;previousType=kind();applyTypeDefaults();if(p.has('s')){rows().forEach(r=>r.querySelector('.enabled').checked=r.dataset.subject===p.get('s'));selectPanels();const key=`${p.get('s')}:${p.get('o')}:i${Number(p.get('i'))}`;const input=[...document.querySelectorAll('.indicator-check')].find(x=>x.value===key);if(input){input.checked=true;if(p.get('m')){$('fixedModel').value=p.get('m');input.closest('label').querySelector('.indicator-count').value=15;const row=rows().find(r=>r.dataset.subject===p.get('s'));row.querySelector('.count').value=15;}}const entry=(catalog.indicators||[]).find(i=>i.key===key);if(entry)$('testTitle').value=`اختبار ${names[entry.subject]} — المؤشر ${p.get('i')}`;}initialized=true;}else selectPanels();$('catalogState').textContent=`بنك اختبارات المؤشرات: ${ar((catalog.indicators||[]).length)} مؤشرًا متاحًا بحسب صلاحية الحساب`;await loadPublished();}catch(e){$('catalogState').textContent=e.message;}}
 $('publishedList').onclick=async e=>{const b=e.target.closest('[data-share-code]');if(!b)return;const url='https://zarie19991-bit.github.io/moallimi/e.html?t='+b.dataset.shareCode;try{$('createdLink').value=url;$('openLink').href=url;$('createdSummary').textContent=b.closest('article').querySelector('b').textContent;$('created').classList.remove('hidden');await NafesQR.render($('qr'),url);$('created').scrollIntoView({behavior:'smooth'});}catch(e){$('formError').textContent=e.message;}};
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)load();});
-restore();ensureFullControls();load();
+restore();ensureFullControls();window.NafesReloadPublished=loadPublished;load();
+})();
+
+(()=>{
+'use strict';
+const T=window.NafesTeacher,$=id=>document.getElementById(id);
+if(!T||!$('questionDesigner'))return;
+const names={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+let loaded=false;
+async function loadDesigner(){
+ try{
+  const p=await T.ensureProfile();
+  const box=$('questionDesigner');
+  if(!p||p.subject_scope!=='all'||T.isQa?.()){box.classList.add('hidden');return;}
+  box.classList.remove('hidden');
+  if(loaded)return;
+  const d=await T.api('teacher_catalog');
+  const groups={reading:[],math:[],science:[]};
+  for(const i of d.indicators||[])if(groups[i.subject])groups[i.subject].push(i);
+  $('qdIndicator').innerHTML=Object.entries(groups).map(([s,items])=>`<optgroup label="${names[s]}">${items.map(i=>`<option value="${esc(i.key)}">${esc(i.text)}</option>`).join('')}</optgroup>`).join('');
+  loaded=true;
+ }catch(e){$('qdStatus').textContent=e.message||'تعذر تحميل مصمم الأسئلة.';}
+}
+async function saveQuestion(){
+ const btn=$('qdSave'),status=$('qdStatus');btn.disabled=true;status.textContent='';
+ try{
+  const options=[0,1,2,3].map(i=>$('qdOpt'+i).value.trim());
+  const d=await T.api('teacher_question_create',{
+    indicator_key:$('qdIndicator').value,
+    context_text:$('qdContext').value,
+    question_text:$('qdQuestion').value,
+    options,
+    correct_index:Number($('qdCorrect').value),
+    explanation:$('qdExplanation').value,
+    cognitive_level:$('qdCognitive').value,
+    difficulty:$('qdDifficulty').value,
+    image_url:$('qdImageUrl').value,
+    image_alt:$('qdImageAlt').value
+  });
+  status.style.color='#087354';
+  status.textContent='تم اعتماد السؤال وإضافته إلى بنك المؤشر بنجاح.';
+  $('qdContext').value='';$('qdQuestion').value='';$('qdExplanation').value='';$('qdImageUrl').value='';$('qdImageAlt').value='';
+  [0,1,2,3].forEach(i=>$('qdOpt'+i).value='');
+  T.clearReadCache?.();
+ }catch(e){status.style.color='#a32828';status.textContent=e.message||'تعذر حفظ السؤال.';}
+ finally{btn.disabled=false;}
+}
+$('qdSave').addEventListener('click',saveQuestion);
+addEventListener('nafes:teacher-profile',loadDesigner);
+addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated){loaded=false;loadDesigner();}});
+loadDesigner();
 })();
