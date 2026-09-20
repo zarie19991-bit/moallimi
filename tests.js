@@ -530,5 +530,14 @@ window.openIndicatorSettings = async (s, o, i, m = 1) => {
     }
   };
 };
+
+// Legacy fixed-model launcher is retired. Indicator cards now open the unified builder.
+window.openNafesModels=(s,o,i)=>{
+  const u=new URL('create.html',location.href);
+  u.searchParams.set('s',String(s||''));
+  u.searchParams.set('o',String(o||''));
+  u.searchParams.set('i',String(i||''));
+  location.href=u.href;
+};
 })();
 
