@@ -551,3 +551,23 @@ img,svg,video,canvas{max-width:100%}img,video{height:auto}button,input,select,te
 @supports(padding:max(0px)){body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}}
 @media(max-width:640px){body{font-size:16px}input,select,textarea{font-size:16px!important}#app{min-width:0}.comp-stage,.comp-question-shell{max-width:100%;overflow-x:hidden}.comp-stage,.comp-question-shell,.comp-question-card{border-radius:20px!important}.comp-option{width:100%;overflow-wrap:anywhere}.comp-timer{flex:0 0 auto}.journey-overlay{padding:0!important}.journey-shell{width:100%!important;max-width:100%!important;min-height:100dvh!important;margin:0!important;border-radius:0!important}.journey-head{padding:16px!important}.journey-head-row{gap:10px!important}.journey-body{padding:12px!important}.journey-current{flex-direction:column!important;align-items:stretch!important}.journey-alert-row{align-items:stretch!important}.journey-current .journey-primary,.journey-alert button{width:100%!important}.journey-map{grid-template-columns:minmax(0,1fr)!important}.journey-progress{grid-template-columns:repeat(5,minmax(64px,1fr))!important;overflow-x:auto!important;padding-bottom:4px!important}.journey-step{min-width:64px!important}.journey-panel{padding:16px!important;border-radius:18px!important}.journey-subject-tabs{grid-template-columns:repeat(3,minmax(0,1fr))!important}.journey-subject-tab{min-width:0!important;padding:8px 4px!important;font-size:10px!important}.toast{left:12px!important;right:12px!important;bottom:calc(76px + env(safe-area-inset-bottom))!important;max-width:none!important}}
 @media(max-width:380px){.comp-stage{padding:8px!important}.journey-head h1{font-size:20px!important}.journey-head p{font-size:11px!important}}
+
+
+/* TAMAKKUN_FALLBACK_FINISH_V2 */
+*,*::before,*::after{border-color:#e2e8f0}
+.bg-white\/5{background-color:rgba(255,255,255,.05)}
+.bg-white\/10{background-color:rgba(255,255,255,.10)}
+.bg-white\/15{background-color:rgba(255,255,255,.15)}
+.bg-white\/20{background-color:rgba(255,255,255,.20)}
+.bg-white\/95{background-color:rgba(255,255,255,.95)}
+.border-white\/10{border-color:rgba(255,255,255,.10)}
+.border-white\/15{border-color:rgba(255,255,255,.15)}
+.border-white\/20{border-color:rgba(255,255,255,.20)}
+@media(min-width:640px){
+ .sm\:grid-cols-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+ .sm\:grid-cols-6{grid-template-columns:repeat(6,minmax(0,1fr))}
+}
+@media(min-width:1024px){
+ .lg\:grid-cols-\[235px_1fr\]{grid-template-columns:235px minmax(0,1fr)}
+ .lg\:grid-cols-\[1\.1fr_\.9fr\]{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
+}
