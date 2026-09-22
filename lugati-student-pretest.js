@@ -3,7 +3,7 @@
 const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-pretest-worksheets';
 const EXACT='lugati_exact_session_v2',LEGACY='lugati_session_v1',LEGACY_ROLE='lugati_role_v1';
 const SUBJECTS={reading:{name:'القراءة',icon:'📖',total:16},math:{name:'الرياضيات',icon:'➗',total:95},science:{name:'العلوم',icon:'🔬',total:159}};
-const S={token:'',map:[],maps:{reading:[],math:[],science:[]},activeSubject:'reading',current:null,activeLock:null,journey:null,stage:'map',guidedIndex:0,activity:null,objective:null,feedback:null,challenge:null,exit:null,support:null,rescueAnswer:null,enrich:null,retention:null,timer:null,loading:false,error:''};
+const S={token:'',map:[],maps:{reading:[],math:[],science:[]},assessmentJourneys:{reading:null,math:null,science:null},activeCombinedJourney:null,activeSubject:'reading',current:null,activeLock:null,journey:null,stage:'map',guidedIndex:0,activity:null,objective:null,feedback:null,challenge:null,exit:null,support:null,rescueAnswer:null,enrich:null,retention:null,timer:null,loading:false,error:''};
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function session(){try{const x=JSON.parse(sessionStorage.getItem(EXACT)||localStorage.getItem(EXACT)||'null');if(x?.token&&x?.role==='student')return x}catch{}for(const st of [sessionStorage,localStorage]){try{const token=st.getItem(LEGACY),role=st.getItem(LEGACY_ROLE);if(token&&role==='student')return{token,role:'student'}}catch{}}return null}
 async function post(action,extra={}){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${S.token}`},body:JSON.stringify({action,...extra}),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);return d}
@@ -14,6 +14,7 @@ function styles(){if(document.getElementById('journeyStyles'))return;const s=doc
 .journey-overlay{position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.64);backdrop-filter:blur(6px);overflow:auto;padding:12px;direction:rtl;font-family:Tahoma,Arial,sans-serif}.journey-shell{max-width:1080px;margin:10px auto;background:#f8fafc;min-height:92vh;border-radius:28px;overflow:hidden;box-shadow:0 30px 90px rgba(2,6,23,.28);font-family:Tahoma,Arial,sans-serif}
 .journey-head{padding:22px;background:linear-gradient(135deg,#064e3b,#0f766e,#0369a1);color:#fff}.journey-head-row{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.journey-head h1{margin:5px 0;font-size:25px}.journey-head p{margin:0;color:#d1fae5;font-size:12px}.journey-close{border:0;background:rgba(255,255,255,.14);color:white;width:40px;height:40px;border-radius:12px;font-size:24px;cursor:pointer}.journey-body{padding:18px}.journey-subject-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}.journey-subject-tab{border:1px solid #e2e8f0;background:#fff;border-radius:13px;padding:9px;font-size:11px;font-weight:900;color:#64748b;cursor:pointer}.journey-subject-tab.active{background:#0f766e;color:white;border-color:#0f766e}
 .journey-current{background:#fff;border:1px solid #bae6fd;border-radius:20px;padding:16px;margin-bottom:16px;display:flex;gap:14px;align-items:center;justify-content:space-between}.journey-current h3{margin:4px 0;font-size:14px}.journey-current p{margin:0;color:#64748b;font-size:11px}.journey-primary{border:0;border-radius:13px;padding:11px 15px;background:#0369a1;color:white;font-weight:900;cursor:pointer}.journey-secondary{border:1px solid #cbd5e1;border-radius:13px;padding:10px 14px;background:white;color:#334155;font-weight:800;cursor:pointer}
+.combined-journey{background:linear-gradient(135deg,#0f172a,#0f766e);color:#fff;border-radius:24px;padding:18px;margin-bottom:16px;box-shadow:0 18px 45px rgba(15,23,42,.16)}.combined-journey-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.combined-journey-kicker{font-size:10px;font-weight:900;color:#99f6e4}.combined-journey h2{font-size:20px;line-height:1.6;margin:5px 0}.combined-journey p{font-size:11px;color:#d1fae5;line-height:1.8;margin:0}.combined-progress{height:9px;background:rgba(255,255,255,.14);border-radius:999px;overflow:hidden;margin-top:13px}.combined-progress>span{display:block;height:100%;background:#34d399;border-radius:999px}.combined-list{display:grid;gap:8px;margin-top:13px}.combined-item{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px}.combined-item-num{width:30px;height:30px;display:grid;place-items:center;border-radius:10px;background:rgba(255,255,255,.12);font-size:11px;font-weight:900;flex:0 0 auto}.combined-item-main{min-width:0;flex:1}.combined-item-title{display:block;font-size:11px;line-height:1.6;font-weight:900}.combined-item-meta{display:block;font-size:9px;color:#cbd5e1;margin-top:2px}.combined-state{font-size:9px;font-weight:900;border-radius:999px;padding:5px 8px;white-space:nowrap}.combined-state.ready{background:#d1fae5;color:#047857}.combined-state.work{background:#fef3c7;color:#92400e}.combined-state.wait{background:#e2e8f0;color:#475569}.combined-action{border:0;border-radius:13px;padding:11px 16px;background:#fff;color:#0f766e;font-weight:900;cursor:pointer;white-space:nowrap}.combined-summary{max-width:820px;margin:0 auto;background:#fff;border:1px solid #a7f3d0;border-radius:24px;padding:24px;text-align:center}.combined-summary h2{font-size:24px;margin:8px 0}.combined-summary-grid{display:grid;gap:9px;margin-top:16px;text-align:right}@media(max-width:640px){.combined-journey{padding:14px;border-radius:20px}.combined-action{width:100%}.combined-item{align-items:flex-start}.combined-state{white-space:normal;text-align:center}}
 .journey-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:12px}.journey-node{border:1px solid #e2e8f0;background:white;border-radius:18px;min-height:138px;padding:14px;text-align:right;cursor:pointer}.journey-node-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.journey-node .num{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:900;flex:0 0 auto}.journey-node .indicator-name{display:block;font-size:13px;line-height:1.85;font-weight:900;color:#0f172a;margin-top:10px}.journey-node small{display:block;font-size:10px;line-height:1.65;font-weight:800}.journey-node.locked{color:#94a3b8;cursor:default}.journey-node.locked .num{background:#f1f5f9}.journey-node.sent .num{background:#e0f2fe;color:#0369a1}.journey-node.in_progress .num{background:#fef3c7;color:#b45309}.journey-node.support .num{background:#ffe4e6;color:#be123c}.journey-node.blocked{opacity:.58;cursor:not-allowed;background:#f8fafc}.journey-node.blocked .num{background:#e2e8f0;color:#64748b}.journey-node.ready .num{background:#d1fae5;color:#047857}.journey-node.ready{border-color:#a7f3d0}.journey-node.support{border-color:#fecdd3}.exit-box{border:2px solid #0f766e;background:#ecfdf5;border-radius:18px;padding:16px;margin:14px 0}.mastery-lock{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:15px;padding:12px;font-size:12px;line-height:1.8;margin-bottom:14px}
 .journey-progress{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}.journey-step{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:10px;text-align:center;font-size:10px;font-weight:900;color:#64748b}.journey-step.active{border-color:#0ea5e9;background:#e0f2fe;color:#075985}.journey-step.done{border-color:#6ee7b7;background:#ecfdf5;color:#047857}
 .journey-panel{max-width:820px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:24px;padding:24px;font-size:15px}.secret-icon{width:58px;height:58px;border-radius:20px;background:#fef3c7;color:#b45309;display:grid;place-items:center;font-size:28px}.journey-panel h2{margin:10px 0 5px;font-size:23px;line-height:1.7;color:#0f172a}.journey-panel .sub{font-size:14px;color:#475569;line-height:1.95}.gold-card,.trap-card{border-radius:17px;padding:15px;margin-top:13px;line-height:1.8;font-size:13px}.gold-card{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}.trap-card{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}.journey-action{margin-top:18px;width:100%;border:0;border-radius:14px;padding:13px;background:#047857;color:#fff;font-weight:900;cursor:pointer}
@@ -42,6 +43,40 @@ function skillGuide(item){
  return {title:item.indicator_text||'المهارة الحالية',asks:[],where:'اقرأ السؤال وحدد المطلوب ثم ارجع إلى الجزء المرتبط به في النص.',steps:['حدّد المطلوب.','ارجع إلى النص.','استخرج الدليل.','اختر الإجابة التي يثبتها الدليل.']};
 }
 function skillTitle(item){return skillGuide(item)?.title||item?.indicator_text||'المهارة الحالية'}
+function combinedStateLabel(x){
+ if(x.state==='ready')return x.mastered_from_assessment?'متقن من الاختبار ✓':'متقن ✓';
+ if(x.assignment)return x.state==='support'?'يحتاج معالجة':x.state==='in_progress'?'قيد الإتقان':'جاهز للتدريب';
+ return Number(x.percent)>=90?'متقن من الاختبار ✓':'بانتظار رحلة المؤشر';
+}
+function combinedStateClass(x){return x.state==='ready'?'ready':x.assignment?'work':'wait'}
+function latestCombinedJourney(){
+ return Object.values(S.assessmentJourneys||{}).filter(g=>g&&g.total>1&&g.pending_count>0).sort((a,b)=>String(b.submitted_at||'').localeCompare(String(a.submitted_at||'')))[0]||null;
+}
+function combinedJourneyCard(g,compact=false){
+ if(!g)return'';
+ const meta=SUBJECTS[g.subject_key]||SUBJECTS.reading,pct=Number(g.progress_percent||0);
+ const rows=(g.indicators||[]).map(x=>`<div class="combined-item"><span class="combined-item-num">${x.state==='ready'?'✓':x.global_indicator}</span><span class="combined-item-main"><b class="combined-item-title">${esc(x.student_title||x.indicator_text)}</b><small class="combined-item-meta">نتيجة الاختبار: ${Number(x.percent||0).toLocaleString('ar-SA')}٪</small></span><span class="combined-state ${combinedStateClass(x)}">${combinedStateLabel(x)}</span></div>`).join('');
+ return `<section class="combined-journey"><div class="combined-journey-head"><div><div class="combined-journey-kicker">رحلة إتقان مدمجة • ${meta.icon} ${meta.name}</div><h2>${esc(g.title||('اختبار '+meta.name))}</h2><p>${g.total} مؤشرات في رحلة واحدة • متقن ${g.mastered_count} من ${g.total}</p></div><button class="combined-action" data-open-combined="${g.subject_key}">${g.pending_count?'ابدأ/أكمل الرحلة ←':'عرض الرحلة'}</button></div><div class="combined-progress"><span style="width:${pct}%"></span></div>${compact?'':`<div class="combined-list">${rows}</div>`}</section>`;
+}
+function openCombinedJourney(subject){
+ const g=S.assessmentJourneys?.[subject];if(!g)return openMap(subject);
+ S.activeCombinedJourney=g.id;S.activeSubject=subject;openMap(subject);
+ if(g.next_assignment_id)openJourney(g.next_assignment_id);else renderCombinedSummary(g);
+}
+function renderCombinedSummary(g){
+ const b=document.getElementById('journeyBody');if(!b||!g)return;
+ const rows=(g.indicators||[]).map(x=>`<div class="combined-item" style="background:#f8fafc;border-color:#e2e8f0;color:#0f172a"><span class="combined-item-num" style="background:#ecfdf5;color:#047857">${x.state==='ready'?'✓':x.global_indicator}</span><span class="combined-item-main"><b class="combined-item-title">${esc(x.student_title||x.indicator_text)}</b><small class="combined-item-meta" style="color:#64748b">نتيجة الاختبار: ${Number(x.percent||0).toLocaleString('ar-SA')}٪</small></span><span class="combined-state ${combinedStateClass(x)}">${combinedStateLabel(x)}</span></div>`).join('');
+ b.innerHTML=`<div class="combined-summary"><div style="font-size:48px">🏁</div><div class="activity-title">رحلة الاختبار المدمج</div><h2>${esc(g.title||'رحلة الإتقان')}</h2><p class="sub">أنجزت ${g.mastered_count} من ${g.total} مؤشرات ضمن هذه الرحلة.</p><div class="combined-summary-grid">${rows}</div><button id="backCombinedMap" class="journey-secondary" style="margin-top:16px;width:100%">العودة إلى خريطة الإتقان</button></div>`;
+ document.getElementById('backCombinedMap').onclick=()=>{S.activeCombinedJourney=null;S.stage='map';S.journey=null;renderMap()};
+}
+async function continueCombinedJourney(){
+ const id=S.activeCombinedJourney,subject=S.activeSubject;if(!id)return;
+ await loadMap();
+ const g=S.assessmentJourneys?.[subject];if(!g)return;
+ S.activeCombinedJourney=g.id;
+ if(g.next_assignment_id)openJourney(g.next_assignment_id);else renderCombinedSummary(g);
+}
+
 
 function levelLabel(v){return v==='knowledge'?'معرفة وفهم':v==='application'?'تطبيق':'استدلال'}
 function levelClass(v){return v==='knowledge'?'level-k':v==='application'?'level-a':'level-r'}
@@ -63,7 +98,7 @@ async function loadMap(){
  if(S.loading)return;S.loading=true;
  try{
    const rows=await Promise.all(Object.keys(SUBJECTS).map(subject=>post('journey_map',{subject_key:subject})));
-   rows.forEach(d=>{S.maps[d.subject_key]=d.indicators||[]});
+   rows.forEach(d=>{S.maps[d.subject_key]=d.indicators||[];S.assessmentJourneys[d.subject_key]=d.assessment_journey||null});
    S.activeLock=rows.map(d=>d.active_lock_assignment_id).find(Boolean)||null;
    S.map=S.maps[S.activeSubject]||[];
    const all=allItems(),pending=all.filter(x=>x.assignment&&x.state!=='ready'&&!x.locked_by_active);
@@ -77,10 +112,11 @@ function paintBadge(){}
 function hostView(){return document.getElementById('sview')||document.getElementById('studentView')}
 function subjectStats(k){const a=S.maps[k]||[];return{pending:a.filter(x=>x.assignment&&x.state!=='ready').length,ready:a.filter(x=>x.state==='ready').length,assigned:a.filter(x=>x.assignment).length,total:SUBJECTS[k].total}}
 function injectHero(){
- const cur=S.current;
+ const cur=S.current,combined=latestCombinedJourney();
  const primary=document.getElementById('studentPrimaryMission');
  if(primary){
-   if(cur){
+   if(combined){primary.innerHTML=combinedJourneyCard(combined,false);primary.querySelector('[data-open-combined]')?.addEventListener('click',()=>openCombinedJourney(combined.subject_key));}
+   else if(cur){
      const meta=SUBJECTS[cur.subject_key]||SUBJECTS.reading,g=skillGuide(cur);
      const asks=(g?.asks||[]).slice(0,3),steps=(g?.steps||[]).slice(0,4);
      primary.innerHTML=`<div class="skill-focus">
@@ -130,7 +166,7 @@ function closeOverlay(){clearInterval(S.timer);S.timer=null;document.getElementB
 function renderMap(){
  const b=document.getElementById('journeyBody');if(!b)return;
  S.map=S.maps[S.activeSubject]||[];
- const meta=SUBJECTS[S.activeSubject],assigned=S.map.filter(x=>x.assignment),ready=S.map.filter(x=>x.state==='ready').length;
+ const meta=SUBJECTS[S.activeSubject],assigned=S.map.filter(x=>x.assignment),ready=S.map.filter(x=>x.state==='ready').length,combined=S.assessmentJourneys?.[S.activeSubject]||null;
  const mapByNo=new Map(S.map.map(x=>[Number(x.global_indicator),x]));
  const readingNames=window.LUGATI_READING_INDICATORS||[];
  const cards=S.activeSubject==='reading'
@@ -140,11 +176,13 @@ function renderMap(){
  const kicker=document.getElementById('journeySubjectKicker');if(kicker)kicker.textContent=`${meta.icon} ${meta.name} • ${meta.total} مؤشرًا`;
  const foreignLock=S.current&&S.current.subject_key!==S.activeSubject?S.current:null;
  b.innerHTML=`<div class="journey-subject-tabs">${Object.entries(SUBJECTS).map(([k,m])=>`<button class="journey-subject-tab ${S.activeSubject===k?'active':''}" data-journey-subject="${k}">${m.icon} ${m.name}</button>`).join('')}</div>
+ ${combined?combinedJourneyCard(combined,false):''}
  ${foreignLock?`<div class="mastery-lock">لديك مؤشر بدأت العمل عليه في ${SUBJECTS[foreignLock.subject_key]?.name||''}: <b>${esc(foreignLock.indicator_text)}</b>. يمكنك إكماله أو فتح أي مؤشر آخر أرسله المعلم.</div>`:''}
  ${cur?`<div class="journey-current"><div><small style="color:#0284c7;font-weight:900">المهارة النشطة • رقم ${cur.global_indicator}</small><h3>${esc(skillTitle(cur))}</h3><p>${stateText(cur.state,cur.assignment?.current_stage)} • <span style="color:#64748b">${esc(cur.indicator_text)}</span></p></div><button class="journey-primary" data-open-assignment="${cur.assignment.id}">أكمل الآن</button></div>`:''}
  <div style="display:flex;justify-content:space-between;gap:10px;align-items:end;margin:8px 0 13px"><div><h2 style="margin:0;font-size:18px">${meta.name}</h2><p style="margin:4px 0 0;color:#64748b;font-size:11px">${S.activeSubject==='reading'?'خريطة مؤشرات القراءة الـ16 • يُفتح فقط ما يرسله المعلم':`أرسل المعلم ${assigned.length} مؤشرًا`} • متقن ${ready}</p></div><b style="color:#047857">${ready}/${meta.total} 🌟</b></div>
  ${cards.length?`<div class="journey-map">${cards.map(x=>{const blocked=!x.assignment||x.locked_by_active||x.state==='blocked';return`<button class="journey-node ${x.state||'locked'}" ${blocked?'disabled':`data-map-assignment="${x.assignment.id}"`}><div class="journey-node-top"><span class="num">${x.state==='ready'?'★':x.global_indicator}</span><small>${x.assignment?stateText(x.state,x.assignment?.current_stage):'لم يُرسل بعد 🔒'}</small></div><strong class="indicator-name">${esc(skillTitle(x))}</strong><small style="margin-top:5px;color:#64748b">${meta.name} • رقم ${x.global_indicator}</small></button>`}).join('')}</div>`:`<div class="journey-panel" style="text-align:center"><div style="font-size:35px">🔒</div><h2>لا توجد مؤشرات مرسلة في ${meta.name}</h2><p class="sub">عندما يرسل المعلم مؤشرًا سيظهر هنا مباشرة.</p></div>`}`;
  b.querySelectorAll('[data-journey-subject]').forEach(x=>x.onclick=()=>{S.activeSubject=x.dataset.journeySubject;renderMap()});
+ b.querySelectorAll('[data-open-combined]').forEach(x=>x.onclick=()=>openCombinedJourney(x.dataset.openCombined));
  b.querySelectorAll('[data-open-assignment],[data-map-assignment]').forEach(x=>x.onclick=()=>openJourney(x.dataset.openAssignment||x.dataset.mapAssignment));
 }
 async function openJourney(id){
@@ -267,8 +305,9 @@ async function renderReady(){
  ${window.TamakkunEncouragement?.card?.('mastery')||''}
  ${due?'<div class="bonus"><h3>🔁 حان وقت تثبيت الإتقان</h3><p class="sub">سؤال جديد بعد مرور وقت للتأكد أن المهارة بقيت معك.</p><div id="retentionArea"></div></div>':S.journey.assignment.retention_due_at?`<div class="feedback ok" style="margin-top:14px">سيظهر لك سؤال تثبيت لاحق حتى نتأكد أن الإتقان ثابت.</div>`:''}
  <div class="bonus"><h3>🧠 سؤال العباقرة — اختياري</h3><p class="sub">تحدٍ إضافي بعد الإتقان للحصول على نقاط إضافية.</p><div id="enrichArea"></div></div>
+ ${S.activeCombinedJourney?'<button id="continueCombined" class="journey-action">الانتقال إلى المؤشر التالي في الرحلة ←</button>':''}
  <button id="backToMapReady" class="journey-secondary" style="margin-top:16px;width:100%">العودة إلى خريطة المؤشرات</button></div>`;
- document.getElementById('backToMapReady').onclick=()=>{S.stage='map';S.journey=null;renderMap()};renderEnrichment();if(due)renderRetention();
+ document.getElementById('backToMapReady').onclick=()=>{S.activeCombinedJourney=null;S.stage='map';S.journey=null;renderMap()};document.getElementById('continueCombined')?.addEventListener('click',continueCombinedJourney);renderEnrichment();if(due)renderRetention();
 }
 function renderRetention(){
  const box=document.getElementById('retentionArea');if(!box||!S.retention?.due)return;
@@ -279,7 +318,7 @@ function renderRetention(){
  document.getElementById('submitRetention').onclick=async()=>{try{const d=await post('retention',{assignment_id:S.journey.assignment.id,activity_answer:S.retention.answer});S.retention.ok=d.passed;S.retention.feedback=d.feedback;S.retention.status=d.status;if(d.passed)S.retention.passed=true;renderRetention()}catch(e){S.retention.ok=false;S.retention.feedback=e.message;renderRetention()}};
 }
 function renderEnrichment(){const box=document.getElementById('enrichArea');if(!box||!S.enrich)return;if(S.enrich.completed){box.innerHTML='<div class="feedback ok">أكملت سؤال العباقرة وحصلت على 10 نقاط إضافية ✓</div><div style="margin-top:10px">'+(window.TamakkunEncouragement?.card?.('enrichment_complete')||'')+'</div>';return}const q=S.enrich.item;if(!q){box.innerHTML='';return}box.innerHTML=`${diagramHtml(q)}${q.stimulus?`<div class="activity-stimulus">${esc(q.stimulus)}</div>`:''}<div class="activity-prompt">${esc(q.prompt)}</div><div class="choice-grid">${(q.activity_data?.options||[]).map((o,i)=>`<button class="choice-btn ${S.enrich.answer?.index===i?'selected':''}" data-enrich="${i}">${esc(o)}</button>`).join('')}</div>${S.enrich.feedback?`<div class="feedback ${S.enrich.ok?'ok':'bad'}">${esc(S.enrich.feedback)}</div>`:''}<button id="submitEnrich" class="journey-action" ${S.enrich.answer==null?'disabled style="opacity:.45"':''}>تحقق واحصل على النقاط</button>`;document.querySelectorAll('[data-enrich]').forEach(x=>x.onclick=()=>{S.enrich.answer={index:Number(x.dataset.enrich)};S.enrich.feedback=null;renderEnrichment()});document.getElementById('submitEnrich').onclick=async()=>{try{const d=await post('enrichment',{assignment_id:S.journey.assignment.id,activity_answer:S.enrich.answer});S.enrich.ok=d.passed;S.enrich.feedback=d.feedback;if(d.passed)S.enrich.completed=true;renderEnrichment()}catch(e){S.enrich.ok=false;S.enrich.feedback=e.message;renderEnrichment()}}}
-window.LugatiJourney={openMap,openCurrent:openCurrentJourney};
+window.LugatiJourney={openMap,openCurrent:openCurrentJourney,openCombined:openCombinedJourney};
 function boot(){const s=session();if(!s)return;S.token=s.token;styles();loadMap();window.addEventListener('lugati:student-view-rendered',()=>injectHero());setInterval(()=>{if(document.visibilityState==='visible'&&!S.challenge)loadMap()},30000)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
