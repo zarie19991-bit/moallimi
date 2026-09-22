@@ -125,3 +125,27 @@ html,body,#app{font-family:var(--tk-font)}
   #lugatiCompetitionMount .comp-question-shell{border-radius:20px!important}
 }
 @media(prefers-reduced-motion:reduce){.tk-btn,#lugatiCompetitionMount *{transition:none!important;animation:none!important}}
+
+
+/* Game journey components — shared Tamakkun language */
+.comp-stage-map{display:flex;gap:7px;align-items:center;overflow-x:auto;padding:2px 0 4px;scrollbar-width:thin}
+.comp-stage-dot{width:30px;height:30px;flex:0 0 30px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);color:#d1fae5;font-size:10px;font-weight:900}
+.comp-stage-dot.active{background:#fff;color:var(--tk-brand-800);border-color:#fff;box-shadow:0 6px 18px rgba(255,255,255,.12)}
+.comp-stage-dot.done{background:var(--tk-brand-500);color:#fff;border-color:var(--tk-brand-500)}
+.comp-powerups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.comp-powerup{border:1px solid var(--tk-line);background:#fff;border-radius:var(--tk-radius-sm);padding:10px;display:flex;flex-direction:column;align-items:center;gap:3px;min-height:78px;cursor:pointer;transition:var(--tk-transition)}
+.comp-powerup:hover:not(:disabled){border-color:var(--tk-brand-500);background:var(--tk-brand-50);transform:translateY(-1px)}
+.comp-powerup span{font-size:18px;font-weight:900;color:var(--tk-brand-700)}
+.comp-powerup b{font-size:10px;color:var(--tk-ink)}
+.comp-powerup small{font-size:9px;color:var(--tk-muted)}
+.comp-powerup.active{border-color:var(--tk-gold-500);background:var(--tk-gold-50);box-shadow:0 0 0 2px rgba(245,158,11,.08)}
+.comp-powerup.disabled,.comp-powerup:disabled{opacity:.42;cursor:not-allowed;transform:none}
+#lugatiCompetitionMount .comp-option.eliminated{background:#f8fafc!important;border-style:dashed!important;color:#94a3b8!important;box-shadow:none!important}
+#lugatiCompetitionMount .comp-option.eliminated .comp-letter{background:#cbd5e1!important;color:#64748b!important}
+@media(max-width:640px){
+  .comp-powerups{grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .comp-powerup{padding:8px 5px;min-height:72px}
+  .comp-powerup b{font-size:9px}
+  .comp-powerup small{font-size:8px}
+  .comp-stage-dot{width:28px;height:28px;flex-basis:28px}
+}
