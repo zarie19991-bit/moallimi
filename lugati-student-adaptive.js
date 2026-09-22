@@ -89,7 +89,7 @@ function home(){
        </div>
        <button data-open-journey="1" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black shrink-0">عرض خريطة المهارات</button>
      </div>
-     <div class="grid grid-cols-5 gap-2 mt-5 max-w-4xl">
+     <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-5 max-w-4xl">
        <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">١</div><div class="text-[9px] font-bold text-slate-600 mt-1">أفهم المطلوب</div></div>
        <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">٢</div><div class="text-[9px] font-bold text-slate-600 mt-1">أتعرف الصياغة</div></div>
        <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-[10px] font-black">٣</div><div class="text-[9px] font-bold text-slate-600 mt-1">أبحث عن الدليل</div></div>
