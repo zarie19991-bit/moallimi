@@ -1,0 +1,127 @@
+/* Tamakkun Design System — single visual source of truth */
+:root{
+  --tk-font:Tahoma,Arial,sans-serif;
+  --tk-brand-950:#022c22;
+  --tk-brand-900:#064e3b;
+  --tk-brand-800:#065f46;
+  --tk-brand-700:#047857;
+  --tk-brand-600:#059669;
+  --tk-brand-500:#10b981;
+  --tk-brand-100:#d1fae5;
+  --tk-brand-50:#ecfdf5;
+  --tk-teal-700:#0f766e;
+  --tk-sky-700:#0369a1;
+  --tk-sky-50:#f0f9ff;
+  --tk-gold-500:#f59e0b;
+  --tk-gold-50:#fffbeb;
+  --tk-danger-700:#be123c;
+  --tk-danger-50:#fff1f2;
+  --tk-ink:#0f172a;
+  --tk-text:#334155;
+  --tk-muted:#64748b;
+  --tk-line:#e2e8f0;
+  --tk-soft:#f8fafc;
+  --tk-page:#f1f5f9;
+  --tk-white:#fff;
+  --tk-radius-xs:10px;
+  --tk-radius-sm:14px;
+  --tk-radius-md:18px;
+  --tk-radius-lg:24px;
+  --tk-radius-xl:32px;
+  --tk-shadow-sm:0 2px 8px rgba(15,23,42,.06);
+  --tk-shadow-md:0 14px 36px rgba(15,23,42,.10);
+  --tk-shadow-lg:0 24px 64px rgba(15,23,42,.16);
+  --tk-space-1:6px;
+  --tk-space-2:10px;
+  --tk-space-3:14px;
+  --tk-space-4:18px;
+  --tk-space-5:24px;
+  --tk-title-xl:30px;
+  --tk-title-lg:23px;
+  --tk-title-md:18px;
+  --tk-body:14px;
+  --tk-small:11px;
+  --tk-transition:.18s ease;
+}
+html,body,#app{font-family:var(--tk-font)}
+.tk-surface{background:var(--tk-white);border:1px solid var(--tk-line);border-radius:var(--tk-radius-lg);box-shadow:var(--tk-shadow-sm)}
+.tk-panel{background:var(--tk-white);border:1px solid var(--tk-line);border-radius:var(--tk-radius-lg);padding:var(--tk-space-5)}
+.tk-title{font-size:var(--tk-title-lg);font-weight:900;line-height:1.55;color:var(--tk-ink);margin:0}
+.tk-subtitle{font-size:var(--tk-body);line-height:1.85;color:var(--tk-muted)}
+.tk-eyebrow{font-size:var(--tk-small);font-weight:900;color:var(--tk-brand-700)}
+.tk-btn{border:0;border-radius:var(--tk-radius-sm);min-height:44px;padding:10px 16px;font-family:var(--tk-font);font-size:12px;font-weight:900;cursor:pointer;transition:var(--tk-transition)}
+.tk-btn-primary{background:var(--tk-brand-700);color:#fff;box-shadow:0 8px 20px rgba(4,120,87,.18)}
+.tk-btn-primary:hover{background:var(--tk-brand-800);transform:translateY(-1px)}
+.tk-btn-secondary{background:#fff;color:var(--tk-text);border:1px solid var(--tk-line)}
+.tk-btn-danger{background:var(--tk-danger-700);color:#fff}
+.tk-badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:900}
+.tk-badge-success{background:var(--tk-brand-100);color:var(--tk-brand-800)}
+.tk-badge-info{background:#e0f2fe;color:#075985}
+.tk-badge-warning{background:#fef3c7;color:#92400e}
+.tk-badge-danger{background:#ffe4e6;color:#9f1239}
+.tk-progress{height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+.tk-progress>span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--tk-brand-600),var(--tk-teal-700))}
+.tk-state-empty,.tk-state-loading,.tk-state-error{border-radius:var(--tk-radius-lg);padding:32px;text-align:center;font-size:13px;font-weight:800}
+.tk-state-empty,.tk-state-loading{background:#fff;border:1px solid var(--tk-line);color:var(--tk-muted)}
+.tk-state-error{background:var(--tk-danger-50);border:1px solid #fecdd3;color:#9f1239}
+.tk-hero{background:linear-gradient(135deg,var(--tk-brand-900),var(--tk-teal-700),var(--tk-sky-700));color:#fff;border-radius:var(--tk-radius-xl);box-shadow:var(--tk-shadow-lg)}
+.tk-overlay{background:rgba(15,23,42,.58);backdrop-filter:blur(6px)}
+.tk-modal{background:var(--tk-soft);border-radius:var(--tk-radius-xl);box-shadow:0 30px 90px rgba(2,6,23,.24)}
+
+/* Shared identity: mastery journey */
+#journeyOverlay .journey-shell{border-radius:var(--tk-radius-xl)!important;background:var(--tk-soft)!important;box-shadow:var(--tk-shadow-lg)!important}
+#journeyOverlay .journey-head{background:linear-gradient(135deg,var(--tk-brand-900),var(--tk-teal-700),var(--tk-sky-700))!important;padding:var(--tk-space-5)!important}
+#journeyOverlay .journey-panel,
+#journeyOverlay .journey-current,
+#journeyOverlay .journey-node,
+#journeyOverlay .skill-focus,
+#journeyOverlay .combined-summary{border-radius:var(--tk-radius-lg)!important;border-color:var(--tk-line)!important;box-shadow:var(--tk-shadow-sm)!important}
+#journeyOverlay .journey-primary,
+#journeyOverlay .journey-action,
+#journeyOverlay .skill-focus button{background:var(--tk-brand-700)!important;color:#fff!important;border-radius:var(--tk-radius-sm)!important;box-shadow:0 8px 20px rgba(4,120,87,.16)!important}
+#journeyOverlay .journey-secondary{border-radius:var(--tk-radius-sm)!important;border-color:var(--tk-line)!important;color:var(--tk-text)!important}
+#journeyOverlay .journey-step.active{border-color:#7dd3fc!important;background:var(--tk-sky-50)!important;color:#075985!important}
+#journeyOverlay .journey-step.done{border-color:#a7f3d0!important;background:var(--tk-brand-50)!important;color:var(--tk-brand-700)!important}
+#journeyOverlay .combined-journey{background:linear-gradient(135deg,var(--tk-brand-900),var(--tk-teal-700))!important;border-radius:var(--tk-radius-lg)!important;box-shadow:var(--tk-shadow-md)!important}
+
+/* Shared identity: teacher mastery builder */
+.pretest-modal{background:rgba(15,23,42,.58)!important;backdrop-filter:blur(6px)}
+.pretest-card{border-radius:var(--tk-radius-xl)!important;background:var(--tk-soft)!important;box-shadow:var(--tk-shadow-lg)!important}
+.pretest-head{background:linear-gradient(135deg,var(--tk-brand-900),var(--tk-teal-700),var(--tk-sky-700))!important}
+.pretest-item{border-radius:var(--tk-radius-lg)!important;border-color:var(--tk-line)!important;box-shadow:var(--tk-shadow-sm)!important}
+.pretest-item.selected{border-color:var(--tk-brand-500)!important;background:var(--tk-brand-50)!important}
+.pretest-send,.bundle-send{background:var(--tk-brand-700)!important;color:#fff!important;border-radius:var(--tk-radius-sm)!important}
+.pretest-select{border-radius:var(--tk-radius-sm)!important}
+.pretest-item.selected .pretest-select{background:var(--tk-brand-700)!important;border-color:var(--tk-brand-700)!important}
+.bundle-builder{background:linear-gradient(135deg,var(--tk-brand-900),var(--tk-teal-700))!important;border-radius:var(--tk-radius-lg)!important;box-shadow:var(--tk-shadow-md)!important}
+
+/* Shared identity: competition */
+#lugatiCompetitionMount{font-family:var(--tk-font)}
+#lugatiCompetitionMount .comp-stage{background:var(--tk-page)!important;border:1px solid var(--tk-line)!important;border-radius:var(--tk-radius-xl)!important;box-shadow:none!important}
+#lugatiCompetitionMount .comp-hero,
+#lugatiCompetitionMount .comp-podium,
+#lugatiCompetitionMount .comp-question-shell{background:linear-gradient(135deg,var(--tk-brand-900),var(--tk-teal-700),var(--tk-sky-700))!important;border-radius:var(--tk-radius-xl)!important;box-shadow:var(--tk-shadow-lg)!important}
+#lugatiCompetitionMount .comp-arena-card,
+#lugatiCompetitionMount .comp-question-card{border-radius:var(--tk-radius-lg)!important;border:1px solid var(--tk-line)!important;box-shadow:var(--tk-shadow-sm)!important}
+#lugatiCompetitionMount .comp-cta{background:var(--tk-brand-700)!important;color:#fff!important;border-radius:var(--tk-radius-sm)!important;box-shadow:0 8px 20px rgba(4,120,87,.18)!important}
+#lugatiCompetitionMount .comp-cta:hover{background:var(--tk-brand-800)!important;box-shadow:0 10px 24px rgba(4,120,87,.22)!important}
+#lugatiCompetitionMount .comp-secondary{border-radius:var(--tk-radius-sm)!important;border-color:var(--tk-line)!important}
+#lugatiCompetitionMount .comp-option{border-radius:var(--tk-radius-sm)!important;border-color:var(--tk-line)!important;box-shadow:none!important}
+#lugatiCompetitionMount .comp-option:hover:not(:disabled){border-color:var(--tk-brand-500)!important;background:var(--tk-brand-50)!important;box-shadow:var(--tk-shadow-sm)!important}
+#lugatiCompetitionMount .comp-letter{background:var(--tk-brand-700)!important;border-radius:var(--tk-radius-xs)!important}
+#lugatiCompetitionMount .comp-progress{background:linear-gradient(90deg,var(--tk-brand-600),var(--tk-teal-700))!important}
+#lugatiCompetitionMount .comp-feedback-good{background:var(--tk-brand-50)!important;border-color:#a7f3d0!important;color:var(--tk-brand-800)!important}
+#lugatiCompetitionMount .comp-feedback-bad{background:var(--tk-danger-50)!important;border-color:#fecdd3!important;color:#9f1239!important}
+#lugatiCompetitionMount .comp-gold{color:var(--tk-gold-500)!important}
+
+/* Same density and mobile behavior everywhere */
+@media(max-width:640px){
+  :root{--tk-title-xl:25px;--tk-title-lg:20px;--tk-title-md:17px;--tk-body:13px}
+  .tk-panel{padding:16px}
+  #journeyOverlay .journey-shell,.pretest-card{border-radius:20px!important}
+  #lugatiCompetitionMount .comp-stage{padding:10px!important;border-radius:20px!important}
+  #lugatiCompetitionMount .comp-hero,
+  #lugatiCompetitionMount .comp-podium,
+  #lugatiCompetitionMount .comp-question-shell{border-radius:20px!important}
+}
+@media(prefers-reduced-motion:reduce){.tk-btn,#lugatiCompetitionMount *{transition:none!important;animation:none!important}}
