@@ -78,7 +78,7 @@ function home(){
    <section class="rounded-[2rem] bg-gradient-to-l from-emerald-800 via-teal-800 to-sky-900 text-white p-6 sm:p-8 shadow-xl">
      <div class="text-[10px] font-black text-emerald-100">مسارك واضح وبسيط</div>
      <h1 class="text-2xl sm:text-3xl font-black mt-2">مرحبًا ${esc((S.profile?.full_name||'').split(' ')[0]||'بك')} 👋</h1>
-     <p class="text-sm text-emerald-100 mt-2 leading-7">ابدأ من المهمة الحالية، ثم راقب تقدمك. لا تحتاج للتنقل بين أقسام كثيرة.</p>
+     <p class="text-sm text-emerald-100 mt-2 leading-7">${esc(window.TamakkunEncouragement?.welcome?.(S.profile?.full_name)||'ابدأ من المهمة الحالية، ثم راقب تقدمك خطوة بخطوة.')}</p>
    </section>
    <section class="bg-white border border-emerald-200 rounded-[2rem] p-5 sm:p-6 shadow-sm">
      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
@@ -166,8 +166,18 @@ function renderTeacherTaskModal(){
 }
 async function submitTeacherTask(){
  const t=S.activeTask;if(!t)return;const btn=document.getElementById('submitTeacherTask');if(btn){btn.disabled=true;btn.textContent='جارٍ التصحيح…'}
- try{const d=await planPost('submit_teacher_task',{task_id:t.id,answers:S.taskAnswers});const modal=document.getElementById('teacherTaskModal');if(modal)modal.innerHTML='<div class="max-w-lg mx-auto mt-20 bg-white rounded-[2rem] p-8 text-center"><div class="text-5xl">'+(Number(d.percent)>=70?'✅':'📘')+'</div><h2 class="text-2xl font-black mt-4">تم تسليم المسار</h2><div class="text-3xl font-black text-rose-700 mt-4">'+Number(d.score).toLocaleString('ar-SA')+' / '+Number(d.total).toLocaleString('ar-SA')+'</div><p class="text-sm text-slate-500 mt-2">النسبة '+Number(d.percent).toLocaleString('ar-SA')+'%</p><button id="doneTeacherTask" class="mt-6 px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black">العودة إلى مهامي</button></div>';document.getElementById('doneTeacherTask').onclick=async()=>{closeTeacherTask();await loadTeacherTasks()}}catch(e){alert(e.message);renderTeacherTaskModal()}
+ try{
+  const d=await planPost('submit_teacher_task',{task_id:t.id,answers:S.taskAnswers});
+  const pct=Number(d.percent||0),src=t.source_percent==null?null:Number(t.source_percent),improved=src!=null&&pct>src;
+  const type=improved?'improvement':pct>=90?'mastery':pct>=70?'remedial_complete':'near_mastery';
+  const ctx=improved?{from:Math.round(src),to:Math.round(pct)}:{};
+  const encouragement=window.TamakkunEncouragement?.card?.(type,ctx)||'';
+  const modal=document.getElementById('teacherTaskModal');
+  if(modal)modal.innerHTML='<div class="max-w-lg mx-auto mt-20 bg-white rounded-[2rem] p-8 text-center"><div class="text-5xl">'+(pct>=70?'✅':'📘')+'</div><h2 class="text-2xl font-black mt-4">تم تسليم المسار</h2><div class="text-3xl font-black text-rose-700 mt-4">'+Number(d.score).toLocaleString('ar-SA')+' / '+Number(d.total).toLocaleString('ar-SA')+'</div><p class="text-sm text-slate-500 mt-2">النسبة '+pct.toLocaleString('ar-SA')+'%</p><div class="mt-5 text-right">'+encouragement+'</div><button id="doneTeacherTask" class="mt-6 px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black">العودة إلى مهامي</button></div>';
+  document.getElementById('doneTeacherTask').onclick=async()=>{closeTeacherTask();await loadTeacherTasks()}
+ }catch(e){alert(e.message);renderTeacherTaskModal()}
 }
+
 function progress(){
  return `<div class="space-y-5 pb-24">
    <section class="rounded-[2rem] bg-gradient-to-l from-indigo-950 to-cyan-950 text-white p-6">
