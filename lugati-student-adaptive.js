@@ -78,45 +78,45 @@ function home(){
    <section class="rounded-[2rem] bg-gradient-to-l from-emerald-800 via-teal-800 to-sky-900 text-white p-6 sm:p-8 shadow-xl">
      <div class="text-[10px] font-black text-emerald-100">مسارك واضح وبسيط</div>
      <h1 class="text-2xl sm:text-3xl font-black mt-2">مرحبًا ${esc((S.profile?.full_name||'').split(' ')[0]||'بك')} 👋</h1>
-     <p class="text-sm text-emerald-100 mt-2 leading-7">${esc(window.TamakkunEncouragement?.welcome?.(S.profile?.full_name)||'ابدأ من المهمة الحالية، ثم راقب تقدمك خطوة بخطوة.')}</p>
+     <p class="text-sm text-emerald-100 mt-2 leading-7">${esc(window.TamakkunEncouragement?.welcome?.(S.profile?.full_name)||'ابدأ من المهارة الحالية، وافهم المطلوب قبل أن تبدأ الحل.')}</p>
    </section>
    <section class="bg-white border border-emerald-200 rounded-[2rem] p-5 sm:p-6 shadow-sm">
-     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+     <div class="flex items-center justify-between gap-4 flex-wrap">
        <div>
-         <div class="text-[10px] font-black text-emerald-700">ابدأ من هنا</div>
-         <h2 class="text-lg sm:text-xl font-black text-slate-900 mt-1">رحلة الإتقان للمؤشر</h2>
-         <p class="text-xs text-slate-500 mt-2 leading-6">لن تبدأ باختبار مباشر: افهم المهارة، شاهد مثالًا محلولًا، تدرب بتلميحات، ثم أجب وحدك وأثبت الإتقان.</p>
-         <div class="grid grid-cols-5 gap-1.5 mt-4 max-w-2xl">
-           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">١</div><div class="text-[9px] font-bold text-slate-500 mt-1">أفهم</div></div>
-           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">٢</div><div class="text-[9px] font-bold text-slate-500 mt-1">مثال</div></div>
-           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-black">٣</div><div class="text-[9px] font-bold text-slate-500 mt-1">بتلميح</div></div>
-           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-black">٤</div><div class="text-[9px] font-bold text-slate-500 mt-1">وحدي</div></div>
-           <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center text-[10px] font-black">٥</div><div class="text-[9px] font-bold text-slate-500 mt-1">إتقان</div></div>
-         </div>
+         <div class="text-[10px] font-black text-emerald-700">طريقة التدريب في تَمَكُّن</div>
+         <h2 class="text-lg sm:text-xl font-black text-slate-900 mt-1">افهم طريقة السؤال قبل أن تحل</h2>
+         <p class="text-xs text-slate-500 mt-2 leading-6">لن نبدأ بالاختبار مباشرة؛ ستعرف المطلوب، وتتعرف صيغ السؤال، ثم تتدرب حتى تثبت الإتقان.</p>
        </div>
-       <button data-open-journey="1" class="px-5 py-3.5 rounded-2xl bg-emerald-700 text-white text-xs font-black shadow-lg shadow-emerald-700/15 shrink-0">ابدأ رحلة الإتقان ←</button>
+       <button data-open-journey="1" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black shrink-0">عرض خريطة المهارات</button>
+     </div>
+     <div class="grid grid-cols-5 gap-2 mt-5 max-w-4xl">
+       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">١</div><div class="text-[9px] font-bold text-slate-600 mt-1">أفهم المطلوب</div></div>
+       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">٢</div><div class="text-[9px] font-bold text-slate-600 mt-1">أتعرف الصياغة</div></div>
+       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-[10px] font-black">٣</div><div class="text-[9px] font-bold text-slate-600 mt-1">أبحث عن الدليل</div></div>
+       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-black">٤</div><div class="text-[9px] font-bold text-slate-600 mt-1">أحل وحدي</div></div>
+       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center text-[10px] font-black">٥</div><div class="text-[9px] font-bold text-slate-600 mt-1">أثبت الإتقان</div></div>
      </div>
    </section>
    <section id="studentPrimaryMission">
-     <div class="mb-3"><h2 class="font-black">مهمتك الآن</h2><p class="text-[11px] text-slate-400 mt-1">المهمة التي تحتاج منك العمل عليها الآن</p></div>
      <div class="bg-white border rounded-3xl p-8 text-center">
-       <div class="text-4xl">✅</div>
-       <div class="font-black mt-3">لا توجد مهمة مرسلة لك الآن</div>
-       <div class="text-xs text-slate-400 mt-1">عندما يرسل المعلم مؤشرًا جديدًا سيظهر هنا مباشرة.</div>
+       <div class="text-4xl">⏳</div>
+       <div class="font-black mt-3">جارٍ تجهيز مهارتك الحالية…</div>
+       <div class="text-xs text-slate-400 mt-1">ستظهر لك طريقة السؤال وخطوات الحل قبل بدء التدريب.</div>
      </div>
    </section>
    <section class="grid sm:grid-cols-2 gap-3">
      <button data-tab="tasks" class="bg-white border rounded-3xl p-5 text-right hover:bg-emerald-50 hover:border-emerald-100 transition">
        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">${icon('list-checks','w-5 h-5')}</div>
-       <div class="font-black mt-3">مهامي</div><div class="text-[11px] text-slate-400 mt-1">كل ما أرسله المعلم لك في مكان واحد</div>
+       <div class="font-black mt-3">مهامي</div><div id="studentTasksSummary" class="text-[11px] text-slate-400 mt-1">جارٍ حساب مهامك…</div>
      </button>
      <button data-tab="progress" class="bg-white border rounded-3xl p-5 text-right hover:bg-sky-50 hover:border-sky-100 transition">
        <div class="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center">${icon('chart-no-axes-column-increasing','w-5 h-5')}</div>
-       <div class="font-black mt-3">تقدمي</div><div class="text-[11px] text-slate-400 mt-1">أرى المؤشرات التي أصبحت جاهزًا لها</div>
+       <div class="font-black mt-3">تقدمي</div><div id="studentProgressSummary" class="text-[11px] text-slate-400 mt-1">جارٍ حساب تقدمك…</div>
      </button>
    </section>
  </div>`;
 }
+
 function tasks(){
  return `<div class="space-y-5 pb-24">
    <section class="rounded-[2rem] bg-gradient-to-l from-slate-900 via-emerald-900 to-teal-800 text-white p-6">
