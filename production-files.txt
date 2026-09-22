@@ -51,6 +51,7 @@ lugati-reading-worksheets-ui.css
 # منصة لغتي الكاملة — نسخة مستقلة جديدة لا تستبدل النسخة الحالية.
 lugati-complete.html
 lugati-complete.css
+tamakkun-design-system.css
 lugati-complete.js
 lugati-encouragement.js
 lugati-competition.js
