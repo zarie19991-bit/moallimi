@@ -97,6 +97,12 @@ function injectHero(){
      document.getElementById('openCurrentJourney').onclick=()=>openCurrentJourney();
    } else primary.innerHTML='<div class="bg-white border rounded-3xl p-8 text-center"><div class="text-4xl">✅</div><div class="font-black mt-3">لا توجد مهمة نشطة الآن</div><div class="text-xs text-slate-400 mt-1">ابدأ أي مؤشر أرسله المعلم لك، ويمكنك الانتقال بين المؤشرات المرسلة في أي وقت.</div></div>';
  }
+ const stats=Object.keys(SUBJECTS).map(subjectStats);
+ const pendingTotal=stats.reduce((a,x)=>a+x.pending,0),assignedTotal=stats.reduce((a,x)=>a+x.assigned,0),readyTotal=stats.reduce((a,x)=>a+x.ready,0);
+ const taskSummary=document.getElementById('studentTasksSummary');
+ if(taskSummary)taskSummary.textContent=pendingTotal?`لديك ${pendingTotal} مهام تحتاج إلى إكمال`:assignedTotal?'لا توجد مهمة معلقة الآن':'لم يرسل المعلم مهامًا بعد';
+ const progressSummary=document.getElementById('studentProgressSummary');
+ if(progressSummary)progressSummary.textContent=assignedTotal?`أتقنت ${readyTotal} من ${assignedTotal} مؤشرًا أرسله المعلم`:'سيظهر تقدمك بعد بدء أول مهارة';
  const task=document.getElementById('readingJourneyTaskMount');
  if(task){
    task.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">${Object.entries(SUBJECTS).map(([k,m])=>{const st=subjectStats(k);return`<div class="bg-white border rounded-3xl p-5"><div style="font-size:22px">${m.icon}</div><div style="font-weight:900;margin-top:5px">${m.name}</div><div style="font-size:11px;color:#64748b;margin-top:4px">${st.pending?`لديك ${st.pending} مهمة غير مكتملة`:st.assigned?'لا توجد مهمة معلقة':'لم يرسل المعلم مؤشرًا بعد'}</div><div style="display:flex;gap:6px;margin-top:10px"><span style="font-size:9px;background:#fef3c7;color:#92400e;padding:4px 8px;border-radius:999px">غير مكتمل ${st.pending}</span><span style="font-size:9px;background:#d1fae5;color:#047857;padding:4px 8px;border-radius:999px">متقن ${st.ready}</span></div>${st.assigned?`<button class="journey-secondary" data-open-subject="${k}" style="margin-top:12px;width:100%">عرض ${m.name}</button>`:''}</div>`}).join('')}</div>`;
