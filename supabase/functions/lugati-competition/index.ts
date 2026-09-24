@@ -185,8 +185,10 @@ async function catalogAction(req:Request,b:any,a:Access){
 async function createRound(req:Request,b:any,a:Access){
  if(a.role!=="teacher")return json(req,{error:"هذه العملية للمعلم فقط."},403);
  const key=tidy(b?.arena_key),meta=arena(key);requireTeacherSubject(a,meta.subject);const s=await currentSeason();await refreshExpired(s.id);
- const {data:active,error:ae}=await db.from("lugati_competition_rounds").select("id").eq("season_id",s.id).eq("arena_key",key).eq("status","open").limit(1);if(ae)throw ae;
- if((active||[]).length)throw Object.assign(new Error("يوجد تحدٍّ مفتوح أو مجدول في هذا القسم. أغلقه أولًا قبل إرسال تحدٍّ جديد."),{status:409});
+ const demoOnly=b?.demo_only===true;
+ const {data:activeRaw,error:ae}=await db.from("lugati_competition_rounds").select("id,game_config").eq("season_id",s.id).eq("arena_key",key).eq("status","open");if(ae)throw ae;
+ const active=(activeRaw||[]).filter((x:any)=>(x?.game_config?.demo_only===true)===demoOnly);
+ if(active.length)throw Object.assign(new Error(demoOnly?"يوجد اختبار تجريبي مفتوح في هذا القسم. أغلقه أولًا.":"توجد لعبة حقيقية مفتوحة أو مجدولة في هذا القسم. أغلقها أولًا قبل إرسال لعبة جديدة."),{status:409});
  const inds=validateIndicators(meta,b?.indicators,await indicatorCatalog(key));
  const built=await buildQuestions(meta,inds,s.id),questions=built.questions,count=questions.length;
  if(count<inds.length*3)throw Object.assign(new Error("تعذر تجهيز أسئلة كافية لكل المؤشرات المختارة."),{status:409});
@@ -195,7 +197,7 @@ async function createRound(req:Request,b:any,a:Access){
  if(closeAt&&closeAt<=openAt)throw Object.assign(new Error("وقت الإغلاق يجب أن يكون بعد وقت الفتح."),{status:400});
  const {count:roundCount,error:ce}=await db.from("lugati_competition_rounds").select("id",{count:"exact",head:true}).eq("season_id",s.id).eq("arena_key",key);if(ce)throw ce;
  const n=Number(roundCount||0)+1,title=tidy(b?.title)||(meta.label+" • التحدي "+n);
- const gameConfig={version:2,mode:"staged",indicator_count:inds.length,stage_count:inds.length+(built.boss_count?1:0),boss_count:built.boss_count,questions_per_indicator:3,powerups:{eliminate:1,hint:1,double:1},scoring:"accuracy_first_streak_bonus"};
+ const gameConfig={version:2,mode:"staged",indicator_count:inds.length,stage_count:inds.length+(built.boss_count?1:0),boss_count:built.boss_count,questions_per_indicator:3,powerups:{eliminate:1,hint:1,double:1},scoring:"accuracy_first_streak_bonus",demo_only:demoOnly};
  const {data:r,error}=await db.from("lugati_competition_rounds").insert({season_id:s.id,arena_key:key,subject_key:meta.subject,reading_outcome_code:meta.outcome,title,
    selected_indicators:inds,question_count:count,status:"open",open_at:openAt.toISOString(),close_at:closeAt?closeAt.toISOString():null,opened_at:new Date().toISOString(),created_by:a.teacher_access_id,game_config:gameConfig}).select("*").single();if(error)throw error;
  const {error:qe}=await db.from("lugati_competition_round_questions").insert(questions.map((q:any)=>({...q,round_id:r.id})));if(qe){await db.from("lugati_competition_rounds").delete().eq("id",r.id);throw qe}
@@ -279,6 +281,7 @@ async function currentPayload(r:any,at:any){
 async function startAttempt(req:Request,b:any,a:Access){
  if(a.role!=="student")return json(req,{error:"هذه العملية للطالب فقط."},403);
  const r=await getRound(tidy(b?.round_id));
+ if(r?.game_config?.demo_only===true&&a.is_demo!==true)return json(req,{error:"هذه لعبة تجريبية مخصصة لحساب المعاينة فقط."},403);
  const {data:at,error}=await db.rpc("lugati_comp_start_safe",{p_round_id:r.id,p_student_id:a.student_id});
  if(error)throw error;if(at.error)return json(req,at,409);
  if(at.status!=="in_progress")return json(req,{ok:true,already_finished:true});
@@ -331,7 +334,8 @@ async function answerQuestion(req:Request,b:any,a:Access){
 async function studentHome(req:Request,a:Access){
  if(a.role!=="student")return json(req,{error:"هذه العملية للطالب فقط."},403);const s=await currentSeason();await refreshExpired(s.id);
  const {data:student,error:se}=await db.from("nafes_students").select("id,full_name,class_name").eq("id",a.student_id).single();if(se)throw se;
- const {data:rounds,error}=await db.from("lugati_competition_rounds").select("*").eq("season_id",s.id).neq("status","cancelled").order("created_at",{ascending:false});if(error)throw error;
+ const {data:roundsRaw,error}=await db.from("lugati_competition_rounds").select("*").eq("season_id",s.id).neq("status","cancelled").order("created_at",{ascending:false});if(error)throw error;
+ const rounds=(roundsRaw||[]).filter((x:any)=>a.is_demo===true?true:x?.game_config?.demo_only!==true);
  const rids=(rounds||[]).map((x:any)=>x.id);let attempts:any[]=[];if(rids.length){const z=await db.from("lugati_competition_attempts").select("*").eq("student_id",a.student_id).in("round_id",rids);if(z.error)throw z.error;attempts=z.data||[]}
  const am=new Map(attempts.map((x:any)=>[String(x.round_id),x])),by:any={};
  for(const k of Object.keys(ARENAS)){const all=(rounds||[]).filter((r:any)=>r.arena_key===k).map((r:any)=>({...safeRound(r),attempt:am.get(String(r.id))||null})),op=all.find((r:any)=>r.effective_status==="open"||r.effective_status==="scheduled");by[k]=op||all[0]||null}
