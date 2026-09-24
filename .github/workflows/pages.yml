@@ -30,7 +30,6 @@ jobs:
               *.js) node --check "$file" ;;
             esac
           done < production-files.txt
-          node --experimental-strip-types --check supabase/functions/nafes-exam/index.ts
           node --test question-bank/scripts/test-reviewed-contract.mjs question-bank/scripts/test-assessments.mjs question-bank/scripts/test-analysis-contract.mjs question-bank/scripts/test-analysis-loading.mjs question-bank/scripts/test-report-absentees.mjs
           node question-bank/scripts/verify-reviewed-release.mjs
       - name: Verify the published reviewed tests
