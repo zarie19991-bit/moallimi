@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-mastery',KEY='lugati_exact_session_v2';
-const S={token:null,data:null,loading:false,error:'',q:'',cls:'all',follow:'all',selected:new Set(),profile:null,profileLoading:false,profileError:''};
+const S={token:null,data:null,loading:false,error:'',q:'',cls:'all',follow:'all',selected:new Set(),profile:null,embedded:false,profileLoading:false,profileError:''};
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const ar=v=>(Number(v)||0).toLocaleString('ar-SA');
 const pct=v=>v==null||Number.isNaN(Number(v))?'—':(Math.round(Number(v)*10)/10).toLocaleString('ar-SA')+'٪';
@@ -11,8 +11,27 @@ const dateOnly=v=>{if(!v)return'—';try{return new Date(v).toLocaleDateString('
 function ses(){for(const st of[sessionStorage,localStorage]){try{const x=JSON.parse(st.getItem(KEY)||'null');if(x?.token&&x?.role==='teacher')return x}catch{}}return null}
 async function post(action,extra={}){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+S.token},body:JSON.stringify({action,...extra}),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||'تعذر الاتصال');return d}
 function icons(){try{window.lucide?.createIcons()}catch{}}
-function ensure(){const s=ses();if(!s)return;S.token=s.token;document.querySelectorAll('[data-action="student-files"],[data-scroll="support"]').forEach(x=>{if(x.dataset.tmBound!=='1'){x.dataset.tmBound='1';x.addEventListener('click',open)}});const nav=document.querySelector('aside nav');if(!nav||document.getElementById('teacherMasteryBtn'))return;const b=document.createElement('button');b.id='teacherMasteryBtn';b.type='button';b.className='w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-right text-emerald-800 bg-emerald-50 border border-emerald-100';b.innerHTML='<div class="flex items-center gap-3"><i data-lucide="user-round-search" class="w-5 h-5"></i><div class="flex flex-col"><span class="font-black">ملفات الطلاب</span><span class="text-[11px] text-emerald-600">العمل والمتابعة والتطور</span></div></div><span class="text-[9px] bg-emerald-700 text-white px-2 py-0.5 rounded-full">مباشر</span>';b.onclick=open;nav.prepend(b);icons()}
-function open(){if(document.getElementById('teacherMasteryModal'))return;const w=document.createElement('div');w.id='teacherMasteryModal';w.dir='rtl';w.className='fixed inset-0 z-[125] bg-slate-950/55 backdrop-blur-sm overflow-y-auto p-3 sm:p-6';w.innerHTML='<div class="max-w-7xl mx-auto bg-[#f6f8fc] min-h-[90vh] rounded-[2rem] shadow-2xl overflow-hidden"><header class="bg-gradient-to-l from-emerald-950 via-emerald-900 to-teal-800 text-white p-6"><div class="flex justify-between gap-4"><div><div class="text-[10px] text-emerald-200 font-black">ملف الطالب في مكان واحد</div><h1 class="text-3xl font-black mt-1">ملفات الطلاب والمتابعة</h1><p class="text-xs text-emerald-100 mt-2">ملف واحد يجمع عمل الطالب ونتائجه ورحلاته وألعابه ومشكلته الحالية وإجراء المتابعة.</p></div><button id="tmClose" class="w-10 h-10 rounded-xl bg-white/10 text-xl">×</button></div></header><div id="tmBody" class="p-4 sm:p-6"></div></div>';document.body.appendChild(w);document.getElementById('tmClose').onclick=()=>w.remove();load()}
+function ensure(){
+ const s=ses();if(!s)return;S.token=s.token;
+ const existing=[...document.querySelectorAll('[data-action="student-files"],[data-scroll="support"]')];
+ existing.forEach(x=>{if(x.dataset.tmBound!=='1'){x.dataset.tmBound='1';x.addEventListener('click',open)}});
+ const old=document.getElementById('teacherMasteryBtn');
+ if(existing.length){old?.remove();return}
+ const nav=document.querySelector('aside nav');if(!nav||old)return;
+ const b=document.createElement('button');b.id='teacherMasteryBtn';b.type='button';b.className='w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-right text-emerald-800 bg-emerald-50 border border-emerald-100';b.innerHTML='<div class="flex items-center gap-3"><i data-lucide="user-round-search" class="w-5 h-5"></i><div class="flex flex-col"><span class="font-black">ملفات الطلاب</span><span class="text-[11px] text-emerald-600">العمل والمتابعة والتطور</span></div></div><span class="text-[9px] bg-emerald-700 text-white px-2 py-0.5 rounded-full">مباشر</span>';b.onclick=open;nav.prepend(b);icons()
+}
+function open(){
+ const host=document.getElementById('supportContent');
+ if(host){
+   S.embedded=true;S.profile=null;
+   const title=document.getElementById('supportPanelTitle');if(title)title.textContent='ملفات الطلاب';
+   const section=document.getElementById('support');section?.scrollIntoView({behavior:'smooth',block:'start'});
+   load();return;
+ }
+ S.embedded=false;
+ if(document.getElementById('teacherMasteryModal'))return;
+ const w=document.createElement('div');w.id='teacherMasteryModal';w.dir='rtl';w.className='fixed inset-0 z-[125] bg-slate-950/55 backdrop-blur-sm overflow-y-auto p-3 sm:p-6';w.innerHTML='<div class="max-w-7xl mx-auto bg-[#f6f8fc] min-h-[90vh] rounded-[2rem] shadow-2xl overflow-hidden"><header class="bg-gradient-to-l from-emerald-950 via-emerald-900 to-teal-800 text-white p-6"><div class="flex justify-between gap-4"><div><div class="text-[10px] text-emerald-200 font-black">ملف الطالب في مكان واحد</div><h1 class="text-3xl font-black mt-1">ملفات الطلاب والمتابعة</h1><p class="text-xs text-emerald-100 mt-2">ملف واحد يجمع عمل الطالب ونتائجه ورحلاته وألعابه ومشكلته الحالية وإجراء المتابعة.</p></div><button id="tmClose" class="w-10 h-10 rounded-xl bg-white/10 text-xl">×</button></div></header><div id="tmBody" class="p-4 sm:p-6"></div></div>';document.body.appendChild(w);document.getElementById('tmClose').onclick=()=>w.remove();load()
+}
 async function load(){S.loading=true;S.error='';paint();try{S.data=await post('teacher_dashboard')}catch(e){S.error=e.message}finally{S.loading=false;paint()}}
 function studentState(x){if(x.needs_followup===true)return'follow';if(x.questions_7d>0)return'active';return'not_started'}
 function rows(){let a=S.data?.students||[],q=S.q.trim();return a.filter(x=>(S.cls==='all'||String(x.class_name)===S.cls)&&(S.follow==='all'||studentState(x)===S.follow)&&(!q||String(x.full_name).includes(q)))}
@@ -51,7 +70,7 @@ function printFollowupReport(recipient,note){
  pop.document.open();pop.document.write(html);pop.document.close();
 }
 function paint(){
- const b=document.getElementById('tmBody');if(!b)return;
+ const b=S.embedded?document.getElementById('supportContent'):document.getElementById('tmBody');if(!b)return;
  if(S.loading&&!S.data){b.innerHTML='<div class="py-20 text-center text-sm text-slate-400">جارٍ جمع بيانات المتابعة…</div>';return}
  if(S.error&&!S.data){b.innerHTML='<div class="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-rose-700 font-bold">'+esc(S.error)+'<button id="tmRetry" class="block mt-4 px-4 py-2 bg-white border rounded-xl">إعادة المحاولة</button></div>';document.getElementById('tmRetry').onclick=load;return}
  const t=S.data?.totals||{},classes=[...new Set((S.data?.students||[]).map(x=>x.class_name).filter(Boolean))].sort(),r=rows();
@@ -75,13 +94,19 @@ function paint(){
  document.querySelectorAll('[data-summary-filter]').forEach(x=>x.onclick=()=>{if(x.dataset.summaryFilter==='follow')S.follow='follow';paint()});
 }
 async function openProfile(id){
- if(document.getElementById('tmStudentProfile'))document.getElementById('tmStudentProfile').remove();
- const w=document.createElement('div');w.id='tmStudentProfile';w.dir='rtl';w.className='fixed inset-0 z-[140] bg-slate-950/65 backdrop-blur-sm overflow-y-auto p-2 sm:p-5';
- w.innerHTML='<div class="max-w-6xl mx-auto bg-[#f7f9fc] min-h-[94vh] rounded-[1.7rem] shadow-2xl overflow-hidden"><div class="p-16 text-center text-sm text-slate-400">جارٍ بناء ملف الطالب من جميع مصادر تَمَكُّن…</div></div>';document.body.appendChild(w);
- w.addEventListener('click',e=>{if(e.target===w)w.remove()});
+ let w=null;
+ if(S.embedded&&document.getElementById('supportContent')){
+   w=document.getElementById('supportContent');
+   w.innerHTML='<div class="py-16 text-center text-sm text-slate-400">جارٍ بناء ملف الطالب من جميع أعماله ونتائجه…</div>';
+ }else{
+   document.getElementById('tmStudentProfile')?.remove();
+   w=document.createElement('div');w.id='tmStudentProfile';w.dir='rtl';w.className='fixed inset-0 z-[140] bg-slate-950/65 backdrop-blur-sm overflow-y-auto p-2 sm:p-5';
+   w.innerHTML='<div class="max-w-6xl mx-auto bg-[#f7f9fc] min-h-[94vh] rounded-[1.7rem] shadow-2xl overflow-hidden"><div class="p-16 text-center text-sm text-slate-400">جارٍ بناء ملف الطالب من جميع مصادر تَمَكُّن…</div></div>';document.body.appendChild(w);
+   w.addEventListener('click',e=>{if(e.target===w)w.remove()});
+ }
  S.profileLoading=true;S.profileError='';
  try{S.profile=await post('teacher_student_profile',{student_id:id});renderProfile()}
- catch(e){S.profileError=e.message;w.innerHTML='<div class="max-w-xl mx-auto mt-20 bg-white rounded-3xl p-7 text-center border"><div class="text-rose-700 font-black">'+esc(e.message)+'</div><button id="tmProfileCloseError" class="mt-5 px-4 py-2 rounded-xl bg-slate-900 text-white">إغلاق</button></div>';document.getElementById('tmProfileCloseError').onclick=()=>w.remove()}
+ catch(e){S.profileError=e.message;w.innerHTML='<div class="bg-white rounded-3xl p-7 text-center border"><div class="text-rose-700 font-black">'+esc(e.message)+'</div><button id="tmProfileCloseError" class="mt-5 px-4 py-2 rounded-xl bg-slate-900 text-white">'+(S.embedded?'العودة إلى الطلاب':'إغلاق')+'</button></div>';document.getElementById('tmProfileCloseError').onclick=()=>{if(S.embedded){S.profile=null;paint()}else w.remove()}}
  finally{S.profileLoading=false}
 }
 function attentionBadge(v){return v==='inactive'?['غير نشط','bg-rose-100 text-rose-800']:v==='support'?['في العلاج','bg-rose-100 text-rose-800']:v==='low_accuracy'?['دقة منخفضة','bg-amber-100 text-amber-800']:v==='priority'?['له أولوية','bg-sky-100 text-sky-800']:v==='pending'?['مهام معلقة','bg-amber-100 text-amber-800']:['مستقر','bg-emerald-100 text-emerald-800']}
@@ -96,7 +121,7 @@ function printSingleStudentFollowup(){
  S.selected.add(id);openPrintDialog();
 }
 function renderProfile(){
- const w=document.getElementById('tmStudentProfile'),d=S.profile;if(!w||!d)return;
+ const w=S.embedded?document.getElementById('supportContent'):document.getElementById('tmStudentProfile'),d=S.profile;if(!w||!d)return;
  const s=d.student||{},m=d.summary||{},ab=attentionBadge(m.attention),inds=(d.indicators||[]).slice().sort((a,b)=>{const av=a.mastery_percent==null?999:Number(a.mastery_percent),bv=b.mastery_percent==null?999:Number(b.mastery_percent);return av-bv}),journeys=(d.journeys||[]),timeline=(d.timeline||[]).slice(0,20),tests=d.subject_tests||{};
  const subjects=['reading','math','science'].filter(k=>tests[k]);
  const workItems=[
@@ -110,8 +135,8 @@ function renderProfile(){
  const indicatorHtml=inds.length?inds.map(x=>{const p=x.mastery_percent,cls=x.state==='mastered'?'bg-emerald-100 text-emerald-800':p!=null&&Number(p)<70?'bg-rose-100 text-rose-800':'bg-amber-100 text-amber-800';return '<div class="border rounded-2xl p-4 bg-white"><div class="flex items-start justify-between gap-3"><div class="flex-1"><div class="text-[10px] text-slate-400">'+subj(x.subject_key)+' • مؤشر '+ar(x.indicator_index)+'</div><h4 class="text-xs font-black text-slate-900 mt-1 leading-6">'+esc(x.indicator_text)+'</h4></div><span class="px-2 py-1 rounded-full text-[10px] font-black '+cls+'">'+(x.state==='mastered'?'متقن':pct(p))+'</span></div><div class="grid grid-cols-3 gap-2 mt-3 text-center"><div class="bg-slate-50 rounded-xl p-2"><b class="text-xs">'+ar(x.attempts)+'</b><span class="block text-[9px] text-slate-400">محاولات</span></div><div class="bg-slate-50 rounded-xl p-2"><b class="text-xs">'+ar(x.hints)+'</b><span class="block text-[9px] text-slate-400">تلميحات</span></div><div class="bg-slate-50 rounded-xl p-2"><b class="text-xs">'+ar(x.mastered_components)+'/'+ar(x.components)+'</b><span class="block text-[9px] text-slate-400">مكونات</span></div></div></div>'}).join(''):'<div class="text-center py-8 text-slate-400 text-sm">لم يبدأ مسار الإتقان التفصيلي بعد.</div>';
  const journeyHtml=journeys.length?journeys.slice(0,12).map(x=>'<div class="border rounded-2xl p-3 bg-white flex items-start gap-3"><div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-black">'+ar(x.global_indicator||x.indicator_index)+'</div><div class="flex-1"><b class="text-xs text-slate-900 leading-5">'+esc(x.student_title||x.indicator_text)+'</b><div class="text-[10px] text-slate-400 mt-1">'+subj(x.subject_key)+(x.bundle_title?' • '+esc(x.bundle_title):'')+'</div></div><div class="text-left"><span class="text-[10px] font-black '+(x.journey_status==='ready'?'text-emerald-700':x.journey_status==='support'?'text-rose-700':'text-amber-700')+'">'+statusJourney(x.journey_status)+'</span><div class="text-[9px] text-slate-400 mt-1">'+(x.exit_percent==null?'':pct(x.exit_percent))+'</div></div></div>').join(''):'<div class="text-center py-8 text-slate-400 text-sm">لا توجد رحلات مرسلة لهذا الطالب.</div>';
  const timelineHtml=timeline.length?timeline.map(x=>'<div class="relative pr-5 pb-4 border-r-2 border-slate-100"><span class="absolute -right-[5px] top-1 w-2 h-2 rounded-full '+(x.type==='exam'||x.type==='assessment'?'bg-sky-500':x.type==='game'?'bg-amber-500':x.type==='journey'?'bg-emerald-500':'bg-slate-500')+'"></span><div class="text-[10px] text-slate-400">'+dateTime(x.at)+' • '+subj(x.subject_key)+'</div><b class="text-xs text-slate-800 block mt-1">'+esc(x.title)+'</b><div class="text-[10px] text-slate-500 mt-1">'+esc(x.detail)+'</div></div>').join(''):'<div class="text-center py-8 text-slate-400 text-sm">لا يوجد نشاط مسجل بعد.</div>';
- w.innerHTML='<div class="max-w-6xl mx-auto bg-[#f7f9fc] min-h-[94vh] rounded-[1.7rem] shadow-2xl overflow-hidden">'+
- '<header class="bg-gradient-to-l from-emerald-950 via-emerald-900 to-teal-800 text-white p-5 sm:p-7"><div class="flex justify-between gap-4"><div><span class="text-[10px] text-emerald-200 font-black">ملف متابعة الطالب</span><h1 class="text-2xl sm:text-3xl font-black mt-1">'+esc(s.full_name)+'</h1><p class="text-xs text-emerald-100 mt-2">الفصل '+esc(s.class_name||'—')+' • '+esc(s.grade||'')+'</p></div><button id="tmProfileClose" class="w-10 h-10 rounded-xl bg-white/10 text-xl">×</button></div></header>'+
+ w.innerHTML='<div class="'+(S.embedded?'w-full bg-[#f7f9fc] rounded-3xl overflow-hidden':'max-w-6xl mx-auto bg-[#f7f9fc] min-h-[94vh] rounded-[1.7rem] shadow-2xl overflow-hidden')+'">'+
+ '<header class="bg-gradient-to-l from-emerald-950 via-emerald-900 to-teal-800 text-white p-5 sm:p-7"><div class="flex justify-between gap-4"><div><span class="text-[10px] text-emerald-200 font-black">ملف الطالب • العمل والمتابعة</span><h1 class="text-2xl sm:text-3xl font-black mt-1">'+esc(s.full_name)+'</h1><p class="text-xs text-emerald-100 mt-2">الفصل '+esc(s.class_name||'—')+' • '+esc(s.grade||'')+'</p></div><button id="tmProfileClose" class="px-3 h-10 rounded-xl bg-white/10 text-xs font-black">'+(S.embedded?'← العودة إلى الطلاب':'×')+'</button></div></header>'+
  '<main class="p-4 sm:p-6 space-y-5">'+
  '<section class="bg-white border rounded-3xl p-5"><div class="flex flex-col lg:flex-row lg:items-center gap-4"><div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center text-2xl font-black">'+esc((s.full_name||'?').slice(0,1))+'</div><div class="flex-1"><div class="flex flex-wrap gap-2 items-center"><h2 class="text-lg font-black text-slate-900">ماذا يحتاج الآن؟</h2><span class="px-2.5 py-1 rounded-full text-[10px] font-black '+ab[1]+'">'+ab[0]+'</span></div><p class="text-sm text-slate-600 leading-7 mt-2">'+esc(m.next_action)+'</p><div class="flex flex-wrap gap-2 mt-4"><button id="tmAddToFollowup" class="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-black">إضافة إلى خطاب المتابعة</button><button id="tmPrintSingle" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-[10px] font-black">طباعة متابعة هذا الطالب</button></div></div></div></section>'+
  '<section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">'+[
@@ -124,7 +149,7 @@ function renderProfile(){
  '<aside class="bg-white border rounded-3xl p-5"><h3 class="font-black text-slate-900">سجل الطالب</h3><p class="text-[10px] text-slate-400 mt-1">آخر الأنشطة من الرحلات والألعاب والاختبارات والإتقان.</p><div class="mt-5">'+timelineHtml+'</div></aside></section>'+
  '<section class="grid md:grid-cols-4 gap-3"><div class="bg-white border rounded-2xl p-4"><div class="text-[10px] text-slate-400">رحلات علاجية</div><b class="text-xl text-rose-700 block mt-2">'+ar(m.support_journeys)+'</b></div><div class="bg-white border rounded-2xl p-4"><div class="text-[10px] text-slate-400">ألعاب مكتملة</div><b class="text-xl text-amber-700 block mt-2">'+ar(m.games_completed)+'</b></div><div class="bg-white border rounded-2xl p-4"><div class="text-[10px] text-slate-400">اختبارات مكتملة</div><b class="text-xl text-sky-700 block mt-2">'+ar(m.tests_completed)+'</b></div><div class="bg-white border rounded-2xl p-4"><div class="text-[10px] text-slate-400">تلميحات 30 يومًا</div><b class="text-xl text-slate-700 block mt-2">'+ar(m.hints_30d)+'</b></div></section>'+
  '</main></div>';
- document.getElementById('tmProfileClose').onclick=()=>w.remove();document.getElementById('tmAddToFollowup')?.addEventListener('click',addProfileToFollowup);document.getElementById('tmPrintSingle')?.addEventListener('click',printSingleStudentFollowup);icons();
+ document.getElementById('tmProfileClose').onclick=()=>{if(S.embedded){S.profile=null;paint();document.getElementById('support')?.scrollIntoView({behavior:'smooth',block:'start'})}else w.remove()};document.getElementById('tmAddToFollowup')?.addEventListener('click',addProfileToFollowup);document.getElementById('tmPrintSingle')?.addEventListener('click',printSingleStudentFollowup);icons();
 }
 function boot(){const s=ses();if(!s)return;S.token=s.token;ensure();new MutationObserver(ensure).observe(document.documentElement,{childList:true,subtree:true})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
