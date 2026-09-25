@@ -409,17 +409,28 @@ async function teacherDashboard(req:Request,access:Access){
   for(const x of ms){const k=String(x.student_id);if(!byM.has(k))byM.set(k,[]);byM.get(k)!.push(x)}
   const students=((rr as any).data||[]).map((s:any)=>{
     const p=byP.get(String(s.id))||[],e=byE.get(String(s.id))||[],m=byM.get(String(s.id))||[],correct=e.filter((x:any)=>x.correct).length;
+    const activeComponents=p.length,masteredComponents=p.filter((x:any)=>x.status==="mastered").length;
+    const lastActivity=p.map((x:any)=>x.last_activity_at).filter(Boolean).sort().reverse()[0]||null;
+    const accuracy=e.length?Math.round(correct/e.length*1000)/10:null;
+    const hints=e.reduce((n:number,x:any)=>n+Number(x.hints_used||0),0);
+    const missionsCompleted=m.filter((x:any)=>x.status==="completed").length;
+    const reasons:string[]=[];
+    if(activeComponents===0&&e.length===0)reasons.push("لم يبدأ مسار الإتقان في المنصة.");
+    else if(activeComponents>0&&e.length===0)reasons.push("لا يوجد نشاط خلال آخر 7 أيام رغم وجود مسار إتقان نشط.");
+    if(accuracy!==null&&accuracy<70)reasons.push("دقة منخفضة خلال آخر 7 أيام ("+accuracy+"٪).");
+    if(m.length>missionsCompleted)reasons.push("لم يكمل مهام اليوم ("+missionsCompleted+" من "+m.length+").");
+    if(hints>=4)reasons.push("استخدام متكرر للتلميحات ("+hints+" خلال 7 أيام).");
+    if(activeComponents>=3&&masteredComponents/activeComponents<0.5)reasons.push("نسبة الإتقان الحالية منخفضة ("+masteredComponents+" من "+activeComponents+" مكونات).");
+    const needsFollowup=reasons.length>0;
     return{id:s.id,full_name:s.full_name,class_name:s.class_name,grade:s.grade,is_demo:s.is_demo===true,
-      mastered_components:p.filter((x:any)=>x.status==="mastered").length,active_components:p.length,
-      last_activity_at:p.map((x:any)=>x.last_activity_at).filter(Boolean).sort().reverse()[0]||null,
-      questions_7d:e.length,accuracy_7d:e.length?Math.round(correct/e.length*1000)/10:null,
-      hints_7d:e.reduce((n:number,x:any)=>n+Number(x.hints_used||0),0),
-      missions_today:m.length,missions_completed_today:m.filter((x:any)=>x.status==="completed").length};
+      mastered_components:masteredComponents,active_components:activeComponents,last_activity_at:lastActivity,
+      questions_7d:e.length,accuracy_7d:accuracy,hints_7d:hints,missions_today:m.length,missions_completed_today:missionsCompleted,
+      needs_followup:needsFollowup,followup_reasons:reasons,followup_issue:reasons.slice(0,3).join(" ")||"لا توجد مشكلة ظاهرة حاليًا."};
   });
   return json(req,{ok:true,date:todayDate,subject_scope:scope,totals:{
     students:students.length,active_7d:students.filter((s:any)=>s.questions_7d>0).length,
     completed_today:students.filter((s:any)=>s.missions_completed_today>0).length,
-    needs_followup:students.filter((s:any)=>s.active_components>0&&s.questions_7d===0).length
+    needs_followup:students.filter((s:any)=>s.needs_followup).length
   },students});
 }
 Deno.serve(async(req:Request)=>{
