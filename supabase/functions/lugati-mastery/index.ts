@@ -276,8 +276,7 @@ async function teacherStudentProfile(req:Request,body:any,access:Access){
 
   const ev7=events.filter((x:any)=>x.submitted_at&&x.submitted_at>=since7),correct30=events.filter((x:any)=>x.correct).length,correct7=ev7.filter((x:any)=>x.correct).length;
   const activeDays=new Set(events.map((x:any)=>String(x.submitted_at||"").slice(0,10)).filter(Boolean)).size;
-  const lastActivity=[...progress.map((x:any)=>x.last_activity_at),...sessions.map((x:any)=>x.completed_at||x.started_at)].filter(Boolean).sort().reverse()[0]||null;
-  const daysSince=lastActivity?Math.max(0,Math.floor((Date.now()-new Date(lastActivity).getTime())/86400000)):null;
+  const masteryLastActivity=[...progress.map((x:any)=>x.last_activity_at),...sessions.map((x:any)=>x.completed_at||x.started_at)].filter(Boolean).sort().reverse()[0]||null;
 
   const {data:adaptive,error:ae}=await db.from("lugati_adaptive_assignments")
     .select("id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,status,priority,training_attempts,last_training_percent,assigned_at,completed_at,updated_at")
@@ -286,14 +285,14 @@ async function teacherStudentProfile(req:Request,body:any,access:Access){
   const adaptiveRows=(adaptive||[]).filter((x:any)=>scope==="all"||x.subject_key===scope);
 
   const {data:pa,error:pae}=await db.from("lugati_pretest_student_assignments")
-    .select("id,dispatch_id,status,journey_status,current_stage,challenge_percent,exit_percent,exit_passed,exit_attempts,rescue_passed,enrichment_completed,assigned_at,started_at,completed_at,mastery_confirmed_at,retention_status,retention_passed")
+    .select("id,dispatch_id,status,score,total,percent,response_json,journey_status,current_stage,challenge_started_at,challenge_submitted_at,challenge_percent,exit_started_at,exit_submitted_at,exit_percent,exit_passed,exit_attempts,rescue_passed,enrichment_completed,assigned_at,started_at,completed_at,updated_at,mastery_confirmed_at,retention_status,retention_passed")
     .eq("student_id",studentId).order("assigned_at",{ascending:false}).limit(120);
   if(pae)throw pae;
   const dispatchIds=(pa||[]).map((x:any)=>x.dispatch_id);
   let dispatches:any[]=[],templates:any[]=[];
   if(dispatchIds.length){
     const z=await db.from("lugati_pretest_dispatches").select("id,template_id,bundle_id,bundle_title,bundle_order,bundle_size,sent_at,revoked_at").in("id",dispatchIds);
-    if(z.error)throw z.error;dispatches=(z.data||[]).filter((x:any)=>!x.revoked_at);
+    if(z.error)throw z.error;dispatches=z.data||[];
     const tids=[...new Set(dispatches.map((x:any)=>x.template_id))];
     if(tids.length){
       const t=await db.from("lugati_pretest_templates").select("id,subject_key,outcome_code,indicator_index,display_index,indicator_text,student_title").in("id",tids);
@@ -304,11 +303,17 @@ async function teacherStudentProfile(req:Request,body:any,access:Access){
   const journeys=(pa||[]).map((x:any)=>{
     const dd=dm.get(String(x.dispatch_id));if(!dd)return null;const t=tm.get(String(dd.template_id));if(!t)return null;
     if(scope!=="all"&&t.subject_key!==scope)return null;
+    const response=x.response_json&&typeof x.response_json==="object"?x.response_json:{};
+    const hasLegacyResponse=Object.keys(response).some((k:string)=>!["bundle_id","demo_preview","demo_only"].includes(k));
+    const hasHistoricalWork=!!(x.started_at||x.challenge_started_at||x.challenge_submitted_at||x.exit_started_at||x.exit_submitted_at||x.completed_at||x.mastery_confirmed_at||x.challenge_percent!=null||x.exit_percent!=null||x.percent!=null||hasLegacyResponse||x.status!=="new"||x.journey_status!=="sent");
+    const activityAt=x.mastery_confirmed_at||x.completed_at||x.exit_submitted_at||x.challenge_submitted_at||x.exit_started_at||x.challenge_started_at||x.started_at||(hasHistoricalWork?x.updated_at:null);
+    if(dd.revoked_at&&!hasHistoricalWork)return null;
     return{assignment_id:x.id,subject_key:t.subject_key,outcome_code:t.outcome_code,indicator_index:t.indicator_index,global_indicator:t.display_index||t.indicator_index,
       indicator_text:t.indicator_text,student_title:t.student_title||"",bundle_id:dd.bundle_id||null,bundle_title:dd.bundle_title||null,bundle_order:dd.bundle_order||null,bundle_size:dd.bundle_size||null,
       journey_status:x.journey_status,current_stage:x.current_stage,challenge_percent:x.challenge_percent,exit_percent:x.exit_percent,exit_passed:x.exit_passed,
       exit_attempts:x.exit_attempts,rescue_passed:x.rescue_passed,enrichment_completed:x.enrichment_completed,assigned_at:x.assigned_at,started_at:x.started_at,
-      completed_at:x.completed_at,mastery_confirmed_at:x.mastery_confirmed_at,retention_status:x.retention_status,retention_passed:x.retention_passed};
+      completed_at:x.completed_at,mastery_confirmed_at:x.mastery_confirmed_at,retention_status:x.retention_status,retention_passed:x.retention_passed,
+      historical_activity_at:activityAt,has_legacy_response:hasLegacyResponse,is_historical:hasHistoricalWork,revoked:!!dd.revoked_at};
   }).filter(Boolean);
 
   const {data:gameAttempts,error:gae}=await db.from("lugati_competition_attempts")
@@ -343,17 +348,26 @@ async function teacherStudentProfile(req:Request,body:any,access:Access){
     const scores=Array.isArray(x.section_scores)?x.section_scores:[];
     return scores.some((s:any)=>s.subject===scope||s.subject_key===scope);
   });
+  const lastActivity=[
+    masteryLastActivity,
+    ...journeys.map((x:any)=>x.historical_activity_at||x.completed_at||x.mastery_confirmed_at||x.started_at),
+    ...games.map((x:any)=>x.submitted_at||x.last_activity_at||x.started_at),
+    ...exams.map((x:any)=>x.submitted_at),
+    ...assessments.map((x:any)=>x.submitted_at)
+  ].filter(Boolean).sort().reverse()[0]||null;
+  const daysSince=lastActivity?Math.max(0,Math.floor((Date.now()-new Date(lastActivity).getTime())/86400000)):null;
 
   const timeline:any[]=[];
   for(const x of sessions.slice(0,30)){const cp=compMap.get(String(x.component_id)),bp=cp?bpMap.get(String(cp.blueprint_id)):null;timeline.push({type:"mastery",at:x.completed_at||x.started_at,title:(bp?.indicator_text||cp?.title||"جلسة إتقان"),detail:phaseLabel(x.phase)+" • "+(x.percent==null?"قيد التنفيذ":Math.round(Number(x.percent))+"%"),subject_key:bp?.subject_key||""});}
-  for(const x of journeys.slice(0,30))timeline.push({type:"journey",at:x.completed_at||x.mastery_confirmed_at||x.started_at||x.assigned_at,title:x.student_title||x.indicator_text,detail:x.journey_status==="ready"?"أتقن الرحلة":x.journey_status==="support"?"في العلاج":x.journey_status==="in_progress"?"قيد التدريب":"مُرسلة",subject_key:x.subject_key});
+  for(const x of journeys.slice(0,30))timeline.push({type:"journey",at:x.historical_activity_at||x.completed_at||x.mastery_confirmed_at||x.started_at||x.assigned_at,title:x.student_title||x.indicator_text,detail:(x.revoked?"إتقان سابق محفوظ • ":"")+(x.journey_status==="ready"?"أتقن الرحلة":x.journey_status==="support"?"في العلاج":x.journey_status==="in_progress"?"قيد التدريب":x.has_legacy_response?"أجاب في الإتقان السابق":"مُرسلة"),subject_key:x.subject_key});
   for(const x of games.slice(0,20))timeline.push({type:"game",at:x.submitted_at||x.last_activity_at||x.started_at,title:x.title,detail:(x.submitted_at?"أكمل اللعبة":"بدأ اللعبة")+" • "+Number(x.correct_questions||0)+"/"+Number(x.question_count||0),subject_key:x.subject_key});
   for(const x of exams.slice(0,30))timeline.push({type:"exam",at:x.submitted_at,title:"اختبار مؤشر",detail:Math.round(Number(x.percent||0))+"%",subject_key:x.subject_key});
   for(const x of assessments.slice(0,20))timeline.push({type:"assessment",at:x.submitted_at,title:x.title,detail:Math.round(Number(x.percent||0))+"%",subject_key:"all"});
   timeline.sort((a:any,b:any)=>String(b.at||"").localeCompare(String(a.at||"")));
 
-  const pendingJourneys=journeys.filter((x:any)=>x.journey_status!=="ready").length;
-  const supportJourneys=journeys.filter((x:any)=>x.journey_status==="support").length;
+  const pendingJourneys=journeys.filter((x:any)=>!x.revoked&&x.journey_status!=="ready").length;
+  const supportJourneys=journeys.filter((x:any)=>!x.revoked&&x.journey_status==="support").length;
+  const previousMasteryCount=journeys.filter((x:any)=>x.is_historical).length;
   const masteredIndicators=indicatorRows.filter((x:any)=>x.state==="mastered").length;
   const weakAdaptive=[...adaptiveRows].filter((x:any)=>x.status!=="mastered").sort((a:any,b:any)=>Number(a.source_percent??999)-Number(b.source_percent??999))[0]||null;
   const weakMastery=[...indicatorRows].filter((x:any)=>x.state!=="mastered"&&x.mastery_percent!=null).sort((a:any,b:any)=>Number(a.mastery_percent)-Number(b.mastery_percent))[0]||null;
@@ -381,7 +395,7 @@ async function teacherStudentProfile(req:Request,body:any,access:Access){
     accuracy_7d:ev7.length?Math.round(correct7/ev7.length*1000)/10:null,accuracy_30d:events.length?Math.round(correct30/events.length*1000)/10:null,
     hints_30d:events.reduce((n:number,x:any)=>n+Number(x.hints_used||0),0),mastered_indicators:masteredIndicators,started_indicators:indicatorRows.length,
     pending_journeys:pendingJourneys,support_journeys:supportJourneys,games_completed:games.filter((x:any)=>!!x.submitted_at).length,
-    tests_completed:exams.length+assessments.length,attention,next_action:nextAction
+    tests_completed:exams.length+assessments.length,previous_mastery_count:previousMasteryCount,attention,next_action:nextAction
   },subject_tests:subjectTests,indicators:indicatorRows,adaptive:adaptiveRows,journeys,games,exams,assessments,timeline:timeline.slice(0,60),missions:missions.slice(0,60)});
 }
 
@@ -399,7 +413,7 @@ async function teacherDashboard(req:Request,access:Access){
     db.from("nafes_assessment_attempts").select("student_id,submitted_at,percent,section_scores,is_demo").eq("is_demo",false).not("submitted_at","is",null),
     db.from("lugati_competition_attempts").select("student_id,round_id,status,started_at,submitted_at,last_activity_at"),
     db.from("lugati_competition_rounds").select("id,subject_key,game_config"),
-    db.from("lugati_pretest_student_assignments").select("student_id,dispatch_id,journey_status,assigned_at,started_at,completed_at,mastery_confirmed_at"),
+    db.from("lugati_pretest_student_assignments").select("student_id,dispatch_id,status,percent,response_json,journey_status,assigned_at,started_at,completed_at,updated_at,challenge_started_at,challenge_submitted_at,challenge_percent,exit_started_at,exit_submitted_at,exit_percent,mastery_confirmed_at"),
     db.from("lugati_pretest_dispatches").select("id,template_id,revoked_at"),
     db.from("lugati_pretest_templates").select("id,subject_key")
   ]);
@@ -417,7 +431,7 @@ async function teacherDashboard(req:Request,access:Access){
   for(const x of ms){const k=String(x.student_id);if(!byM.has(k))byM.set(k,[]);byM.get(k)!.push(x)}
 
   const roundMap=new Map(((grr as any).data||[]).map((x:any)=>[String(x.id),x]));
-  const dispatchMap=new Map(((jdr as any).data||[]).filter((x:any)=>!x.revoked_at).map((x:any)=>[String(x.id),x]));
+  const dispatchMap=new Map(((jdr as any).data||[]).map((x:any)=>[String(x.id),x]));
   const templateMap=new Map(((jtr as any).data||[]).map((x:any)=>[String(x.id),x]));
 
   const workByStudent=new Map<string,any[]>();
@@ -440,14 +454,20 @@ async function teacherDashboard(req:Request,access:Access){
     if(at)pushWork(x.student_id,{type:"game",subject_key:round.subject_key,at,completed:!!x.submitted_at,status:x.status});
   }
 
-  const pendingByStudent=new Map<string,number>();
+  const pendingByStudent=new Map<string,number>(),previousMasteryByStudent=new Map<string,number>();
   for(const x of (jar as any).data||[]){
     const disp=dispatchMap.get(String(x.dispatch_id));if(!disp)continue;
     const t=templateMap.get(String(disp.template_id));if(!t)continue;
     if(scope!=="all"&&t.subject_key!==scope)continue;
-    const at=x.completed_at||x.mastery_confirmed_at||x.started_at;
-    if(at)pushWork(x.student_id,{type:"journey",subject_key:t.subject_key,at,completed:!!(x.completed_at||x.mastery_confirmed_at),status:x.journey_status});
-    if(x.journey_status!=="ready"&&!x.started_at){
+    const response=x.response_json&&typeof x.response_json==="object"?x.response_json:{};
+    const hasLegacyResponse=Object.keys(response).some((k:string)=>!["bundle_id","demo_preview","demo_only"].includes(k));
+    const hasHistoricalWork=!!(x.started_at||x.challenge_started_at||x.challenge_submitted_at||x.exit_started_at||x.exit_submitted_at||x.completed_at||x.mastery_confirmed_at||x.challenge_percent!=null||x.exit_percent!=null||x.percent!=null||hasLegacyResponse||x.status!=="new"||x.journey_status!=="sent");
+    const at=x.mastery_confirmed_at||x.completed_at||x.exit_submitted_at||x.challenge_submitted_at||x.exit_started_at||x.challenge_started_at||x.started_at||(hasHistoricalWork?x.updated_at:null);
+    if(at){
+      pushWork(x.student_id,{type:"journey",subject_key:t.subject_key,at,completed:!!(x.completed_at||x.mastery_confirmed_at||x.exit_submitted_at),status:x.journey_status,historical:true,revoked:!!disp.revoked_at});
+      const k=String(x.student_id);previousMasteryByStudent.set(k,(previousMasteryByStudent.get(k)||0)+1);
+    }
+    if(!disp.revoked_at&&x.journey_status!=="ready"&&!x.started_at&&!hasLegacyResponse){
       const k=String(x.student_id);pendingByStudent.set(k,(pendingByStudent.get(k)||0)+1);
     }
   }
@@ -465,6 +485,7 @@ async function teacherDashboard(req:Request,access:Access){
     const completedTests=works.filter((x:any)=>x.type==="exam"||x.type==="assessment").length;
     const completedGames=works.filter((x:any)=>x.type==="game"&&x.completed).length;
     const startedJourneys=works.filter((x:any)=>x.type==="journey").length;
+    const previousMasteryCount=previousMasteryByStudent.get(sid)||0;
     const active7=!!lastActivity&&String(lastActivity)>=since;
     const daysSince=lastActivity?Math.max(0,Math.floor((Date.now()-new Date(lastActivity).getTime())/86400000)):null;
     const reasons:string[]=[];
@@ -481,7 +502,7 @@ async function teacherDashboard(req:Request,access:Access){
     return{id:s.id,full_name:s.full_name,class_name:s.class_name,grade:s.grade,is_demo:s.is_demo===true,
       mastered_components:masteredComponents,active_components:activeComponents,last_activity_at:lastActivity,
       questions_7d:e.length,accuracy_7d:accuracy,hints_7d:hints,missions_today:m.length,missions_completed_today:missionsCompleted,
-      work_count:works.length,tests_completed:completedTests,games_completed:completedGames,journeys_started:startedJourneys,pending_journeys:pendingJourneys,
+      work_count:works.length,tests_completed:completedTests,games_completed:completedGames,journeys_started:startedJourneys,previous_mastery_count:previousMasteryCount,pending_journeys:pendingJourneys,
       active_7d:active7,needs_followup:needsFollowup,followup_reasons:reasons,followup_issue:reasons.slice(0,3).join(" ")||"لا توجد مشكلة ظاهرة حاليًا."};
   });
 
