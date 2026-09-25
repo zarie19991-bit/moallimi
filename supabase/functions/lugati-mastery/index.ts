@@ -388,15 +388,23 @@ async function teacherStudentProfile(req:Request,body:any,access:Access){
 async function teacherDashboard(req:Request,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
   const since=new Date(Date.now()-7*86400000).toISOString(),todayDate=riyadhDate(),scope=teacherScope(access);
-  const [rr,pr,er,mr,cr,br]=await Promise.all([
+  const [rr,pr,er,mr,cr,br,xr,ar,gar,grr,jar,jdr,jtr]=await Promise.all([
     db.from("nafes_students").select("id,full_name,class_name,grade,is_demo").eq("is_active",true).eq("is_demo",false).order("class_name").order("full_name"),
     db.from("lugati_student_component_progress").select("student_id,component_id,status,mastery_percent,total_hints,last_activity_at,mastered_at,next_review_at"),
     db.from("lugati_mastery_question_events").select("student_id,component_id,correct,hints_used,elapsed_seconds,submitted_at").gte("submitted_at",since),
     db.from("lugati_daily_missions").select("student_id,component_id,status,mission_type").eq("mission_date",todayDate),
     db.from("lugati_mastery_components").select("id,blueprint_id"),
-    db.from("lugati_mastery_blueprints").select("id,subject_key")
+    db.from("lugati_mastery_blueprints").select("id,subject_key"),
+    db.from("nafes_exam_attempts").select("student_id,subject_key,submitted_at,percent,is_demo").eq("is_demo",false).not("submitted_at","is",null),
+    db.from("nafes_assessment_attempts").select("student_id,submitted_at,percent,section_scores,is_demo").eq("is_demo",false).not("submitted_at","is",null),
+    db.from("lugati_competition_attempts").select("student_id,round_id,status,started_at,submitted_at,last_activity_at"),
+    db.from("lugati_competition_rounds").select("id,subject_key,game_config"),
+    db.from("lugati_pretest_student_assignments").select("student_id,dispatch_id,journey_status,assigned_at,started_at,completed_at,mastery_confirmed_at"),
+    db.from("lugati_pretest_dispatches").select("id,template_id,revoked_at"),
+    db.from("lugati_pretest_templates").select("id,subject_key")
   ]);
-  for(const x of [rr,pr,er,mr,cr,br])if((x as any).error)throw (x as any).error;
+  for(const x of [rr,pr,er,mr,cr,br,xr,ar,gar,grr,jar,jdr,jtr])if((x as any).error)throw (x as any).error;
+
   const blueprintSubject=new Map(((br as any).data||[]).map((x:any)=>[String(x.id),String(x.subject_key)]));
   const componentSubject=new Map(((cr as any).data||[]).map((x:any)=>[String(x.id),blueprintSubject.get(String(x.blueprint_id))||""]));
   const allowed=(componentId:any)=>scope==="all"||componentSubject.get(String(componentId))===scope;
@@ -407,32 +415,83 @@ async function teacherDashboard(req:Request,access:Access){
   for(const x of ps){const k=String(x.student_id);if(!byP.has(k))byP.set(k,[]);byP.get(k)!.push(x)}
   for(const x of es){const k=String(x.student_id);if(!byE.has(k))byE.set(k,[]);byE.get(k)!.push(x)}
   for(const x of ms){const k=String(x.student_id);if(!byM.has(k))byM.set(k,[]);byM.get(k)!.push(x)}
+
+  const roundMap=new Map(((grr as any).data||[]).map((x:any)=>[String(x.id),x]));
+  const dispatchMap=new Map(((jdr as any).data||[]).filter((x:any)=>!x.revoked_at).map((x:any)=>[String(x.id),x]));
+  const templateMap=new Map(((jtr as any).data||[]).map((x:any)=>[String(x.id),x]));
+
+  const workByStudent=new Map<string,any[]>();
+  const pushWork=(studentId:any,row:any)=>{const k=String(studentId||"");if(!k)return;if(!workByStudent.has(k))workByStudent.set(k,[]);workByStudent.get(k)!.push(row)};
+
+  for(const x of (xr as any).data||[]){
+    if(scope!=="all"&&x.subject_key!==scope)continue;
+    pushWork(x.student_id,{type:"exam",subject_key:x.subject_key,at:x.submitted_at,completed:true,percent:x.percent});
+  }
+  for(const x of (ar as any).data||[]){
+    const scores=Array.isArray(x.section_scores)?x.section_scores:[];
+    if(scope!=="all"&&!scores.some((s:any)=>(s.subject||s.subject_key)===scope))continue;
+    pushWork(x.student_id,{type:"assessment",subject_key:scope==="all"?"all":scope,at:x.submitted_at,completed:true,percent:x.percent});
+  }
+  for(const x of (gar as any).data||[]){
+    const round=roundMap.get(String(x.round_id));if(!round)continue;
+    if(scope!=="all"&&round.subject_key!==scope)continue;
+    if(round.game_config?.demo_only===true)continue;
+    const at=x.submitted_at||x.last_activity_at||x.started_at;
+    if(at)pushWork(x.student_id,{type:"game",subject_key:round.subject_key,at,completed:!!x.submitted_at,status:x.status});
+  }
+
+  const pendingByStudent=new Map<string,number>();
+  for(const x of (jar as any).data||[]){
+    const disp=dispatchMap.get(String(x.dispatch_id));if(!disp)continue;
+    const t=templateMap.get(String(disp.template_id));if(!t)continue;
+    if(scope!=="all"&&t.subject_key!==scope)continue;
+    const at=x.completed_at||x.mastery_confirmed_at||x.started_at;
+    if(at)pushWork(x.student_id,{type:"journey",subject_key:t.subject_key,at,completed:!!(x.completed_at||x.mastery_confirmed_at),status:x.journey_status});
+    if(x.journey_status!=="ready"&&!x.started_at){
+      const k=String(x.student_id);pendingByStudent.set(k,(pendingByStudent.get(k)||0)+1);
+    }
+  }
+
   const students=((rr as any).data||[]).map((s:any)=>{
-    const p=byP.get(String(s.id))||[],e=byE.get(String(s.id))||[],m=byM.get(String(s.id))||[],correct=e.filter((x:any)=>x.correct).length;
+    const sid=String(s.id),p=byP.get(sid)||[],e=byE.get(sid)||[],m=byM.get(sid)||[],works=workByStudent.get(sid)||[],correct=e.filter((x:any)=>x.correct).length;
     const activeComponents=p.length,masteredComponents=p.filter((x:any)=>x.status==="mastered").length;
-    const lastActivity=p.map((x:any)=>x.last_activity_at).filter(Boolean).sort().reverse()[0]||null;
+    const masteryLast=p.map((x:any)=>x.last_activity_at).filter(Boolean).sort().reverse()[0]||null;
+    const workLast=works.map((x:any)=>x.at).filter(Boolean).sort().reverse()[0]||null;
+    const lastActivity=[masteryLast,workLast].filter(Boolean).sort().reverse()[0]||null;
     const accuracy=e.length?Math.round(correct/e.length*1000)/10:null;
     const hints=e.reduce((n:number,x:any)=>n+Number(x.hints_used||0),0);
     const missionsCompleted=m.filter((x:any)=>x.status==="completed").length;
+    const pendingJourneys=pendingByStudent.get(sid)||0;
+    const completedTests=works.filter((x:any)=>x.type==="exam"||x.type==="assessment").length;
+    const completedGames=works.filter((x:any)=>x.type==="game"&&x.completed).length;
+    const startedJourneys=works.filter((x:any)=>x.type==="journey").length;
+    const active7=!!lastActivity&&String(lastActivity)>=since;
+    const daysSince=lastActivity?Math.max(0,Math.floor((Date.now()-new Date(lastActivity).getTime())/86400000)):null;
     const reasons:string[]=[];
-    if(activeComponents===0&&e.length===0)reasons.push("لم يبدأ مسار الإتقان في المنصة.");
-    else if(activeComponents>0&&e.length===0)reasons.push("لا يوجد نشاط خلال آخر 7 أيام رغم وجود مسار إتقان نشط.");
-    if(accuracy!==null&&accuracy<70)reasons.push("دقة منخفضة خلال آخر 7 أيام ("+accuracy+"٪).");
+
+    if(!works.length&&activeComponents===0&&pendingJourneys===0)reasons.push("لم يبدأ أي عمل مسجل في المنصة.");
+    if(pendingJourneys>0&&startedJourneys===0)reasons.push("لديه "+pendingJourneys+" رحلة إتقان مرسلة لم يبدأها.");
+    if(daysSince!==null&&daysSince>=7&&(works.length>0||activeComponents>0||pendingJourneys>0))reasons.push("آخر نشاط مسجل منذ "+daysSince+" أيام.");
+    if(accuracy!==null&&accuracy<70)reasons.push("دقة منخفضة في تدريب الإتقان خلال آخر 7 أيام ("+accuracy+"٪).");
     if(m.length>missionsCompleted)reasons.push("لم يكمل مهام اليوم ("+missionsCompleted+" من "+m.length+").");
     if(hints>=4)reasons.push("استخدام متكرر للتلميحات ("+hints+" خلال 7 أيام).");
     if(activeComponents>=3&&masteredComponents/activeComponents<0.5)reasons.push("نسبة الإتقان الحالية منخفضة ("+masteredComponents+" من "+activeComponents+" مكونات).");
+
     const needsFollowup=reasons.length>0;
     return{id:s.id,full_name:s.full_name,class_name:s.class_name,grade:s.grade,is_demo:s.is_demo===true,
       mastered_components:masteredComponents,active_components:activeComponents,last_activity_at:lastActivity,
       questions_7d:e.length,accuracy_7d:accuracy,hints_7d:hints,missions_today:m.length,missions_completed_today:missionsCompleted,
-      needs_followup:needsFollowup,followup_reasons:reasons,followup_issue:reasons.slice(0,3).join(" ")||"لا توجد مشكلة ظاهرة حاليًا."};
+      work_count:works.length,tests_completed:completedTests,games_completed:completedGames,journeys_started:startedJourneys,pending_journeys:pendingJourneys,
+      active_7d:active7,needs_followup:needsFollowup,followup_reasons:reasons,followup_issue:reasons.slice(0,3).join(" ")||"لا توجد مشكلة ظاهرة حاليًا."};
   });
+
   return json(req,{ok:true,date:todayDate,subject_scope:scope,totals:{
-    students:students.length,active_7d:students.filter((s:any)=>s.questions_7d>0).length,
+    students:students.length,active_7d:students.filter((s:any)=>s.active_7d).length,
     completed_today:students.filter((s:any)=>s.missions_completed_today>0).length,
     needs_followup:students.filter((s:any)=>s.needs_followup).length
   },students});
 }
+
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
   if(req.method!=="POST")return json(req,{error:"method_not_allowed"},405);
