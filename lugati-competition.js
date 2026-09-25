@@ -9,7 +9,7 @@ const FALLBACK={
  reading_1:{label:'القراءة 1',icon:'📘'},reading_2:{label:'القراءة 2',icon:'📗'},reading_3:{label:'القراءة 3',icon:'📙'},
  math:{label:'الرياضيات',icon:'➗'},science:{label:'العلوم',icon:'🔬'}
 };
-const S={token:null,role:null,profile:null,data:null,arena:'reading_1',catalog:null,selected:new Map(),busy:false,screen:'home',studentTab:'rounds',round:null,attempt:null,result:null,teacherResult:null,preview:null,message:'',timer:null,streak:0,stageIntroSeen:null,powerupBusy:false};
+const S={token:null,role:null,profile:null,data:null,arena:'reading_1',catalog:null,selected:new Map(),busy:false,screen:'home',studentTab:'rounds',round:null,attempt:null,result:null,teacherResult:null,preview:null,message:'',timer:null,streak:0,stageIntroSeen:null,stageReward:null,powerupBusy:false,soundOn:(()=>{try{return sessionStorage.getItem('tamakkun_game_sound_v1')!=='0'}catch{return true}})()};
 S.draft={title:'',open:'',close:''};
 S.feedback=null;
 const questionCount=()=>Number((S.screen==='student-result'?S.result?.round?.question_count:S.screen==='teacher-results'?S.teacherResult?.round?.question_count:S.round?.question_count)||15);
@@ -20,43 +20,22 @@ const ar=v=>n(v).toLocaleString('ar-SA');
 const fmtMs=ms=>{ms=Math.max(0,n(ms));const m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000),t=Math.floor((ms%1000)/100);return m.toLocaleString('ar-SA')+':'+String(s).padStart(2,'0')+'.'+t};
 const fmtDate=v=>{if(!v)return'—';try{return new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v))}catch{return'—'}};
 const localInput=v=>{const d=v?new Date(v):new Date();const z=new Date(d.getTime()-d.getTimezoneOffset()*60000);return z.toISOString().slice(0,16)};
-function style(){if(document.getElementById('lugatiCompetitionStyle'))return;const x=document.createElement('style');x.id='lugatiCompetitionStyle';x.textContent=`
-#lugatiCompetitionMount{--arena-navy:#0b1220;--arena-panel:#111b2e;--arena-orange:#f97316;--arena-gold:#f59e0b;--arena-green:#10b981;--arena-sky:#0ea5e9;--arena-rose:#f43f5e;--arena-violet:#7c3aed}
-.comp-stage{background:radial-gradient(circle at 10% 10%,rgba(14,165,233,.12),transparent 28%),radial-gradient(circle at 90% 15%,rgba(249,115,22,.14),transparent 30%),linear-gradient(180deg,#0b1220 0%,#101827 100%);border:1px solid rgba(148,163,184,.12);border-radius:32px;padding:18px;box-shadow:0 28px 80px rgba(15,23,42,.20)}
-.comp-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#111b2e 0%,#172554 55%,#0f172a 100%);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 24px 65px rgba(2,6,23,.28)}
-.comp-hero:before{content:"";position:absolute;width:280px;height:280px;border-radius:50%;background:rgba(249,115,22,.10);filter:blur(18px);left:-90px;top:-130px}
-.comp-stat{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.10);backdrop-filter:blur(8px)}
-.comp-arena-card{position:relative;overflow:hidden;background:#fff;border:1px solid #e2e8f0;box-shadow:0 12px 34px rgba(15,23,42,.07);transition:.22s ease}
-.comp-arena-card:hover{transform:translateY(-3px);box-shadow:0 20px 45px rgba(15,23,42,.12)}
-.comp-arena-card:before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--accent,#4f46e5)}
-.comp-arena-card.open{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#4f46e5) 12%,transparent),0 18px 44px rgba(15,23,42,.10)}
-.comp-arena-card .arena-icon{background:color-mix(in srgb,var(--accent,#4f46e5) 12%,white);color:var(--accent,#4f46e5)}
-.comp-cta{background:linear-gradient(135deg,#fb923c,#f97316);color:#fff;box-shadow:0 12px 28px rgba(249,115,22,.28);transition:.2s ease}
-.comp-cta:hover{transform:translateY(-1px);box-shadow:0 16px 34px rgba(249,115,22,.36)}
-.comp-secondary{background:#fff;border:1px solid #dbe3ef;color:#334155}
-.comp-question-shell{background:radial-gradient(circle at 15% 0%,rgba(14,165,233,.10),transparent 26%),linear-gradient(180deg,#0b1220,#111827);border-radius:30px;padding:16px}
-.comp-question-card{background:#f8fafc;border:1px solid rgba(255,255,255,.08);box-shadow:0 24px 70px rgba(2,6,23,.32)}
-.comp-option{position:relative;background:#fff;border:1.5px solid #dbe3ef;box-shadow:0 5px 16px rgba(15,23,42,.04);transition:.16s ease}
-.comp-option:hover:not(:disabled){border-color:#0ea5e9;background:#f0f9ff;transform:translateY(-1px);box-shadow:0 10px 22px rgba(14,165,233,.10)}
-.comp-option:active:not(:disabled){transform:scale(.992)}
-.comp-option.tried{opacity:.34;pointer-events:none;filter:grayscale(.25)}
-.comp-letter{background:#0f172a;color:#fff;border:0;box-shadow:0 4px 10px rgba(15,23,42,.16)}
-.comp-heart{font-size:22px;filter:drop-shadow(0 2px 3px rgba(244,63,94,.24))}
-.comp-heart.off{filter:grayscale(1);opacity:.18}
-.comp-progress{background:linear-gradient(90deg,#0ea5e9,#10b981)}
-.comp-timer{font-variant-numeric:tabular-nums;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:8px 12px}
-.comp-feedback-good{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
-.comp-feedback-bad{background:#fff1f2;border:1px solid #fecdd3;color:#9f1239}
-.comp-podium{background:linear-gradient(135deg,#111827,#172554 60%,#0f172a);border:1px solid rgba(255,255,255,.09);box-shadow:0 24px 70px rgba(2,6,23,.28)}
-.comp-gold{color:#fbbf24}
-.comp-pop{animation:compPop .22s ease-out}
-.comp-shake{animation:compShake .28s ease}
-.comp-glow{box-shadow:0 0 0 4px rgba(14,165,233,.06),0 22px 60px rgba(15,23,42,.10)}
-@keyframes compPop{from{transform:scale(.97);opacity:.5}to{transform:scale(1);opacity:1}}
-@keyframes compShake{0%,100%{transform:translateX(0)}25%{transform:translateX(7px)}75%{transform:translateX(-7px)}}
-.comp-option:focus-visible{outline:3px solid #0ea5e9;outline-offset:3px}.comp-option:disabled{cursor:default}.comp-question-card{font-size:1rem} .comp-question-card h2{line-height:1.9} @media(prefers-reduced-motion:reduce){#lugatiCompetitionMount *{animation:none!important;transition:none!important}}
-@media(max-width:640px){.comp-stage{padding:10px;border-radius:24px}.comp-question-shell{padding:10px;border-radius:24px}}
-`;document.head.appendChild(x)}
+function style(){
+ if(document.getElementById('lugatiCompetitionStyle'))return;
+ const x=document.createElement('style');x.id='lugatiCompetitionStyle';
+ x.textContent='@keyframes compPop{from{transform:scale(.97);opacity:.5}to{transform:scale(1);opacity:1}}@keyframes compShake{0%,100%{transform:translateX(0)}25%{transform:translateX(7px)}75%{transform:translateX(-7px)}}@keyframes compCelebrate{0%{transform:scale(.82);opacity:0}65%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}@media(prefers-reduced-motion:reduce){#lugatiCompetitionMount *{animation:none!important;transition:none!important}}';
+ document.head.appendChild(x)
+}
+function gameTone(kind){
+ if(!S.soundOn)return;
+ try{
+  const A=window.AudioContext||window.webkitAudioContext;if(!A)return;const ctx=new A(),o=ctx.createOscillator(),g=ctx.createGain();
+  const cfg=kind==='good'?[620,0.09]:kind==='bad'?[180,0.12]:kind==='stage'?[760,0.14]:kind==='power'?[520,0.08]:[420,0.06];
+  o.type=kind==='bad'?'sawtooth':'sine';o.frequency.setValueAtTime(cfg[0],ctx.currentTime);if(kind==='good'||kind==='stage')o.frequency.exponentialRampToValueAtTime(cfg[0]*1.35,ctx.currentTime+cfg[1]);
+  g.gain.setValueAtTime(.045,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+cfg[1]);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+cfg[1]);setTimeout(()=>ctx.close?.(),350)
+ }catch{}
+}
+function toggleGameSound(){S.soundOn=!S.soundOn;try{sessionStorage.setItem('tamakkun_game_sound_v1',S.soundOn?'1':'0')}catch{};render()}
 async function post(body){const h={'Content-Type':'application/json'};if(S.token)h.Authorization='Bearer '+S.token;const r=await fetch(API,{method:'POST',headers:h,body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||d.error){const e=new Error(d.error||'تعذر الاتصال بالمسابقة.');e.data=d;throw e}return d}
 function mountEl(){return document.getElementById('lugatiCompetitionMount')}
 function arenaMeta(k){return S.data?.arenas?.[k]||FALLBACK[k]||{label:k,icon:'🏆'}}
@@ -200,27 +179,34 @@ function seasonBoard(){const rows=S.data?.top_students||[];return '<section clas
 function indicatorAccount(){const rows=S.data?.indicator_points||[];return '<section class="bg-white/95 border border-white/20 rounded-[2rem] p-5 sm:p-6"><div><span class="text-sm font-black text-sky-600">🎯 تقدمك الحقيقي</span><h2 class="font-black text-slate-900 mt-1">رصيد المؤشرات</h2><p class="text-sm text-slate-400 mt-1">النقاط تعكس أداءك في البطولة، ولا تُستخدم بدل اختبار إتقان المؤشر.</p></div><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">'+(rows.length?rows.slice(0,18).map(x=>'<div class="rounded-2xl bg-slate-50 border border-slate-100 p-4"><b class="text-sm leading-5 block text-slate-800">'+esc(x.indicator_text)+'</b><div class="flex justify-between mt-3 text-sm"><span class="text-emerald-700 font-black">✓ '+ar(x.correct_questions)+' صحيحة</span><span class="text-amber-700 font-black">'+ar(x.points)+' نقطة</span></div></div>').join(''):'<div class="sm:col-span-2 lg:col-span-3 text-center py-7 text-sm text-slate-400">لم تُحتسب نقاط مؤشرات بعد.</div>')+'</div></section>'}
 function stageMapHtml(d){
  const total=Number(d?.stage?.total||d?.round?.game_config?.stage_count||S.round?.game_config?.stage_count||1),cur=Number(d?.stage?.no||1);
- const inds=S.round?.selected_indicators||[];
- return '<div class="comp-stage-map">'+Array.from({length:total},(_,i)=>{
-   const no=i+1,boss=no>inds.length,label=boss?'🏁':String(no);
-   return '<span class="comp-stage-dot '+(no<cur?'done':no===cur?'active':'')+'" title="'+esc(boss?'المواجهة النهائية':(inds[i]?.indicator_text||('المرحلة '+no)))+'">'+(no<cur?'✓':label)+'</span>';
+ const inds=S.round?.selected_indicators||d?.round?.selected_indicators||[];
+ return '<div class="comp-journey-map" aria-label="خريطة مراحل اللعبة">'+Array.from({length:total},(_,i)=>{
+   const no=i+1,boss=no>inds.length,done=no<cur,active=no===cur;
+   const title=boss?'المواجهة النهائية':(inds[i]?.indicator_text||('المؤشر '+no));
+   return (i?'<span class="comp-route-line '+(done||active?'reached':'')+'"></span>':'')+
+     '<div class="comp-route-node '+(done?'done':active?'active':'locked')+(boss?' boss':'')+'" title="'+esc(title)+'">'+
+       '<span class="comp-route-icon">'+(done?'✓':boss?'🏁':active?'★':'🔒')+'</span>'+
+       '<span class="comp-route-label">'+(boss?'النهائي':'محطة '+ar(no))+'</span>'+
+     '</div>';
  }).join('')+'</div>';
 }
 function showIntro(id){
- S.message='';S.feedback=null;S.stageIntroSeen=null;S.round=Object.values(S.data?.current_rounds||{}).find(r=>r?.id===id)||{id};S.screen='intro';
- const el=mountEl();if(!el)return;const cfg=S.round?.game_config||{},inds=S.round?.selected_indicators||[];
- el.innerHTML='<div class="comp-stage"><div class="max-w-3xl mx-auto comp-podium text-white rounded-[2rem] p-6 sm:p-9"><div class="text-center"><div class="inline-flex w-20 h-20 items-center justify-center rounded-[1.7rem] bg-white/10 border border-white/10 text-5xl">🎮</div><span class="block text-sm text-emerald-200 font-black mt-5">لعبة إتقان المؤشرات</span><h2 class="text-3xl font-black mt-2">'+esc(S.round?.title||'تحدي تَمَكُّن')+'</h2><p class="text-sm text-slate-300 mt-3 leading-7">كل مؤشر مرحلة مستقلة: تعرف مفتاحه، ثم تحل 3 أسئلة، وبعدها تدخل المواجهة النهائية.</p></div>'+
- '<div class="grid grid-cols-3 gap-2 mt-6"><div class="comp-stat rounded-2xl p-3 text-center"><b class="text-xl block text-emerald-300">'+ar(cfg.indicator_count||inds.length)+'</b><span class="text-[10px] text-slate-300">مؤشرات</span></div><div class="comp-stat rounded-2xl p-3 text-center"><b class="text-xl block text-sky-300">'+ar(cfg.stage_count||inds.length+1)+'</b><span class="text-[10px] text-slate-300">مراحل</span></div><div class="comp-stat rounded-2xl p-3 text-center"><b class="text-xl block text-amber-300">'+ar(S.round?.question_count||0)+'</b><span class="text-[10px] text-slate-300">أسئلة</span></div></div>'+
- '<div class="mt-5 max-h-52 overflow-y-auto space-y-2">'+inds.map((x,i)=>'<div class="flex gap-3 items-center rounded-2xl bg-white/8 border border-white/10 p-3"><span class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center font-black">'+ar(i+1)+'</span><div class="text-right"><b class="text-sm">'+esc(x.indicator_text)+'</b><span class="block text-[10px] text-slate-400 mt-1">شرح مختصر ← معرفة ← تطبيق ← استدلال</span></div></div>').join('')+'</div>'+
- '<div class="grid grid-cols-2 gap-2 mt-6"><button id="cancelIntro" class="py-3 rounded-2xl bg-white/10 border border-white/10 text-slate-200 text-sm font-black">ليس الآن</button><button id="goRound" class="comp-cta py-3 text-sm font-black">ابدأ اللعبة ←</button></div></div></div>';
+ S.message='';S.feedback=null;S.stageIntroSeen=null;S.stageReward=null;S.round=Object.values(S.data?.current_rounds||{}).find(r=>r?.id===id)||{id};S.screen='intro';
+ const el=mountEl();if(!el)return;const cfg=S.round?.game_config||{},inds=S.round?.selected_indicators||[],fake={stage:{no:1,total:Number(cfg.stage_count||inds.length+1)},round:S.round};
+ el.innerHTML='<div class="comp-stage"><div class="max-w-4xl mx-auto comp-podium text-white rounded-[2rem] p-6 sm:p-9">'+
+ '<div class="text-center"><div class="comp-game-emblem">🎮</div><span class="block text-sm text-emerald-200 font-black mt-4">رحلة إتقان على شكل لعبة</span><h2 class="text-3xl font-black mt-2">'+esc(S.round?.title||'تحدي تَمَكُّن')+'</h2><p class="text-sm text-slate-200 mt-3 leading-7">اعبر محطات المؤشرات واحدة تلو الأخرى. كل محطة: مهمة قصيرة، ثم معرفة، تطبيق، استدلال، وفي النهاية بوابة الإتقان.</p></div>'+
+ '<div class="mt-6">'+stageMapHtml(fake)+'</div>'+
+ '<div class="grid grid-cols-3 gap-2 mt-6"><div class="comp-stat rounded-2xl p-3 text-center"><b class="text-xl block text-emerald-300">'+ar(cfg.indicator_count||inds.length)+'</b><span class="text-[10px] text-slate-300">محطات مهارية</span></div><div class="comp-stat rounded-2xl p-3 text-center"><b class="text-xl block text-sky-300">'+ar(cfg.stage_count||inds.length+1)+'</b><span class="text-[10px] text-slate-300">مراحل</span></div><div class="comp-stat rounded-2xl p-3 text-center"><b class="text-xl block text-amber-300">'+ar(S.round?.question_count||0)+'</b><span class="text-[10px] text-slate-300">تحديات</span></div></div>'+
+ '<div class="comp-start-powerups mt-5"><div><span>✂️</span><b>استبعاد خيار</b></div><div><span>💡</span><b>تلميح</b></div><div><span>×2</span><b>مضاعفة النقاط</b></div></div>'+
+ '<div class="grid grid-cols-2 gap-2 mt-6"><button id="cancelIntro" class="comp-ghost-btn">ليس الآن</button><button id="goRound" class="comp-cta py-3 text-sm font-black">ابدأ الرحلة 🚀</button></div></div></div>';
  document.getElementById('cancelIntro').onclick=()=>{S.screen='home';render()};
- document.getElementById('goRound').onclick=()=>beginRound(id);
+ document.getElementById('goRound').onclick=()=>{gameTone('stage');beginRound(id)};
 }
 async function beginRound(id){
- S.feedback=null;S.message='';S.streak=0;S.stageIntroSeen=null;renderLoading();
+ S.feedback=null;S.message='';S.streak=0;S.stageIntroSeen=null;S.stageReward=null;renderLoading();
  try{
   const d=await post({action:'start_attempt',round_id:id});
-  if(d.already_finished){S.screen='home';await load();return}
+  if(d.already_finished){S.screen='home';S.stageReward=null;await load();return}
   S.round=d.round;S.attempt=d;S.streak=Number(d.attempt?.streak||0);S.screen='attempt';render();
  }catch(e){alert(e.message);S.screen='home';await load()}
 }
@@ -233,17 +219,34 @@ function shouldShowStageIntro(d){
 function renderStageIntro(el,d){
  const st=d.stage||{},g=d.guide||{},boss=st.type==='boss',key=String(S.round?.id||'')+':'+st.no;
  const cues=(g.recognition_cues||[]).slice(0,3),steps=(g.solution_steps||[]).slice(0,4);
- el.innerHTML='<div class="comp-question-shell max-w-4xl mx-auto"><section class="text-white p-5 sm:p-6">'+stageMapHtml(d)+'<div class="mt-4"><span class="text-sm text-emerald-200 font-black">'+(boss?'المواجهة النهائية':'المرحلة '+ar(st.no)+' من '+ar(st.total))+'</span><h1 class="text-2xl sm:text-3xl font-black mt-2">'+esc(boss?'اختبر قدرتك على التنقل بين المؤشرات':(g.student_title||st.title||'المؤشر الحالي'))+'</h1><p class="text-sm text-slate-300 mt-2 leading-7">'+(boss?'لن يظهر شرح جديد الآن؛ طبّق ما تعلمته في المراحل السابقة.':'قبل اللعب، اعرف مفتاح هذه المهارة وكيف تميّز سؤالها.')+'</p></div></section>'+
+ const title=g.student_title||st.title||'المؤشر الحالي';
+ el.innerHTML='<div class="comp-question-shell max-w-4xl mx-auto"><section class="text-white p-5 sm:p-6">'+stageMapHtml(d)+
+ '<div class="comp-mission-kicker mt-5">'+(boss?'🏁 بوابة الإتقان':'🧭 مهمتك الآن • المحطة '+ar(st.no))+'</div>'+
+ '<h1 class="text-2xl sm:text-3xl font-black mt-2">'+esc(boss?'المواجهة النهائية':title)+'</h1>'+
+ '<p class="text-sm text-slate-200 mt-2 leading-7">'+(boss?'لن يظهر اسم المؤشر داخل الأسئلة. استخدم ما تعلمته وحدد المهارة المناسبة بنفسك.':'ثلاثة تحديات فقط. افهم المهمة ثم استخدم مفتاح الحل.')+'</p></section>'+
  '<section class="comp-question-card p-5 sm:p-7 mt-2">'+
- (boss?'<div class="text-center py-6"><div class="text-6xl">🏁</div><h2 class="text-2xl font-black mt-3">المواجهة النهائية</h2><p class="text-sm text-slate-500 mt-2">أسئلة مختلطة من المؤشرات التي مررت بها. الدقة أهم من السرعة.</p></div>':
- '<div><span class="tk-eyebrow">مفتاح المرحلة</span><h2 class="text-xl font-black text-slate-900 mt-1">'+esc(g.student_title||st.title||'المؤشر الحالي')+'</h2><div class="mt-4 rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-sm leading-7 text-emerald-900"><b>🔑 قاعدة الحل:</b> '+esc(g.golden_rule||'حدّد المطلوب ثم استخدم المعطيات قبل اختيار الإجابة.')+'</div>'+
- '<div class="grid sm:grid-cols-2 gap-3 mt-3"><div class="rounded-2xl bg-sky-50 border border-sky-100 p-4"><b class="text-sm text-sky-900">كيف أعرف السؤال؟</b><ul class="mt-2 pr-5 text-xs leading-6 text-slate-600">'+(cues.length?cues.map(x=>'<li>'+esc(x)+'</li>').join(''):'<li>اقرأ صياغة السؤال وحدد المطلوب بدقة.</li>')+'</ul></div><div class="rounded-2xl bg-slate-50 border p-4"><b class="text-sm text-slate-900">خطوات الحل</b><ol class="mt-2 pr-5 text-xs leading-6 text-slate-600">'+(steps.length?steps.map(x=>'<li>'+esc(x)+'</li>').join(''):'<li>حدّد المطلوب ثم طبّق القاعدة.</li>')+'</ol></div></div>'+
- (g.common_trap?'<div class="mt-3 rounded-2xl bg-amber-50 border border-amber-100 p-3 text-xs leading-6 text-amber-900"><b>⚠️ انتبه:</b> '+esc(g.common_trap)+'</div>':'')+'</div>')+
- '<button id="startStageQuestions" class="comp-cta w-full mt-5 py-3 font-black">'+(boss?'ابدأ المواجهة 🏁':'ابدأ أسئلة هذه المرحلة ←')+'</button></section></div>';
- document.getElementById('startStageQuestions').onclick=()=>{S.stageIntroSeen=key;renderAttempt(el)};
+ (boss?'<div class="comp-boss-gate"><div class="comp-boss-icon">🏁</div><span>المحطات السابقة مكتملة</span><h2>افتح بوابة الإتقان</h2><p>أسئلة مختلطة من المهارات التي مررت بها. لا توجد أسماء مؤشرات أو شرح جديد؛ الدقة أولًا.</p><div class="comp-boss-rules"><b>🎯 حدّد المطلوب</b><b>🧠 اختر المهارة</b><b>⚡ ثم حل</b></div></div>':
+ '<div class="comp-mission-card">'+
+   '<div class="comp-mission-item"><span>🎯</span><div><small>مهمتك</small><b>'+esc(title)+'</b><p>أثبت فهمك في معرفة ثم تطبيق ثم استدلال.</p></div></div>'+
+   '<div class="comp-mission-item key"><span>🔑</span><div><small>مفتاح الحل</small><b>'+esc(g.golden_rule||'حدّد المطلوب، ثم اربطه بالمعطيات قبل اختيار الإجابة.')+'</b></div></div>'+
+   (g.common_trap?'<div class="comp-mission-item trap"><span>⚠️</span><div><small>انتبه لهذا الفخ</small><b>'+esc(g.common_trap)+'</b></div></div>':'')+
+ '</div>'+
+ '<details class="comp-mission-details mt-4"><summary>أحتاج تذكيرًا بطريقة الحل ▾</summary><div class="grid sm:grid-cols-2 gap-3 mt-3"><div><b>كيف أتعرف على السؤال؟</b><ul>'+(cues.length?cues.map(x=>'<li>'+esc(x)+'</li>').join(''):'<li>اقرأ المطلوب وحدد نوع العملية أو العلاقة.</li>')+'</ul></div><div><b>خطوات الحل</b><ol>'+(steps.length?steps.map(x=>'<li>'+esc(x)+'</li>').join(''):'<li>حدّد المطلوب ثم طبّق القاعدة المناسبة.</li>')+'</ol></div></div></details>')+
+ '<button id="startStageQuestions" class="comp-cta w-full mt-5 py-3 font-black">'+(boss?'ابدأ المواجهة النهائية 🏁':'ابدأ التحديات الثلاثة ←')+'</button></section></div>';
+ document.getElementById('startStageQuestions').onclick=()=>{S.stageIntroSeen=key;gameTone('stage');renderAttempt(el)};
+}
+function renderStageReward(el,r){
+ const nextBoss=r.nextType==='boss';
+ el.innerHTML='<div class="comp-question-shell max-w-3xl mx-auto"><section class="comp-question-card comp-stage-reward p-6 sm:p-9 text-center">'+
+ '<div class="comp-reward-badge">✓</div><span class="tk-eyebrow">تم فتح الطريق</span><h2 class="text-2xl sm:text-3xl font-black mt-2">اجتزت المحطة '+ar(r.no)+'</h2>'+
+ '<p class="text-sm text-slate-500 mt-2">أنهيت تحديات '+esc(r.title||'المهارة')+'. '+(nextBoss?'بقيت بوابة الإتقان النهائية.':'المحطة التالية أصبحت متاحة.')+'</p>'+
+ '<div class="grid grid-cols-2 gap-3 mt-6"><div class="comp-reward-stat"><b>⭐ '+ar(r.points||0)+'</b><span>رصيدك الآن</span></div><div class="comp-reward-stat"><b>🔥 '+ar(r.streak||0)+'</b><span>السلسلة الحالية</span></div></div>'+
+ '<div class="mt-6">'+stageMapHtml(S.attempt||{})+'</div><button id="continueAfterStage" class="comp-cta w-full mt-6 py-3 font-black">'+(nextBoss?'إلى بوابة الإتقان 🏁':'افتح المحطة التالية ←')+'</button></section></div>';
+ document.getElementById('continueAfterStage').onclick=()=>{S.stageReward=null;gameTone('stage');render()};
 }
 function powerupButton(type,icon,title,remaining,disabled=false,active=false){
- return '<button data-powerup="'+type+'" '+(disabled?'disabled':'')+' class="comp-powerup '+(active?'active ':'')+(disabled?'disabled ':'')+'"><span>'+icon+'</span><b>'+title+'</b><small>'+ar(remaining)+' متبقية</small></button>';
+ const state=active?'مفعّلة الآن':disabled?'مستخدمة':'جاهزة';
+ return '<button data-powerup="'+type+'" '+(disabled?'disabled':'')+' class="comp-powerup '+(active?'active ':'')+(disabled?'disabled ':'')+'"><span class="comp-powerup-icon">'+icon+'</span><b>'+title+'</b><small>'+state+'</small></button>';
 }
 async function usePowerup(type){
  if(S.powerupBusy||S.feedback)return;S.powerupBusy=true;
@@ -254,25 +257,27 @@ async function usePowerup(type){
   if(type==='eliminate')log.eliminate=d.result||[];
   if(type==='hint')log.hint=d.result||'';
   if(type==='double')log.double=true;
-  S.attempt.question.powerup_log=log;render();
+  S.attempt.question.powerup_log=log;gameTone('power');render();
  }catch(e){alert(e.message)}
  finally{S.powerupBusy=false}
 }
 function renderAttempt(el){
  const d=S.attempt,q=d?.question;if(d?.finished||!q){renderFinishWait(el);return}
+ if(S.stageReward){renderStageReward(el,S.stageReward);return}
  if(shouldShowStageIntro(d)){renderStageIntro(el,d);return}
  const th=arenaTheme(roundArena()),progress=Math.max(0,Math.min(100,(q.position-1)/questionCount()*100)),a=d.attempt||{},st=d.stage||{},log=q.powerup_log||{},pu=a.powerups||{};
  const hidden=new Set(Array.isArray(log.eliminate)?log.eliminate.map(Number):[]);
  const streak=Number(a.streak||0),mult=streak>=6?3:streak>=3?2:1;
  el.innerHTML='<div class="comp-question-shell max-w-5xl mx-auto"><section class="text-white p-5 sm:p-6">'+
- '<div class="flex items-start justify-between gap-3"><div>'+stageMapHtml(d)+'<span class="text-sm text-emerald-200 font-black block mt-3">'+(st.type==='boss'?'🏁 المواجهة النهائية':'المرحلة '+ar(st.no)+' / '+ar(st.total))+'</span><h1 class="text-xl sm:text-2xl font-black mt-1">'+esc(S.round?.title||'تحدي تَمَكُّن')+'</h1><div class="flex flex-wrap gap-2 mt-2"><span class="text-xs px-2 py-1 rounded-full bg-white/10">السؤال '+ar(q.position)+' / '+ar(questionCount())+'</span><span class="text-xs px-2 py-1 rounded-full bg-white/10">🔥 سلسلة '+ar(streak)+' • ×'+ar(mult)+'</span><span class="text-xs px-2 py-1 rounded-full bg-white/10">⭐ '+ar(a.points||0)+' نقطة</span></div></div><div class="comp-timer text-left"><div id="compTimer" class="font-mono text-lg font-black text-amber-300">'+fmtMs(d.elapsed_ms)+'</div><span class="text-[10px] text-slate-400">الزمن</span></div></div>'+
+ '<div>'+stageMapHtml(d)+'<div class="comp-game-hud mt-4"><div><span class="comp-hud-kicker">'+(st.type==='boss'?'🏁 المواجهة النهائية':'المحطة '+ar(st.no)+' من '+ar(st.total))+'</span><h1>'+esc(S.round?.title||'تحدي تَمَكُّن')+'</h1><div class="comp-hud-stats"><span>🎯 '+(st.type==='boss'?'سؤال مختلط':'التحدي '+ar(st.question_no)+' من 3')+'</span><span class="'+(mult>1?'hot':'')+'">🔥 '+ar(streak)+(mult>1?' • ×'+ar(mult):'')+'</span><span>⭐ '+ar(a.points||0)+'</span></div></div><div class="comp-hud-tools"><button id="compSoundToggle" class="comp-sound-btn" title="الصوت">'+(S.soundOn?'🔊':'🔇')+'</button><div class="comp-timer"><div id="compTimer" class="font-mono text-lg font-black">'+fmtMs(d.elapsed_ms)+'</div><span>الزمن</span></div></div></div></div>'+
  '<div class="h-2 bg-white/10 rounded-full mt-4 overflow-hidden"><div class="comp-progress h-full rounded-full" style="width:'+progress+'%"></div></div></section>'+
- '<section id="questionCard" class="comp-question-card p-5 sm:p-7 mt-2"><div class="flex flex-wrap items-center justify-between gap-3"><div class="flex items-center gap-2"><span class="tk-badge tk-badge-info">'+levelName(q.cognitive_level)+'</span><span class="text-xs text-slate-400">المؤشر '+ar(q.indicator_index)+'</span></div><span class="text-xs text-slate-400 font-bold">'+(st.type==='boss'?'سؤال مختلط':'السؤال '+ar(st.question_no)+' من 3')+'</span></div>'+
+ '<section id="questionCard" class="comp-question-card p-5 sm:p-7 mt-2"><div class="comp-question-head"><div><span class="tk-badge tk-badge-info">'+(st.type==='boss'?'تحدٍّ مختلط':levelName(q.cognitive_level))+'</span>'+(st.type==='boss'?'':'<span class="text-xs text-slate-400 mr-2">المؤشر '+ar(q.indicator_index)+'</span>')+'</div><b>'+(st.type==='boss'?'اختر المهارة بنفسك':'التحدي '+ar(st.question_no)+' • '+levelName(q.cognitive_level))+'</b></div><div class="comp-card-rack-title">بطاقاتك المساعدة <small>استخدم كل بطاقة مرة واحدة في اللعبة</small></div>'+
  '<div class="comp-powerups mt-4">'+
  powerupButton('eliminate','✂️','استبعاد خيار',pu.eliminate||0,Number(pu.eliminate||0)<1||!!log.eliminate,false)+
  powerupButton('hint','💡','تلميح',pu.hint||0,Number(pu.hint||0)<1||!!log.hint,false)+
  powerupButton('double','×2','مضاعفة النقاط',pu.double||0,Number(pu.double||0)<1||!!log.double,a.active_powerup==='double')+
  '</div>'+
+ (mult>1?'<div class="comp-streak-banner">🔥 سلسلة قوية — نقاطك الآن ×'+ar(mult)+'</div>':'')+
  (log.hint?'<div class="mt-3 rounded-2xl bg-sky-50 border border-sky-100 p-3 text-xs leading-6 text-sky-900"><b>💡 التلميح:</b> '+esc(log.hint)+'</div>':'')+
  questionImage(q)+(q.context_text?'<div class="mt-5 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 text-sm leading-8 text-slate-800 shadow-sm">'+esc(q.context_text)+'</div>':'')+
  '<h2 class="text-lg sm:text-xl font-black leading-8 text-slate-950 mt-6">'+esc(q.question_text)+'</h2><div class="grid sm:grid-cols-2 gap-3 mt-5">'+(q.options||[]).map((o,i)=>hidden.has(i)?'<div class="comp-option eliminated p-4 text-right text-sm font-bold"><span class="comp-letter inline-flex w-8 h-8 items-center justify-center ml-2">×</span>تم استبعاد هذا الخيار</div>':'<button data-comp-answer="'+i+'" class="comp-option p-4 text-right text-sm font-bold"><span class="comp-letter inline-flex w-8 h-8 items-center justify-center ml-2">'+['أ','ب','ج','د'][i]+'</span>'+esc(o)+'</button>').join('')+'</div>'+
@@ -280,6 +285,7 @@ function renderAttempt(el){
  (S.feedback?'<button id="compNext" class="comp-cta mt-4 px-6 py-3">'+(S.feedback.finished?'إنهاء اللعبة':'التالي ←')+'</button>':'')+'</section></div>';
  document.querySelectorAll('[data-comp-answer]').forEach(b=>{b.disabled=!!S.feedback;b.onclick=()=>answer(Number(b.dataset.compAnswer))});
  document.querySelectorAll('[data-powerup]').forEach(b=>b.onclick=()=>usePowerup(b.dataset.powerup));
+ document.getElementById('compSoundToggle')?.addEventListener('click',toggleGameSound);
  document.getElementById('compNext')?.addEventListener('click',nextQuestion);startElapsedTimer(d.attempt?.started_at);
  document.querySelectorAll('[data-comp-image]').forEach(img=>{img.onerror=()=>{document.querySelectorAll('[data-comp-answer]').forEach(b=>b.disabled=true);S.busy=true;const card=document.getElementById('questionCard');if(card)card.insertAdjacentHTML('beforeend','<p role="alert" class="mt-4 text-rose-700">تعذر تحميل الشكل؛ لا تجب بالتخمين. أعد تحميل الصفحة لاستئناف السؤال.</p>')}})
 }
@@ -293,7 +299,7 @@ async function answer(i){
   const a=S.attempt.attempt||{};a.streak=Number(d.streak||0);a.max_streak=Number(d.max_streak||a.max_streak||0);a.points=Number(d.points||a.points||0);a.active_powerup=null;S.streak=a.streak;
   const msg=window.TamakkunEncouragement?.pick?.(d.correct?'correct':'incorrect',{streak:a.streak,use_context:true})||d.message;
   const bonus=d.correct&&Number(d.points_gained||0)>0?' • +'+ar(d.points_gained)+' نقطة'+(Number(d.multiplier||1)>1?' ×'+ar(d.multiplier):''):'';
-  S.message=(d.correct?'✓ ':'✕ ')+msg+bonus;S.feedback={finished:d.finished,selected:i,questionId};S.busy=false;render();
+  S.message=(d.correct?'✓ ':'✕ ')+msg+bonus;S.feedback={finished:d.finished,selected:i,questionId,correct:!!d.correct,points_gained:Number(d.points_gained||0),multiplier:Number(d.multiplier||1)};gameTone(d.correct?'good':'bad');S.busy=false;render();
  }catch(e){
   S.busy=false;if(e.data?.round_closed){alert(e.message);await load()}
   else{S.message='لم يصل تأكيد الحفظ. أعد إرسال الإجابة أو استأنف اللعبة؛ لن تُحسب مرتين.';render()}
@@ -303,26 +309,34 @@ async function answer(i){
 async function nextQuestion(){
  if(S.busy)return;S.busy=true;
  try{
-  if(S.feedback?.finished){S.attempt={finished:true,attempt:S.attempt?.attempt||{}};S.feedback=null;S.message='';S.busy=false;render();return}
-  S.attempt=await post({action:'current_attempt',round_id:S.round.id});S.streak=Number(S.attempt?.attempt?.streak||0);
+  if(S.feedback?.finished){S.attempt={finished:true,attempt:S.attempt?.attempt||{}};S.feedback=null;S.message='';S.busy=false;gameTone('stage');render();return}
+  const prevStage={...(S.attempt?.stage||{})};
+  const next=await post({action:'current_attempt',round_id:S.round.id});
+  if(Number(next?.stage?.no||0)>Number(prevStage?.no||0)&&prevStage?.type!=='boss'){
+    S.stageReward={no:Number(prevStage.no||1),title:prevStage.title||'',points:Number(next?.attempt?.points||0),streak:Number(next?.attempt?.streak||0),nextType:next?.stage?.type||'indicator'};
+    gameTone('stage');
+  }
+  S.attempt=next;S.streak=Number(S.attempt?.attempt?.streak||0);
   S.feedback=null;S.message='';S.busy=false;render();
  }catch(e){S.busy=false;alert(e.message)}
 }
 function renderFinishWait(el){
  const encouragement=window.TamakkunEncouragement?.card?.('competition_finish')||'',a=S.attempt?.attempt||{};
- el.innerHTML='<div class="comp-stage"><div class="max-w-xl mx-auto comp-podium text-white p-8 text-center"><div class="inline-flex w-20 h-20 items-center justify-center rounded-[1.7rem] bg-white/10 border border-white/10 text-5xl">🏁</div><span class="block text-sm text-emerald-300 font-black mt-5">اكتملت اللعبة</span><h2 class="text-3xl font-black mt-2">أنهيت جميع المراحل</h2><p class="text-sm text-slate-300 leading-7 mt-3">حُفظت إجاباتك ونقاطك. تظهر المراكز النهائية بعد إغلاق المعلم للعبة.</p><div class="grid grid-cols-2 gap-3 mt-5"><div class="comp-stat rounded-2xl p-4"><b class="text-2xl block text-amber-300">'+ar(a.points||0)+'</b><span class="text-xs text-slate-300">نقاط اللعبة</span></div><div class="comp-stat rounded-2xl p-4"><b class="text-2xl block text-emerald-300">'+ar(a.max_streak||0)+'</b><span class="text-xs text-slate-300">أطول سلسلة 🔥</span></div></div><div class="mt-5 text-right">'+encouragement+'</div><button id="backAfterFinish" class="comp-cta mt-7 px-7 py-3 text-sm font-black">العودة إلى ساحة البطولة</button></div></div>';
+ el.innerHTML='<div class="comp-stage"><div class="max-w-2xl mx-auto comp-podium text-white p-8 sm:p-10 text-center"><div class="comp-finish-trophy">🏆</div><span class="block text-sm text-emerald-300 font-black mt-5">اكتملت رحلة اللعبة</span><h2 class="text-3xl font-black mt-2">فتحت بوابة الإتقان</h2><p class="text-sm text-slate-200 leading-7 mt-3">أنهيت جميع المحطات والمواجهة النهائية. حُفظت إجاباتك ونقاطك، وستظهر المراكز بعد إغلاق اللعبة.</p><div class="grid grid-cols-2 gap-3 mt-6"><div class="comp-stat rounded-2xl p-4"><b class="text-2xl block text-amber-300">'+ar(a.points||0)+'</b><span class="text-xs text-slate-300">نقاطك</span></div><div class="comp-stat rounded-2xl p-4"><b class="text-2xl block text-emerald-300">'+ar(a.max_streak||0)+'</b><span class="text-xs text-slate-300">أطول سلسلة 🔥</span></div></div><div class="mt-5 text-right">'+encouragement+'</div><button id="backAfterFinish" class="comp-cta mt-7 px-7 py-3 text-sm font-black">العودة إلى ساحة البطولة</button></div></div>';
  document.getElementById('backAfterFinish').onclick=()=>load();
 }
-
 async function openStudentResult(id){renderLoading();try{S.result=await post({action:'round_results',round_id:id});S.screen='student-result';render()}catch(e){alert(e.message);await load()}}
 function renderStudentResult(el){
  const d=S.result||{},me=d.me||{},ana=d.indicator_analysis||[],rank=n(me.rank_no),icon=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'🏆';
+ const scored=ana.map(x=>({...x,pc:n(x.questions)?Math.round(n(x.correct)/n(x.questions)*100):0})).sort((a,b)=>a.pc-b.pc),weak=scored[0]||null,strong=scored[scored.length-1]||null;
  const badges=[];if(Number(me.max_streak||0)>=5)badges.push('🔥 سلسلة قوية');if(ana.some(x=>n(x.questions)&&n(x.correct)===n(x.questions)))badges.push('🎯 إتقان كامل لمؤشر');if(Number(me.wrong_attempts||0)===0)badges.push('💎 جولة بلا أخطاء');
  el.innerHTML='<div class="comp-stage"><div class="space-y-5"><button id="backStudentComp" class="text-sm font-black text-emerald-700">← العودة إلى ساحة البطولة</button><section class="comp-podium text-white p-7 sm:p-9 text-center"><div class="text-6xl">'+icon+'</div><span class="block text-sm text-emerald-300 font-black mt-4">نتيجة اللعبة</span><h1 class="text-3xl font-black mt-2">'+esc(d.round?.title||'نتيجة اللعبة')+'</h1><div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-7"><div class="comp-stat rounded-2xl p-4"><b class="text-2xl block text-emerald-300">'+ar(me.correct_questions)+'/'+ar(questionCount())+'</b><span class="text-xs text-slate-300">صحيحة</span></div><div class="comp-stat rounded-2xl p-4"><b class="text-2xl block text-rose-300">'+ar(me.wrong_attempts)+'</b><span class="text-xs text-slate-300">أخطاء</span></div><div class="comp-stat rounded-2xl p-4"><b class="text-2xl block text-amber-300">'+ar(me.points)+'</b><span class="text-xs text-slate-300">نقاط</span></div><div class="comp-stat rounded-2xl p-4"><b class="text-2xl block text-emerald-300">'+ar(me.max_streak||0)+'</b><span class="text-xs text-slate-300">أطول سلسلة 🔥</span></div><div class="comp-stat rounded-2xl p-4 col-span-2 sm:col-span-1"><b class="text-xl block text-sky-300">'+rankIcon(me.rank_no)+'</b><span class="text-xs text-slate-300">المركز</span></div></div>'+
  (badges.length?'<div class="flex flex-wrap justify-center gap-2 mt-5">'+badges.map(x=>'<span class="px-3 py-2 rounded-full bg-white/10 border border-white/10 text-xs font-black">'+x+'</span>').join('')+'</div>':'')+'</section>'+
+ (weak?'<section class="comp-next-mission"><div><span class="tk-eyebrow">خطوتك التالية</span><h2>حوّل النتيجة إلى تدريب</h2><p>أقوى مهارة لديك: <b>'+esc(strong?.indicator_text||'—')+'</b>. والمهارة التي تحتاج مراجعة أكثر: <b>'+esc(weak.indicator_text)+'</b> ('+ar(weak.pc)+'٪).</p></div><button id="reviewWeakIndicator" class="tk-btn tk-btn-primary">افتح رحلة الإتقان للمراجعة ←</button></section>':'')+
  '<section class="bg-white rounded-[2rem] p-5 sm:p-6 border"><div><span class="text-sm font-black text-emerald-700">🎯 تحليل المؤشرات</span><h2 class="font-black text-slate-900 mt-1">أين كنت قويًا؟ وأين تحتاج تدريبًا؟</h2></div><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">'+ana.map(x=>{const pc=n(x.questions)?Math.round(n(x.correct)/n(x.questions)*100):0;return '<div class="p-4 rounded-2xl bg-slate-50 border border-slate-100"><div class="flex items-start justify-between gap-2"><b class="text-sm leading-5 block text-slate-800">'+esc(x.indicator_text)+'</b><span class="tk-badge '+(pc>=80?'tk-badge-success':pc>=60?'tk-badge-warning':'tk-badge-danger')+'">'+ar(pc)+'٪</span></div><div class="tk-progress mt-4"><span style="width:'+pc+'%"></span></div><div class="flex justify-between text-xs mt-3"><span class="font-black text-emerald-700">'+ar(x.correct)+' / '+ar(x.questions)+' صحيحة</span><span class="text-rose-600">'+ar(x.wrong_attempts)+' خطأ</span></div></div>'}).join('')+'</div></section>'+
  '<section class="grid lg:grid-cols-2 gap-5"><div class="bg-white rounded-[2rem] p-5 sm:p-6 border"><div class="flex items-center justify-between"><h2 class="font-black text-slate-900">الأوائل في اللعبة</h2><span class="text-2xl">🏆</span></div><div class="space-y-2 mt-4">'+(d.top_students||[]).map(x=>'<div class="flex items-center gap-3 p-3 rounded-2xl '+(String(x.student_id)===String(me.student_id)?'bg-emerald-50 border-emerald-200':'bg-slate-50 border-slate-100')+' border"><span class="w-10 text-center">'+rankIcon(x.rank_no)+'</span><div class="flex-1"><b class="text-sm">'+esc(x.full_name)+'</b><span class="block text-xs text-slate-400">فصل '+esc(x.class_name)+'</span></div><b class="text-sm text-emerald-700">'+ar(x.correct_questions)+'/'+ar(questionCount())+'</b></div>').join('')+'</div></div><div class="bg-white rounded-[2rem] p-5 sm:p-6 border"><div class="flex items-center justify-between"><h2 class="font-black text-slate-900">كأس الفصول</h2><span class="text-2xl">👑</span></div><div class="space-y-2 mt-4">'+(d.class_leaderboard||[]).map(x=>'<div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3"><span>'+rankIcon(x.rank_no)+'</span><b class="flex-1 text-sm">الفصل '+esc(x.class_name)+'</b><span class="text-xs text-slate-500">متوسط '+Number(x.avg_correct||0).toFixed(2)+'/'+ar(questionCount())+'</span></div>').join('')+'</div></div></section></div></div>';
  document.getElementById('backStudentComp').onclick=()=>load();
+ document.getElementById('reviewWeakIndicator')?.addEventListener('click',()=>{const subject=d.round?.subject_key||S.round?.subject_key||'reading';if(window.LugatiJourney?.openMap){window.LugatiJourney.openMap(subject)}else alert('افتح رحلة الإتقان من الصفحة الرئيسية لمراجعة هذا المؤشر.')});
 }
 async function mount(opts){style();clearInterval(S.timer);S.feedback=null;S.message='';S.busy=false;S.token=opts?.token||null;S.role=opts?.role||'student';S.profile=opts?.profile||null;S.screen='home';await load()}
 window.LugatiCompetition={mount};
