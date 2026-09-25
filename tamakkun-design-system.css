@@ -149,3 +149,132 @@ html,body,#app{font-family:var(--tk-font)}
   .comp-powerup small{font-size:8px}
   .comp-stage-dot{width:28px;height:28px;flex-basis:28px}
 }
+
+
+/* Tamakkun Game Journey v4 */
+#lugatiCompetitionMount{font-family:var(--tk-font);color:var(--tk-text)}
+#lugatiCompetitionMount .comp-stage{background:var(--tk-page);border:1px solid var(--tk-line);border-radius:var(--tk-radius-xl);padding:18px;box-shadow:none}
+#lugatiCompetitionMount .comp-hero,
+#lugatiCompetitionMount .comp-podium,
+#lugatiCompetitionMount .comp-question-shell{background:linear-gradient(135deg,var(--tk-brand-900),var(--tk-teal-700),var(--tk-sky-700));border:1px solid rgba(255,255,255,.09);border-radius:var(--tk-radius-xl);box-shadow:var(--tk-shadow-lg)}
+#lugatiCompetitionMount .comp-podium{position:relative;overflow:hidden}
+#lugatiCompetitionMount .comp-podium:before{content:"";position:absolute;inset:auto -70px -110px auto;width:240px;height:240px;border-radius:50%;background:rgba(255,255,255,.06)}
+#lugatiCompetitionMount .comp-stat{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(6px)}
+#lugatiCompetitionMount .comp-cta{border:0;background:var(--tk-brand-700);color:#fff;border-radius:var(--tk-radius-sm);box-shadow:0 8px 20px rgba(4,120,87,.20);transition:var(--tk-transition);cursor:pointer}
+#lugatiCompetitionMount .comp-cta:hover:not(:disabled){background:var(--tk-brand-800);transform:translateY(-1px)}
+#lugatiCompetitionMount .comp-secondary,
+#lugatiCompetitionMount .comp-ghost-btn{border:1px solid var(--tk-line);background:#fff;color:var(--tk-text);border-radius:var(--tk-radius-sm);cursor:pointer}
+#lugatiCompetitionMount .comp-ghost-btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14);color:#fff;padding:12px}
+#lugatiCompetitionMount .comp-arena-card{position:relative;overflow:hidden;background:#fff;border:1px solid var(--tk-line);border-radius:var(--tk-radius-lg);box-shadow:var(--tk-shadow-sm);transition:var(--tk-transition)}
+#lugatiCompetitionMount .comp-arena-card:hover{transform:translateY(-2px);box-shadow:var(--tk-shadow-md)}
+#lugatiCompetitionMount .comp-question-card{background:#fff;border:1px solid var(--tk-line);border-radius:var(--tk-radius-lg);box-shadow:var(--tk-shadow-md)}
+#lugatiCompetitionMount .comp-question-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#lugatiCompetitionMount .comp-question-head>b{font-size:11px;color:var(--tk-muted)}
+#lugatiCompetitionMount .comp-option{position:relative;background:#fff;border:1.5px solid var(--tk-line);border-radius:var(--tk-radius-sm);box-shadow:none;transition:var(--tk-transition)}
+#lugatiCompetitionMount .comp-option:hover:not(:disabled){border-color:var(--tk-brand-500);background:var(--tk-brand-50);transform:translateY(-1px);box-shadow:var(--tk-shadow-sm)}
+#lugatiCompetitionMount .comp-option:focus-visible{outline:3px solid rgba(16,185,129,.22);outline-offset:2px}
+#lugatiCompetitionMount .comp-option:disabled{cursor:default}
+#lugatiCompetitionMount .comp-option.eliminated{background:var(--tk-soft)!important;border-style:dashed!important;color:#94a3b8!important}
+#lugatiCompetitionMount .comp-letter{background:var(--tk-brand-700);color:#fff;border-radius:var(--tk-radius-xs);box-shadow:none}
+#lugatiCompetitionMount .comp-option.eliminated .comp-letter{background:#cbd5e1!important;color:#64748b!important}
+#lugatiCompetitionMount .comp-progress{background:linear-gradient(90deg,var(--tk-brand-500),var(--tk-teal-700))}
+#lugatiCompetitionMount .comp-feedback-good{background:var(--tk-brand-50);border:1px solid #a7f3d0;color:var(--tk-brand-800)}
+#lugatiCompetitionMount .comp-feedback-bad{background:var(--tk-danger-50);border:1px solid #fecdd3;color:#9f1239}
+
+#lugatiCompetitionMount .comp-game-emblem{width:80px;height:80px;margin:auto;border-radius:24px;display:grid;place-items:center;font-size:42px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12)}
+#lugatiCompetitionMount .comp-start-powerups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#lugatiCompetitionMount .comp-start-powerups>div{display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);font-size:10px}
+#lugatiCompetitionMount .comp-start-powerups span{font-size:18px}
+#lugatiCompetitionMount .comp-start-powerups b{font-size:10px}
+
+#lugatiCompetitionMount .comp-journey-map{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:5px 2px 8px;scrollbar-width:thin;scroll-snap-type:x proximity}
+#lugatiCompetitionMount .comp-route-node{flex:0 0 74px;min-height:70px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#d1fae5;scroll-snap-align:center;transition:var(--tk-transition)}
+#lugatiCompetitionMount .comp-route-icon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.10);font-size:14px;font-weight:900}
+#lugatiCompetitionMount .comp-route-label{font-size:9px;font-weight:900;white-space:nowrap}
+#lugatiCompetitionMount .comp-route-node.done{background:rgba(16,185,129,.20);border-color:rgba(167,243,208,.40);color:#ecfdf5}
+#lugatiCompetitionMount .comp-route-node.active{background:#fff;border-color:#fff;color:var(--tk-brand-800);box-shadow:0 9px 22px rgba(2,6,23,.16);transform:translateY(-2px)}
+#lugatiCompetitionMount .comp-route-node.active .comp-route-icon{background:var(--tk-brand-100);color:var(--tk-brand-800)}
+#lugatiCompetitionMount .comp-route-node.locked{opacity:.54}
+#lugatiCompetitionMount .comp-route-node.boss{border-color:rgba(245,158,11,.45)}
+#lugatiCompetitionMount .comp-route-node.boss.active{background:var(--tk-gold-50);color:#92400e;border-color:#fcd34d}
+#lugatiCompetitionMount .comp-route-line{flex:0 0 20px;height:3px;border-radius:999px;background:rgba(255,255,255,.14)}
+#lugatiCompetitionMount .comp-route-line.reached{background:var(--tk-brand-500)}
+
+#lugatiCompetitionMount .comp-mission-kicker{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.10);font-size:10px;font-weight:900;color:#d1fae5}
+#lugatiCompetitionMount .comp-mission-card{display:grid;gap:10px}
+#lugatiCompetitionMount .comp-mission-item{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:18px;background:var(--tk-soft);border:1px solid var(--tk-line)}
+#lugatiCompetitionMount .comp-mission-item>span{width:38px;height:38px;flex:0 0 38px;border-radius:12px;display:grid;place-items:center;background:#fff;border:1px solid var(--tk-line);font-size:18px}
+#lugatiCompetitionMount .comp-mission-item small{display:block;color:var(--tk-muted);font-size:9px;font-weight:900;margin-bottom:3px}
+#lugatiCompetitionMount .comp-mission-item b{display:block;color:var(--tk-ink);font-size:13px;line-height:1.7}
+#lugatiCompetitionMount .comp-mission-item p{margin:4px 0 0;color:var(--tk-muted);font-size:10px}
+#lugatiCompetitionMount .comp-mission-item.key{background:var(--tk-brand-50);border-color:#a7f3d0}
+#lugatiCompetitionMount .comp-mission-item.trap{background:var(--tk-gold-50);border-color:#fde68a}
+#lugatiCompetitionMount .comp-mission-details{border:1px solid var(--tk-line);border-radius:16px;padding:12px;background:#fff}
+#lugatiCompetitionMount .comp-mission-details summary{cursor:pointer;font-size:10px;font-weight:900;color:var(--tk-text)}
+#lugatiCompetitionMount .comp-mission-details b{font-size:11px;color:var(--tk-ink)}
+#lugatiCompetitionMount .comp-mission-details ul,
+#lugatiCompetitionMount .comp-mission-details ol{margin:7px 0 0;padding-right:18px;color:var(--tk-muted);font-size:10px;line-height:1.8}
+
+#lugatiCompetitionMount .comp-boss-gate{text-align:center;padding:10px 0 4px}
+#lugatiCompetitionMount .comp-boss-icon{width:86px;height:86px;border-radius:28px;margin:0 auto 12px;display:grid;place-items:center;font-size:44px;background:var(--tk-gold-50);border:1px solid #fde68a;animation:compCelebrate .5s ease-out}
+#lugatiCompetitionMount .comp-boss-gate>span{font-size:10px;color:var(--tk-brand-700);font-weight:900}
+#lugatiCompetitionMount .comp-boss-gate h2{font-size:24px;margin:5px 0;color:var(--tk-ink)}
+#lugatiCompetitionMount .comp-boss-gate p{font-size:11px;color:var(--tk-muted);line-height:1.8}
+#lugatiCompetitionMount .comp-boss-rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:14px}
+#lugatiCompetitionMount .comp-boss-rules b{background:var(--tk-soft);border:1px solid var(--tk-line);border-radius:12px;padding:9px;font-size:9px;color:var(--tk-text)}
+
+#lugatiCompetitionMount .comp-game-hud{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+#lugatiCompetitionMount .comp-hud-kicker{font-size:10px;font-weight:900;color:#d1fae5}
+#lugatiCompetitionMount .comp-game-hud h1{font-size:21px;font-weight:900;margin:3px 0 0}
+#lugatiCompetitionMount .comp-hud-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#lugatiCompetitionMount .comp-hud-stats span{font-size:9px;font-weight:800;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.10)}
+#lugatiCompetitionMount .comp-hud-stats span.hot{background:rgba(245,158,11,.18);border-color:rgba(253,230,138,.30);color:#fef3c7;box-shadow:0 0 0 2px rgba(245,158,11,.05)}
+#lugatiCompetitionMount .comp-hud-tools{display:flex;align-items:center;gap:7px}
+#lugatiCompetitionMount .comp-timer{font-variant-numeric:tabular-nums;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:7px 10px;color:#fff;text-align:center}
+#lugatiCompetitionMount .comp-timer span{display:block;font-size:8px;color:#d1fae5}
+#lugatiCompetitionMount .comp-sound-btn{width:40px;height:40px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.10);color:#fff;cursor:pointer}
+
+#lugatiCompetitionMount .comp-card-rack-title{display:flex;align-items:end;justify-content:space-between;gap:10px;margin-top:15px;font-size:11px;font-weight:900;color:var(--tk-ink)}
+#lugatiCompetitionMount .comp-card-rack-title small{font-size:8.5px;font-weight:700;color:var(--tk-muted)}
+#lugatiCompetitionMount .comp-powerups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:7px}
+#lugatiCompetitionMount .comp-powerup{position:relative;border:1px solid var(--tk-line);background:#fff;border-radius:16px;padding:12px 8px;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:var(--tk-transition);box-shadow:0 5px 16px rgba(15,23,42,.05)}
+#lugatiCompetitionMount .comp-powerup:hover:not(:disabled){transform:translateY(-2px);border-color:var(--tk-brand-500);box-shadow:var(--tk-shadow-sm)}
+#lugatiCompetitionMount .comp-powerup-icon{font-size:22px;font-weight:900;color:var(--tk-brand-700)}
+#lugatiCompetitionMount .comp-powerup b{font-size:10px;color:var(--tk-ink)}
+#lugatiCompetitionMount .comp-powerup small{font-size:8.5px;color:var(--tk-muted)}
+#lugatiCompetitionMount .comp-powerup.active{background:var(--tk-gold-50);border-color:#fcd34d;box-shadow:0 0 0 2px rgba(245,158,11,.08)}
+#lugatiCompetitionMount .comp-powerup.disabled,
+#lugatiCompetitionMount .comp-powerup:disabled{opacity:.42;cursor:not-allowed;box-shadow:none;transform:none}
+#lugatiCompetitionMount .comp-streak-banner{margin-top:10px;padding:9px 12px;border-radius:14px;text-align:center;background:var(--tk-gold-50);border:1px solid #fde68a;color:#92400e;font-size:10px;font-weight:900;animation:compPop .22s ease-out}
+
+#lugatiCompetitionMount .comp-stage-reward{animation:compPop .25s ease-out}
+#lugatiCompetitionMount .comp-reward-badge{width:82px;height:82px;margin:0 auto 12px;border-radius:27px;display:grid;place-items:center;background:var(--tk-brand-100);color:var(--tk-brand-800);font-size:42px;font-weight:900;border:1px solid #a7f3d0;animation:compCelebrate .46s ease-out}
+#lugatiCompetitionMount .comp-reward-stat{border:1px solid var(--tk-line);border-radius:16px;background:var(--tk-soft);padding:13px}
+#lugatiCompetitionMount .comp-reward-stat b{display:block;font-size:18px;color:var(--tk-ink)}
+#lugatiCompetitionMount .comp-reward-stat span{display:block;font-size:9px;color:var(--tk-muted);margin-top:3px}
+#lugatiCompetitionMount .comp-finish-trophy{width:96px;height:96px;margin:auto;border-radius:30px;display:grid;place-items:center;font-size:52px;background:rgba(245,158,11,.16);border:1px solid rgba(253,230,138,.30);animation:compCelebrate .55s ease-out}
+
+#lugatiCompetitionMount .comp-next-mission{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#fff;border:1px solid var(--tk-line);border-radius:var(--tk-radius-lg);padding:18px;box-shadow:var(--tk-shadow-sm)}
+#lugatiCompetitionMount .comp-next-mission h2{margin:3px 0;font-size:18px;color:var(--tk-ink)}
+#lugatiCompetitionMount .comp-next-mission p{margin:0;color:var(--tk-muted);font-size:11px;line-height:1.8;max-width:720px}
+
+@media(max-width:640px){
+ #lugatiCompetitionMount .comp-stage{padding:10px;border-radius:20px}
+ #lugatiCompetitionMount .comp-hero,
+ #lugatiCompetitionMount .comp-podium,
+ #lugatiCompetitionMount .comp-question-shell{border-radius:20px}
+ #lugatiCompetitionMount .comp-route-node{flex-basis:64px;min-height:62px;border-radius:15px}
+ #lugatiCompetitionMount .comp-route-line{flex-basis:12px}
+ #lugatiCompetitionMount .comp-route-label{font-size:8px}
+ #lugatiCompetitionMount .comp-start-powerups{grid-template-columns:1fr}
+ #lugatiCompetitionMount .comp-game-hud{align-items:flex-start}
+ #lugatiCompetitionMount .comp-game-hud h1{font-size:17px}
+ #lugatiCompetitionMount .comp-hud-tools{flex-direction:column-reverse}
+ #lugatiCompetitionMount .comp-card-rack-title{align-items:flex-start;flex-direction:column}
+ #lugatiCompetitionMount .comp-powerups{gap:6px}
+ #lugatiCompetitionMount .comp-powerup{min-height:82px;padding:9px 5px}
+ #lugatiCompetitionMount .comp-powerup b{font-size:9px}
+ #lugatiCompetitionMount .comp-powerup small{font-size:8px}
+ #lugatiCompetitionMount .comp-boss-rules{grid-template-columns:1fr}
+ #lugatiCompetitionMount .comp-next-mission{align-items:stretch;flex-direction:column}
+}
