@@ -89,6 +89,7 @@ function teacherCreate(){
  (selected.length?'<div class="mt-3 flex gap-2 overflow-x-auto pb-1">'+selected.map((x,i)=>'<span class="shrink-0 text-[10px] font-black px-3 py-2 rounded-full bg-slate-900 text-white">'+ar(i+1)+' • مؤشر '+ar(x.indicator_index)+'</span>').join('')+'</div>':'')+
  '<div class="flex items-center justify-between mt-5 mb-2"><b class="text-sm text-slate-700">المؤشرات المتاحة</b><span id="selectedCount" class="text-sm font-black '+(count>=1&&count<=12?'text-emerald-700':'text-amber-700')+'">'+count+' / 12 مختارة</span></div>'+
  '<div class="max-h-[420px] overflow-y-auto space-y-2 pr-1">'+cat.map(x=>{const key=x.outcome_code+'|'+x.indicator_index,on=sel.has(key);return '<button data-indicator-key="'+esc(key)+'" class="w-full text-right p-3 rounded-2xl border transition '+(on?'border-emerald-500 bg-emerald-50':'border-slate-200 bg-white hover:border-emerald-300')+'"><div class="flex gap-3 items-start"><span class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 '+(on?'bg-emerald-700 text-white':'bg-slate-100 text-slate-500')+'">'+(on?'✓':x.indicator_index)+'</span><div><b class="text-sm text-slate-800 leading-5">'+esc(x.indicator_text)+'</b><div class="text-[10px] text-slate-400 mt-1">معرفة '+ar(x.knowledge_count)+' • تطبيق '+ar(x.application_count)+' • استدلال '+ar(x.reasoning_count)+'</div></div></div></button>'}).join('')+'</div>'+
+ (S.message?'<div class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800">⚠️ '+esc(S.message)+'</div>':'')+
  '<button id="createCompRound" '+(count<1||count>12?'disabled':'')+' class="comp-cta mt-5 w-full py-3.5 text-white font-black text-sm disabled:opacity-40">إنشاء اللعبة وإرسالها للطلاب 🎮</button></div>';
 }
 function teacherRules(){return '<h2 class="font-black text-slate-900">كيف تعمل اللعبة؟</h2><div class="mt-4 space-y-3 text-sm">'+[
@@ -115,14 +116,17 @@ function wireCreate(){
  document.querySelectorAll('[data-history-preview]').forEach(b=>b.addEventListener('click',()=>openPreview(b.dataset.historyPreview)));
 }
 async function createRound(){
- if(S.busy||S.selected.size<1)return;captureDraft();S.busy=true;
+ if(S.busy||S.selected.size<1)return;captureDraft();S.busy=true;S.message='';
  const btn=document.getElementById('createCompRound');if(btn){btn.disabled=true;btn.textContent='جارٍ بناء المراحل والأسئلة…'}
  try{
   const open=document.getElementById('compOpen')?.value,close=document.getElementById('compClose')?.value,title=document.getElementById('compTitle')?.value||'';
   await post({action:'create_round',game_mode:'v2',arena_key:S.arena,title,open_at:open?new Date(open).toISOString():null,close_at:close?new Date(close).toISOString():null,
    indicators:[...S.selected.values()].map(x=>({outcome_code:x.outcome_code,indicator_index:x.indicator_index}))});
-  S.selected.clear();S.draft={title:'',open:'',close:''};await load();
- }catch(e){alert(e.message);S.busy=false;render()}
+  S.selected.clear();S.draft={title:'',open:'',close:''};S.message='';await load();
+ }catch(e){
+  S.message=e?.message||'تعذر إنشاء اللعبة. حاول مرة أخرى.';
+  S.busy=false;render();
+ }
 }
 async function closeRound(id){if(!confirm('إغلاق الجولة الآن؟ ستُثبت النتائج وسيتمكن الطلاب من رؤيتها، ولا يمكنهم تعديل إجاباتهم.'))return;try{await post({action:'close_round',round_id:id});await load()}catch(e){alert(e.message)}}
 async function resetSeason(){if(!confirm('سيبدأ موسم جديد من صفر لجميع الطلاب. ستبقى نتائج الموسم السابق محفوظة في الأرشيف. هل تريد المتابعة؟'))return;try{await post({action:'reset_season'});S.selected.clear();await load()}catch(e){alert(e.message)}}
