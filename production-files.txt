@@ -129,3 +129,4 @@ exam.js
 
 # يُحتفظ به للتوافق مع الروابط القديمة ويحوّل إلى مركز الإنشاء الجديد.
 simulation.html
+teacher-portfolio.html
