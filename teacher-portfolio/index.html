@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ملف الإنجاز الرقمي للمعلم / المعلمة</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js CDN for Reactive State Management -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- QRCode.js Library for client-side QR generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Google Tajawal Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        tajawal: ['Tajawal', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Tajawal', sans-serif; }
+        [x-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; color: black !important; }
+            .print-card { border: 1px solid #cbd5e1 !important; page-break-inside: avoid; background: white !important; color: black !important; box-shadow: none !important; }
+            .print-text-dark { color: #0f172a !important; }
+            .print-text-muted { color: #475569 !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-teal-500 selection:text-white" 
+      x-data="teacherPortfolioApp()" x-init="initApp()">
+
+    <!-- Notification Toast -->
+    <div class="fixed bottom-6 left-6 z-50 transition-all duration-300 transform no-print"
+         x-show="toast.show" 
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-4"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-4"
+         x-cloak>
+        <div class="flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white font-medium border"
+             :class="{
+                 'bg-teal-600 border-teal-400': toast.type === 'success',
+                 'bg-rose-600 border-rose-400': toast.type === 'error',
+                 'bg-amber-600 border-amber-400': toast.type === 'info'
+             }">
+            <i :class="{
+                'fa-solid fa-circle-check': toast.type === 'success',
+                'fa-solid fa-triangle-exclamation': toast.type === 'error',
+                'fa-solid fa-circle-info': toast.type === 'info'
+            }" class="text-lg"></i>
+            <span x-text="toast.message"></span>
+        </div>
+    </div>
+
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-40 backdrop-blur-md bg-slate-950/90 border-b border-slate-800/80 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            
+            <!-- Logo & Teacher Quick Info -->
+            <div class="flex items-center gap-3">
+                <button @click="sidebarOpen = !sidebarOpen" class="p-2.5 rounded-xl bg-slate-800 text-teal-400 hover:bg-slate-700 transition" title="فتح الفهرس الرقمي">
+                    <i class="fa-solid fa-bars-staggered text-lg"></i>
+                </button>
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white font-black text-lg shadow-lg">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-black bg-gradient-to-r from-white via-slate-200 to-teal-300 bg-clip-text text-transparent" x-text="'ملف إنجاز المعلم: ' + teacher.name"></h1>
+                    <p class="text-xs text-teal-400 font-semibold" x-text="teacher.subject + ' | ' + teacher.school"></p>
+                </div>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Index Drawer Button -->
+                <button @click="showIndexModal = true" class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-teal-500/10 text-teal-300 border border-teal-500/30 hover:bg-teal-500/20 transition flex items-center gap-2">
+                    <i class="fa-solid fa-list-ol"></i>
+                    <span class="hidden sm:inline">فهرس المحتويات</span>
+                </button>
+
+                <!-- Admin Edit Mode Toggle -->
+                <button @click="editMode = !editMode" 
+                        class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition border"
+                        :class="editMode ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border-slate-700'">
+                    <i class="fa-solid" :class="editMode ? 'fa-pen-to-square' : 'fa-eye'"></i>
+                    <span x-text="editMode ? 'وضع التعديل' : 'وضع المعاينة'"></span>
+                </button>
+
+                <!-- Data Backup Modal -->
+                <button @click="openModal('backupModal')" title="نسخ احتياطي واستيراد" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                    <i class="fa-solid fa-database"></i>
+                </button>
+
+                <!-- QR Code Button -->
+                <button @click="openModal('qrModal')" title="إنشاء باركود QR للمدير" class="px-3 py-2 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 transition flex items-center gap-2 text-xs font-bold">
+                    <i class="fa-solid fa-qrcode text-base"></i>
+                    <span class="hidden sm:inline">باركود المشاركة</span>
+                </button>
+
+                <!-- Print Button -->
+                <button @click="window.print()" title="طباعة أو تصدير PDF رسمياً" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                    <i class="fa-solid fa-print"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar Index Drawer -->
+    <div x-show="sidebarOpen" class="fixed inset-0 z-50 flex no-print" x-cloak>
+        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" @click="sidebarOpen = false"></div>
+        
+        <div class="relative w-80 max-w-full bg-slate-900 border-l border-slate-800 h-full p-6 overflow-y-auto space-y-6 z-10 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <h3 class="text-lg font-black text-white flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-teal-400"></i>
+                    الفهرس التفاعلي للملف
+                </h3>
+                <button @click="sidebarOpen = false" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <nav class="space-y-2 text-sm font-semibold">
+                <template x-for="(item, index) in tableOfContents" :key="index">
+                    <a :href="item.link" @click="sidebarOpen = false" 
+                       class="flex items-center justify-between p-3 rounded-xl bg-slate-950/50 hover:bg-teal-950/40 hover:text-teal-300 border border-slate-800/80 transition group">
+                        <div class="flex items-center gap-3">
+                            <span class="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center text-xs font-bold" x-text="index + 1"></span>
+                            <span x-text="item.title" class="text-slate-200 group-hover:text-teal-300"></span>
+                        </div>
+                        <i class="fa-solid fa-chevron-left text-xs text-slate-500 group-hover:text-teal-400"></i>
+                    </a>
+                </template>
+            </nav>
+
+            <div class="pt-6 border-t border-slate-800">
+                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-2 text-xs">
+                    <p class="text-slate-400 font-bold">نسبة اكتمال ملف الإنجاز:</p>
+                    <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-teal-500 rounded-full" style="width: 95%"></div>
+                    </div>
+                    <p class="text-right text-teal-400 font-bold">95% مكتمل وموثق</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+
+        <!-- SECTION 1: OFFICIAL COVER & TEACHER PROFILE CARD -->
+        <section id="profile" class="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950/40 p-6 sm:p-10 border border-slate-800/90 shadow-2xl overflow-hidden print-card">
+            
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-6 mb-8 text-xs font-bold text-slate-400">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-building-columns text-teal-400 text-lg"></i>
+                    <span>المملكة العربية السعودية - وزارة التعليم</span>
+                </div>
+                <div class="bg-teal-500/10 text-teal-400 px-3 py-1 rounded-full border border-teal-500/20">
+                    ملف الإنجاز المهني الإلكتروني
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center justify-between gap-8">
+                <!-- Avatar -->
+                <div class="relative group">
+                    <div class="w-36 h-36 sm:w-44 sm:h-44 rounded-3xl overflow-hidden border-2 border-teal-500/40 shadow-2xl bg-slate-800 relative flex items-center justify-center">
+                        <template x-if="teacher.avatar">
+                            <img :src="teacher.avatar" :alt="teacher.name" class="w-full h-full object-cover">
+                        </template>
+                        <template x-if="!teacher.avatar">
+                            <div class="text-6xl text-teal-400 font-bold">
+                                <i class="fa-solid fa-user-tie"></i>
+                            </div>
+                        </template>
+                    </div>
+                    <button x-show="editMode" @click="triggerAvatarUpload()" class="absolute bottom-2 left-2 bg-teal-600 text-white p-2.5 rounded-xl text-xs shadow-xl hover:bg-teal-500 transition no-print">
+                        <i class="fa-solid fa-camera"></i>
+                    </button>
+                    <input type="file" id="avatarInput" class="hidden" accept="image/*" @change="handleAvatarUpload($event)">
+                </div>
+
+                <!-- Job Data Grid -->
+                <div class="flex-1 text-center md:text-right space-y-4">
+                    <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs sm:text-sm font-semibold">
+                        <i class="fa-solid fa-id-badge"></i>
+                        <span x-text="'الرتبة المهنية: ' + teacher.rank"></span>
+                    </div>
+
+                    <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight print-text-dark" x-text="teacher.name"></h2>
+                    <p class="text-lg font-bold text-teal-400" x-text="'معلم مادة: ' + teacher.subject"></p>
+                    
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs text-slate-300 pt-2">
+                        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">المدرسة:</span><span class="font-bold text-slate-200" x-text="teacher.school"></span></div>
+                        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">المرحلة والصفوف:</span><span class="font-bold text-slate-200" x-text="teacher.stage"></span></div>
+                        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">السجل / الرقم الوظيفي:</span><span class="font-bold text-slate-200" x-text="teacher.empId"></span></div>
+                        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">عدد الحصص الأسبوعية:</span><span class="font-bold text-slate-200" x-text="teacher.weeklyClasses + ' حصة'"></span></div>
+                        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">إدارة التعليم:</span><span class="font-bold text-slate-200" x-text="teacher.eduDept"></span></div>
+                        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">العام الدراسي:</span><span class="font-bold text-teal-400" x-text="teacher.academicYear"></span></div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-3 w-full sm:w-auto no-print">
+                    <button x-show="editMode" @click="openModal('profile')" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-3 rounded-2xl text-sm transition flex items-center justify-center gap-2 shadow-lg">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        تعديل بيانات المعلم
+                    </button>
+                    <button @click="showIndexModal = true" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-5 py-3 rounded-2xl text-sm transition border border-slate-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-list text-teal-400"></i>
+                        فهرس الملف الشامل
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: TABLE OF CONTENTS SECTION -->
+        <section id="index-section" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                    <h3 class="text-2xl font-black text-white flex items-center gap-3">
+                        <span class="w-3 h-8 bg-teal-500 rounded-full inline-block"></span>
+                        فهرس محتويات ملف الإنجاز
+                    </h3>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1">المحاور والوثائق المنظمة وفق معايير الأداء المهني للمعلمين</p>
+                </div>
+                <span class="text-xs font-bold text-teal-400 bg-teal-500/10 px-3 py-1.5 rounded-xl border border-teal-500/20">6 محاور رئيسية</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <template x-for="(toc, idx) in tableOfContents" :key="idx">
+                    <a :href="toc.link" class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-teal-500/60 transition group flex flex-col justify-between space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center font-black text-sm" x-text="idx + 1"></span>
+                            <i :class="toc.icon" class="text-slate-500 group-hover:text-teal-400 transition text-lg"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-white group-hover:text-teal-300 transition text-sm" x-text="toc.title"></h4>
+                            <p class="text-xs text-slate-400 mt-1" x-text="toc.desc"></p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-teal-400 font-semibold">
+                            <span>انتقال للمحور</span>
+                            <i class="fa-solid fa-arrow-left"></i>
+                        </div>
+                    </a>
+                </template>
+            </div>
+        </section>
+
+        <!-- SECTION 3: EDUCATIONAL PHILOSOPHY & CODE OF ETHICS -->
+        <section id="philosophy" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 relative overflow-hidden print-card">
+                <div class="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-400 text-xl mb-4">
+                    <i class="fa-solid fa-lightbulb"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">الفلسفة التربوية للمعلم</h3>
+                <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" x-text="teacher.philosophy"></p>
+            </div>
+
+            <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 relative overflow-hidden print-card">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xl mb-4">
+                    <i class="fa-solid fa-bullseye"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">الرؤية والرسالة التعليمية</h3>
+                <p class="text-xs sm:text-sm text-slate-300 leading-relaxed mb-2" x-text="'الرؤية: ' + teacher.vision"></p>
+                <p class="text-xs sm:text-sm text-slate-400 leading-relaxed" x-text="'الرسالة: ' + teacher.mission"></p>
+            </div>
+
+            <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 relative overflow-hidden print-card">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-xl mb-4">
+                    <i class="fa-solid fa-handshake-angle"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">الميثاق الأخلاقي والتوجيهات</h3>
+                <ul class="space-y-1.5 text-xs text-slate-300">
+                    <li class="flex items-center gap-2"><i class="fa-solid fa-check text-teal-400"></i> الالتزام بأخلاقيات مهنة التعليم السامية.</li>
+                    <li class="flex items-center gap-2"><i class="fa-solid fa-check text-teal-400"></i> مراعاة الفروق الفردية بين الطلاب.</li>
+                    <li class="flex items-center gap-2"><i class="fa-solid fa-check text-teal-400"></i> تعزيز قيم المواطنة والانتماء الوطني.</li>
+                    <li class="flex items-center gap-2"><i class="fa-solid fa-check text-teal-400"></i> التطوير المستمر لمهارات التدريس الرقمية.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- SECTION 4: WEEKLY SCHOOL SCHEDULE TABLE -->
+        <section id="schedule" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                    <h3 class="text-2xl font-black text-white flex items-center gap-3">
+                        <span class="w-3 h-8 bg-teal-500 rounded-full inline-block"></span>
+                        الجدول المدرسي الأسبوعي للحصص
+                    </h3>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1">توزيع الحصص والصفوف الدراسية على مدار الأسبوع</p>
+                </div>
+                <button x-show="editMode" @click="openModal('scheduleModal')" class="no-print text-xs font-bold bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl">
+                    تعديل الجدول المدرسي
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-950 text-teal-400 border-b border-slate-800">
+                            <th class="p-3 border border-slate-800">اليوم / الحصة</th>
+                            <th class="p-3 border border-slate-800 text-center">الأولى</th>
+                            <th class="p-3 border border-slate-800 text-center">الثانية</th>
+                            <th class="p-3 border border-slate-800 text-center">الثالثة</th>
+                            <th class="p-3 border border-slate-800 text-center">الرابعة</th>
+                            <th class="p-3 border border-slate-800 text-center">الخامسة</th>
+                            <th class="p-3 border border-slate-800 text-center">السادسة</th>
+                            <th class="p-3 border border-slate-800 text-center">السابعة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(day, dIndex) in schedule" :key="dIndex">
+                            <tr class="border-b border-slate-800/80 hover:bg-slate-800/40">
+                                <td class="p-3 font-bold text-white bg-slate-950/50 border border-slate-800" x-text="day.dayName"></td>
+                                <template x-for="(period, pIndex) in day.periods" :key="pIndex">
+                                    <td class="p-2 border border-slate-800 text-center">
+                                        <div x-show="period" class="bg-teal-950/40 border border-teal-500/30 p-2 rounded-lg">
+                                            <span class="font-bold text-teal-300 block" x-text="period?.class"></span>
+                                            <span class="text-[10px] text-slate-400 block" x-text="period?.subject"></span>
+                                        </div>
+                                        <span x-show="!period" class="text-slate-600 font-bold">-</span>
+                                    </td>
+                                </template>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION 5: PORTFOLIO DOMAINS & EVIDENCE GALLERY -->
+        <section id="domains" class="space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                <div>
+                    <h3 class="text-2xl font-black text-white flex items-center gap-3">
+                        <span class="w-3 h-8 bg-teal-500 rounded-full inline-block"></span>
+                        شواهد الإنجاز موزعة حسب المحاور
+                    </h3>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1">وثائق ومواثيق الأداء، التحضير، التطوير المهني، ونواتج التعلم</p>
+                </div>
+
+                <button x-show="editMode" @click="openAddAchievementModal()" class="no-print bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition flex items-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    إضافة شاهد تعليمي جديد
+                </button>
+            </div>
+
+            <!-- Category Filters Tabs -->
+            <div class="flex flex-wrap gap-2 no-print">
+                <button @click="selectedCategory = 'all'" 
+                        :class="selectedCategory === 'all' ? 'bg-teal-600 text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition">
+                    جميع الشواهد (<span x-text="achievements.length"></span>)
+                </button>
+                <template x-for="cat in categories" :key="cat.id">
+                    <button @click="selectedCategory = cat.id" 
+                            :class="selectedCategory === cat.id ? 'bg-teal-600 text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'"
+                            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5">
+                        <i :class="cat.icon" class="text-xs"></i>
+                        <span x-text="cat.name"></span>
+                        <span class="opacity-60 text-xs" x-text="'(' + getCategoryCount(cat.id) + ')'"></span>
+                    </button>
+                </template>
+            </div>
+
+            <!-- Evidence Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <template x-for="item in filteredAchievements" :key="item.id">
+                    <div class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden hover:border-teal-500/50 transition duration-300 flex flex-col print-card shadow-xl group">
+                        
+                        <div class="relative h-48 bg-slate-950 overflow-hidden">
+                            <template x-if="item.image">
+                                <img :src="item.image" :alt="item.title" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            </template>
+                            <template x-if="!item.image">
+                                <div class="w-full h-full flex items-center justify-center bg-slate-900 text-slate-700">
+                                    <i :class="getCategoryIcon(item.category)" class="text-5xl opacity-40"></i>
+                                </div>
+                            </template>
+
+                            <span class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold bg-slate-950/85 border border-slate-700 text-teal-300 shadow-md flex items-center gap-1.5">
+                                <i :class="getCategoryIcon(item.category)"></i>
+                                <span x-text="getCategoryName(item.category)"></span>
+                            </span>
+
+                            <div x-show="editMode" class="absolute top-3 left-3 flex gap-1.5 no-print">
+                                <button @click="openEditAchievementModal(item)" class="bg-amber-500 text-slate-950 p-2 rounded-lg text-xs font-bold" title="تعديل">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button @click="deleteAchievement(item.id)" class="bg-rose-600 text-white p-2 rounded-lg text-xs font-bold" title="حذف">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between text-xs text-slate-400">
+                                    <span class="flex items-center gap-1"><i class="fa-regular fa-calendar text-teal-400"></i><span x-text="item.date"></span></span>
+                                    <span x-text="item.organization" class="font-medium text-slate-300"></span>
+                                </div>
+                                <h4 class="text-base font-bold text-white group-hover:text-teal-300 transition line-clamp-1" x-text="item.title"></h4>
+                                <p class="text-slate-400 text-xs line-clamp-2 leading-relaxed" x-text="item.summary"></p>
+                            </div>
+
+                            <div class="pt-3 border-t border-slate-800 flex items-center justify-between no-print">
+                                <button @click="viewAchievementDetails(item)" class="text-xs font-bold text-teal-400 hover:text-teal-300 flex items-center gap-1">
+                                    <span>معاينة وتوثيق الشاهد</span>
+                                    <i class="fa-solid fa-arrow-left"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </template>
+            </div>
+        </section>
+
+        <!-- SECTION 6: STUDENT PERFORMANCE & LEARNING ANALYTICS -->
+        <section id="analytics" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                    <h3 class="text-2xl font-black text-white flex items-center gap-3">
+                        <span class="w-3 h-8 bg-teal-500 rounded-full inline-block"></span>
+                        تحليل نتائج الطلاب ونواتج التعلم
+                    </h3>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1">مؤشرات الأداء التحصيلي، خطط العلاج والإثراء الفصلي لمادة لغتي الخالدة</p>
+                </div>
+                <button x-show="editMode" @click="openModal('analyticsModal')" class="no-print text-xs font-bold bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl">
+                    <i class="fa-solid fa-pen"></i> تعديل تحليل النتائج
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-1">
+                    <span class="text-xs text-slate-400 font-bold">نسبة النجاح العامة</span>
+                    <div class="text-3xl font-black text-teal-400" x-text="analytics.passRate + '%'"></div>
+                    <p class="text-[10px] text-slate-500">لالفصل الدراسي الحالي</p>
+                </div>
+                <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-1">
+                    <span class="text-xs text-slate-400 font-bold">نسبة التفوق الممتاز</span>
+                    <div class="text-3xl font-black text-emerald-400" x-text="analytics.excellentRate + '%'"></div>
+                    <p class="text-[10px] text-slate-500">حاصلين على 90% فأعلى</p>
+                </div>
+                <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-1">
+                    <span class="text-xs text-slate-400 font-bold">المستفيدون من الخطة العلاجية</span>
+                    <div class="text-3xl font-black text-amber-400" x-text="analytics.remedialStudents"></div>
+                    <p class="text-[10px] text-slate-500">طالب تم تحسين مستواهم</p>
+                </div>
+                <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-1">
+                    <span class="text-xs text-slate-400 font-bold">الطلاب الموهوبون والمشاركون</span>
+                    <div class="text-3xl font-black text-indigo-400" x-text="analytics.giftedStudents"></div>
+                    <p class="text-[10px] text-slate-500">في المسابقات والأنشطة</p>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800/80 text-xs text-slate-300 leading-relaxed space-y-2">
+                <h4 class="font-bold text-teal-400 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    ملخص الخطة العلاجية والإثرائية نواتج التعلم:
+                </h4>
+                <p x-text="analytics.summaryText"></p>
+            </div>
+        </section>
+
+        <!-- SECTION 7: PROFESSIONAL DEVELOPMENT TIMELINE -->
+        <section id="dev-timeline" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-graduation-cap text-teal-400"></i>
+                    سجل التطوير المهني والورش التدريبية
+                </h3>
+            </div>
+
+            <div class="relative border-r-2 border-slate-800 pr-6 space-y-6 mr-2">
+                <template x-for="(item, idx) in trainingHistory" :key="idx">
+                    <div class="relative group">
+                        <div class="absolute -right-[31px] top-1 w-4 h-4 rounded-full bg-teal-500 border-4 border-slate-950"></div>
+                        <span class="text-xs font-bold text-teal-400 bg-teal-500/10 px-2.5 py-0.5 rounded-full border border-teal-500/20" x-text="item.date"></span>
+                        <h4 class="text-base font-bold text-white mt-1" x-text="item.course"></h4>
+                        <p class="text-xs text-slate-400" x-text="'الجهة المنظمة: ' + item.provider + ' | عدد الساعات: ' + item.hours + ' ساعة'"></p>
+                    </div>
+                </template>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODALS SECTION -->
+    
+    <!-- MODAL: QR Code Modal -->
+    <div x-show="modals.qrModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-6" @click.outside="closeModal('qrModal')">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <h3 class="text-xl font-black text-white flex items-center gap-2">
+                    <i class="fa-solid fa-qrcode text-teal-400"></i>
+                    رمز الباركود (QR Code) للمدير
+                </h3>
+                <button @click="closeModal('qrModal')" class="text-slate-400 hover:text-white p-2">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Warning for local files -->
+            <template x-if="isLocalFile">
+                <div class="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 text-xs leading-relaxed flex items-start gap-3">
+                    <i class="fa-solid fa-circle-info text-amber-400 text-lg mt-0.5"></i>
+                    <div>
+                        <strong class="block font-bold mb-1 text-amber-200">إرشاد لمشاركة الباركود:</strong>
+                        إذا أردت أن يفتح الباركود على جوال المدير عبر الإنترنت، ضع رابط موقعك (المستضاف على Netlify أو GitHub) في مربع الرابط أدناه وسيتم توليد باركود جديد فوراً.
+                    </div>
+                </div>
+            </template>
+
+            <!-- Display Generated QR Code -->
+            <div class="flex flex-col items-center justify-center space-y-4 bg-slate-950 p-6 rounded-2xl border border-slate-800 text-center">
+                <div class="p-4 bg-white rounded-2xl shadow-xl border-4 border-teal-500/30 min-w-[200px] min-h-[200px] flex items-center justify-center">
+                    <div id="qrcode-canvas" class="flex justify-center items-center"></div>
+                </div>
+                <div>
+                    <h4 class="font-bold text-white text-sm" x-text="teacher.name"></h4>
+                    <p class="text-xs text-teal-400" x-text="'ملف الإنجاز الإلكتروني - ' + teacher.subject"></p>
+                </div>
+            </div>
+
+            <!-- Custom Link Configuration -->
+            <div class="space-y-3">
+                <label class="block text-xs font-bold text-slate-300">رابط الملف (أدخل رابط موقعك المباشر لفتحه من الجوال):</label>
+                <div class="flex gap-2">
+                    <input type="text" x-model="portfolioUrl" @input="renderQRCode()" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-teal-300 font-mono text-left dir-ltr" placeholder="https://my-portfolio.com">
+                    <button @click="copyPortfolioLink()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1.5">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>نسخ</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-3 pt-2">
+                <button @click="downloadQRCode()" class="flex-1 py-2.5 px-4 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-download"></i>
+                    <span>تحميل صورة الباركود (PNG)</span>
+                </button>
+                <button @click="closeModal('qrModal')" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Full Table of Contents Modal -->
+    <div x-show="showIndexModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-6" @click.outside="showIndexModal = false">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <h3 class="text-xl font-black text-white flex items-center gap-2">
+                    <i class="fa-solid fa-list-ol text-teal-400"></i>
+                    فهرس محتويات ملف الإنجاز الرقمي للمعلم
+                </h3>
+                <button @click="showIndexModal = false" class="text-slate-400 hover:text-white p-2">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <template x-for="(item, idx) in tableOfContents" :key="idx">
+                    <a :href="item.link" @click="showIndexModal = false" class="flex items-center justify-between p-4 rounded-2xl bg-slate-950 hover:bg-slate-800 border border-slate-800 transition">
+                        <div class="flex items-center gap-3">
+                            <span class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 font-black flex items-center justify-center text-sm" x-text="idx + 1"></span>
+                            <div>
+                                <h4 class="font-bold text-white text-sm" x-text="item.title"></h4>
+                                <p class="text-xs text-slate-400" x-text="item.desc"></p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-arrow-left text-teal-400 text-sm"></i>
+                    </a>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Evidence Detail Modal -->
+    <div x-show="modals.detail" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-6" @click.outside="closeModal('detail')">
+            <div class="flex justify-between items-start border-b border-slate-800 pb-4">
+                <div>
+                    <span class="text-xs text-teal-400 font-bold" x-text="getCategoryName(activeItem.category)"></span>
+                    <h3 class="text-2xl font-black text-white mt-1" x-text="activeItem.title"></h3>
+                </div>
+                <button @click="closeModal('detail')" class="text-slate-400 hover:text-white p-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <template x-if="activeItem.image">
+                <div class="rounded-2xl overflow-hidden border border-slate-800 max-h-80 bg-slate-950">
+                    <img :src="activeItem.image" class="w-full h-full object-contain">
+                </div>
+            </template>
+
+            <div class="space-y-4 text-xs sm:text-sm">
+                <div>
+                    <h4 class="font-bold text-slate-400 mb-1">وصف الشاهد والأهداف المنجزة:</h4>
+                    <p class="text-slate-300 leading-relaxed whitespace-pre-line" x-text="activeItem.details || activeItem.summary"></p>
+                </div>
+                <div class="grid grid-cols-2 gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
+                    <div><span class="text-slate-500 block">الجهة / المدرسة:</span><span class="font-bold text-slate-200" x-text="activeItem.organization || 'غير محدد'"></span></div>
+                    <div><span class="text-slate-500 block">التاريخ:</span><span class="font-bold text-slate-200" x-text="activeItem.date || 'غير محدد'"></span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Edit Profile Modal -->
+    <div x-show="modals.profile" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-6" @click.outside="closeModal('profile')">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <h3 class="text-xl font-bold text-white">تعديل كافة بيانات المعلم الأساسية والمهنية</h3>
+                <button @click="closeModal('profile')" class="text-slate-400 hover:text-white p-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form @submit.prevent="saveTeacherProfile()" class="space-y-4 text-xs sm:text-sm">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">اسم المعلم / المعلمة</label>
+                        <input type="text" x-model="teacher.name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">المادة الدراسية</label>
+                        <input type="text" x-model="teacher.subject" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">اسم المدرسة</label>
+                        <input type="text" x-model="teacher.school" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">المرحلة والصفوف</label>
+                        <input type="text" x-model="teacher.stage" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">الرتبة المهنية</label>
+                        <input type="text" x-model="teacher.rank" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">السجل / الرقم الوظيفي</label>
+                        <input type="text" x-model="teacher.empId" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">عدد الحصص الأسبوعية</label>
+                        <input type="number" x-model="teacher.weeklyClasses" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">إدارة التعليم</label>
+                        <input type="text" x-model="teacher.eduDept" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">العام الدراسي</label>
+                        <input type="text" x-model="teacher.academicYear" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">الفلسفة التربوية</label>
+                    <textarea x-model="teacher.philosophy" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">الرؤية التعليمية</label>
+                        <textarea x-model="teacher.vision" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">الرسالة التعليمية</label>
+                        <textarea x-model="teacher.mission" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-800 flex justify-end gap-3">
+                    <button type="button" @click="closeModal('profile')" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold">إلغاء</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold">حفظ التغييرات</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Edit Analytics Modal -->
+    <div x-show="modals.analyticsModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6" @click.outside="closeModal('analyticsModal')">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <h3 class="text-lg font-bold text-white">تعديل نتائج وتحليل الطلاب</h3>
+                <button @click="closeModal('analyticsModal')" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form @submit.prevent="saveAnalytics()" class="space-y-4 text-xs">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 mb-1">نسبة النجاح (%)</label>
+                        <input type="number" step="0.1" x-model="analytics.passRate" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">نسبة التفوق (%)</label>
+                        <input type="number" step="0.1" x-model="analytics.excellentRate" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">عدد المستفيدين من الخطة العلاجية</label>
+                        <input type="number" x-model="analytics.remedialStudents" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">عدد الطلاب الموهوبين</label>
+                        <input type="number" x-model="analytics.giftedStudents" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">ملخص الخطة العلاجية والإثرائية</label>
+                    <textarea x-model="analytics.summaryText" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></textarea>
+                </div>
+                <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
+                    <button type="button" @click="closeModal('analyticsModal')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-teal-600 text-white font-bold">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alpine.js Application Logic -->
+    <script>
+        function teacherPortfolioApp() {
+            return {
+                editMode: false,
+                sidebarOpen: false,
+                showIndexModal: false,
+                selectedCategory: 'all',
+                
+                toast: { show: false, message: '', type: 'success' },
+                activeItem: {},
+                portfolioUrl: window.location.href,
+
+                modals: { detail: false, achievement: false, profile: false, backupModal: false, qrModal: false, scheduleModal: false, analyticsModal: false },
+
+                get isLocalFile() {
+                    return window.location.protocol === 'file:' || this.portfolioUrl.startsWith('file:') || this.portfolioUrl.includes('localhost');
+                },
+
+                // Table of Contents Index Data
+                tableOfContents: [
+                    { title: '1. البيانات الشخصية والوظيفية', desc: 'الرتبة المهنية، الرقم الوظيفي، وتفاصيل المدرسة', link: '#profile', icon: 'fa-solid fa-id-card' },
+                    { title: '2. فهرس ملف الإنجاز الرسمي', desc: 'المحاور المنظمة حسب معايير وزارة التعليم', link: '#index-section', icon: 'fa-solid fa-list-ol' },
+                    { title: '3. الفلسفة التربوية والرؤية', desc: 'فلسفة التدريس والميثاق الأخلاقي لمهنة التعليم', link: '#philosophy', icon: 'fa-solid fa-lightbulb' },
+                    { title: '4. الجدول المدرسي الأسبوعي', desc: 'توزيع حصص المواد والصفوف الدراسية', link: '#schedule', icon: 'fa-solid fa-calendar-days' },
+                    { title: '5. شواهد الإنجاز والمعايير', desc: 'التحضير، التطوير المهني، أوراق العمل والتكريم', link: '#domains', icon: 'fa-solid fa-folder-open' },
+                    { title: '6. تحليل نتائج الطلاب ونواتج التعلم', desc: 'نسب النجاح، الخطط العلاجية والإثرائية', link: '#analytics', icon: 'fa-solid fa-chart-line' }
+                ],
+
+                categories: [
+                    { id: 'plan', name: 'التخطيط وإعداد الدروس', icon: 'fa-solid fa-book-bookmark' },
+                    { id: 'dev', name: 'التطوير المهني والشهادات', icon: 'fa-solid fa-certificate' },
+                    { id: 'worksheet', name: 'أوراق العمل والإنتاج', icon: 'fa-solid fa-file-pen' },
+                    { id: 'thank', name: 'الشكر والتكريم الرسمي', icon: 'fa-solid fa-award' },
+                    { id: 'activity', name: 'الأنشطة والفعاليات المدرسية', icon: 'fa-solid fa-people-group' },
+                    { id: 'result', name: 'تحليل نتائج ونواتج التعلم', icon: 'fa-solid fa-chart-line' }
+                ],
+
+                teacher: {
+                    name: "أ. عبد الله علي الغامدي",
+                    subject: "لغتي الخالدة",
+                    school: "مدرسة الأمل المتوسطة",
+                    stage: "المرحلة المتوسطة (صفوف 7-9)",
+                    empId: "10982341",
+                    rank: "معلم متقدم",
+                    eduDept: "إدارة تعليم الرياض",
+                    academicYear: "1447 - 1448 هـ",
+                    weeklyClasses: 18,
+                    philosophy: "اللغة العربية كائن حي ينبض بالقيم والهوية الوطنية، والتطوير اللغوي يتحقق بالممارسة التفاعلية والتذوق الأدبي والربط بالتقنية الحديثة.",
+                    vision: "بناء أجيال معتزة بلغتها العربية الخالدة، متمكنة من مهارات التواصل القرائي والكتابي بطرق ابتكارية.",
+                    mission: "تمكين الطلاب من استيعاب قواعد ومفاهيم مادة لغتي الخالدة وتطبيقها بثقة ورقي في الحياة اليومية.",
+                    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80"
+                },
+
+                schedule: [
+                    { dayName: 'الأحد', periods: [{ class: '1/1 متوسط', subject: 'لغتي الخالدة' }, { class: '1/2 متوسط', subject: 'لغتي الخالدة' }, null, null, { class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null] },
+                    { dayName: 'الإثنين', periods: [null, { class: '1/1 متوسط', subject: 'لغتي الخالدة' }, { class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null, { class: '3/1 متوسط', subject: 'لغتي الخالدة' }, null] },
+                    { dayName: 'الثلاثاء', periods: [{ class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null, { class: '1/2 متوسط', subject: 'لغتي الخالدة' }, null, null, { class: '3/1 متوسط', subject: 'لغتي الخالدة' }] },
+                    { dayName: 'الأربعاء', periods: [null, { class: '3/1 متوسط', subject: 'لغتي الخالدة' }, { class: '1/1 متوسط', subject: 'لغتي الخالدة' }, null, { class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null] },
+                    { dayName: 'الخميس', periods: [{ class: '1/2 متوسط', subject: 'لغتي الخالدة' }, null, { class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null, null, null] }
+                ],
+
+                analytics: {
+                    passRate: 98.2,
+                    excellentRate: 45,
+                    remedialStudents: 12,
+                    giftedStudents: 10,
+                    summaryText: "تم بفضل الله تنفيذ خطة علاجيّة مكثفة لمادة لغتي الخالدة لمهارات الإملاء والقراءة التوضيحية لـ 12 طالباً، وأسفرت عن تحسن ملحوظ بنسبة 20% في الاختبارات الفترية."
+                },
+
+                trainingHistory: [
+                    { course: "استراتيجيات تدريس مادة لغتي الخالدة الحديثة", provider: "مركز التدريب التربوي", hours: 25, date: "صفَر 1447هـ" },
+                    { course: "دمج الذكاء الاصطناعي في تعليم المهارات اللغوية", provider: "إدارة الإشراف التربوي", hours: 15, date: "محرم 1447هـ" },
+                    { course: "التقويم المبني على نواتج التعلم والمهارات القرائية", provider: "هيئة تقويم التعليم والتدريب", hours: 30, date: "شوال 1446هـ" }
+                ],
+
+                achievements: [
+                    {
+                        id: 1,
+                        title: "خطة التحضير الإلكتروني لمادة لغتي الخالدة",
+                        category: "plan",
+                        organization: "مدرسة الأمل المتوسطة",
+                        date: "الفصل الأول 1447هـ",
+                        summary: "تحضير تفاعلي يتضمن خرائط المفاهيم والاستراتيجيات القرائية المتقدمة.",
+                        details: "تصميم أنشطة إثرائية وخرائط مفاهيم تدعم التواصل اللغوي والتعبير الكتابي لدى الطلاب.",
+                        image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&auto=format&fit=crop&q=80"
+                    },
+                    {
+                        id: 2,
+                        title: "شهادة اجتياز ورشة الاستراتيجيات اللغوية الحديثة",
+                        category: "dev",
+                        organization: "مركز التدريب التربوي",
+                        date: "صفَر 1447هـ",
+                        summary: "دورة تدريبية في تعزيز الفهم القرائي وتحليل النصوص الأدبية.",
+                        details: "تنمية مهارات المعلم في استخدام المنصات والتطبيقات لتطوير استيعاب النصوص لدى الطلاب.",
+                        image: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=600&auto=format&fit=crop&q=80"
+                    },
+                    {
+                        id: 3,
+                        title: "خطاب شكر لتميّز الأداء وتفعيل المسابقات اللغوية",
+                        category: "thank",
+                        organization: "إدارة المدرسة ومكتب التعليم",
+                        date: "ربيع الأول 1447هـ",
+                        summary: "تكريم رسمي للإشراف على مسابقة تحدي القراءة وتفعيل الأنشطة اللغوية.",
+                        details: "تقدير رسمي لتفعيل الصالون الأدبي المدرسي ومسابقات الخط والإملاء العربي.",
+                        image: "https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=600&auto=format&fit=crop&q=80"
+                    }
+                ],
+
+                formAchievement: { id: null, title: '', category: 'plan', organization: '', date: '', summary: '', image: '' },
+
+                initApp() {
+                    const savedTeacher = localStorage.getItem('official_teacher_profile');
+                    if (savedTeacher) {
+                        try { this.teacher = JSON.parse(savedTeacher); } catch(e){}
+                    }
+                    const savedAchievements = localStorage.getItem('official_teacher_achievements');
+                    if (savedAchievements) {
+                        try { this.achievements = JSON.parse(savedAchievements); } catch(e){}
+                    }
+                    const savedAnalytics = localStorage.getItem('official_teacher_analytics');
+                    if (savedAnalytics) {
+                        try { this.analytics = JSON.parse(savedAnalytics); } catch(e){}
+                    }
+                },
+
+                saveTeacherProfile() {
+                    localStorage.setItem('official_teacher_profile', JSON.stringify(this.teacher));
+                    this.closeModal('profile');
+                    this.showToast('تم حفظ كافة البيانات بنجاح', 'success');
+                },
+
+                saveAnalytics() {
+                    localStorage.setItem('official_teacher_analytics', JSON.stringify(this.analytics));
+                    this.closeModal('analyticsModal');
+                    this.showToast('تم حفظ تحليل النتائج بنجاح', 'success');
+                },
+
+                // Table of Contents Index Data
+                tableOfContents: [
+                    { title: '1. البيانات الشخصية والوظيفية', desc: 'الرتبة المهنية، الرقم الوظيفي، وتفاصيل المدرسة', link: '#profile', icon: 'fa-solid fa-id-card' },
+                    { title: '2. فهرس ملف الإنجاز الرسمي', desc: 'المحاور المنظمة حسب معايير وزارة التعليم', link: '#index-section', icon: 'fa-solid fa-list-ol' },
+                    { title: '3. الفلسفة التربوية والرؤية', desc: 'فلسفة التدريس والميثاق الأخلاقي لمهنة التعليم', link: '#philosophy', icon: 'fa-solid fa-lightbulb' },
+                    { title: '4. الجدول المدرسي الأسبوعي', desc: 'توزيع حصص المواد والصفوف الدراسية', link: '#schedule', icon: 'fa-solid fa-calendar-days' },
+                    { title: '5. شواهد الإنجاز والمعايير', desc: 'التحضير، التطوير المهني، أوراق العمل والتكريم', link: '#domains', icon: 'fa-solid fa-folder-open' },
+                    { title: '6. تحليل نتائج الطلاب ونواتج التعلم', desc: 'نسب النجاح، الخطط العلاجية والإثرائية', link: '#analytics', icon: 'fa-solid fa-chart-line' }
+                ],
+
+                categories: [
+                    { id: 'plan', name: 'التخطيط وإعداد الدروس', icon: 'fa-solid fa-book-bookmark' },
+                    { id: 'dev', name: 'التطوير المهني والشهادات', icon: 'fa-solid fa-certificate' },
+                    { id: 'worksheet', name: 'أوراق العمل والإنتاج', icon: 'fa-solid fa-file-pen' },
+                    { id: 'thank', name: 'الشكر والتكريم الرسمي', icon: 'fa-solid fa-award' },
+                    { id: 'activity', name: 'الأنشطة والفعاليات المدرسية', icon: 'fa-solid fa-people-group' },
+                    { id: 'result', name: 'تحليل نتائج ونواتج التعلم', icon: 'fa-solid fa-chart-line' }
+                ],
+
+                teacher: {
+                    name: "أ. محمد عبد الله الغامدي",
+                    subject: "الفيزياء / العلوم",
+                    school: "مدرسة الأمل الثانوية",
+                    stage: "المرحلة الثانوية (صفوف 10-12)",
+                    empId: "10982341",
+                    rank: "معلم متقدم",
+                    eduDept: "إدارة تعليم الرياض",
+                    academicYear: "1447 - 1448 هـ",
+                    weeklyClasses: 18,
+                    philosophy: "التدريس رسالة سامية تنمي العقل وتصنع المستقبل، أعتمد على التعلم التفاعلي القائم على الاستقصاء والتجارب العملية.",
+                    vision: "تقديم تعليم نوعي يدمج المهارات الرقمية والذكاء الاصطناعي لبناء جيل مبتكر ينافس عالمياً.",
+                    mission: "تمكين الطلاب من استيعاب المفاهيم العلمية العميقة وتطبيقها في الحياة اليومية ببيئة آمنة ومحفزة.",
+                    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80"
+                },
+
+                schedule: [
+                    { dayName: 'الأحد', periods: [{ class: '1/2 ثانوي', subject: 'فيزياء 1' }, { class: '2/1 ثانوي', subject: 'فيزياء 2' }, null, null, { class: '3/1 ثانوي', subject: 'فيزياء 3' }, null, null] },
+                    { dayName: 'الإثنين', periods: [null, { class: '1/2 ثانوي', subject: 'فيزياء 1' }, { class: '3/1 ثانوي', subject: 'فيزياء 3' }, null, null, { class: '2/1 ثانوي', subject: 'فيزياء 2' }, null] },
+                    { dayName: 'الثلاثاء', periods: [{ class: '2/1 ثانوي', subject: 'فيزياء 2' }, null, null, { class: '1/2 ثانوي', subject: 'فيزياء 1' }, null, null, { class: '3/1 ثانوي', subject: 'فيزياء 3' }] },
+                    { dayName: 'الأربعاء', periods: [null, { class: '3/1 ثانوي', subject: 'فيزياء 3' }, { class: '1/2 ثانوي', subject: 'فيزياء 1' }, null, { class: '2/1 ثانوي', subject: 'فيزياء 2' }, null, null] },
+                    { dayName: 'الخميس', periods: [{ class: '1/2 ثانوي', subject: 'فيزياء 1' }, null, { class: '2/1 ثانوي', subject: 'فيزياء 2' }, null, null, null, null] }
+                ],
+
+                analytics: {
+                    passRate: 96.5,
+                    excellentRate: 42,
+                    remedialStudents: 14,
+                    giftedStudents: 8,
+                    summaryText: "تم بفضل الله تنفيذ خطة معالجة الفاقد التعليمي لـ 14 طالباً عبر جلسات تقوية إلكترونية، وارتفعت نسبتهم بمتوسط 18% بنهاية الاختبارات التكوينية."
+                },
+
+                trainingHistory: [
+                    { course: "دمج تطبيقات الذكاء الاصطناعي في التدريس", provider: "مركز التدريب التربوي", hours: 25, date: "صفَر 1447هـ" },
+                    { course: "استراتيجيات التعلم النشط وبناء بنوك الأسئلة", provider: "إدارة الإشراف التربوي", hours: 15, date: "محرم 1447هـ" },
+                    { course: "التقويم المبني على نواتج التعلم", provider: "هيئة تقويم التعليم والتدريب", hours: 30, date: "شوال 1446هـ" }
+                ],
+
+                achievements: [
+                    {
+                        id: 1,
+                        title: "خطة التحضير الإلكتروني المدمج بمحاكاة PhET",
+                        category: "plan",
+                        organization: "مدرسة الأمل الثانوية",
+                        date: "الفصل الأول 1447هـ",
+                        summary: "نموذج تحضير شامل يعتمد استراتيجية الفصل المقلوب والتجارب التفاعلية.",
+                        details: "تم تصميم دروس مدمجة بأدوات المحاكاة الرقمية لتوضيح مفاهيم الفيزياء المعقدة وتوثيقها بملفات تحضير إلكترونية معتمدة.",
+                        image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&auto=format&fit=crop&q=80"
+                    },
+                    {
+                        id: 2,
+                        title: "شهادة اجتياز دورة الذكاء الاصطناعي بالتعليم",
+                        category: "dev",
+                        organization: "مركز التدريب التربوي (25 ساعة)",
+                        date: "صفَر 1447هـ",
+                        summary: "شهادة معتمدة في تصميم الأنشطة التفاعلية والدروس المدمجة بالذكاء الاصطناعي.",
+                        details: "تنمية مهارات استخدام النماذج الذكية لتوليد بنوك الأسئلة وتصميم الوسائط التفاعلية.",
+                        image: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=600&auto=format&fit=crop&q=80"
+                    },
+                    {
+                        id: 3,
+                        title: "خطاب شكر وتقدير للأداء المتميز والفاعلية",
+                        category: "thank",
+                        organization: "إدارة المدرسة ومكتب التعليم",
+                        date: "ربيع الأول 1447هـ",
+                        summary: "تكريم رسمي لتميّز الأداء التعليمي وتطبيق أساليب التدريس الحديثة.",
+                        details: "خطاب تقدير من مدير المدرسة لقيادة المعرض العلمي المدرسي وتفعيل المختبر الرقمي.",
+                        image: "https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=600&auto=format&fit=crop&q=80"
+                    }
+                ],
+
+                formAchievement: { id: null, title: '', category: 'plan', organization: '', date: '', summary: '', image: '' },
+
+                initApp() {
+                    const savedTeacher = localStorage.getItem('official_teacher_profile');
+                    if (savedTeacher) {
+                        try { this.teacher = JSON.parse(savedTeacher); } catch(e){}
+                    }
+                    const savedAchievements = localStorage.getItem('official_teacher_achievements');
+                    if (savedAchievements) {
+                        try { this.achievements = JSON.parse(savedAchievements); } catch(e){}
+                    }
+                },
+
+                get filteredAchievements() {
+                    if (this.selectedCategory === 'all') return this.achievements;
+                    return this.achievements.filter(a => a.category === this.selectedCategory);
+                },
+
+                getCategoryCount(catId) {
+                    return this.achievements.filter(a => a.category === catId).length;
+                },
+
+                getCategoryName(catId) {
+                    const cat = this.categories.find(c => c.id === catId);
+                    return cat ? cat.name : 'محور عام';
+                },
+
+                getCategoryIcon(catId) {
+                    const cat = this.categories.find(c => c.id === catId);
+                    return cat ? cat.icon : 'fa-solid fa-folder';
+                },
+
+                openModal(name) { 
+                    this.modals[name] = true; 
+                    if (name === 'qrModal') {
+                        this.$nextTick(() => { this.renderQRCode(); });
+                    }
+                },
+
+                closeModal(name) { this.modals[name] = false; },
+
+                renderQRCode() {
+                    const container = document.getElementById('qrcode-canvas');
+                    if (!container) return;
+                    container.innerHTML = '';
+                    
+                    const urlToEncode = this.portfolioUrl || window.location.href;
+                    
+                    try {
+                        if (typeof QRCode !== 'undefined') {
+                            new QRCode(container, {
+                                text: urlToEncode,
+                                width: 180,
+                                height: 180,
+                                colorDark: "#0f172a",
+                                colorLight: "#ffffff",
+                                correctLevel: QRCode.CorrectLevel.H
+                            });
+                        } else {
+                            throw new Error('QRCode library not loaded');
+                        }
+                    } catch (e) {
+                        const img = document.createElement('img');
+                        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(urlToEncode);
+                        img.className = 'w-44 h-44 object-contain';
+                        container.appendChild(img);
+                    }
+                },
+
+                downloadQRCode() {
+                    const container = document.getElementById('qrcode-canvas');
+                    const img = container.querySelector('img');
+                    const canvas = container.querySelector('canvas');
+                    
+                    let imageSrc = '';
+                    if (canvas) {
+                        imageSrc = canvas.toDataURL('image/png');
+                    } else if (img) {
+                        imageSrc = img.src;
+                    }
+
+                    if (imageSrc) {
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = imageSrc;
+                        downloadLink.download = `QR_Code_${this.teacher.name.replace(/\s+/g, '_')}.png`;
+                        document.body.appendChild(downloadLink);
+                        downloadLink.click();
+                        document.body.removeChild(downloadLink);
+                        this.showToast('تم تحميل صورة الباركود بنجاح', 'success');
+                    }
+                },
+
+                saveTeacherProfile() {
+                    localStorage.setItem('official_teacher_profile', JSON.stringify(this.teacher));
+                    this.closeModal('profile');
+                    this.showToast('تم حفظ البيانات الشخصية بنجاح', 'success');
+                },
+
+                viewAchievementDetails(item) {
+                    this.activeItem = item;
+                    this.openModal('detail');
+                },
+
+                openAddAchievementModal() {
+                    this.formAchievement = { id: null, title: '', category: 'plan', organization: '', date: '', summary: '', image: '' };
+                    this.openModal('achievement');
+                },
+
+                openEditAchievementModal(item) {
+                    this.formAchievement = { ...item };
+                    this.openModal('achievement');
+                },
+
+                saveAchievement() {
+                    if (this.formAchievement.id) {
+                        const index = this.achievements.findIndex(a => a.id === this.formAchievement.id);
+                        if (index !== -1) this.achievements[index] = { ...this.formAchievement };
+                    } else {
+                        this.achievements.unshift({ ...this.formAchievement, id: Date.now() });
+                    }
+                    localStorage.setItem('official_teacher_achievements', JSON.stringify(this.achievements));
+                    this.closeModal('achievement');
+                    this.showToast('تم حفظ الشاهد التعليمي بنجاح', 'success');
+                },
+
+                deleteAchievement(id) {
+                    if (confirm('هل أنت متأكد من حذف هذا الشاهد؟')) {
+                        this.achievements = this.achievements.filter(a => a.id !== id);
+                        localStorage.setItem('official_teacher_achievements', JSON.stringify(this.achievements));
+                        this.showToast('تم الحذف بنجاح', 'info');
+                    }
+                },
+
+                copyPortfolioLink() {
+                    const tempInput = document.createElement('input');
+                    tempInput.value = this.portfolioUrl;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+                    this.showToast('تم نسخ الرابط بنجاح!', 'success');
+                },
+
+                triggerAvatarUpload() { document.getElementById('avatarInput').click(); },
+                handleAvatarUpload(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            this.teacher.avatar = event.target.result;
+                            localStorage.setItem('official_teacher_profile', JSON.stringify(this.teacher));
+                            this.showToast('تم تحديث الصورة الشخصية', 'success');
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                },
+
+                handleItemImageUpload(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            this.formAchievement.image = event.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                },
+
+                showToast(msg, type = 'success') {
+                    this.toast = { show: true, message: msg, type: type };
+                    setTimeout(() => { this.toast.show = false; }, 3000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
