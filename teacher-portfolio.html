@@ -158,7 +158,7 @@
 
             <nav class="space-y-2 text-sm font-semibold">
                 <template x-for="(item, index) in tableOfContents" :key="index">
-                    <a :href="item.link" @click="sidebarOpen = false" 
+                    <a x-bind="{ href: item.link }" @click="sidebarOpen = false" 
                        class="flex items-center justify-between p-3 rounded-xl bg-slate-950/50 hover:bg-teal-950/40 hover:text-teal-300 border border-slate-800/80 transition group">
                         <div class="flex items-center gap-3">
                             <span class="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center text-xs font-bold" x-text="index + 1"></span>
@@ -201,7 +201,7 @@
                 <div class="relative group">
                     <div class="w-36 h-36 sm:w-44 sm:h-44 rounded-3xl overflow-hidden border-2 border-teal-500/40 shadow-2xl bg-slate-800 relative flex items-center justify-center">
                         <template x-if="teacher.avatar">
-                            <img :src="teacher.avatar" :alt="teacher.name" class="w-full h-full object-cover">
+                            <img x-bind="{ src: teacher.avatar, alt: teacher.name }" class="w-full h-full object-cover">
                         </template>
                         <template x-if="!teacher.avatar">
                             <div class="text-6xl text-teal-400 font-bold">
@@ -263,7 +263,7 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <template x-for="(toc, idx) in tableOfContents" :key="idx">
-                    <a :href="toc.link" class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-teal-500/60 transition group flex flex-col justify-between space-y-3">
+                    <a x-bind="{ href: toc.link }" class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-teal-500/60 transition group flex flex-col justify-between space-y-3">
                         <div class="flex items-center justify-between">
                             <span class="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center font-black text-sm" x-text="idx + 1"></span>
                             <i :class="toc.icon" class="text-slate-500 group-hover:text-teal-400 transition text-lg"></i>
@@ -405,7 +405,7 @@
                         
                         <div class="relative h-48 bg-slate-950 overflow-hidden">
                             <template x-if="item.image">
-                                <img :src="item.image" :alt="item.title" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                                <img x-bind="{ src: item.image, alt: item.title }" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
                             </template>
                             <template x-if="!item.image">
                                 <div class="w-full h-full flex items-center justify-center bg-slate-900 text-slate-700">
@@ -595,7 +595,7 @@
 
             <div class="space-y-3">
                 <template x-for="(item, idx) in tableOfContents" :key="idx">
-                    <a :href="item.link" @click="showIndexModal = false" class="flex items-center justify-between p-4 rounded-2xl bg-slate-950 hover:bg-slate-800 border border-slate-800 transition">
+                    <a x-bind="{ href: item.link }" @click="showIndexModal = false" class="flex items-center justify-between p-4 rounded-2xl bg-slate-950 hover:bg-slate-800 border border-slate-800 transition">
                         <div class="flex items-center gap-3">
                             <span class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 font-black flex items-center justify-center text-sm" x-text="idx + 1"></span>
                             <div>
@@ -625,7 +625,7 @@
 
             <template x-if="activeItem.image">
                 <div class="rounded-2xl overflow-hidden border border-slate-800 max-h-80 bg-slate-950">
-                    <img :src="activeItem.image" class="w-full h-full object-contain">
+                    <img x-bind="{ src: activeItem.image }" class="w-full h-full object-contain">
                 </div>
             </template>
 
