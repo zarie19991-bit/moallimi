@@ -114,16 +114,16 @@
                     <span class="hidden sm:inline">فهرس المحتويات</span>
                 </button>
 
-                <!-- Admin Edit Mode Toggle -->
-                <button @click="editMode = !editMode" 
+                <!-- Teacher edit access -->
+                <button x-show="isAdminRoute" @click="adminUnlocked ? (editMode = !editMode) : unlockAdmin()"
                         class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition border"
-                        :class="editMode ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border-slate-700'">
-                    <i class="fa-solid" :class="editMode ? 'fa-pen-to-square' : 'fa-eye'"></i>
-                    <span x-text="editMode ? 'وضع التعديل' : 'وضع المعاينة'"></span>
+                        :class="adminUnlocked && editMode ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border-slate-700'">
+                    <i class="fa-solid" :class="adminUnlocked ? 'fa-pen-to-square' : 'fa-lock'"></i>
+                    <span x-text="adminUnlocked ? (editMode ? 'إنهاء التعديل' : 'تعديل الملف') : 'دخول المعلم'"></span>
                 </button>
 
-                <!-- Data Backup Modal -->
-                <button @click="openModal('backupModal')" title="نسخ احتياطي واستيراد" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                <!-- Backup -->
+                <button x-show="adminUnlocked" @click="exportBackup()" title="تحميل نسخة احتياطية" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
                     <i class="fa-solid fa-database"></i>
                 </button>
 
@@ -324,7 +324,7 @@
                     </h3>
                     <p class="text-xs sm:text-sm text-slate-400 mt-1">توزيع الحصص والصفوف الدراسية على مدار الأسبوع</p>
                 </div>
-                <button x-show="editMode" @click="openModal('scheduleModal')" class="no-print text-xs font-bold bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl">
+                <button x-show="editMode" @click="openScheduleModal()" class="no-print text-xs font-bold bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl">
                     تعديل الجدول المدرسي
                 </button>
             </div>
@@ -505,6 +505,9 @@
                     <i class="fa-solid fa-graduation-cap text-teal-400"></i>
                     سجل التطوير المهني والورش التدريبية
                 </h3>
+                <button x-show="editMode" @click="openTrainingModal()" class="no-print text-xs font-bold bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl">
+                    <i class="fa-solid fa-pen"></i> تعديل السجل
+                </button>
             </div>
 
             <div class="relative border-r-2 border-slate-800 pr-6 space-y-6 mr-2">
@@ -763,407 +766,452 @@
         </div>
     </div>
 
+
+    <!-- MODAL: Edit Schedule -->
+    <div x-show="modals.scheduleModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-6xl w-full max-h-[92vh] overflow-y-auto shadow-2xl p-5 sm:p-7 space-y-5" @click.outside="closeModal('scheduleModal')">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div>
+                    <h3 class="text-xl font-black text-white">تعديل الجدول المدرسي</h3>
+                    <p class="text-xs text-slate-400 mt-1">اترك الحقلين فارغين للحصة غير المسندة.</p>
+                </div>
+                <button @click="closeModal('scheduleModal')" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-5">
+                <template x-for="(day, dIndex) in scheduleDraft" :key="dIndex">
+                    <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                        <h4 class="font-black text-teal-300 mb-3" x-text="day.dayName"></h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <template x-for="(period, pIndex) in day.periods" :key="pIndex">
+                                <div class="rounded-xl bg-slate-900 border border-slate-800 p-3 space-y-2">
+                                    <div class="text-[11px] font-bold text-slate-400" x-text="'الحصة ' + (pIndex + 1)"></div>
+                                    <input type="text" x-model="period.class" placeholder="الصف / الفصل" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                                    <input type="text" x-model="period.subject" placeholder="المادة" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <div class="flex justify-end gap-3 border-t border-slate-800 pt-4">
+                <button @click="closeModal('scheduleModal')" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold">إلغاء</button>
+                <button @click="saveSchedule()" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold">حفظ ونشر الجدول</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Add/Edit Achievement -->
+    <div x-show="modals.achievement" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-5" @click.outside="closeModal('achievement')">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <h3 class="text-xl font-black text-white" x-text="formAchievement.id ? 'تعديل الشاهد' : 'إضافة شاهد جديد'"></h3>
+                <button @click="closeModal('achievement')" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div class="sm:col-span-2">
+                    <label class="block text-xs text-slate-400 mb-1">عنوان الشاهد</label>
+                    <input type="text" x-model="formAchievement.title" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">المحور</label>
+                    <select x-model="formAchievement.category" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <template x-for="cat in categories" :key="cat.id"><option :value="cat.id" x-text="cat.name"></option></template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">الجهة / المدرسة</label>
+                    <input type="text" x-model="formAchievement.organization" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">التاريخ أو الفصل</label>
+                    <input type="text" x-model="formAchievement.date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">صورة الشاهد</label>
+                    <input type="file" accept="image/*" @change="handleItemImageUpload($event)" class="w-full text-xs text-slate-300">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs text-slate-400 mb-1">الملخص</label>
+                    <textarea x-model="formAchievement.summary" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs text-slate-400 mb-1">التفاصيل والأثر</label>
+                    <textarea x-model="formAchievement.details" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 border-t border-slate-800 pt-4">
+                <button @click="closeModal('achievement')" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold">إلغاء</button>
+                <button @click="saveAchievement()" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold">حفظ ونشر الشاهد</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Training History -->
+    <div x-show="modals.trainingModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-5" @click.outside="closeModal('trainingModal')">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <h3 class="text-xl font-black text-white">تعديل سجل التطوير المهني</h3>
+                <button @click="closeModal('trainingModal')" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-3">
+                <template x-for="(item, idx) in trainingDraft" :key="idx">
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <input x-model="item.course" placeholder="اسم الدورة" class="sm:col-span-5 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                        <input x-model="item.provider" placeholder="الجهة" class="sm:col-span-3 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                        <input x-model.number="item.hours" type="number" placeholder="الساعات" class="sm:col-span-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                        <input x-model="item.date" placeholder="التاريخ" class="sm:col-span-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                        <button @click="trainingDraft.splice(idx,1)" class="sm:col-span-12 justify-self-end text-xs text-rose-300 hover:text-rose-200"><i class="fa-solid fa-trash"></i> حذف</button>
+                    </div>
+                </template>
+                <button @click="trainingDraft.push({course:'',provider:'',hours:0,date:''})" class="text-xs font-bold text-teal-300 bg-teal-500/10 border border-teal-500/30 px-4 py-2 rounded-xl"><i class="fa-solid fa-plus"></i> إضافة دورة</button>
+            </div>
+            <div class="flex justify-end gap-3 border-t border-slate-800 pt-4">
+                <button @click="closeModal('trainingModal')" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold">إلغاء</button>
+                <button @click="saveTraining()" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold">حفظ ونشر</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Alpine.js Application Logic -->
     <script>
+        const PORTFOLIO_SUPABASE_URL = 'https://udznpifopbnrcgxtpzza.supabase.co';
+        const PORTFOLIO_PUBLISHABLE_KEY = 'sb_publishable_UIuOZaeLk3oz25yf1kd-PA_OF8vEu8N';
+        const PORTFOLIO_ADMIN_API = PORTFOLIO_SUPABASE_URL + '/functions/v1/teacher-portfolio-admin';
+
         function teacherPortfolioApp() {
+            const publicUrl = new URL(window.location.href);
+            publicUrl.search = '';
+            publicUrl.hash = '';
+
             return {
                 editMode: false,
+                isAdminRoute: new URLSearchParams(window.location.search).get('edit') === '1',
+                adminUnlocked: false,
+                adminKey: '',
+                saving: false,
                 sidebarOpen: false,
                 showIndexModal: false,
                 selectedCategory: 'all',
-                
                 toast: { show: false, message: '', type: 'success' },
                 activeItem: {},
-                portfolioUrl: window.location.href,
-
-                modals: { detail: false, achievement: false, profile: false, backupModal: false, qrModal: false, scheduleModal: false, analyticsModal: false },
+                portfolioUrl: publicUrl.toString(),
+                scheduleDraft: [],
+                trainingDraft: [],
+                modals: { detail:false, achievement:false, profile:false, qrModal:false, scheduleModal:false, analyticsModal:false, trainingModal:false },
 
                 get isLocalFile() {
-                    return window.location.protocol === 'file:' || this.portfolioUrl.startsWith('file:') || this.portfolioUrl.includes('localhost');
+                    return window.location.protocol === 'file:' || window.location.hostname === 'localhost';
                 },
 
-                // Table of Contents Index Data
                 tableOfContents: [
-                    { title: '1. البيانات الشخصية والوظيفية', desc: 'الرتبة المهنية، الرقم الوظيفي، وتفاصيل المدرسة', link: '#profile', icon: 'fa-solid fa-id-card' },
-                    { title: '2. فهرس ملف الإنجاز الرسمي', desc: 'المحاور المنظمة حسب معايير وزارة التعليم', link: '#index-section', icon: 'fa-solid fa-list-ol' },
-                    { title: '3. الفلسفة التربوية والرؤية', desc: 'فلسفة التدريس والميثاق الأخلاقي لمهنة التعليم', link: '#philosophy', icon: 'fa-solid fa-lightbulb' },
-                    { title: '4. الجدول المدرسي الأسبوعي', desc: 'توزيع حصص المواد والصفوف الدراسية', link: '#schedule', icon: 'fa-solid fa-calendar-days' },
-                    { title: '5. شواهد الإنجاز والمعايير', desc: 'التحضير، التطوير المهني، أوراق العمل والتكريم', link: '#domains', icon: 'fa-solid fa-folder-open' },
-                    { title: '6. تحليل نتائج الطلاب ونواتج التعلم', desc: 'نسب النجاح، الخطط العلاجية والإثرائية', link: '#analytics', icon: 'fa-solid fa-chart-line' }
+                    { title:'1. البيانات الشخصية والوظيفية', desc:'الرتبة المهنية، الرقم الوظيفي، وتفاصيل المدرسة', link:'#profile', icon:'fa-solid fa-id-card' },
+                    { title:'2. فهرس ملف الإنجاز الرسمي', desc:'المحاور المنظمة حسب معايير وزارة التعليم', link:'#index-section', icon:'fa-solid fa-list-ol' },
+                    { title:'3. الفلسفة التربوية والرؤية', desc:'فلسفة التدريس والميثاق الأخلاقي لمهنة التعليم', link:'#philosophy', icon:'fa-solid fa-lightbulb' },
+                    { title:'4. الجدول المدرسي الأسبوعي', desc:'توزيع حصص المواد والصفوف الدراسية', link:'#schedule', icon:'fa-solid fa-calendar-days' },
+                    { title:'5. شواهد الإنجاز والمعايير', desc:'التحضير، التطوير المهني، أوراق العمل والتكريم', link:'#domains', icon:'fa-solid fa-folder-open' },
+                    { title:'6. تحليل نتائج الطلاب ونواتج التعلم', desc:'نسب النجاح، الخطط العلاجية والإثرائية', link:'#analytics', icon:'fa-solid fa-chart-line' }
                 ],
 
                 categories: [
-                    { id: 'plan', name: 'التخطيط وإعداد الدروس', icon: 'fa-solid fa-book-bookmark' },
-                    { id: 'dev', name: 'التطوير المهني والشهادات', icon: 'fa-solid fa-certificate' },
-                    { id: 'worksheet', name: 'أوراق العمل والإنتاج', icon: 'fa-solid fa-file-pen' },
-                    { id: 'thank', name: 'الشكر والتكريم الرسمي', icon: 'fa-solid fa-award' },
-                    { id: 'activity', name: 'الأنشطة والفعاليات المدرسية', icon: 'fa-solid fa-people-group' },
-                    { id: 'result', name: 'تحليل نتائج ونواتج التعلم', icon: 'fa-solid fa-chart-line' }
+                    { id:'plan', name:'التخطيط وإعداد الدروس', icon:'fa-solid fa-book-bookmark' },
+                    { id:'dev', name:'التطوير المهني والشهادات', icon:'fa-solid fa-certificate' },
+                    { id:'worksheet', name:'أوراق العمل والإنتاج', icon:'fa-solid fa-file-pen' },
+                    { id:'thank', name:'الشكر والتكريم الرسمي', icon:'fa-solid fa-award' },
+                    { id:'activity', name:'الأنشطة والفعاليات المدرسية', icon:'fa-solid fa-people-group' },
+                    { id:'result', name:'تحليل نتائج ونواتج التعلم', icon:'fa-solid fa-chart-line' }
                 ],
 
                 teacher: {
-                    name: "أ. عبد الله علي الغامدي",
-                    subject: "لغتي الخالدة",
-                    school: "مدرسة الأمل المتوسطة",
-                    stage: "المرحلة المتوسطة (صفوف 7-9)",
-                    empId: "10982341",
-                    rank: "معلم متقدم",
-                    eduDept: "إدارة تعليم الرياض",
-                    academicYear: "1447 - 1448 هـ",
-                    weeklyClasses: 18,
-                    philosophy: "اللغة العربية كائن حي ينبض بالقيم والهوية الوطنية، والتطوير اللغوي يتحقق بالممارسة التفاعلية والتذوق الأدبي والربط بالتقنية الحديثة.",
-                    vision: "بناء أجيال معتزة بلغتها العربية الخالدة، متمكنة من مهارات التواصل القرائي والكتابي بطرق ابتكارية.",
-                    mission: "تمكين الطلاب من استيعاب قواعد ومفاهيم مادة لغتي الخالدة وتطبيقها بثقة ورقي في الحياة اليومية.",
-                    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80"
+                    name:'أ. عبد الله علي الغامدي',
+                    subject:'لغتي الخالدة',
+                    school:'مدرسة الأمل المتوسطة',
+                    stage:'المرحلة المتوسطة (صفوف 7-9)',
+                    empId:'10982341',
+                    rank:'معلم متقدم',
+                    eduDept:'إدارة تعليم الرياض',
+                    academicYear:'1447 - 1448 هـ',
+                    weeklyClasses:18,
+                    philosophy:'اللغة العربية كائن حي ينبض بالقيم والهوية الوطنية، والتطوير اللغوي يتحقق بالممارسة التفاعلية والتذوق الأدبي والربط بالتقنية الحديثة.',
+                    vision:'بناء أجيال معتزة بلغتها العربية الخالدة، متمكنة من مهارات التواصل القرائي والكتابي بطرق ابتكارية.',
+                    mission:'تمكين الطلاب من استيعاب قواعد ومفاهيم مادة لغتي الخالدة وتطبيقها بثقة ورقي في الحياة اليومية.',
+                    avatar:'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80'
                 },
 
                 schedule: [
-                    { dayName: 'الأحد', periods: [{ class: '1/1 متوسط', subject: 'لغتي الخالدة' }, { class: '1/2 متوسط', subject: 'لغتي الخالدة' }, null, null, { class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null] },
-                    { dayName: 'الإثنين', periods: [null, { class: '1/1 متوسط', subject: 'لغتي الخالدة' }, { class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null, { class: '3/1 متوسط', subject: 'لغتي الخالدة' }, null] },
-                    { dayName: 'الثلاثاء', periods: [{ class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null, { class: '1/2 متوسط', subject: 'لغتي الخالدة' }, null, null, { class: '3/1 متوسط', subject: 'لغتي الخالدة' }] },
-                    { dayName: 'الأربعاء', periods: [null, { class: '3/1 متوسط', subject: 'لغتي الخالدة' }, { class: '1/1 متوسط', subject: 'لغتي الخالدة' }, null, { class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null] },
-                    { dayName: 'الخميس', periods: [{ class: '1/2 متوسط', subject: 'لغتي الخالدة' }, null, { class: '2/1 متوسط', subject: 'لغتي الخالدة' }, null, null, null, null] }
+                    { dayName:'الأحد', periods:[{class:'1/1 متوسط',subject:'لغتي الخالدة'},{class:'1/2 متوسط',subject:'لغتي الخالدة'},null,null,{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null] },
+                    { dayName:'الإثنين', periods:[null,{class:'1/1 متوسط',subject:'لغتي الخالدة'},{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null,{class:'3/1 متوسط',subject:'لغتي الخالدة'},null] },
+                    { dayName:'الثلاثاء', periods:[{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null,{class:'1/2 متوسط',subject:'لغتي الخالدة'},null,null,{class:'3/1 متوسط',subject:'لغتي الخالدة'}] },
+                    { dayName:'الأربعاء', periods:[null,{class:'3/1 متوسط',subject:'لغتي الخالدة'},{class:'1/1 متوسط',subject:'لغتي الخالدة'},null,{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null] },
+                    { dayName:'الخميس', periods:[{class:'1/2 متوسط',subject:'لغتي الخالدة'},null,{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null,null,null] }
                 ],
 
                 analytics: {
-                    passRate: 98.2,
-                    excellentRate: 45,
-                    remedialStudents: 12,
-                    giftedStudents: 10,
-                    summaryText: "تم بفضل الله تنفيذ خطة علاجيّة مكثفة لمادة لغتي الخالدة لمهارات الإملاء والقراءة التوضيحية لـ 12 طالباً، وأسفرت عن تحسن ملحوظ بنسبة 20% في الاختبارات الفترية."
+                    passRate:98.2,
+                    excellentRate:45,
+                    remedialStudents:12,
+                    giftedStudents:10,
+                    summaryText:'تم بفضل الله تنفيذ خطة علاجيّة مكثفة لمادة لغتي الخالدة لمهارات الإملاء والقراءة التوضيحية لـ 12 طالباً، وأسفرت عن تحسن ملحوظ بنسبة 20% في الاختبارات الفترية.'
                 },
 
                 trainingHistory: [
-                    { course: "استراتيجيات تدريس مادة لغتي الخالدة الحديثة", provider: "مركز التدريب التربوي", hours: 25, date: "صفَر 1447هـ" },
-                    { course: "دمج الذكاء الاصطناعي في تعليم المهارات اللغوية", provider: "إدارة الإشراف التربوي", hours: 15, date: "محرم 1447هـ" },
-                    { course: "التقويم المبني على نواتج التعلم والمهارات القرائية", provider: "هيئة تقويم التعليم والتدريب", hours: 30, date: "شوال 1446هـ" }
+                    { course:'استراتيجيات تدريس مادة لغتي الخالدة الحديثة', provider:'مركز التدريب التربوي', hours:25, date:'صفَر 1447هـ' },
+                    { course:'دمج الذكاء الاصطناعي في تعليم المهارات اللغوية', provider:'إدارة الإشراف التربوي', hours:15, date:'محرم 1447هـ' },
+                    { course:'التقويم المبني على نواتج التعلم والمهارات القرائية', provider:'هيئة تقويم التعليم والتدريب', hours:30, date:'شوال 1446هـ' }
                 ],
 
                 achievements: [
-                    {
-                        id: 1,
-                        title: "خطة التحضير الإلكتروني لمادة لغتي الخالدة",
-                        category: "plan",
-                        organization: "مدرسة الأمل المتوسطة",
-                        date: "الفصل الأول 1447هـ",
-                        summary: "تحضير تفاعلي يتضمن خرائط المفاهيم والاستراتيجيات القرائية المتقدمة.",
-                        details: "تصميم أنشطة إثرائية وخرائط مفاهيم تدعم التواصل اللغوي والتعبير الكتابي لدى الطلاب.",
-                        image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&auto=format&fit=crop&q=80"
-                    },
-                    {
-                        id: 2,
-                        title: "شهادة اجتياز ورشة الاستراتيجيات اللغوية الحديثة",
-                        category: "dev",
-                        organization: "مركز التدريب التربوي",
-                        date: "صفَر 1447هـ",
-                        summary: "دورة تدريبية في تعزيز الفهم القرائي وتحليل النصوص الأدبية.",
-                        details: "تنمية مهارات المعلم في استخدام المنصات والتطبيقات لتطوير استيعاب النصوص لدى الطلاب.",
-                        image: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=600&auto=format&fit=crop&q=80"
-                    },
-                    {
-                        id: 3,
-                        title: "خطاب شكر لتميّز الأداء وتفعيل المسابقات اللغوية",
-                        category: "thank",
-                        organization: "إدارة المدرسة ومكتب التعليم",
-                        date: "ربيع الأول 1447هـ",
-                        summary: "تكريم رسمي للإشراف على مسابقة تحدي القراءة وتفعيل الأنشطة اللغوية.",
-                        details: "تقدير رسمي لتفعيل الصالون الأدبي المدرسي ومسابقات الخط والإملاء العربي.",
-                        image: "https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=600&auto=format&fit=crop&q=80"
-                    }
+                    { id:1, title:'خطة التحضير الإلكتروني لمادة لغتي الخالدة', category:'plan', organization:'مدرسة الأمل المتوسطة', date:'الفصل الأول 1447هـ', summary:'تحضير تفاعلي يتضمن خرائط المفاهيم والاستراتيجيات القرائية المتقدمة.', details:'تصميم أنشطة إثرائية وخرائط مفاهيم تدعم التواصل اللغوي والتعبير الكتابي لدى الطلاب.', image:'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&auto=format&fit=crop&q=80' },
+                    { id:2, title:'شهادة اجتياز ورشة الاستراتيجيات اللغوية الحديثة', category:'dev', organization:'مركز التدريب التربوي', date:'صفَر 1447هـ', summary:'دورة تدريبية في تعزيز الفهم القرائي وتحليل النصوص الأدبية.', details:'تنمية مهارات المعلم في استخدام المنصات والتطبيقات لتطوير استيعاب النصوص لدى الطلاب.', image:'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=600&auto=format&fit=crop&q=80' },
+                    { id:3, title:'خطاب شكر لتميّز الأداء وتفعيل المسابقات اللغوية', category:'thank', organization:'إدارة المدرسة ومكتب التعليم', date:'ربيع الأول 1447هـ', summary:'تكريم رسمي للإشراف على مسابقة تحدي القراءة وتفعيل الأنشطة اللغوية.', details:'تقدير رسمي لتفعيل الصالون الأدبي المدرسي ومسابقات الخط والإملاء العربي.', image:'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=600&auto=format&fit=crop&q=80' }
                 ],
 
-                formAchievement: { id: null, title: '', category: 'plan', organization: '', date: '', summary: '', image: '' },
+                formAchievement: { id:null, title:'', category:'plan', organization:'', date:'', summary:'', details:'', image:'' },
 
-                initApp() {
-                    const savedTeacher = localStorage.getItem('official_teacher_profile');
-                    if (savedTeacher) {
-                        try { this.teacher = JSON.parse(savedTeacher); } catch(e){}
+                async initApp() {
+                    this.adminKey = sessionStorage.getItem('teacher_portfolio_admin_key') || '';
+                    if (this.isAdminRoute && this.adminKey) {
+                        const ok = await this.verifyAdminKey(this.adminKey, false);
+                        if (ok) { this.adminUnlocked = true; this.editMode = true; }
                     }
-                    const savedAchievements = localStorage.getItem('official_teacher_achievements');
-                    if (savedAchievements) {
-                        try { this.achievements = JSON.parse(savedAchievements); } catch(e){}
-                    }
-                    const savedAnalytics = localStorage.getItem('official_teacher_analytics');
-                    if (savedAnalytics) {
-                        try { this.analytics = JSON.parse(savedAnalytics); } catch(e){}
+                    await this.loadRemoteState();
+                },
+
+                async loadRemoteState() {
+                    try {
+                        const response = await fetch(PORTFOLIO_SUPABASE_URL + '/rest/v1/teacher_portfolio_state?id=eq.main&select=state', {
+                            headers: { 'apikey': PORTFOLIO_PUBLISHABLE_KEY }
+                        });
+                        if (!response.ok) throw new Error('load_failed');
+                        const rows = await response.json();
+                        const state = rows && rows[0] && rows[0].state ? rows[0].state : null;
+                        if (state && Object.keys(state).length) {
+                            if (state.teacher) this.teacher = state.teacher;
+                            if (state.schedule) this.schedule = state.schedule;
+                            if (state.analytics) this.analytics = state.analytics;
+                            if (state.achievements) this.achievements = state.achievements;
+                            if (state.trainingHistory) this.trainingHistory = state.trainingHistory;
+                        }
+                    } catch (e) {
+                        this.showToast('تعذر تحميل آخر نسخة محفوظة، تم عرض النسخة المدمجة مؤقتاً', 'info');
                     }
                 },
 
-                saveTeacherProfile() {
-                    localStorage.setItem('official_teacher_profile', JSON.stringify(this.teacher));
-                    this.closeModal('profile');
-                    this.showToast('تم حفظ كافة البيانات بنجاح', 'success');
+                getState() {
+                    return {
+                        teacher: this.teacher,
+                        schedule: this.schedule,
+                        analytics: this.analytics,
+                        achievements: this.achievements,
+                        trainingHistory: this.trainingHistory
+                    };
                 },
 
-                saveAnalytics() {
-                    localStorage.setItem('official_teacher_analytics', JSON.stringify(this.analytics));
-                    this.closeModal('analyticsModal');
-                    this.showToast('تم حفظ تحليل النتائج بنجاح', 'success');
-                },
-
-                // Table of Contents Index Data
-                tableOfContents: [
-                    { title: '1. البيانات الشخصية والوظيفية', desc: 'الرتبة المهنية، الرقم الوظيفي، وتفاصيل المدرسة', link: '#profile', icon: 'fa-solid fa-id-card' },
-                    { title: '2. فهرس ملف الإنجاز الرسمي', desc: 'المحاور المنظمة حسب معايير وزارة التعليم', link: '#index-section', icon: 'fa-solid fa-list-ol' },
-                    { title: '3. الفلسفة التربوية والرؤية', desc: 'فلسفة التدريس والميثاق الأخلاقي لمهنة التعليم', link: '#philosophy', icon: 'fa-solid fa-lightbulb' },
-                    { title: '4. الجدول المدرسي الأسبوعي', desc: 'توزيع حصص المواد والصفوف الدراسية', link: '#schedule', icon: 'fa-solid fa-calendar-days' },
-                    { title: '5. شواهد الإنجاز والمعايير', desc: 'التحضير، التطوير المهني، أوراق العمل والتكريم', link: '#domains', icon: 'fa-solid fa-folder-open' },
-                    { title: '6. تحليل نتائج الطلاب ونواتج التعلم', desc: 'نسب النجاح، الخطط العلاجية والإثرائية', link: '#analytics', icon: 'fa-solid fa-chart-line' }
-                ],
-
-                categories: [
-                    { id: 'plan', name: 'التخطيط وإعداد الدروس', icon: 'fa-solid fa-book-bookmark' },
-                    { id: 'dev', name: 'التطوير المهني والشهادات', icon: 'fa-solid fa-certificate' },
-                    { id: 'worksheet', name: 'أوراق العمل والإنتاج', icon: 'fa-solid fa-file-pen' },
-                    { id: 'thank', name: 'الشكر والتكريم الرسمي', icon: 'fa-solid fa-award' },
-                    { id: 'activity', name: 'الأنشطة والفعاليات المدرسية', icon: 'fa-solid fa-people-group' },
-                    { id: 'result', name: 'تحليل نتائج ونواتج التعلم', icon: 'fa-solid fa-chart-line' }
-                ],
-
-                teacher: {
-                    name: "أ. محمد عبد الله الغامدي",
-                    subject: "الفيزياء / العلوم",
-                    school: "مدرسة الأمل الثانوية",
-                    stage: "المرحلة الثانوية (صفوف 10-12)",
-                    empId: "10982341",
-                    rank: "معلم متقدم",
-                    eduDept: "إدارة تعليم الرياض",
-                    academicYear: "1447 - 1448 هـ",
-                    weeklyClasses: 18,
-                    philosophy: "التدريس رسالة سامية تنمي العقل وتصنع المستقبل، أعتمد على التعلم التفاعلي القائم على الاستقصاء والتجارب العملية.",
-                    vision: "تقديم تعليم نوعي يدمج المهارات الرقمية والذكاء الاصطناعي لبناء جيل مبتكر ينافس عالمياً.",
-                    mission: "تمكين الطلاب من استيعاب المفاهيم العلمية العميقة وتطبيقها في الحياة اليومية ببيئة آمنة ومحفزة.",
-                    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80"
-                },
-
-                schedule: [
-                    { dayName: 'الأحد', periods: [{ class: '1/2 ثانوي', subject: 'فيزياء 1' }, { class: '2/1 ثانوي', subject: 'فيزياء 2' }, null, null, { class: '3/1 ثانوي', subject: 'فيزياء 3' }, null, null] },
-                    { dayName: 'الإثنين', periods: [null, { class: '1/2 ثانوي', subject: 'فيزياء 1' }, { class: '3/1 ثانوي', subject: 'فيزياء 3' }, null, null, { class: '2/1 ثانوي', subject: 'فيزياء 2' }, null] },
-                    { dayName: 'الثلاثاء', periods: [{ class: '2/1 ثانوي', subject: 'فيزياء 2' }, null, null, { class: '1/2 ثانوي', subject: 'فيزياء 1' }, null, null, { class: '3/1 ثانوي', subject: 'فيزياء 3' }] },
-                    { dayName: 'الأربعاء', periods: [null, { class: '3/1 ثانوي', subject: 'فيزياء 3' }, { class: '1/2 ثانوي', subject: 'فيزياء 1' }, null, { class: '2/1 ثانوي', subject: 'فيزياء 2' }, null, null] },
-                    { dayName: 'الخميس', periods: [{ class: '1/2 ثانوي', subject: 'فيزياء 1' }, null, { class: '2/1 ثانوي', subject: 'فيزياء 2' }, null, null, null, null] }
-                ],
-
-                analytics: {
-                    passRate: 96.5,
-                    excellentRate: 42,
-                    remedialStudents: 14,
-                    giftedStudents: 8,
-                    summaryText: "تم بفضل الله تنفيذ خطة معالجة الفاقد التعليمي لـ 14 طالباً عبر جلسات تقوية إلكترونية، وارتفعت نسبتهم بمتوسط 18% بنهاية الاختبارات التكوينية."
-                },
-
-                trainingHistory: [
-                    { course: "دمج تطبيقات الذكاء الاصطناعي في التدريس", provider: "مركز التدريب التربوي", hours: 25, date: "صفَر 1447هـ" },
-                    { course: "استراتيجيات التعلم النشط وبناء بنوك الأسئلة", provider: "إدارة الإشراف التربوي", hours: 15, date: "محرم 1447هـ" },
-                    { course: "التقويم المبني على نواتج التعلم", provider: "هيئة تقويم التعليم والتدريب", hours: 30, date: "شوال 1446هـ" }
-                ],
-
-                achievements: [
-                    {
-                        id: 1,
-                        title: "خطة التحضير الإلكتروني المدمج بمحاكاة PhET",
-                        category: "plan",
-                        organization: "مدرسة الأمل الثانوية",
-                        date: "الفصل الأول 1447هـ",
-                        summary: "نموذج تحضير شامل يعتمد استراتيجية الفصل المقلوب والتجارب التفاعلية.",
-                        details: "تم تصميم دروس مدمجة بأدوات المحاكاة الرقمية لتوضيح مفاهيم الفيزياء المعقدة وتوثيقها بملفات تحضير إلكترونية معتمدة.",
-                        image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&auto=format&fit=crop&q=80"
-                    },
-                    {
-                        id: 2,
-                        title: "شهادة اجتياز دورة الذكاء الاصطناعي بالتعليم",
-                        category: "dev",
-                        organization: "مركز التدريب التربوي (25 ساعة)",
-                        date: "صفَر 1447هـ",
-                        summary: "شهادة معتمدة في تصميم الأنشطة التفاعلية والدروس المدمجة بالذكاء الاصطناعي.",
-                        details: "تنمية مهارات استخدام النماذج الذكية لتوليد بنوك الأسئلة وتصميم الوسائط التفاعلية.",
-                        image: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=600&auto=format&fit=crop&q=80"
-                    },
-                    {
-                        id: 3,
-                        title: "خطاب شكر وتقدير للأداء المتميز والفاعلية",
-                        category: "thank",
-                        organization: "إدارة المدرسة ومكتب التعليم",
-                        date: "ربيع الأول 1447هـ",
-                        summary: "تكريم رسمي لتميّز الأداء التعليمي وتطبيق أساليب التدريس الحديثة.",
-                        details: "خطاب تقدير من مدير المدرسة لقيادة المعرض العلمي المدرسي وتفعيل المختبر الرقمي.",
-                        image: "https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=600&auto=format&fit=crop&q=80"
+                async verifyAdminKey(key, showErrors = true) {
+                    try {
+                        const response = await fetch(PORTFOLIO_ADMIN_API, {
+                            method:'POST',
+                            headers:{ 'Content-Type':'application/json', 'x-portfolio-key':key },
+                            body:JSON.stringify({ action:'verify' })
+                        });
+                        if (response.ok) return true;
+                        if (showErrors) this.showToast('مفتاح التعديل غير صحيح', 'error');
+                        return false;
+                    } catch (e) {
+                        if (showErrors) this.showToast('تعذر الاتصال بخدمة الحفظ', 'error');
+                        return false;
                     }
-                ],
+                },
 
-                formAchievement: { id: null, title: '', category: 'plan', organization: '', date: '', summary: '', image: '' },
+                async unlockAdmin() {
+                    const entered = window.prompt('أدخل مفتاح تعديل ملف الإنجاز:');
+                    if (!entered) return;
+                    const ok = await this.verifyAdminKey(entered, true);
+                    if (!ok) return;
+                    this.adminKey = entered;
+                    sessionStorage.setItem('teacher_portfolio_admin_key', entered);
+                    this.adminUnlocked = true;
+                    this.editMode = true;
+                    this.showToast('تم فتح وضع التعديل والحفظ الإلكتروني', 'success');
+                },
 
-                initApp() {
-                    const savedTeacher = localStorage.getItem('official_teacher_profile');
-                    if (savedTeacher) {
-                        try { this.teacher = JSON.parse(savedTeacher); } catch(e){}
+                async persistPortfolio(message = 'تم حفظ التغييرات ونشرها') {
+                    if (!this.adminUnlocked || !this.adminKey) {
+                        await this.unlockAdmin();
+                        if (!this.adminUnlocked) return false;
                     }
-                    const savedAchievements = localStorage.getItem('official_teacher_achievements');
-                    if (savedAchievements) {
-                        try { this.achievements = JSON.parse(savedAchievements); } catch(e){}
+                    this.saving = true;
+                    try {
+                        const response = await fetch(PORTFOLIO_ADMIN_API, {
+                            method:'POST',
+                            headers:{ 'Content-Type':'application/json', 'x-portfolio-key':this.adminKey },
+                            body:JSON.stringify({ action:'save', state:this.getState() })
+                        });
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                sessionStorage.removeItem('teacher_portfolio_admin_key');
+                                this.adminUnlocked = false;
+                                this.editMode = false;
+                                throw new Error('unauthorized');
+                            }
+                            throw new Error('save_failed');
+                        }
+                        this.showToast(message, 'success');
+                        return true;
+                    } catch (e) {
+                        this.showToast(e.message === 'unauthorized' ? 'انتهت صلاحية مفتاح التعديل، سجّل الدخول مرة أخرى' : 'تعذر حفظ التغييرات على الإنترنت', 'error');
+                        return false;
+                    } finally {
+                        this.saving = false;
                     }
                 },
 
                 get filteredAchievements() {
-                    if (this.selectedCategory === 'all') return this.achievements;
-                    return this.achievements.filter(a => a.category === this.selectedCategory);
+                    return this.selectedCategory === 'all' ? this.achievements : this.achievements.filter(a => a.category === this.selectedCategory);
                 },
+                getCategoryCount(catId) { return this.achievements.filter(a => a.category === catId).length; },
+                getCategoryName(catId) { const cat=this.categories.find(c=>c.id===catId); return cat ? cat.name : 'محور عام'; },
+                getCategoryIcon(catId) { const cat=this.categories.find(c=>c.id===catId); return cat ? cat.icon : 'fa-solid fa-folder'; },
 
-                getCategoryCount(catId) {
-                    return this.achievements.filter(a => a.category === catId).length;
+                openModal(name) {
+                    this.modals[name] = true;
+                    if (name === 'qrModal') this.$nextTick(() => this.renderQRCode());
                 },
-
-                getCategoryName(catId) {
-                    const cat = this.categories.find(c => c.id === catId);
-                    return cat ? cat.name : 'محور عام';
-                },
-
-                getCategoryIcon(catId) {
-                    const cat = this.categories.find(c => c.id === catId);
-                    return cat ? cat.icon : 'fa-solid fa-folder';
-                },
-
-                openModal(name) { 
-                    this.modals[name] = true; 
-                    if (name === 'qrModal') {
-                        this.$nextTick(() => { this.renderQRCode(); });
-                    }
-                },
-
                 closeModal(name) { this.modals[name] = false; },
 
-                renderQRCode() {
-                    const container = document.getElementById('qrcode-canvas');
-                    if (!container) return;
-                    container.innerHTML = '';
-                    
-                    const urlToEncode = this.portfolioUrl || window.location.href;
-                    
-                    try {
-                        if (typeof QRCode !== 'undefined') {
-                            new QRCode(container, {
-                                text: urlToEncode,
-                                width: 180,
-                                height: 180,
-                                colorDark: "#0f172a",
-                                colorLight: "#ffffff",
-                                correctLevel: QRCode.CorrectLevel.H
-                            });
-                        } else {
-                            throw new Error('QRCode library not loaded');
-                        }
-                    } catch (e) {
-                        const img = document.createElement('img');
-                        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(urlToEncode);
-                        img.className = 'w-44 h-44 object-contain';
-                        container.appendChild(img);
-                    }
+                async saveTeacherProfile() {
+                    const ok = await this.persistPortfolio('تم حفظ بيانات المعلم ونشرها');
+                    if (ok) this.closeModal('profile');
+                },
+                async saveAnalytics() {
+                    const ok = await this.persistPortfolio('تم حفظ تحليل النتائج ونشره');
+                    if (ok) this.closeModal('analyticsModal');
                 },
 
-                downloadQRCode() {
-                    const container = document.getElementById('qrcode-canvas');
-                    const img = container.querySelector('img');
-                    const canvas = container.querySelector('canvas');
-                    
-                    let imageSrc = '';
-                    if (canvas) {
-                        imageSrc = canvas.toDataURL('image/png');
-                    } else if (img) {
-                        imageSrc = img.src;
-                    }
-
-                    if (imageSrc) {
-                        const downloadLink = document.createElement('a');
-                        downloadLink.href = imageSrc;
-                        downloadLink.download = `QR_Code_${this.teacher.name.replace(/\s+/g, '_')}.png`;
-                        document.body.appendChild(downloadLink);
-                        downloadLink.click();
-                        document.body.removeChild(downloadLink);
-                        this.showToast('تم تحميل صورة الباركود بنجاح', 'success');
-                    }
+                openScheduleModal() {
+                    this.scheduleDraft = JSON.parse(JSON.stringify(this.schedule)).map(day => ({
+                        dayName: day.dayName,
+                        periods: day.periods.map(p => p ? { class:p.class || '', subject:p.subject || '' } : { class:'', subject:'' })
+                    }));
+                    this.openModal('scheduleModal');
+                },
+                async saveSchedule() {
+                    this.schedule = this.scheduleDraft.map(day => ({
+                        dayName: day.dayName,
+                        periods: day.periods.map(p => (String(p.class || '').trim() || String(p.subject || '').trim()) ? { class:String(p.class || '').trim(), subject:String(p.subject || '').trim() } : null)
+                    }));
+                    const ok = await this.persistPortfolio('تم حفظ الجدول ونشره');
+                    if (ok) this.closeModal('scheduleModal');
                 },
 
-                saveTeacherProfile() {
-                    localStorage.setItem('official_teacher_profile', JSON.stringify(this.teacher));
-                    this.closeModal('profile');
-                    this.showToast('تم حفظ البيانات الشخصية بنجاح', 'success');
-                },
-
-                viewAchievementDetails(item) {
-                    this.activeItem = item;
-                    this.openModal('detail');
-                },
-
+                viewAchievementDetails(item) { this.activeItem = item; this.openModal('detail'); },
                 openAddAchievementModal() {
-                    this.formAchievement = { id: null, title: '', category: 'plan', organization: '', date: '', summary: '', image: '' };
+                    this.formAchievement = { id:null, title:'', category:'plan', organization:'', date:'', summary:'', details:'', image:'' };
                     this.openModal('achievement');
                 },
-
                 openEditAchievementModal(item) {
-                    this.formAchievement = { ...item };
+                    this.formAchievement = { details:'', ...item };
                     this.openModal('achievement');
                 },
-
-                saveAchievement() {
+                async saveAchievement() {
+                    if (!String(this.formAchievement.title || '').trim()) {
+                        this.showToast('اكتب عنوان الشاهد أولاً', 'error'); return;
+                    }
                     if (this.formAchievement.id) {
-                        const index = this.achievements.findIndex(a => a.id === this.formAchievement.id);
-                        if (index !== -1) this.achievements[index] = { ...this.formAchievement };
+                        const index=this.achievements.findIndex(a=>a.id===this.formAchievement.id);
+                        if (index!==-1) this.achievements[index]={...this.formAchievement};
                     } else {
-                        this.achievements.unshift({ ...this.formAchievement, id: Date.now() });
+                        this.achievements.unshift({...this.formAchievement,id:Date.now()});
                     }
-                    localStorage.setItem('official_teacher_achievements', JSON.stringify(this.achievements));
-                    this.closeModal('achievement');
-                    this.showToast('تم حفظ الشاهد التعليمي بنجاح', 'success');
+                    const ok = await this.persistPortfolio('تم حفظ الشاهد ونشره');
+                    if (ok) this.closeModal('achievement');
+                },
+                async deleteAchievement(id) {
+                    if (!confirm('هل أنت متأكد من حذف هذا الشاهد؟')) return;
+                    const before=this.achievements;
+                    this.achievements=this.achievements.filter(a=>a.id!==id);
+                    const ok=await this.persistPortfolio('تم حذف الشاهد وتحديث الملف');
+                    if (!ok) this.achievements=before;
                 },
 
-                deleteAchievement(id) {
-                    if (confirm('هل أنت متأكد من حذف هذا الشاهد؟')) {
-                        this.achievements = this.achievements.filter(a => a.id !== id);
-                        localStorage.setItem('official_teacher_achievements', JSON.stringify(this.achievements));
-                        this.showToast('تم الحذف بنجاح', 'info');
-                    }
+                openTrainingModal() {
+                    this.trainingDraft = JSON.parse(JSON.stringify(this.trainingHistory));
+                    this.openModal('trainingModal');
                 },
-
-                copyPortfolioLink() {
-                    const tempInput = document.createElement('input');
-                    tempInput.value = this.portfolioUrl;
-                    document.body.appendChild(tempInput);
-                    tempInput.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(tempInput);
-                    this.showToast('تم نسخ الرابط بنجاح!', 'success');
+                async saveTraining() {
+                    this.trainingHistory = this.trainingDraft.filter(x => String(x.course || '').trim());
+                    const ok=await this.persistPortfolio('تم حفظ سجل التطوير المهني ونشره');
+                    if (ok) this.closeModal('trainingModal');
                 },
 
                 triggerAvatarUpload() { document.getElementById('avatarInput').click(); },
                 handleAvatarUpload(e) {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            this.teacher.avatar = event.target.result;
-                            localStorage.setItem('official_teacher_profile', JSON.stringify(this.teacher));
-                            this.showToast('تم تحديث الصورة الشخصية', 'success');
-                        };
-                        reader.readAsDataURL(file);
-                    }
+                    const file=e.target.files && e.target.files[0];
+                    if (!file) return;
+                    if (file.size > 2 * 1024 * 1024) { this.showToast('اختر صورة أقل من 2 ميجابايت', 'error'); return; }
+                    const reader=new FileReader();
+                    reader.onload=async event => {
+                        this.teacher.avatar=event.target.result;
+                        await this.persistPortfolio('تم تحديث الصورة ونشرها');
+                    };
+                    reader.readAsDataURL(file);
                 },
-
                 handleItemImageUpload(e) {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            this.formAchievement.image = event.target.result;
-                        };
-                        reader.readAsDataURL(file);
-                    }
+                    const file=e.target.files && e.target.files[0];
+                    if (!file) return;
+                    if (file.size > 2 * 1024 * 1024) { this.showToast('اختر صورة أقل من 2 ميجابايت', 'error'); return; }
+                    const reader=new FileReader();
+                    reader.onload=event => { this.formAchievement.image=event.target.result; };
+                    reader.readAsDataURL(file);
                 },
 
-                showToast(msg, type = 'success') {
-                    this.toast = { show: true, message: msg, type: type };
-                    setTimeout(() => { this.toast.show = false; }, 3000);
+                renderQRCode() {
+                    const container=document.getElementById('qrcode-canvas');
+                    if (!container) return;
+                    container.innerHTML='';
+                    const urlToEncode=this.portfolioUrl;
+                    try {
+                        if (typeof QRCode === 'undefined') throw new Error('QRCode library not loaded');
+                        new QRCode(container,{ text:urlToEncode,width:180,height:180,colorDark:'#0f172a',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H });
+                    } catch (e) {
+                        const img=document.createElement('img');
+                        img.src='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(urlToEncode);
+                        img.className='w-44 h-44 object-contain';
+                        container.appendChild(img);
+                    }
+                },
+                downloadQRCode() {
+                    const container=document.getElementById('qrcode-canvas');
+                    const img=container ? container.querySelector('img') : null;
+                    const canvas=container ? container.querySelector('canvas') : null;
+                    const imageSrc=canvas ? canvas.toDataURL('image/png') : (img ? img.src : '');
+                    if (!imageSrc) return;
+                    const a=document.createElement('a');
+                    a.href=imageSrc;
+                    a.download='QR_Code_' + String(this.teacher.name || 'portfolio').replace(/\s+/g,'_') + '.png';
+                    document.body.appendChild(a); a.click(); a.remove();
+                    this.showToast('تم تحميل صورة الباركود', 'success');
+                },
+                copyPortfolioLink() {
+                    navigator.clipboard.writeText(this.portfolioUrl).then(
+                        () => this.showToast('تم نسخ رابط العرض للمدير', 'success'),
+                        () => this.showToast('تعذر النسخ التلقائي', 'error')
+                    );
+                },
+
+                exportBackup() {
+                    const blob=new Blob([JSON.stringify(this.getState(),null,2)],{type:'application/json'});
+                    const url=URL.createObjectURL(blob);
+                    const a=document.createElement('a');
+                    a.href=url; a.download='teacher-portfolio-backup.json';
+                    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                    this.showToast('تم تنزيل النسخة الاحتياطية', 'success');
+                },
+
+                showToast(msg,type='success') {
+                    this.toast={show:true,message:msg,type:type};
+                    setTimeout(()=>{this.toast.show=false;},3200);
                 }
-            }
+            };
         }
     </script>
 </body>
