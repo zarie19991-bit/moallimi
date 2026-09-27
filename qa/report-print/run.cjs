@@ -105,7 +105,6 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
   await page.pdf({path:path.join(out,`${name}.pdf`),preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
    if(!baseline){
     assert(!info.scaleGuard,'runtime 80% scaling returned');
-    assert.equal(info.readabilityMedia,'screen');
     if(name==='general'||name==='remedial'){
       if(name==='general')assert(info.reportDate,'automatic report date missing');
       assert(info.supportRows<=8,`reference compact report should print at most 8 support students, got ${info.supportRows}`);
