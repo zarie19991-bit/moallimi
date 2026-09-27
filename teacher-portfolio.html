@@ -55,12 +55,21 @@
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
         
+        .print-only { display: none; }
         @media print {
+            @page { size: A4; margin: 14mm 12mm 16mm; }
             .no-print { display: none !important; }
-            body { background: white !important; color: black !important; }
-            .print-card { border: 1px solid #cbd5e1 !important; page-break-inside: avoid; background: white !important; color: black !important; box-shadow: none !important; }
-            .print-text-dark { color: #0f172a !important; }
-            .print-text-muted { color: #475569 !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; color: #0f172a !important; font-size: 11pt; }
+            main { max-width: none !important; padding: 0 !important; }
+            section { break-inside: avoid; margin-bottom: 10mm !important; }
+            .print-card { border: 1px solid #cbd5e1 !important; page-break-inside: avoid; background: white !important; color: #0f172a !important; box-shadow: none !important; }
+            .print-card * { text-shadow: none !important; }
+            .print-text-dark, h1, h2, h3, h4 { color: #0f172a !important; }
+            .print-text-muted, p, span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .print-page-break { break-before: page; }
+            .print-footer { position: fixed; bottom: -10mm; left: 0; right: 0; text-align: center; font-size: 9pt; color: #64748b; }
+            .print-footer::after { content: "صفحة " counter(page); }
         }
     </style>
 </head>
@@ -120,64 +129,55 @@
 
     <!-- Navigation Header -->
     <header x-show="accessReady" x-cloak class="sticky top-0 z-40 backdrop-blur-md bg-slate-950/90 border-b border-slate-800/80 no-print">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-            
-            <!-- Logo & Teacher Quick Info -->
-            <div class="flex items-center gap-3">
-                <button @click="toggleSidebar()" class="p-2.5 rounded-xl bg-slate-800 text-teal-400 hover:bg-slate-700 transition" title="فتح الفهرس الرقمي">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button @click="toggleSidebar()" class="shrink-0 p-2.5 rounded-xl bg-slate-800 text-teal-400 hover:bg-slate-700 transition" title="فتح الفهرس الرقمي">
                     <i class="fa-solid fa-bars-staggered text-lg"></i>
                 </button>
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white font-black text-lg shadow-lg">
+                <div class="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white font-black text-lg shadow-lg">
                     <i class="fa-solid fa-book-bookmark"></i>
                 </div>
-                <div>
-                    <h1 class="text-base sm:text-lg font-black bg-gradient-to-r from-white via-slate-200 to-teal-300 bg-clip-text text-transparent" x-text="'ملف إنجاز المعلم: ' + teacher.name"></h1>
-                    <p class="text-xs text-teal-400 font-semibold" x-text="teacher.subject + ' | ' + teacher.school"></p>
+                <div class="min-w-0">
+                    <h1 class="text-sm sm:text-lg font-black truncate bg-gradient-to-r from-white via-slate-200 to-teal-300 bg-clip-text text-transparent" x-text="'ملف إنجاز المعلم: ' + teacher.name"></h1>
+                    <p class="text-[10px] sm:text-xs text-teal-400 font-semibold truncate" x-text="teacher.subject + ' | ' + teacher.school"></p>
                 </div>
             </div>
 
-            <!-- Header Action Controls -->
-            <div class="flex items-center gap-2 sm:gap-3">
-                <!-- Index Drawer Button -->
-                <button @click="openIndex()" class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-teal-500/10 text-teal-300 border border-teal-500/30 hover:bg-teal-500/20 transition flex items-center gap-2">
-                    <i class="fa-solid fa-list-ol"></i>
-                    <span class="hidden sm:inline">فهرس المحتويات</span>
+            <div class="hidden md:flex items-center gap-2">
+                <button @click="openIndex()" class="px-3 py-2 rounded-xl text-xs font-bold bg-teal-500/10 text-teal-300 border border-teal-500/30 hover:bg-teal-500/20 transition flex items-center gap-2">
+                    <i class="fa-solid fa-list-ol"></i><span>فهرس المحتويات</span>
                 </button>
-
-                <!-- Teacher edit access -->
-                <button x-show="isAdminRoute" @click="handleAdminButton()"
-                        class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition border"
+                <button x-show="isAdminRoute" @click="handleAdminButton()" class="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition border"
                         :class="adminUnlocked && editMode ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border-slate-700'">
                     <i class="fa-solid" :class="adminUnlocked ? 'fa-pen-to-square' : 'fa-lock'"></i>
                     <span x-text="adminUnlocked ? (editMode ? 'إنهاء التعديل' : 'تعديل الملف') : 'دخول المعلم'"></span>
                 </button>
-                <button x-show="adminUnlocked" @click="lockAdmin()" class="px-3 py-2 rounded-xl text-xs font-bold bg-rose-500/10 text-rose-300 border border-rose-500/30">
-                    <i class="fa-solid fa-lock"></i>
-                    <span class="hidden sm:inline">قفل الإدارة</span>
-                </button>
-
-                <!-- Backup -->
-                <button x-show="adminUnlocked" @click="exportBackup()" title="تحميل نسخة احتياطية" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
-                    <i class="fa-solid fa-database"></i>
-                </button>
-                <button x-show="adminUnlocked" @click="changeAdminKey()" title="تغيير مفتاح التعديل" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
-                    <i class="fa-solid fa-key"></i>
-                </button>
-                <button x-show="adminUnlocked" @click="rotateViewerLink()" title="إلغاء رابط المدير القديم وإنشاء رابط جديد" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
-                    <i class="fa-solid fa-rotate"></i>
-                </button>
-
-                <!-- QR Code Button -->
-                <button x-show="adminUnlocked" @click="openModal('qrModal')" title="إنشاء باركود QR للمدير" class="px-3 py-2 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 transition flex items-center gap-2 text-xs font-bold">
-                    <i class="fa-solid fa-qrcode text-base"></i>
-                    <span class="hidden sm:inline">باركود المشاركة</span>
-                </button>
-
-                <!-- Print Button -->
-                <button @click="printPage()" title="طباعة أو تصدير PDF رسمياً" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
-                    <i class="fa-solid fa-print"></i>
-                </button>
+                <button x-show="adminUnlocked" @click="exportBackup()" title="نسخة احتياطية" class="p-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700"><i class="fa-solid fa-database"></i></button>
+                <button x-show="adminUnlocked" @click="changeAdminKey()" title="تغيير مفتاح التعديل" class="p-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700"><i class="fa-solid fa-key"></i></button>
+                <button x-show="adminUnlocked" @click="rotateViewerLink()" title="تجديد رابط المدير" class="p-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700"><i class="fa-solid fa-rotate"></i></button>
+                <button x-show="adminUnlocked" @click="openModal('qrModal')" title="باركود المدير" class="p-2.5 rounded-xl bg-teal-500/20 text-teal-300 border border-teal-500/40"><i class="fa-solid fa-qrcode"></i></button>
+                <button x-show="adminUnlocked" @click="lockAdmin()" title="قفل الإدارة" class="p-2.5 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/30"><i class="fa-solid fa-lock"></i></button>
+                <button @click="printPage()" title="طباعة PDF" class="p-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700"><i class="fa-solid fa-print"></i></button>
             </div>
+
+            <div class="md:hidden relative shrink-0">
+                <button @click="toggleMobileAdmin()" class="p-2.5 rounded-xl bg-slate-800 text-teal-300 border border-slate-700" title="أدوات الملف">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </button>
+                <div x-show="mobileAdminOpen" x-cloak @click.outside="closeMobileAdmin()" class="absolute left-0 top-12 w-56 rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-2 space-y-1 text-xs">
+                    <button @click="openIndex(); closeMobileAdmin()" class="w-full text-right px-3 py-2 rounded-xl hover:bg-slate-800"><i class="fa-solid fa-list-ol text-teal-400 ml-2"></i>فهرس المحتويات</button>
+                    <button x-show="isAdminRoute" @click="handleAdminButton(); closeMobileAdmin()" class="w-full text-right px-3 py-2 rounded-xl hover:bg-slate-800"><i class="fa-solid fa-pen text-amber-400 ml-2"></i>وضع التعديل</button>
+                    <button x-show="adminUnlocked" @click="openModal('qrModal'); closeMobileAdmin()" class="w-full text-right px-3 py-2 rounded-xl hover:bg-slate-800"><i class="fa-solid fa-qrcode text-teal-400 ml-2"></i>باركود المدير</button>
+                    <button x-show="adminUnlocked" @click="rotateViewerLink(); closeMobileAdmin()" class="w-full text-right px-3 py-2 rounded-xl hover:bg-slate-800"><i class="fa-solid fa-rotate text-teal-400 ml-2"></i>تجديد رابط المدير</button>
+                    <button x-show="adminUnlocked" @click="exportBackup(); closeMobileAdmin()" class="w-full text-right px-3 py-2 rounded-xl hover:bg-slate-800"><i class="fa-solid fa-database text-slate-300 ml-2"></i>نسخة احتياطية</button>
+                    <button x-show="adminUnlocked" @click="changeAdminKey(); closeMobileAdmin()" class="w-full text-right px-3 py-2 rounded-xl hover:bg-slate-800"><i class="fa-solid fa-key text-slate-300 ml-2"></i>تغيير المفتاح</button>
+                    <button @click="printPage(); closeMobileAdmin()" class="w-full text-right px-3 py-2 rounded-xl hover:bg-slate-800"><i class="fa-solid fa-print text-slate-300 ml-2"></i>طباعة / PDF</button>
+                    <button x-show="adminUnlocked" @click="lockAdmin(); closeMobileAdmin()" class="w-full text-right px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-300"><i class="fa-solid fa-lock ml-2"></i>قفل الإدارة</button>
+                </div>
+            </div>
+        </div>
+        <div x-show="adminUnlocked" class="hidden md:block max-w-7xl mx-auto px-6 pb-2 text-[10px] text-slate-500">
+            <span x-text="securityStatusText()"></span>
         </div>
     </header>
 
@@ -213,15 +213,32 @@
                 <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-2 text-xs">
                     <p class="text-slate-400 font-bold">نسبة اكتمال ملف الإنجاز:</p>
                     <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div class="h-full bg-teal-500 rounded-full" style="width: 95%"></div>
+                        <div class="h-full bg-teal-500 rounded-full transition-all" :style="'width:' + completionPercent + '%'"></div>
                     </div>
-                    <p class="text-right text-teal-400 font-bold">95% مكتمل وموثق</p>
+                    <p class="text-right text-teal-400 font-bold" x-text="completionPercent + '% مكتمل فعليًا'"></p>
+                    <p class="text-[10px] text-slate-500" x-text="completionHint"></p>
                 </div>
             </div>
         </div>
     </div>
 
     <main x-show="accessReady" x-cloak class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+        <div class="print-only mb-8 border-b-2 border-slate-800 pb-5">
+            <div class="text-center font-bold text-sm leading-7">
+                <div>المملكة العربية السعودية</div>
+                <div>وزارة التعليم</div>
+                <div x-text="teacher.eduDept"></div>
+                <div x-text="teacher.school"></div>
+            </div>
+            <h1 class="text-center text-2xl font-black mt-5">ملف الإنجاز المهني الإلكتروني</h1>
+            <div class="grid grid-cols-2 gap-2 mt-5 text-sm">
+                <div><strong>المعلم:</strong> <span x-text="teacher.name"></span></div>
+                <div><strong>المادة:</strong> <span x-text="teacher.subject"></span></div>
+                <div><strong>المرحلة:</strong> <span x-text="teacher.stage"></span></div>
+                <div><strong>العام الدراسي:</strong> <span x-text="teacher.academicYear"></span></div>
+            </div>
+        </div>
+        <div class="print-only print-footer">ملف الإنجاز المهني — <span x-text="teacher.name"></span> — </div>
 
         <!-- SECTION 1: OFFICIAL COVER & TEACHER PROFILE CARD -->
         <section id="profile" class="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950/40 p-6 sm:p-10 border border-slate-800/90 shadow-2xl overflow-hidden print-card">
@@ -276,7 +293,7 @@
                 </div>
 
                 <div class="flex flex-col gap-3 w-full sm:w-auto no-print">
-                    <button x-show="editMode" @click="openModal('profile')" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-3 rounded-2xl text-sm transition flex items-center justify-center gap-2 shadow-lg">
+                    <button x-show="editMode" @click="openProfileModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-3 rounded-2xl text-sm transition flex items-center justify-center gap-2 shadow-lg">
                         <i class="fa-solid fa-pen-to-square"></i>
                         تعديل بيانات المعلم
                     </button>
@@ -389,9 +406,9 @@
                                 <td class="p-3 font-bold text-white bg-slate-950/50 border border-slate-800" x-text="day.dayName"></td>
                                 <template x-for="(period, pIndex) in day.periods" :key="pIndex">
                                     <td class="p-2 border border-slate-800 text-center">
-                                        <div x-show="period" class="bg-teal-950/40 border border-teal-500/30 p-2 rounded-lg">
-                                            <span class="font-bold text-teal-300 block" x-text="periodClass(period)"></span>
-                                            <span class="text-[10px] text-slate-400 block" x-text="periodSubject(period)"></span>
+                                        <div x-show="period" class="p-2 rounded-lg border" :class="periodCardClass(period)">
+                                            <span class="font-bold block" x-text="periodClass(period)"></span>
+                                            <span x-show="periodType(period) === 'class'" class="text-[10px] text-slate-400 block" x-text="periodSubject(period)"></span>
                                         </div>
                                         <span x-show="!period" class="text-slate-600 font-bold">-</span>
                                     </td>
@@ -444,12 +461,13 @@
                     <div class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden hover:border-teal-500/50 transition duration-300 flex flex-col print-card shadow-xl group">
                         
                         <div class="relative h-48 bg-slate-950 overflow-hidden">
-                            <template x-if="item.image">
-                                <img x-bind="{ src: item.image, alt: item.title }" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            <template x-if="achievementPreview(item)">
+                                <img x-bind="{ src: achievementPreview(item), alt: item.title }" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
                             </template>
-                            <template x-if="!item.image">
-                                <div class="w-full h-full flex items-center justify-center bg-slate-900 text-slate-700">
-                                    <i :class="getCategoryIcon(item.category)" class="text-5xl opacity-40"></i>
+                            <template x-if="!achievementPreview(item)">
+                                <div class="w-full h-full flex flex-col gap-2 items-center justify-center bg-slate-900 text-slate-600">
+                                    <i :class="item.fileType === 'application/pdf' ? 'fa-solid fa-file-pdf' : getCategoryIcon(item.category)" class="text-5xl opacity-50"></i>
+                                    <span x-show="item.fileType === 'application/pdf'" class="text-xs">ملف PDF</span>
                                 </div>
                             </template>
 
@@ -478,7 +496,9 @@
                                 <p class="text-slate-400 text-xs line-clamp-2 leading-relaxed" x-text="item.summary"></p>
                             </div>
 
+                            <div x-show="item.isSample" class="no-print text-[10px] text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">نموذج تجريبي — استبدله بشاهدك الحقيقي</div>
                             <div class="pt-3 border-t border-slate-800 flex items-center justify-between no-print">
+                                <button x-show="item.fileUrl || item.externalUrl" @click="openEvidence(item)" class="text-xs font-bold text-emerald-300 hover:text-emerald-200"><i class="fa-solid fa-arrow-up-right-from-square ml-1"></i>فتح الشاهد</button>
                                 <button @click="viewAchievementDetails(item)" class="text-xs font-bold text-teal-400 hover:text-teal-300 flex items-center gap-1">
                                     <span>معاينة وتوثيق الشاهد</span>
                                     <i class="fa-solid fa-arrow-left"></i>
@@ -492,49 +512,55 @@
         </section>
 
         <!-- SECTION 6: STUDENT PERFORMANCE & LEARNING ANALYTICS -->
-        <section id="analytics" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <section id="analytics" x-show="analytics.enabled || editMode" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
+            <div class="flex items-center justify-between gap-4 border-b border-slate-800 pb-4">
                 <div>
                     <h3 class="text-2xl font-black text-white flex items-center gap-3">
                         <span class="w-3 h-8 bg-teal-500 rounded-full inline-block"></span>
                         تحليل نتائج الطلاب ونواتج التعلم
                     </h3>
-                    <p class="text-xs sm:text-sm text-slate-400 mt-1">مؤشرات الأداء التحصيلي، خطط العلاج والإثراء الفصلي لمادة لغتي الخالدة</p>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1">لا يظهر هذا القسم للمدير إلا بعد اعتمادك لبياناته الفعلية.</p>
                 </div>
-                <button x-show="editMode" @click="openModal('analyticsModal')" class="no-print text-xs font-bold bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl">
-                    <i class="fa-solid fa-pen"></i> تعديل تحليل النتائج
+                <button x-show="editMode" @click="openAnalyticsModal()" class="no-print shrink-0 text-xs font-bold bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl">
+                    <i class="fa-solid fa-pen"></i> تعديل التحليل
                 </button>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-1">
-                    <span class="text-xs text-slate-400 font-bold">نسبة النجاح العامة</span>
-                    <div class="text-3xl font-black text-teal-400" x-text="analytics.passRate + '%'"></div>
-                    <p class="text-[10px] text-slate-500">لالفصل الدراسي الحالي</p>
-                </div>
-                <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-1">
-                    <span class="text-xs text-slate-400 font-bold">نسبة التفوق الممتاز</span>
-                    <div class="text-3xl font-black text-emerald-400" x-text="analytics.excellentRate + '%'"></div>
-                    <p class="text-[10px] text-slate-500">حاصلين على 90% فأعلى</p>
-                </div>
-                <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-1">
-                    <span class="text-xs text-slate-400 font-bold">المستفيدون من الخطة العلاجية</span>
-                    <div class="text-3xl font-black text-amber-400" x-text="analytics.remedialStudents"></div>
-                    <p class="text-[10px] text-slate-500">طالب تم تحسين مستواهم</p>
-                </div>
-                <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-1">
-                    <span class="text-xs text-slate-400 font-bold">الطلاب الموهوبون والمشاركون</span>
-                    <div class="text-3xl font-black text-indigo-400" x-text="analytics.giftedStudents"></div>
-                    <p class="text-[10px] text-slate-500">في المسابقات والأنشطة</p>
-                </div>
+            <div x-show="!analytics.enabled && editMode" class="no-print rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                <i class="fa-solid fa-eye-slash ml-2"></i>
+                هذا القسم مخفي عن المدير حاليًا لأن بياناته لم تُعتمد بعد.
             </div>
 
-            <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800/80 text-xs text-slate-300 leading-relaxed space-y-2">
-                <h4 class="font-bold text-teal-400 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-pie"></i>
-                    ملخص الخطة العلاجية والإثرائية نواتج التعلم:
-                </h4>
-                <p x-text="analytics.summaryText"></p>
+            <div x-show="analytics.enabled" class="space-y-5">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center">
+                        <span class="text-xs text-slate-400 font-bold">نسبة النجاح</span>
+                        <div class="text-3xl font-black text-teal-400" x-text="analytics.passRate + '%'"></div>
+                    </div>
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center">
+                        <span class="text-xs text-slate-400 font-bold">نسبة التفوق</span>
+                        <div class="text-3xl font-black text-emerald-400" x-text="analytics.excellentRate + '%'"></div>
+                    </div>
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center">
+                        <span class="text-xs text-slate-400 font-bold">الخطة العلاجية</span>
+                        <div class="text-3xl font-black text-amber-400" x-text="analytics.remedialStudents"></div>
+                        <p class="text-[10px] text-slate-500">عدد الطلاب المستفيدين</p>
+                    </div>
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center">
+                        <span class="text-xs text-slate-400 font-bold">الإثراء / الموهوبون</span>
+                        <div class="text-3xl font-black text-indigo-400" x-text="analytics.giftedStudents"></div>
+                    </div>
+                </div>
+                <div x-show="Number(analytics.beforeRate) > 0 || Number(analytics.afterRate) > 0" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="bg-slate-950 rounded-xl border border-slate-800 p-4 text-center"><span class="text-xs text-slate-500">قبل المعالجة</span><div class="text-xl font-black" x-text="analytics.beforeRate + '%'"></div></div>
+                    <div class="bg-slate-950 rounded-xl border border-slate-800 p-4 text-center"><span class="text-xs text-slate-500">بعد المعالجة</span><div class="text-xl font-black text-teal-400" x-text="analytics.afterRate + '%'"></div></div>
+                    <div class="bg-slate-950 rounded-xl border border-slate-800 p-4 text-center"><span class="text-xs text-slate-500">مقدار التحسن</span><div class="text-xl font-black text-emerald-400" x-text="analyticsImprovement + '%'"></div></div>
+                </div>
+                <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800/80 text-xs text-slate-300 leading-relaxed space-y-2">
+                    <h4 class="font-bold text-teal-400"><i class="fa-solid fa-chart-pie ml-2"></i>ملخص الخطة العلاجية والإثرائية</h4>
+                    <p x-text="analytics.summaryText"></p>
+                    <p x-show="analytics.sourceNote" class="text-slate-500"><strong>مصدر البيانات:</strong> <span x-text="analytics.sourceNote"></span></p>
+                </div>
             </div>
         </section>
 
@@ -554,7 +580,10 @@
                 <template x-for="(item, idx) in trainingHistory" :key="idx">
                     <div class="relative group">
                         <div class="absolute -right-[31px] top-1 w-4 h-4 rounded-full bg-teal-500 border-4 border-slate-950"></div>
-                        <span class="text-xs font-bold text-teal-400 bg-teal-500/10 px-2.5 py-0.5 rounded-full border border-teal-500/20" x-text="item.date"></span>
+                        <div class="flex flex-wrap gap-2 items-center">
+                            <span class="text-xs font-bold text-teal-400 bg-teal-500/10 px-2.5 py-0.5 rounded-full border border-teal-500/20" x-text="item.date"></span>
+                            <span x-show="item.isSample" class="no-print text-[10px] text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">نموذج تجريبي — استبدله</span>
+                        </div>
                         <h4 class="text-base font-bold text-white mt-1" x-text="item.course"></h4>
                         <p class="text-xs text-slate-400" x-text="'الجهة المنظمة: ' + item.provider + ' | عدد الساعات: ' + item.hours + ' ساعة'"></p>
                     </div>
@@ -690,7 +719,7 @@
         <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-6" @click.outside="closeModal('profile')">
             <div class="flex justify-between items-center border-b border-slate-800 pb-4">
                 <h3 class="text-xl font-bold text-white">تعديل كافة بيانات المعلم الأساسية والمهنية</h3>
-                <button @click="closeModal('profile')" class="text-slate-400 hover:text-white p-2">
+                <button @click="cancelProfileEdit()" class="text-slate-400 hover:text-white p-2">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
@@ -699,69 +728,69 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">اسم المعلم / المعلمة</label>
-                        <input type="text" x-model="teacher.name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <input type="text" x-model="profileDraft.name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
                     </div>
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">المادة الدراسية</label>
-                        <input type="text" x-model="teacher.subject" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <input type="text" x-model="profileDraft.subject" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">اسم المدرسة</label>
-                        <input type="text" x-model="teacher.school" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <input type="text" x-model="profileDraft.school" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
                     </div>
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">المرحلة والصفوف</label>
-                        <input type="text" x-model="teacher.stage" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <input type="text" x-model="profileDraft.stage" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">الرتبة المهنية</label>
-                        <input type="text" x-model="teacher.rank" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <input type="text" x-model="profileDraft.rank" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
                     </div>
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">السجل / الرقم الوظيفي</label>
-                        <input type="text" x-model="teacher.empId" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <input type="text" x-model="profileDraft.empId" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
                     </div>
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">عدد الحصص الأسبوعية</label>
-                        <input type="number" x-model="teacher.weeklyClasses" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <input type="number" x-model="profileDraft.weeklyClasses" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">إدارة التعليم</label>
-                        <input type="text" x-model="teacher.eduDept" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <input type="text" x-model="profileDraft.eduDept" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
                     </div>
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">العام الدراسي</label>
-                        <input type="text" x-model="teacher.academicYear" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
+                        <input type="text" x-model="profileDraft.academicYear" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-slate-400 mb-1 font-medium">الفلسفة التربوية</label>
-                    <textarea x-model="teacher.philosophy" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
+                    <textarea x-model="profileDraft.philosophy" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">الرؤية التعليمية</label>
-                        <textarea x-model="teacher.vision" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
+                        <textarea x-model="profileDraft.vision" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
                     </div>
                     <div>
                         <label class="block text-slate-400 mb-1 font-medium">الرسالة التعليمية</label>
-                        <textarea x-model="teacher.mission" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
+                        <textarea x-model="profileDraft.mission" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
                     </div>
                 </div>
 
                 <div class="pt-4 border-t border-slate-800 flex justify-end gap-3">
-                    <button type="button" @click="closeModal('profile')" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold">إلغاء</button>
+                    <button type="button" @click="cancelProfileEdit()" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold">إلغاء</button>
                     <button type="submit" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold">حفظ التغييرات</button>
                 </div>
             </form>
@@ -770,42 +799,33 @@
 
     <!-- MODAL: Edit Analytics Modal -->
     <div x-show="modals.analyticsModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6" @click.outside="closeModal('analyticsModal')">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6" @click.outside="cancelAnalyticsEdit()">
             <div class="flex justify-between items-center border-b border-slate-800 pb-4">
-                <h3 class="text-lg font-bold text-white">تعديل نتائج وتحليل الطلاب</h3>
-                <button @click="closeModal('analyticsModal')" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark"></i></button>
+                <div><h3 class="text-lg font-bold text-white">تعديل نتائج الطلاب</h3><p class="text-[11px] text-slate-500 mt-1">لن تظهر للمدير حتى تفعل خيار الاعتماد.</p></div>
+                <button @click="cancelAnalyticsEdit()" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <form @submit.prevent="saveAnalytics()" class="space-y-4 text-xs">
+                <label class="flex items-center justify-between gap-4 bg-slate-950 border border-slate-800 rounded-xl p-3">
+                    <span><strong class="text-white">اعتماد وإظهار القسم للمدير</strong><span class="block text-slate-500 mt-1">فعّله فقط بعد إدخال الأرقام الفعلية.</span></span>
+                    <input type="checkbox" x-model="analyticsDraft.enabled" class="w-5 h-5">
+                </label>
                 <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-slate-400 mb-1">نسبة النجاح (%)</label>
-                        <input type="number" step="0.1" x-model="analytics.passRate" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white">
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">نسبة التفوق (%)</label>
-                        <input type="number" step="0.1" x-model="analytics.excellentRate" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white">
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">عدد المستفيدين من الخطة العلاجية</label>
-                        <input type="number" x-model="analytics.remedialStudents" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white">
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">عدد الطلاب الموهوبين</label>
-                        <input type="number" x-model="analytics.giftedStudents" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white">
-                    </div>
+                    <div><label class="block text-slate-400 mb-1">نسبة النجاح (%)</label><input type="number" min="0" max="100" step="0.1" x-model="analyticsDraft.passRate" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div>
+                    <div><label class="block text-slate-400 mb-1">نسبة التفوق (%)</label><input type="number" min="0" max="100" step="0.1" x-model="analyticsDraft.excellentRate" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div>
+                    <div><label class="block text-slate-400 mb-1">قبل المعالجة (%)</label><input type="number" min="0" max="100" step="0.1" x-model="analyticsDraft.beforeRate" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div>
+                    <div><label class="block text-slate-400 mb-1">بعد المعالجة (%)</label><input type="number" min="0" max="100" step="0.1" x-model="analyticsDraft.afterRate" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div>
+                    <div><label class="block text-slate-400 mb-1">طلاب الخطة العلاجية</label><input type="number" min="0" x-model="analyticsDraft.remedialStudents" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div>
+                    <div><label class="block text-slate-400 mb-1">الإثراء / الموهوبون</label><input type="number" min="0" x-model="analyticsDraft.giftedStudents" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">ملخص الخطة العلاجية والإثرائية</label>
-                    <textarea x-model="analytics.summaryText" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></textarea>
-                </div>
+                <div><label class="block text-slate-400 mb-1">مصدر البيانات</label><input type="text" x-model="analyticsDraft.sourceNote" placeholder="مثال: نتائج الاختبار الفتري الأول" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div>
+                <div><label class="block text-slate-400 mb-1">ملخص الخطة العلاجية والإثرائية</label><textarea x-model="analyticsDraft.summaryText" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></textarea></div>
                 <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
-                    <button type="button" @click="closeModal('analyticsModal')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300">إلغاء</button>
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-teal-600 text-white font-bold">حفظ</button>
+                    <button type="button" @click="cancelAnalyticsEdit()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300">إلغاء</button>
+                    <button type="submit" :disabled="saving" class="px-4 py-2 rounded-xl bg-teal-600 disabled:opacity-50 text-white font-bold">حفظ واعتماد</button>
                 </div>
             </form>
         </div>
     </div>
-
 
     <!-- MODAL: Edit Schedule -->
     <div x-show="modals.scheduleModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
@@ -825,8 +845,14 @@
                             <template x-for="(period, pIndex) in day.periods" :key="pIndex">
                                 <div class="rounded-xl bg-slate-900 border border-slate-800 p-3 space-y-2">
                                     <div class="text-[11px] font-bold text-slate-400" x-text="'الحصة ' + (pIndex + 1)"></div>
-                                    <input type="text" x-model="period.class" placeholder="الصف / الفصل" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
-                                    <input type="text" x-model="period.subject" placeholder="المادة" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                                    <select x-model="period.type" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                                        <option value="empty">فارغة</option>
+                                        <option value="class">حصة تدريس</option>
+                                        <option value="wait">انتظار</option>
+                                        <option value="activity">نشاط</option>
+                                    </select>
+                                    <input x-show="period.type !== 'empty'" type="text" x-model="period.class" :placeholder="period.type === 'class' ? 'الصف / الفصل' : 'المسمى (مثال: انتظار1 / نشاط ج)'" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                                    <input x-show="period.type === 'class'" type="text" x-model="period.subject" placeholder="المادة" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
                                 </div>
                             </template>
                         </div>
@@ -845,46 +871,25 @@
 
     <!-- MODAL: Add/Edit Achievement -->
     <div x-show="modals.achievement" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-5" @click.outside="closeModal('achievement')">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-5" @click.outside="cancelAchievementEdit()">
             <div class="flex justify-between items-center border-b border-slate-800 pb-4">
                 <h3 class="text-xl font-black text-white" x-text="formAchievement.id ? 'تعديل الشاهد' : 'إضافة شاهد جديد'"></h3>
-                <button @click="closeModal('achievement')" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark"></i></button>
+                <button @click="cancelAchievementEdit()" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div class="sm:col-span-2">
-                    <label class="block text-xs text-slate-400 mb-1">عنوان الشاهد</label>
-                    <input type="text" x-model="formAchievement.title" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">المحور</label>
-                    <select x-model="formAchievement.category" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
-                        <template x-for="cat in categories" :key="cat.id"><option :value="cat.id" x-text="cat.name"></option></template>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">الجهة / المدرسة</label>
-                    <input type="text" x-model="formAchievement.organization" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">التاريخ أو الفصل</label>
-                    <input type="text" x-model="formAchievement.date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white">
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">صورة الشاهد</label>
-                    <input type="file" accept="image/*" @change="handleItemImageUpload($event)" class="w-full text-xs text-slate-300">
-                </div>
-                <div class="sm:col-span-2">
-                    <label class="block text-xs text-slate-400 mb-1">الملخص</label>
-                    <textarea x-model="formAchievement.summary" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
-                </div>
-                <div class="sm:col-span-2">
-                    <label class="block text-xs text-slate-400 mb-1">التفاصيل والأثر</label>
-                    <textarea x-model="formAchievement.details" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea>
-                </div>
+                <div class="sm:col-span-2"><label class="block text-xs text-slate-400 mb-1">عنوان الشاهد</label><input type="text" x-model="formAchievement.title" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></div>
+                <div><label class="block text-xs text-slate-400 mb-1">المحور</label><select x-model="formAchievement.category" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"><template x-for="cat in categories" :key="cat.id"><option :value="cat.id" x-text="cat.name"></option></template></select></div>
+                <div><label class="block text-xs text-slate-400 mb-1">الجهة / المدرسة</label><input type="text" x-model="formAchievement.organization" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></div>
+                <div><label class="block text-xs text-slate-400 mb-1">التاريخ أو الفصل</label><input type="text" x-model="formAchievement.date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></div>
+                <div><label class="block text-xs text-slate-400 mb-1">ملف الشاهد</label><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" @change="handleEvidenceFile($event)" class="w-full text-xs text-slate-300"><p class="text-[10px] text-slate-500 mt-1">صورة أو PDF — حتى 8 ميجابايت.</p></div>
+                <div class="sm:col-span-2"><label class="block text-xs text-slate-400 mb-1">رابط خارجي اختياري (فيديو / مستند / موقع)</label><input type="url" x-model="formAchievement.externalUrl" placeholder="https://..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></div>
+                <div class="sm:col-span-2"><label class="block text-xs text-slate-400 mb-1">الملخص</label><textarea x-model="formAchievement.summary" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea></div>
+                <div class="sm:col-span-2"><label class="block text-xs text-slate-400 mb-1">التفاصيل والأثر</label><textarea x-model="formAchievement.details" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white"></textarea></div>
+                <div x-show="formAchievement.fileName" class="sm:col-span-2 text-xs text-teal-300 bg-teal-500/10 border border-teal-500/20 rounded-xl p-3"><i class="fa-solid fa-paperclip ml-2"></i><span x-text="formAchievement.fileName"></span></div>
             </div>
             <div class="flex justify-end gap-3 border-t border-slate-800 pt-4">
-                <button @click="closeModal('achievement')" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold">إلغاء</button>
-                <button @click="saveAchievement()" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold">حفظ ونشر الشاهد</button>
+                <button @click="cancelAchievementEdit()" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold">إلغاء</button>
+                <button @click="saveAchievement()" :disabled="saving" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold"><span x-show="!saving">حفظ ونشر الشاهد</span><span x-show="saving">جارٍ الرفع والحفظ...</span></button>
             </div>
         </div>
     </div>
