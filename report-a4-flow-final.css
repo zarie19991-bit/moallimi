@@ -172,4 +172,25 @@
     padding-top: 0 !important;
     top: auto !important;
   }
+
+  /* Final requested section boundaries: general plan, then student-name pages. */
+  html body #printRoot > .weekly-report.report-sheet.wr-week-plan-sheet,
+  html body #printRoot > .weekly-report.report-sheet.wr-student-list-sheet{
+    break-before:page!important;
+    page-break-before:always!important;
+  }
+  html body #printRoot .wr-week-plan{
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+    overflow:visible!important;
+  }
+  html body #printRoot .wr-week-plan thead,
+  html body #printRoot .wr-low-list-table thead{
+    display:table-header-group!important;
+  }
+  html body #printRoot .wr-week-plan tr,
+  html body #printRoot .wr-low-list-table tr{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
 }
