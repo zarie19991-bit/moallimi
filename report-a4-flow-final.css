@@ -121,6 +121,23 @@
   html body #printRoot > :is(.nafes-absence-sheet,.weekly-report.report-sheet.nafes-absence-sheet) {
     margin-top: 4mm !important;
   }
+  /* report-absentees.css has a higher-specificity legacy selector for weekly
+     absence chunks. Override it explicitly so those chunks can share A4 space. */
+  html body #printRoot > .weekly-report.report-sheet.nafes-absence-sheet {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    overflow: visible !important;
+  }
   html body #printRoot > :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet):first-child {
     margin-top: 0 !important;
     padding-top: 0 !important;
