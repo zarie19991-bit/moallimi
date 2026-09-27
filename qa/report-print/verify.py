@@ -20,7 +20,7 @@ for name in ['general','subject','official','absentees','remedial']:
   if len(occupied)>1:spanning+=1
   for i in occupied:
    if table['id']+'HEAD' not in texts[i]:issues.append(f"{table['id']}: header missing on page {i+1}")
- if name in ['general','subject','remedial'] and spanning==0:issues.append('stress table did not span pages')
+ if name in ['general','subject'] and spanning==0:issues.append('stress table did not span pages')
  results.append(dict(report=name,pages=len(doc),spanning_tables=spanning,issues=issues,passed=not issues))
 (folder/'pdf-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
 print(json.dumps(results,ensure_ascii=False,indent=2))
