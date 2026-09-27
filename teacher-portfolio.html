@@ -285,7 +285,7 @@
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs text-slate-300 pt-2">
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">المدرسة:</span><span class="font-bold text-slate-200" x-text="teacher.school"></span></div>
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">المرحلة والصفوف:</span><span class="font-bold text-slate-200" x-text="teacher.stage"></span></div>
-                        <div x-show="adminUnlocked" class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">السجل / الرقم الوظيفي:</span><span class="font-bold text-slate-200" x-text="teacher.empId"></span></div>
+                        <div x-show="adminUnlocked" class="no-print bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">السجل / الرقم الوظيفي:</span><span class="font-bold text-slate-200" x-text="teacher.empId"></span></div>
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">عدد الحصص الأسبوعية:</span><span class="font-bold text-slate-200" x-text="teacher.weeklyClasses + ' حصة'"></span></div>
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">إدارة التعليم:</span><span class="font-bold text-slate-200" x-text="teacher.eduDept"></span></div>
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">العام الدراسي:</span><span class="font-bold text-teal-400" x-text="teacher.academicYear"></span></div>
@@ -517,7 +517,7 @@
         </section>
 
         <!-- SECTION 6: STUDENT PERFORMANCE & LEARNING ANALYTICS -->
-        <section id="analytics" x-show="analytics.enabled || editMode" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
+        <section id="analytics" x-show="analytics.enabled || (editMode && !printMode)" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
             <div class="flex items-center justify-between gap-4 border-b border-slate-800 pb-4">
                 <div>
                     <h3 class="text-2xl font-black text-white flex items-center gap-3">
@@ -949,6 +949,7 @@
                 shareUrl: '',
                 securityError: '',
                 saving: false,
+                printMode: false,
                 lastSavedAt: '',
                 securityMeta: { viewer_expires_at:null, lastViewer:null, lastSave:null },
                 sidebarOpen: false,
@@ -1264,7 +1265,13 @@
                 openIndex(){ this.showIndexModal=true; },
                 closeIndex(){ this.showIndexModal=false; },
                 handleAdminButton(){ if(this.adminUnlocked){ this.editMode=!this.editMode; } else { this.unlockAdmin(); } },
-                printPage(){ window.print(); },
+                printPage(){
+                    this.printMode=true;
+                    this.$nextTick(()=>{
+                        window.print();
+                        setTimeout(()=>{this.printMode=false;},600);
+                    });
+                },
                 periodClass(period){ return period && period.class ? period.class : ''; },
                 periodSubject(period){ return period && period.subject ? period.subject : ''; },
                 selectCategory(id){ this.selectedCategory=id; },
@@ -1324,8 +1331,8 @@
                     return 'bg-teal-950/40 border-teal-500/30 text-teal-300';
                 },
 
-                get visibleAchievements(){return this.adminUnlocked?this.achievements:this.achievements.filter(x=>!x.isSample);},
-                get visibleTrainingHistory(){return this.adminUnlocked?this.trainingHistory:this.trainingHistory.filter(x=>!x.isSample);},
+                get visibleAchievements(){return (this.adminUnlocked && !this.printMode)?this.achievements:this.achievements.filter(x=>!x.isSample);},
+                get visibleTrainingHistory(){return (this.adminUnlocked && !this.printMode)?this.trainingHistory:this.trainingHistory.filter(x=>!x.isSample);},
                 get filteredAchievements(){return this.selectedCategory==='all'?this.visibleAchievements:this.visibleAchievements.filter(a=>a.category===this.selectedCategory);},
                 getCategoryCount(id){return this.visibleAchievements.filter(a=>a.category===id).length;},
                 getCategoryName(id){const c=this.categories.find(x=>x.id===id);return c?c.name:'محور عام';},
