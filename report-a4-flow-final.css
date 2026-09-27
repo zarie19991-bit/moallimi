@@ -64,11 +64,8 @@
     max-height: none !important;
     overflow: visible !important;
   }
-  /* Long columns fragment more reliably in normal block flow than CSS grid. */
-  html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet)
-  :is(.sar-analysis-grid,.wr-two,.wr-triple,.wr-indicator-grid) {
-    display: block !important;
-  }
+  /* Preserve the report's existing multi-column/grid composition. Only the
+     page-break rules are changed; print should remain visually close to preview. */
   html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet)
   :is(.sar-stats,.sar-achievement,.wr-callout,.wr-indicator-card) {
     margin-bottom: 3mm !important;
@@ -89,7 +86,8 @@
   html body #printRoot tfoot { display: table-footer-group !important; }
   html body #printRoot tr,
   html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)
-  :is(.wr-kpis>article,.wr-performance-card,.wr-report-meta>div,.na-counts>div,
+  :is(.wr-kpis>article,.wr-performance-card,.wr-indicator-card,.wr-callout,
+      .wr-report-meta>div,.na-counts>div,.sar-chart-card,.sar-ring,.sar-bar-item,
       .sar-rings,.sar-bars,.wr-signatures,.sar-signatures,.na-footer) {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
