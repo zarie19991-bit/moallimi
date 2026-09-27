@@ -81,9 +81,10 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
     tables.push({id,rows});
    });
    const sheets=[...root.children].map(e=>{const c=getComputedStyle(e);return{zoom:c.zoom,breakAfter:c.breakAfter,minHeight:c.minHeight,maxHeight:c.maxHeight,width:c.width};});
-   const big=[...root.querySelectorAll('.sar-analysis-grid,.sar-chart-card,.sar-stats,.sar-achievement,.wr-focus,.wr-performance,.wr-remedial,table,tbody')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
+   const big=[...root.querySelectorAll('.sar-analysis-grid,.sar-stats,.sar-achievement,.wr-focus,.wr-performance,.wr-remedial,table,tbody')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
+   const small=[...root.querySelectorAll('.sar-chart-card,.wr-indicator-card,.wr-callout')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
    const fonts=[...root.querySelectorAll('td,th')].map(e=>getComputedStyle(e).fontSize);
-   return{tables,sheets,big,fonts,readabilityMedia:document.querySelector('link[href*="report-readability.css"]').media,scaleGuard:!!document.querySelector('#analysisPrintScaleTune')};
+   return{tables,sheets,big,small,fonts,readabilityMedia:document.querySelector('link[href*="report-readability.css"]').media,scaleGuard:!!document.querySelector('#analysisPrintScaleTune')};
   });
   await fs.writeFile(path.join(out,`${name}.json`),JSON.stringify(info,null,2));
   await page.pdf({path:path.join(out,`${name}.pdf`),preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
@@ -91,6 +92,7 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
    assert(!info.scaleGuard,'runtime 80% scaling returned');assert.notEqual(info.readabilityMedia,'screen');
    assert(info.sheets.every(s=>Number(s.zoom)===1&&s.breakAfter==='auto'&&s.minHeight==='0px'&&s.maxHeight==='none'),JSON.stringify(info.sheets));
    assert(info.big.every(s=>s.inside==='auto'),JSON.stringify(info.big.filter(s=>s.inside!=='auto')));
+   assert(info.small.every(s=>['avoid','avoid-page'].includes(s.inside)),JSON.stringify(info.small.filter(s=>!['avoid','avoid-page'].includes(s.inside))));
    assert(info.fonts.every(s=>parseFloat(s)>=16),`Small table font: ${Math.min(...info.fonts.map(parseFloat))}`);
    assert(!errors.length,errors.join('\n'));
   }
