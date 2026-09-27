@@ -92,7 +92,14 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
     const hasMoreNote=!!root.querySelector('.wr-more-note');
     const absenceRows=[...root.querySelectorAll('.nafes-absence-sheet .na-table tbody')].map(x=>x.children.length);
     const reportDate=String(root.querySelector('.wr-report-meta>div:nth-child(2) b')?.textContent||'').trim();
-    return{tables,sheets,big,small,fonts,supportRows,remedialRows,hasMoreNote,absenceRows,reportDate,readabilityMedia:document.querySelector('link[href*="report-readability.css"]').media,scaleGuard:!!document.querySelector('#analysisPrintScaleTune')};
+    const topbar=root.querySelector('.wr-topbar'),title=root.querySelector('.wr-title-pill');
+    const stylesheets=[...document.styleSheets].map(s=>s.href||'inline');
+    return{tables,sheets,big,small,fonts,supportRows,remedialRows,hasMoreNote,absenceRows,reportDate,
+      topbarBg:topbar?getComputedStyle(topbar).backgroundImage:'',
+      titleBg:title?getComputedStyle(title).backgroundImage:'',
+      stylesheets,
+      readabilityMedia:document.querySelector('link[href*="report-readability.css"]').media,
+      scaleGuard:!!document.querySelector('#analysisPrintScaleTune')};
   });
   await fs.writeFile(path.join(out,`${name}.json`),JSON.stringify(info,null,2));
   await page.pdf({path:path.join(out,`${name}.pdf`),preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
