@@ -111,6 +111,21 @@
     padding-top: 0 !important;
     margin-top: 4mm !important;
   }
+  html body #printRoot .manual-print-date-line {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 2mm !important;
+    margin: 2mm 0 3mm !important;
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  html body #printRoot .manual-print-date-line > * {
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+  }
   html body #printRoot .wr-footer-curve,
   html body #printRoot .official-analysis-sheet::after {
     display: none !important;
