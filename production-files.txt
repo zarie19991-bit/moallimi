@@ -102,6 +102,7 @@ analysis-section-router.js
 analysis-print.js
 report-test-options.js
 report-remedial-plan.js
+report-dynamic-remedial.js
 subject-teacher-names.js
 manual-print-date.js
 report-stitch-exact.js
