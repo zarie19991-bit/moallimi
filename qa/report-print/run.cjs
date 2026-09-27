@@ -42,6 +42,17 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
   });
   await page.goto(`${site}analysis.html#key=${'a'.repeat(64)}`,{waitUntil:'domcontentloaded'});
   await page.waitForSelector('#dashboard:not([hidden])');
+  // Baseline main still requires the legacy manual date field before print.
+  // Populate it when present so the baseline can reach window.print().
+  await page.evaluate(()=>{
+   const input=document.querySelector('#manualPrintDate');
+   if(input){
+    const d=new Date(),pad=n=>String(n).padStart(2,'0');
+    input.value=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+   }
+  });
   if(name==='official'){
    await page.waitForFunction(()=>document.querySelector('#analysisReadingTest')?.value==='reading');
    await page.click('#printOverviewAnalysisBtn');
