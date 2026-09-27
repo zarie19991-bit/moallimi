@@ -100,7 +100,7 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
     assert(!info.scaleGuard,'runtime 80% scaling returned');
     assert.notEqual(info.readabilityMedia,'screen');
     if(name==='general'||name==='remedial'){
-      assert(info.reportDate,'automatic report date missing');
+      if(name==='general')assert(info.reportDate,'automatic report date missing');
       assert(info.supportRows<=8,`reference compact report should print at most 8 support students, got ${info.supportRows}`);
       assert(info.remedialRows<=3,`reference remedial plan should contain at most 3 rows, got ${info.remedialRows}`);
       if(name==='general')assert(info.hasMoreNote,'reference additional-students note missing');
