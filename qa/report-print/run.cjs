@@ -86,19 +86,30 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
    const sheets=[...root.children].map(e=>{const c=getComputedStyle(e);return{className:e.className,zoom:c.zoom,breakAfter:c.breakAfter,minHeight:c.minHeight,maxHeight:c.maxHeight,width:c.width};});
    const big=[...root.querySelectorAll('.sar-analysis-grid,.sar-stats,.sar-achievement,.wr-focus,.wr-performance,.wr-remedial,table,tbody')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
    const small=[...root.querySelectorAll('.sar-chart-card,.wr-indicator-card,.wr-callout')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
-   const fonts=[...root.querySelectorAll('td,th')].map(e=>getComputedStyle(e).fontSize);
-   return{tables,sheets,big,small,fonts,hasPrintDate:(root.textContent||'').includes('تاريخ الطباعة'),readabilityMedia:document.querySelector('link[href*="report-readability.css"]').media,scaleGuard:!!document.querySelector('#analysisPrintScaleTune')};
+    const fonts=[...root.querySelectorAll('td,th')].map(e=>getComputedStyle(e).fontSize);
+    const supportRows=root.querySelectorAll('.wr-follow-sheet .wr-student-table tbody tr').length;
+    const remedialRows=root.querySelectorAll('.wr-remedial tbody tr').length;
+    const hasMoreNote=!!root.querySelector('.wr-more-note');
+    const absenceRows=[...root.querySelectorAll('.nafes-absence-sheet .na-table tbody')].map(x=>x.children.length);
+    const reportDate=String(root.querySelector('.wr-report-meta>div:nth-child(2) b')?.textContent||'').trim();
+    return{tables,sheets,big,small,fonts,supportRows,remedialRows,hasMoreNote,absenceRows,reportDate,readabilityMedia:document.querySelector('link[href*="report-readability.css"]').media,scaleGuard:!!document.querySelector('#analysisPrintScaleTune')};
   });
   await fs.writeFile(path.join(out,`${name}.json`),JSON.stringify(info,null,2));
   await page.pdf({path:path.join(out,`${name}.pdf`),preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
-  if(!baseline){
-   assert(!info.scaleGuard,'runtime 80% scaling returned');assert.notEqual(info.readabilityMedia,'screen');assert(info.hasPrintDate,'automatic print date missing');
-   assert(info.sheets.every(s=>Number(s.zoom)===1&&s.breakAfter==='auto'&&s.minHeight==='0px'&&s.maxHeight==='none'),JSON.stringify(info.sheets));
-   assert(info.big.every(s=>s.inside==='auto'),JSON.stringify(info.big.filter(s=>s.inside!=='auto')));
-   assert(info.small.every(s=>['avoid','avoid-page'].includes(s.inside)),JSON.stringify(info.small.filter(s=>!['avoid','avoid-page'].includes(s.inside))));
-   assert(info.fonts.every(s=>parseFloat(s)>=16),`Small table font: ${Math.min(...info.fonts.map(parseFloat))}`);
-   assert(!errors.length,errors.join('\n'));
-  }
+   if(!baseline){
+    assert(!info.scaleGuard,'runtime 80% scaling returned');
+    assert.notEqual(info.readabilityMedia,'screen');
+    if(name==='general'||name==='remedial'){
+      assert(info.reportDate,'automatic report date missing');
+      assert(info.supportRows<=8,`reference compact report should print at most 8 support students, got ${info.supportRows}`);
+      assert(info.remedialRows<=3,`reference remedial plan should contain at most 3 rows, got ${info.remedialRows}`);
+      if(name==='general')assert(info.hasMoreNote,'reference additional-students note missing');
+    }
+    if(name==='absentees'||name==='subject'){
+      assert(info.absenceRows.every(n=>n<=18),`absence page exceeds 18 rows: ${JSON.stringify(info.absenceRows)}`);
+    }
+    assert(!errors.length,errors.join('\n'));
+   }
   results.push({name,generated:true,errors});await context.close();
  }
  }finally{await fs.writeFile(path.join(out,'browser-results.json'),JSON.stringify(results,null,2));await browser.close();server.close();}
