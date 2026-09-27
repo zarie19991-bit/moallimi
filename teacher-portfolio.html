@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https://images.unsplash.com https://api.qrserver.com; connect-src https://udznpifopbnrcgxtpzza.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
     <title>ملف الإنجاز الرقمي للمعلم / المعلمة</title>
     
     <!-- Tailwind CSS CDN -->
@@ -63,6 +67,32 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-teal-500 selection:text-white" 
       x-data="teacherPortfolioApp()" x-init="initApp()">
 
+    <!-- Secure access gates -->
+    <div x-show="isAdminRoute && !adminUnlocked" x-cloak class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-7 shadow-2xl space-y-5">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 text-amber-300 flex items-center justify-center text-2xl"><i class="fa-solid fa-shield-halved"></i></div>
+                <h2 class="text-xl font-black text-white">دخول المعلم الآمن</h2>
+                <p class="text-xs text-slate-400">مفتاح التعديل لا يُحفظ في قاعدة البيانات بصورته الأصلية، ويُحتفظ به في جلسة المتصفح فقط.</p>
+            </div>
+            <input type="password" x-model="adminLoginInput" @keydown.enter="unlockAdmin()" autocomplete="current-password"
+                   placeholder="مفتاح التعديل" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white text-center">
+            <button @click="unlockAdmin()" class="w-full bg-teal-600 hover:bg-teal-500 text-white font-black py-3 rounded-xl transition">
+                دخول إلى وضع الإدارة
+            </button>
+            <p x-show="securityError" x-text="securityError" class="text-xs text-rose-300 text-center"></p>
+        </div>
+    </div>
+
+    <div x-show="!isAdminRoute && !accessReady" x-cloak class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-7 shadow-2xl text-center space-y-4">
+            <div class="w-14 h-14 mx-auto rounded-2xl bg-teal-500/10 text-teal-300 flex items-center justify-center text-2xl"><i class="fa-solid fa-lock"></i></div>
+            <h2 class="text-xl font-black text-white">ملف إنجاز محمي</h2>
+            <p class="text-sm text-slate-400">يحتاج هذا الملف إلى رابط مشاركة صالح صادر من المعلم.</p>
+            <p x-show="securityError" x-text="securityError" class="text-xs text-rose-300"></p>
+        </div>
+    </div>
+
     <!-- Notification Toast -->
     <div class="fixed bottom-6 left-6 z-50 transition-all duration-300 transform no-print"
          x-show="toast.show" 
@@ -89,7 +119,7 @@
     </div>
 
     <!-- Navigation Header -->
-    <header class="sticky top-0 z-40 backdrop-blur-md bg-slate-950/90 border-b border-slate-800/80 no-print">
+    <header x-show="accessReady" x-cloak class="sticky top-0 z-40 backdrop-blur-md bg-slate-950/90 border-b border-slate-800/80 no-print">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             
             <!-- Logo & Teacher Quick Info -->
@@ -121,14 +151,24 @@
                     <i class="fa-solid" :class="adminUnlocked ? 'fa-pen-to-square' : 'fa-lock'"></i>
                     <span x-text="adminUnlocked ? (editMode ? 'إنهاء التعديل' : 'تعديل الملف') : 'دخول المعلم'"></span>
                 </button>
+                <button x-show="adminUnlocked" @click="lockAdmin()" class="px-3 py-2 rounded-xl text-xs font-bold bg-rose-500/10 text-rose-300 border border-rose-500/30">
+                    <i class="fa-solid fa-lock"></i>
+                    <span class="hidden sm:inline">قفل الإدارة</span>
+                </button>
 
                 <!-- Backup -->
                 <button x-show="adminUnlocked" @click="exportBackup()" title="تحميل نسخة احتياطية" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
                     <i class="fa-solid fa-database"></i>
                 </button>
+                <button x-show="adminUnlocked" @click="changeAdminKey()" title="تغيير مفتاح التعديل" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                    <i class="fa-solid fa-key"></i>
+                </button>
+                <button x-show="adminUnlocked" @click="rotateViewerLink()" title="إلغاء رابط المدير القديم وإنشاء رابط جديد" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
 
                 <!-- QR Code Button -->
-                <button @click="openModal('qrModal')" title="إنشاء باركود QR للمدير" class="px-3 py-2 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 transition flex items-center gap-2 text-xs font-bold">
+                <button x-show="adminUnlocked" @click="openModal('qrModal')" title="إنشاء باركود QR للمدير" class="px-3 py-2 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 transition flex items-center gap-2 text-xs font-bold">
                     <i class="fa-solid fa-qrcode text-base"></i>
                     <span class="hidden sm:inline">باركود المشاركة</span>
                 </button>
@@ -181,7 +221,7 @@
         </div>
     </div>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+    <main x-show="accessReady" x-cloak class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
 
         <!-- SECTION 1: OFFICIAL COVER & TEACHER PROFILE CARD -->
         <section id="profile" class="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950/40 p-6 sm:p-10 border border-slate-800/90 shadow-2xl overflow-hidden print-card">
@@ -228,7 +268,7 @@
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs text-slate-300 pt-2">
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">المدرسة:</span><span class="font-bold text-slate-200" x-text="teacher.school"></span></div>
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">المرحلة والصفوف:</span><span class="font-bold text-slate-200" x-text="teacher.stage"></span></div>
-                        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">السجل / الرقم الوظيفي:</span><span class="font-bold text-slate-200" x-text="teacher.empId"></span></div>
+                        <div x-show="adminUnlocked" class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">السجل / الرقم الوظيفي:</span><span class="font-bold text-slate-200" x-text="teacher.empId"></span></div>
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">عدد الحصص الأسبوعية:</span><span class="font-bold text-slate-200" x-text="teacher.weeklyClasses + ' حصة'"></span></div>
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">إدارة التعليم:</span><span class="font-bold text-slate-200" x-text="teacher.eduDept"></span></div>
                         <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800"><span class="text-slate-500 block">العام الدراسي:</span><span class="font-bold text-teal-400" x-text="teacher.academicYear"></span></div>
@@ -874,34 +914,28 @@
 
     <!-- Alpine.js Application Logic -->
     <script>
-        const PORTFOLIO_SUPABASE_URL = 'https://udznpifopbnrcgxtpzza.supabase.co';
-        const PORTFOLIO_PUBLISHABLE_KEY = 'sb_publishable_UIuOZaeLk3oz25yf1kd-PA_OF8vEu8N';
-        const PORTFOLIO_ADMIN_API = PORTFOLIO_SUPABASE_URL + '/functions/v1/teacher-portfolio-admin';
+        const PORTFOLIO_API = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/teacher-portfolio-admin';
 
         function teacherPortfolioApp() {
-            const publicUrl = new URL(window.location.href);
-            publicUrl.search = '';
-            publicUrl.hash = '';
-
             return {
+                accessReady: false,
                 editMode: false,
                 isAdminRoute: new URLSearchParams(window.location.search).get('edit') === '1',
                 adminUnlocked: false,
+                adminLoginInput: '',
                 adminKey: '',
+                viewerToken: '',
+                shareUrl: '',
+                securityError: '',
                 saving: false,
                 sidebarOpen: false,
                 showIndexModal: false,
                 selectedCategory: 'all',
-                toast: { show: false, message: '', type: 'success' },
+                toast: { show:false, message:'', type:'success' },
                 activeItem: {},
-                portfolioUrl: publicUrl.toString(),
                 scheduleDraft: [],
                 trainingDraft: [],
                 modals: { detail:false, achievement:false, profile:false, qrModal:false, scheduleModal:false, analyticsModal:false, trainingModal:false },
-
-                get isLocalFile() {
-                    return window.location.protocol === 'file:' || window.location.hostname === 'localhost';
-                },
 
                 tableOfContents: [
                     { title:'1. البيانات الشخصية والوظيفية', desc:'الرتبة المهنية، الرقم الوظيفي، وتفاصيل المدرسة', link:'#profile', icon:'fa-solid fa-id-card' },
@@ -911,306 +945,300 @@
                     { title:'5. شواهد الإنجاز والمعايير', desc:'التحضير، التطوير المهني، أوراق العمل والتكريم', link:'#domains', icon:'fa-solid fa-folder-open' },
                     { title:'6. تحليل نتائج الطلاب ونواتج التعلم', desc:'نسب النجاح، الخطط العلاجية والإثرائية', link:'#analytics', icon:'fa-solid fa-chart-line' }
                 ],
-
                 categories: [
-                    { id:'plan', name:'التخطيط وإعداد الدروس', icon:'fa-solid fa-book-bookmark' },
-                    { id:'dev', name:'التطوير المهني والشهادات', icon:'fa-solid fa-certificate' },
-                    { id:'worksheet', name:'أوراق العمل والإنتاج', icon:'fa-solid fa-file-pen' },
-                    { id:'thank', name:'الشكر والتكريم الرسمي', icon:'fa-solid fa-award' },
-                    { id:'activity', name:'الأنشطة والفعاليات المدرسية', icon:'fa-solid fa-people-group' },
-                    { id:'result', name:'تحليل نتائج ونواتج التعلم', icon:'fa-solid fa-chart-line' }
+                    {id:'plan',name:'التخطيط وإعداد الدروس',icon:'fa-solid fa-book-bookmark'},
+                    {id:'dev',name:'التطوير المهني والشهادات',icon:'fa-solid fa-certificate'},
+                    {id:'worksheet',name:'أوراق العمل والإنتاج',icon:'fa-solid fa-file-pen'},
+                    {id:'thank',name:'الشكر والتكريم الرسمي',icon:'fa-solid fa-award'},
+                    {id:'activity',name:'الأنشطة والفعاليات المدرسية',icon:'fa-solid fa-people-group'},
+                    {id:'result',name:'تحليل نتائج ونواتج التعلم',icon:'fa-solid fa-chart-line'}
                 ],
 
-                teacher: {
-                    name:'أ. عبد الله علي الغامدي',
-                    subject:'لغتي الخالدة',
-                    school:'مدرسة الأمل المتوسطة',
-                    stage:'المرحلة المتوسطة (صفوف 7-9)',
-                    empId:'10982341',
-                    rank:'معلم متقدم',
-                    eduDept:'إدارة تعليم الرياض',
-                    academicYear:'1447 - 1448 هـ',
-                    weeklyClasses:18,
-                    philosophy:'اللغة العربية كائن حي ينبض بالقيم والهوية الوطنية، والتطوير اللغوي يتحقق بالممارسة التفاعلية والتذوق الأدبي والربط بالتقنية الحديثة.',
-                    vision:'بناء أجيال معتزة بلغتها العربية الخالدة، متمكنة من مهارات التواصل القرائي والكتابي بطرق ابتكارية.',
-                    mission:'تمكين الطلاب من استيعاب قواعد ومفاهيم مادة لغتي الخالدة وتطبيقها بثقة ورقي في الحياة اليومية.',
-                    avatar:'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80'
-                },
-
-                schedule: [
-                    { dayName:'الأحد', periods:[{class:'1/1 متوسط',subject:'لغتي الخالدة'},{class:'1/2 متوسط',subject:'لغتي الخالدة'},null,null,{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null] },
-                    { dayName:'الإثنين', periods:[null,{class:'1/1 متوسط',subject:'لغتي الخالدة'},{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null,{class:'3/1 متوسط',subject:'لغتي الخالدة'},null] },
-                    { dayName:'الثلاثاء', periods:[{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null,{class:'1/2 متوسط',subject:'لغتي الخالدة'},null,null,{class:'3/1 متوسط',subject:'لغتي الخالدة'}] },
-                    { dayName:'الأربعاء', periods:[null,{class:'3/1 متوسط',subject:'لغتي الخالدة'},{class:'1/1 متوسط',subject:'لغتي الخالدة'},null,{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null] },
-                    { dayName:'الخميس', periods:[{class:'1/2 متوسط',subject:'لغتي الخالدة'},null,{class:'2/1 متوسط',subject:'لغتي الخالدة'},null,null,null,null] }
+                // Deliberately blank defaults: real data is never embedded in the public HTML.
+                teacher:{name:'',subject:'',school:'',stage:'',empId:'',rank:'',eduDept:'',academicYear:'',weeklyClasses:0,philosophy:'',vision:'',mission:'',avatar:''},
+                schedule:[
+                    {dayName:'الأحد',periods:[null,null,null,null,null,null,null]},
+                    {dayName:'الإثنين',periods:[null,null,null,null,null,null,null]},
+                    {dayName:'الثلاثاء',periods:[null,null,null,null,null,null,null]},
+                    {dayName:'الأربعاء',periods:[null,null,null,null,null,null,null]},
+                    {dayName:'الخميس',periods:[null,null,null,null,null,null,null]}
                 ],
-
-                analytics: {
-                    passRate:98.2,
-                    excellentRate:45,
-                    remedialStudents:12,
-                    giftedStudents:10,
-                    summaryText:'تم بفضل الله تنفيذ خطة علاجيّة مكثفة لمادة لغتي الخالدة لمهارات الإملاء والقراءة التوضيحية لـ 12 طالباً، وأسفرت عن تحسن ملحوظ بنسبة 20% في الاختبارات الفترية.'
-                },
-
-                trainingHistory: [
-                    { course:'استراتيجيات تدريس مادة لغتي الخالدة الحديثة', provider:'مركز التدريب التربوي', hours:25, date:'صفَر 1447هـ' },
-                    { course:'دمج الذكاء الاصطناعي في تعليم المهارات اللغوية', provider:'إدارة الإشراف التربوي', hours:15, date:'محرم 1447هـ' },
-                    { course:'التقويم المبني على نواتج التعلم والمهارات القرائية', provider:'هيئة تقويم التعليم والتدريب', hours:30, date:'شوال 1446هـ' }
-                ],
-
-                achievements: [
-                    { id:1, title:'خطة التحضير الإلكتروني لمادة لغتي الخالدة', category:'plan', organization:'مدرسة الأمل المتوسطة', date:'الفصل الأول 1447هـ', summary:'تحضير تفاعلي يتضمن خرائط المفاهيم والاستراتيجيات القرائية المتقدمة.', details:'تصميم أنشطة إثرائية وخرائط مفاهيم تدعم التواصل اللغوي والتعبير الكتابي لدى الطلاب.', image:'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&auto=format&fit=crop&q=80' },
-                    { id:2, title:'شهادة اجتياز ورشة الاستراتيجيات اللغوية الحديثة', category:'dev', organization:'مركز التدريب التربوي', date:'صفَر 1447هـ', summary:'دورة تدريبية في تعزيز الفهم القرائي وتحليل النصوص الأدبية.', details:'تنمية مهارات المعلم في استخدام المنصات والتطبيقات لتطوير استيعاب النصوص لدى الطلاب.', image:'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=600&auto=format&fit=crop&q=80' },
-                    { id:3, title:'خطاب شكر لتميّز الأداء وتفعيل المسابقات اللغوية', category:'thank', organization:'إدارة المدرسة ومكتب التعليم', date:'ربيع الأول 1447هـ', summary:'تكريم رسمي للإشراف على مسابقة تحدي القراءة وتفعيل الأنشطة اللغوية.', details:'تقدير رسمي لتفعيل الصالون الأدبي المدرسي ومسابقات الخط والإملاء العربي.', image:'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=600&auto=format&fit=crop&q=80' }
-                ],
-
-                formAchievement: { id:null, title:'', category:'plan', organization:'', date:'', summary:'', details:'', image:'' },
+                analytics:{passRate:0,excellentRate:0,remedialStudents:0,giftedStudents:0,summaryText:''},
+                trainingHistory:[],
+                achievements:[],
+                formAchievement:{id:null,title:'',category:'plan',organization:'',date:'',summary:'',details:'',image:''},
 
                 async initApp() {
-                    this.adminKey = sessionStorage.getItem('teacher_portfolio_admin_key') || '';
-                    if (this.isAdminRoute && this.adminKey) {
-                        const ok = await this.verifyAdminKey(this.adminKey, false);
-                        if (ok) { this.adminUnlocked = true; this.editMode = true; }
+                    try {
+                        if (window.top !== window.self) {
+                            document.documentElement.innerHTML = '';
+                            return;
+                        }
+                    } catch (_) {}
+
+                    if (this.isAdminRoute) {
+                        const saved = sessionStorage.getItem('teacher_portfolio_admin_key') || '';
+                        if (saved && await this.verifyAdminKey(saved,false)) {
+                            this.adminKey=saved;
+                            this.adminUnlocked=true;
+                            this.editMode=true;
+                            await this.loadAdminState();
+                            this.accessReady=true;
+                        }
+                        return;
                     }
-                    await this.loadRemoteState();
+
+                    const u=new URL(window.location.href);
+                    const fromUrl=u.searchParams.get('access') || '';
+                    const savedView=sessionStorage.getItem('teacher_portfolio_view_token') || '';
+                    const token=fromUrl || savedView;
+                    if (!token) {
+                        this.securityError='استخدم الباركود أو رابط المشاركة الصادر من المعلم.';
+                        return;
+                    }
+                    const ok=await this.loadPublicState(token);
+                    if (ok) {
+                        this.viewerToken=token;
+                        sessionStorage.setItem('teacher_portfolio_view_token',token);
+                        if (fromUrl) {
+                            u.searchParams.delete('access');
+                            history.replaceState(null,'',u.pathname + (u.search ? u.search : '') + u.hash);
+                        }
+                        this.accessReady=true;
+                    }
                 },
 
-                async loadRemoteState() {
+                applyState(state, admin=false) {
+                    if (!state || typeof state!=='object') return;
+                    if (state.teacher) this.teacher={...this.teacher,...state.teacher};
+                    if (!admin) this.teacher.empId='';
+                    if (Array.isArray(state.schedule)) this.schedule=state.schedule;
+                    if (state.analytics) this.analytics={...this.analytics,...state.analytics};
+                    if (Array.isArray(state.achievements)) this.achievements=state.achievements;
+                    if (Array.isArray(state.trainingHistory)) this.trainingHistory=state.trainingHistory;
+                },
+
+                async api(action, options={}) {
+                    const headers={'Content-Type':'application/json'};
+                    if (options.adminKey) headers['x-portfolio-key']=options.adminKey;
+                    if (options.viewToken) headers['x-portfolio-view']=options.viewToken;
+                    const response=await fetch(PORTFOLIO_API,{
+                        method:'POST',
+                        headers,
+                        cache:'no-store',
+                        credentials:'omit',
+                        body:JSON.stringify({action,...(options.body||{})})
+                    });
+                    let data={};
+                    try { data=await response.json(); } catch (_) {}
+                    return {response,data};
+                },
+
+                async loadPublicState(token) {
+                    this.securityError='';
                     try {
-                        const response = await fetch(PORTFOLIO_SUPABASE_URL + '/rest/v1/teacher_portfolio_state?id=eq.main&select=state', {
-                            headers: { 'apikey': PORTFOLIO_PUBLISHABLE_KEY }
-                        });
-                        if (!response.ok) throw new Error('load_failed');
-                        const rows = await response.json();
-                        const state = rows && rows[0] && rows[0].state ? rows[0].state : null;
-                        if (state && Object.keys(state).length) {
-                            if (state.teacher) this.teacher = state.teacher;
-                            if (state.schedule) this.schedule = state.schedule;
-                            if (state.analytics) this.analytics = state.analytics;
-                            if (state.achievements) this.achievements = state.achievements;
-                            if (state.trainingHistory) this.trainingHistory = state.trainingHistory;
+                        const {response,data}=await this.api('public-load',{viewToken:token});
+                        if (!response.ok) {
+                            this.securityError=response.status===401 ? 'رابط المشاركة غير صالح أو تم إلغاؤه.' : 'تعذر تحميل الملف حالياً.';
+                            return false;
                         }
-                    } catch (e) {
-                        this.showToast('تعذر تحميل آخر نسخة محفوظة، تم عرض النسخة المدمجة مؤقتاً', 'info');
+                        this.applyState(data.state,false);
+                        return true;
+                    } catch (_) {
+                        this.securityError='تعذر الاتصال بخدمة الملف الآمنة.';
+                        return false;
                     }
+                },
+
+                async verifyAdminKey(key,showErrors=true) {
+                    try {
+                        const {response}=await this.api('verify',{adminKey:key});
+                        if (response.ok) return true;
+                        if (showErrors) this.securityError='مفتاح التعديل غير صحيح.';
+                    } catch (_) {
+                        if (showErrors) this.securityError='تعذر الاتصال بخدمة الحماية.';
+                    }
+                    return false;
+                },
+
+                async loadAdminState() {
+                    const {response,data}=await this.api('admin-load',{adminKey:this.adminKey});
+                    if (!response.ok) throw new Error('admin_load_failed');
+                    this.applyState(data.state,true);
+                },
+
+                async unlockAdmin() {
+                    this.securityError='';
+                    const entered=String(this.adminLoginInput||'').trim();
+                    if (!entered) { this.securityError='أدخل مفتاح التعديل.'; return; }
+                    const ok=await this.verifyAdminKey(entered,true);
+                    if (!ok) return;
+                    this.adminKey=entered;
+                    this.adminLoginInput='';
+                    sessionStorage.setItem('teacher_portfolio_admin_key',entered);
+                    this.adminUnlocked=true;
+                    this.editMode=true;
+                    try {
+                        await this.loadAdminState();
+                        this.accessReady=true;
+                        this.showToast('تم فتح وضع الإدارة الآمن','success');
+                    } catch (_) {
+                        this.lockAdmin(false);
+                        this.securityError='تعذر تحميل البيانات الخاصة.';
+                    }
+                },
+
+                lockAdmin(show=true) {
+                    sessionStorage.removeItem('teacher_portfolio_admin_key');
+                    this.adminKey='';
+                    this.adminUnlocked=false;
+                    this.editMode=false;
+                    this.accessReady=false;
+                    this.shareUrl='';
+                    this.teacher={name:'',subject:'',school:'',stage:'',empId:'',rank:'',eduDept:'',academicYear:'',weeklyClasses:0,philosophy:'',vision:'',mission:'',avatar:''};
+                    this.achievements=[];
+                    this.trainingHistory=[];
+                    if (show) this.securityError='تم قفل وضع الإدارة.';
                 },
 
                 getState() {
                     return {
-                        teacher: this.teacher,
-                        schedule: this.schedule,
-                        analytics: this.analytics,
-                        achievements: this.achievements,
-                        trainingHistory: this.trainingHistory
+                        teacher:this.teacher,
+                        schedule:this.schedule,
+                        analytics:this.analytics,
+                        achievements:this.achievements,
+                        trainingHistory:this.trainingHistory
                     };
                 },
 
-                async verifyAdminKey(key, showErrors = true) {
+                async persistPortfolio(message='تم حفظ التغييرات') {
+                    if (!this.adminUnlocked || !this.adminKey) return false;
+                    this.saving=true;
                     try {
-                        const response = await fetch(PORTFOLIO_ADMIN_API, {
-                            method:'POST',
-                            headers:{ 'Content-Type':'application/json', 'x-portfolio-key':key },
-                            body:JSON.stringify({ action:'verify' })
-                        });
-                        if (response.ok) return true;
-                        if (showErrors) this.showToast('مفتاح التعديل غير صحيح', 'error');
-                        return false;
-                    } catch (e) {
-                        if (showErrors) this.showToast('تعذر الاتصال بخدمة الحفظ', 'error');
-                        return false;
-                    }
-                },
-
-                async unlockAdmin() {
-                    const entered = window.prompt('أدخل مفتاح تعديل ملف الإنجاز:');
-                    if (!entered) return;
-                    const ok = await this.verifyAdminKey(entered, true);
-                    if (!ok) return;
-                    this.adminKey = entered;
-                    sessionStorage.setItem('teacher_portfolio_admin_key', entered);
-                    this.adminUnlocked = true;
-                    this.editMode = true;
-                    this.showToast('تم فتح وضع التعديل والحفظ الإلكتروني', 'success');
-                },
-
-                async persistPortfolio(message = 'تم حفظ التغييرات ونشرها') {
-                    if (!this.adminUnlocked || !this.adminKey) {
-                        await this.unlockAdmin();
-                        if (!this.adminUnlocked) return false;
-                    }
-                    this.saving = true;
-                    try {
-                        const response = await fetch(PORTFOLIO_ADMIN_API, {
-                            method:'POST',
-                            headers:{ 'Content-Type':'application/json', 'x-portfolio-key':this.adminKey },
-                            body:JSON.stringify({ action:'save', state:this.getState() })
-                        });
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                sessionStorage.removeItem('teacher_portfolio_admin_key');
-                                this.adminUnlocked = false;
-                                this.editMode = false;
-                                throw new Error('unauthorized');
-                            }
-                            throw new Error('save_failed');
-                        }
-                        this.showToast(message, 'success');
+                        const {response}=await this.api('save',{adminKey:this.adminKey,body:{state:this.getState()}});
+                        if (!response.ok) throw new Error(response.status===413?'large':'save');
+                        this.showToast(message,'success');
                         return true;
                     } catch (e) {
-                        this.showToast(e.message === 'unauthorized' ? 'انتهت صلاحية مفتاح التعديل، سجّل الدخول مرة أخرى' : 'تعذر حفظ التغييرات على الإنترنت', 'error');
+                        this.showToast(e.message==='large'?'حجم البيانات كبير جداً؛ خفّض حجم الصور.':'تعذر حفظ التغييرات','error');
                         return false;
-                    } finally {
-                        this.saving = false;
+                    } finally { this.saving=false; }
+                },
+
+                async ensureShareUrl() {
+                    if (this.shareUrl) return this.shareUrl;
+                    if (!this.adminUnlocked) return '';
+                    const {response,data}=await this.api('share-link',{adminKey:this.adminKey});
+                    if (!response.ok || !data.url) throw new Error('share_link_failed');
+                    this.shareUrl=data.url;
+                    return this.shareUrl;
+                },
+
+                async rotateViewerLink() {
+                    if (!confirm('سيتم إلغاء رابط المدير والباركود القديم فوراً. هل تريد المتابعة؟')) return;
+                    try {
+                        const {response,data}=await this.api('rotate-view',{adminKey:this.adminKey});
+                        if (!response.ok || !data.url) throw new Error();
+                        this.shareUrl=data.url;
+                        this.showToast('تم إلغاء الرابط القديم وإنشاء رابط مشاركة جديد','success');
+                    } catch (_) {
+                        this.showToast('تعذر تجديد رابط المشاركة','error');
                     }
                 },
 
-                get filteredAchievements() {
-                    return this.selectedCategory === 'all' ? this.achievements : this.achievements.filter(a => a.category === this.selectedCategory);
-                },
-                getCategoryCount(catId) { return this.achievements.filter(a => a.category === catId).length; },
-                getCategoryName(catId) { const cat=this.categories.find(c=>c.id===catId); return cat ? cat.name : 'محور عام'; },
-                getCategoryIcon(catId) { const cat=this.categories.find(c=>c.id===catId); return cat ? cat.icon : 'fa-solid fa-folder'; },
-
-                openModal(name) {
-                    this.modals[name] = true;
-                    if (name === 'qrModal') this.$nextTick(() => this.renderQRCode());
-                },
-                closeModal(name) { this.modals[name] = false; },
-
-                async saveTeacherProfile() {
-                    const ok = await this.persistPortfolio('تم حفظ بيانات المعلم ونشرها');
-                    if (ok) this.closeModal('profile');
-                },
-                async saveAnalytics() {
-                    const ok = await this.persistPortfolio('تم حفظ تحليل النتائج ونشره');
-                    if (ok) this.closeModal('analyticsModal');
+                async changeAdminKey() {
+                    const next=prompt('اكتب مفتاح تعديل جديداً لا يقل عن 16 حرفاً/رقماً:');
+                    if (!next) return;
+                    if (next.length<16) { this.showToast('المفتاح الجديد قصير؛ استخدم 16 حرفاً على الأقل','error'); return; }
+                    const confirmKey=prompt('أعد كتابة مفتاح التعديل الجديد:');
+                    if (next!==confirmKey) { this.showToast('المفتاحان غير متطابقين','error'); return; }
+                    try {
+                        const {response}=await this.api('change-admin',{adminKey:this.adminKey,body:{new_key:next}});
+                        if (!response.ok) throw new Error();
+                        this.adminKey=next;
+                        sessionStorage.setItem('teacher_portfolio_admin_key',next);
+                        this.showToast('تم تغيير مفتاح التعديل وإلغاء المفتاح السابق','success');
+                    } catch (_) {
+                        this.showToast('تعذر تغيير مفتاح التعديل','error');
+                    }
                 },
 
-                openScheduleModal() {
-                    this.scheduleDraft = JSON.parse(JSON.stringify(this.schedule)).map(day => ({
-                        dayName: day.dayName,
-                        periods: day.periods.map(p => p ? { class:p.class || '', subject:p.subject || '' } : { class:'', subject:'' })
-                    }));
+                get filteredAchievements(){return this.selectedCategory==='all'?this.achievements:this.achievements.filter(a=>a.category===this.selectedCategory);},
+                getCategoryCount(id){return this.achievements.filter(a=>a.category===id).length;},
+                getCategoryName(id){const c=this.categories.find(x=>x.id===id);return c?c.name:'محور عام';},
+                getCategoryIcon(id){const c=this.categories.find(x=>x.id===id);return c?c.icon:'fa-solid fa-folder';},
+
+                openModal(name){this.modals[name]=true;if(name==='qrModal')this.$nextTick(()=>this.renderQRCode());},
+                closeModal(name){this.modals[name]=false;},
+
+                async saveTeacherProfile(){const ok=await this.persistPortfolio('تم حفظ بيانات المعلم');if(ok)this.closeModal('profile');},
+                async saveAnalytics(){const ok=await this.persistPortfolio('تم حفظ تحليل النتائج');if(ok)this.closeModal('analyticsModal');},
+
+                openScheduleModal(){
+                    this.scheduleDraft=JSON.parse(JSON.stringify(this.schedule)).map(day=>({dayName:day.dayName,periods:day.periods.map(p=>p?{class:p.class||'',subject:p.subject||''}:{class:'',subject:''})}));
                     this.openModal('scheduleModal');
                 },
-                async saveSchedule() {
-                    this.schedule = this.scheduleDraft.map(day => ({
-                        dayName: day.dayName,
-                        periods: day.periods.map(p => (String(p.class || '').trim() || String(p.subject || '').trim()) ? { class:String(p.class || '').trim(), subject:String(p.subject || '').trim() } : null)
-                    }));
-                    const ok = await this.persistPortfolio('تم حفظ الجدول ونشره');
-                    if (ok) this.closeModal('scheduleModal');
+                async saveSchedule(){
+                    this.schedule=this.scheduleDraft.map(day=>({dayName:day.dayName,periods:day.periods.map(p=>(String(p.class||'').trim()||String(p.subject||'').trim())?{class:String(p.class||'').trim(),subject:String(p.subject||'').trim()}:null)}));
+                    const ok=await this.persistPortfolio('تم حفظ الجدول');if(ok)this.closeModal('scheduleModal');
                 },
 
-                viewAchievementDetails(item) { this.activeItem = item; this.openModal('detail'); },
-                openAddAchievementModal() {
-                    this.formAchievement = { id:null, title:'', category:'plan', organization:'', date:'', summary:'', details:'', image:'' };
-                    this.openModal('achievement');
+                viewAchievementDetails(item){this.activeItem=item;this.openModal('detail');},
+                openAddAchievementModal(){this.formAchievement={id:null,title:'',category:'plan',organization:'',date:'',summary:'',details:'',image:''};this.openModal('achievement');},
+                openEditAchievementModal(item){this.formAchievement={details:'',...item};this.openModal('achievement');},
+                async saveAchievement(){
+                    if(!String(this.formAchievement.title||'').trim()){this.showToast('اكتب عنوان الشاهد','error');return;}
+                    if(this.formAchievement.id){const i=this.achievements.findIndex(a=>a.id===this.formAchievement.id);if(i!==-1)this.achievements[i]={...this.formAchievement};}
+                    else this.achievements.unshift({...this.formAchievement,id:Date.now()});
+                    const ok=await this.persistPortfolio('تم حفظ الشاهد');if(ok)this.closeModal('achievement');
                 },
-                openEditAchievementModal(item) {
-                    this.formAchievement = { details:'', ...item };
-                    this.openModal('achievement');
-                },
-                async saveAchievement() {
-                    if (!String(this.formAchievement.title || '').trim()) {
-                        this.showToast('اكتب عنوان الشاهد أولاً', 'error'); return;
-                    }
-                    if (this.formAchievement.id) {
-                        const index=this.achievements.findIndex(a=>a.id===this.formAchievement.id);
-                        if (index!==-1) this.achievements[index]={...this.formAchievement};
-                    } else {
-                        this.achievements.unshift({...this.formAchievement,id:Date.now()});
-                    }
-                    const ok = await this.persistPortfolio('تم حفظ الشاهد ونشره');
-                    if (ok) this.closeModal('achievement');
-                },
-                async deleteAchievement(id) {
-                    if (!confirm('هل أنت متأكد من حذف هذا الشاهد؟')) return;
-                    const before=this.achievements;
-                    this.achievements=this.achievements.filter(a=>a.id!==id);
-                    const ok=await this.persistPortfolio('تم حذف الشاهد وتحديث الملف');
-                    if (!ok) this.achievements=before;
+                async deleteAchievement(id){
+                    if(!confirm('هل أنت متأكد من حذف هذا الشاهد؟'))return;
+                    const old=this.achievements;this.achievements=this.achievements.filter(a=>a.id!==id);
+                    if(!await this.persistPortfolio('تم حذف الشاهد'))this.achievements=old;
                 },
 
-                openTrainingModal() {
-                    this.trainingDraft = JSON.parse(JSON.stringify(this.trainingHistory));
-                    this.openModal('trainingModal');
+                openTrainingModal(){this.trainingDraft=JSON.parse(JSON.stringify(this.trainingHistory));this.openModal('trainingModal');},
+                async saveTraining(){this.trainingHistory=this.trainingDraft.filter(x=>String(x.course||'').trim());const ok=await this.persistPortfolio('تم حفظ سجل التطوير المهني');if(ok)this.closeModal('trainingModal');},
+
+                triggerAvatarUpload(){document.getElementById('avatarInput').click();},
+                handleAvatarUpload(e){
+                    const file=e.target.files&&e.target.files[0];if(!file)return;
+                    if(file.size>1024*1024){this.showToast('للحماية والأداء اختر صورة أقل من 1 ميجابايت','error');return;}
+                    const r=new FileReader();r.onload=async ev=>{this.teacher.avatar=ev.target.result;await this.persistPortfolio('تم تحديث الصورة');};r.readAsDataURL(file);
                 },
-                async saveTraining() {
-                    this.trainingHistory = this.trainingDraft.filter(x => String(x.course || '').trim());
-                    const ok=await this.persistPortfolio('تم حفظ سجل التطوير المهني ونشره');
-                    if (ok) this.closeModal('trainingModal');
+                handleItemImageUpload(e){
+                    const file=e.target.files&&e.target.files[0];if(!file)return;
+                    if(file.size>1024*1024){this.showToast('اختر صورة شاهد أقل من 1 ميجابايت','error');return;}
+                    const r=new FileReader();r.onload=ev=>{this.formAchievement.image=ev.target.result;};r.readAsDataURL(file);
                 },
 
-                triggerAvatarUpload() { document.getElementById('avatarInput').click(); },
-                handleAvatarUpload(e) {
-                    const file=e.target.files && e.target.files[0];
-                    if (!file) return;
-                    if (file.size > 2 * 1024 * 1024) { this.showToast('اختر صورة أقل من 2 ميجابايت', 'error'); return; }
-                    const reader=new FileReader();
-                    reader.onload=async event => {
-                        this.teacher.avatar=event.target.result;
-                        await this.persistPortfolio('تم تحديث الصورة ونشرها');
-                    };
-                    reader.readAsDataURL(file);
-                },
-                handleItemImageUpload(e) {
-                    const file=e.target.files && e.target.files[0];
-                    if (!file) return;
-                    if (file.size > 2 * 1024 * 1024) { this.showToast('اختر صورة أقل من 2 ميجابايت', 'error'); return; }
-                    const reader=new FileReader();
-                    reader.onload=event => { this.formAchievement.image=event.target.result; };
-                    reader.readAsDataURL(file);
-                },
-
-                renderQRCode() {
-                    const container=document.getElementById('qrcode-canvas');
-                    if (!container) return;
-                    container.innerHTML='';
-                    const urlToEncode=this.portfolioUrl;
+                async renderQRCode(){
+                    const container=document.getElementById('qrcode-canvas');if(!container)return;container.innerHTML='';
                     try {
-                        if (typeof QRCode === 'undefined') throw new Error('QRCode library not loaded');
-                        new QRCode(container,{ text:urlToEncode,width:180,height:180,colorDark:'#0f172a',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H });
-                    } catch (e) {
-                        const img=document.createElement('img');
-                        img.src='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(urlToEncode);
-                        img.className='w-44 h-44 object-contain';
-                        container.appendChild(img);
+                        const url=await this.ensureShareUrl();
+                        if(!url)throw new Error();
+                        if(typeof QRCode==='undefined')throw new Error();
+                        new QRCode(container,{text:url,width:180,height:180,colorDark:'#0f172a',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});
+                    } catch (_) {
+                        container.innerHTML='<p class="text-xs text-rose-400 text-center">تعذر إنشاء الباركود.</p>';
                     }
                 },
-                downloadQRCode() {
-                    const container=document.getElementById('qrcode-canvas');
-                    const img=container ? container.querySelector('img') : null;
-                    const canvas=container ? container.querySelector('canvas') : null;
-                    const imageSrc=canvas ? canvas.toDataURL('image/png') : (img ? img.src : '');
-                    if (!imageSrc) return;
-                    const a=document.createElement('a');
-                    a.href=imageSrc;
-                    a.download='QR_Code_' + String(this.teacher.name || 'portfolio').replace(/\s+/g,'_') + '.png';
-                    document.body.appendChild(a); a.click(); a.remove();
-                    this.showToast('تم تحميل صورة الباركود', 'success');
+                downloadQRCode(){
+                    const c=document.getElementById('qrcode-canvas');const img=c?.querySelector('img');const canvas=c?.querySelector('canvas');const src=canvas?canvas.toDataURL('image/png'):(img?img.src:'');if(!src)return;
+                    const a=document.createElement('a');a.href=src;a.download='QR_Code_Portfolio.png';document.body.appendChild(a);a.click();a.remove();
                 },
-                copyPortfolioLink() {
-                    navigator.clipboard.writeText(this.portfolioUrl).then(
-                        () => this.showToast('تم نسخ رابط العرض للمدير', 'success'),
-                        () => this.showToast('تعذر النسخ التلقائي', 'error')
-                    );
+                async copyPortfolioLink(){
+                    try {const url=await this.ensureShareUrl();await navigator.clipboard.writeText(url);this.showToast('تم نسخ رابط المدير الآمن','success');}
+                    catch(_){this.showToast('تعذر نسخ الرابط','error');}
                 },
 
-                exportBackup() {
-                    const blob=new Blob([JSON.stringify(this.getState(),null,2)],{type:'application/json'});
-                    const url=URL.createObjectURL(blob);
-                    const a=document.createElement('a');
-                    a.href=url; a.download='teacher-portfolio-backup.json';
-                    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-                    this.showToast('تم تنزيل النسخة الاحتياطية', 'success');
+                exportBackup(){
+                    if(!this.adminUnlocked)return;
+                    const blob=new Blob([JSON.stringify(this.getState(),null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='teacher-portfolio-backup.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
                 },
 
-                showToast(msg,type='success') {
-                    this.toast={show:true,message:msg,type:type};
-                    setTimeout(()=>{this.toast.show=false;},3200);
-                }
+                showToast(msg,type='success'){this.toast={show:true,message:msg,type};setTimeout(()=>{this.toast.show=false;},3200);}
             };
         }
     </script>
