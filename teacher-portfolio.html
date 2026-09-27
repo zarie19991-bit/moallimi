@@ -315,7 +315,7 @@
                     </h3>
                     <p class="text-xs sm:text-sm text-slate-400 mt-1">المحاور والوثائق المنظمة وفق معايير الأداء المهني للمعلمين</p>
                 </div>
-                <span class="text-xs font-bold text-teal-400 bg-teal-500/10 px-3 py-1.5 rounded-xl border border-teal-500/20">6 محاور رئيسية</span>
+                <span class="text-xs font-bold text-teal-400 bg-teal-500/10 px-3 py-1.5 rounded-xl border border-teal-500/20"><span x-text="tableOfContents.length"></span> محاور رئيسية</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -937,25 +937,37 @@
                 securityError: '',
                 saving: false,
                 lastSavedAt: '',
+                securityMeta: { viewer_expires_at:null, lastViewer:null, lastSave:null },
                 sidebarOpen: false,
+                mobileAdminOpen: false,
                 showIndexModal: false,
                 selectedCategory: 'all',
                 toast: { show:false, message:'', type:'success' },
                 activeItem: {},
+                profileDraft: {},
+                analyticsDraft: {},
                 scheduleDraft: [],
                 trainingDraft: [],
+                pendingEvidenceFile: null,
                 modals: { detail:false, achievement:false, profile:false, qrModal:false, scheduleModal:false, analyticsModal:false, trainingModal:false },
 
                 tableOfContents: [
-                    { title:'1. البيانات الشخصية والوظيفية', desc:'الرتبة المهنية، الرقم الوظيفي، وتفاصيل المدرسة', link:'#profile', icon:'fa-solid fa-id-card' },
-                    { title:'2. فهرس ملف الإنجاز الرسمي', desc:'المحاور المنظمة حسب معايير وزارة التعليم', link:'#index-section', icon:'fa-solid fa-list-ol' },
-                    { title:'3. الفلسفة التربوية والرؤية', desc:'فلسفة التدريس والميثاق الأخلاقي لمهنة التعليم', link:'#philosophy', icon:'fa-solid fa-lightbulb' },
-                    { title:'4. الجدول المدرسي الأسبوعي', desc:'توزيع حصص المواد والصفوف الدراسية', link:'#schedule', icon:'fa-solid fa-calendar-days' },
-                    { title:'5. شواهد الإنجاز والمعايير', desc:'التحضير، التطوير المهني، أوراق العمل والتكريم', link:'#domains', icon:'fa-solid fa-folder-open' },
-                    { title:'6. تحليل نتائج الطلاب ونواتج التعلم', desc:'نسب النجاح، الخطط العلاجية والإثرائية', link:'#analytics', icon:'fa-solid fa-chart-line' }
+                    { title:'1. البيانات الشخصية والوظيفية', desc:'البيانات المهنية والمدرسة والمرحلة', link:'#profile', icon:'fa-solid fa-id-card' },
+                    { title:'2. فهرس ملف الإنجاز الرسمي', desc:'الوصول السريع إلى مكونات الملف', link:'#index-section', icon:'fa-solid fa-list-ol' },
+                    { title:'3. الفلسفة التربوية والرؤية', desc:'الرؤية والرسالة والميثاق المهني', link:'#philosophy', icon:'fa-solid fa-lightbulb' },
+                    { title:'4. الجدول المدرسي الأسبوعي', desc:'الحصص والانتظار والنشاط', link:'#schedule', icon:'fa-solid fa-calendar-days' },
+                    { title:'5. شواهد الإنجاز والمعايير', desc:'الشواهد والملفات المهنية المصنفة', link:'#domains', icon:'fa-solid fa-folder-open' },
+                    { title:'6. تحليل النتائج ونواتج التعلم', desc:'يظهر بعد اعتماد البيانات الفعلية', link:'#analytics', icon:'fa-solid fa-chart-line' },
+                    { title:'7. التطوير المهني', desc:'الدورات والورش والساعات التدريبية', link:'#dev-timeline', icon:'fa-solid fa-graduation-cap' }
                 ],
                 categories: [
                     {id:'plan',name:'التخطيط وإعداد الدروس',icon:'fa-solid fa-book-bookmark'},
+                    {id:'nafes',name:'اختبارات نافس ومؤشراتها',icon:'fa-solid fa-bullseye'},
+                    {id:'remedial',name:'الخطط العلاجية والإثرائية',icon:'fa-solid fa-arrow-trend-up'},
+                    {id:'studentwork',name:'أعمال الطلاب ونواتج التعلم',icon:'fa-solid fa-user-graduate'},
+                    {id:'strategy',name:'استراتيجيات التدريس',icon:'fa-solid fa-chess-knight'},
+                    {id:'initiative',name:'المبادرات والأنشطة',icon:'fa-solid fa-people-group'},
+                    {id:'visit',name:'الزيارات والتغذية الراجعة',icon:'fa-solid fa-comments'},
                     {id:'dev',name:'التطوير المهني والشهادات',icon:'fa-solid fa-certificate'},
                     {id:'worksheet',name:'أوراق العمل والإنتاج',icon:'fa-solid fa-file-pen'},
                     {id:'thank',name:'الشكر والتكريم الرسمي',icon:'fa-solid fa-award'},
@@ -964,7 +976,7 @@
                 ],
 
                 // Deliberately blank defaults: real data is never embedded in the public HTML.
-                teacher:{name:'',subject:'',school:'',stage:'',empId:'',rank:'',eduDept:'',academicYear:'',weeklyClasses:0,philosophy:'',vision:'',mission:'',avatar:''},
+                teacher:{name:'',subject:'',school:'',stage:'',empId:'',rank:'',eduDept:'',academicYear:'',weeklyClasses:0,philosophy:'',vision:'',mission:'',avatar:'',avatarPath:'',avatarUrl:''},
                 schedule:[
                     {dayName:'الأحد',periods:[null,null,null,null,null,null,null]},
                     {dayName:'الإثنين',periods:[null,null,null,null,null,null,null]},
@@ -972,10 +984,10 @@
                     {dayName:'الأربعاء',periods:[null,null,null,null,null,null,null]},
                     {dayName:'الخميس',periods:[null,null,null,null,null,null,null]}
                 ],
-                analytics:{passRate:0,excellentRate:0,remedialStudents:0,giftedStudents:0,summaryText:''},
+                analytics:{enabled:false,passRate:0,excellentRate:0,beforeRate:0,afterRate:0,remedialStudents:0,giftedStudents:0,summaryText:'',sourceNote:''},
                 trainingHistory:[],
                 achievements:[],
-                formAchievement:{id:null,title:'',category:'plan',organization:'',date:'',summary:'',details:'',image:''},
+                formAchievement:{id:null,title:'',category:'plan',organization:'',date:'',summary:'',details:'',image:'',filePath:'',fileName:'',fileType:'',fileUrl:'',externalUrl:'',isSample:false},
 
                 async initApp() {
                     try {
@@ -1019,12 +1031,18 @@
 
                 applyState(state, admin=false) {
                     if (!state || typeof state!=='object') return;
-                    if (state.teacher) this.teacher={...this.teacher,...state.teacher};
+                    if (state.teacher) {
+                        this.teacher={...this.teacher,...state.teacher};
+                        if (state.teacher.avatarUrl) this.teacher.avatar=state.teacher.avatarUrl;
+                    }
                     if (!admin) this.teacher.empId='';
-                    if (Array.isArray(state.schedule)) this.schedule=state.schedule;
+                    if (Array.isArray(state.schedule)) this.schedule=state.schedule.map(day=>({
+                        ...day,
+                        periods:(day.periods||[]).map(p=>p?{...p,type:p.type||this.inferPeriodType(p)}:null)
+                    }));
                     if (state.analytics) this.analytics={...this.analytics,...state.analytics};
-                    if (Array.isArray(state.achievements)) this.achievements=state.achievements;
-                    if (Array.isArray(state.trainingHistory)) this.trainingHistory=state.trainingHistory;
+                    if (Array.isArray(state.achievements)) this.achievements=state.achievements.map(x=>({...x}));
+                    if (Array.isArray(state.trainingHistory)) this.trainingHistory=state.trainingHistory.map(x=>({...x}));
                 },
 
                 async api(action, options={}) {
@@ -1052,6 +1070,7 @@
                             return false;
                         }
                         this.applyState(data.state,false);
+                        this.securityMeta.viewer_expires_at=data.viewer_expires_at || null;
                         return true;
                     } catch (_) {
                         this.securityError='تعذر الاتصال بخدمة الملف الآمنة.';
@@ -1063,7 +1082,7 @@
                     try {
                         const {response}=await this.api('verify',{adminKey:key});
                         if (response.ok) return true;
-                        if (showErrors) this.securityError='مفتاح التعديل غير صحيح.';
+                        if (showErrors) this.securityError=response.status===429 ? 'تم إيقاف المحاولات مؤقتًا لكثرة المحاولات الخاطئة. حاول بعد 15 دقيقة.' : 'مفتاح التعديل غير صحيح.';
                     } catch (_) {
                         if (showErrors) this.securityError='تعذر الاتصال بخدمة الحماية.';
                     }
@@ -1074,6 +1093,8 @@
                     const {response,data}=await this.api('admin-load',{adminKey:this.adminKey});
                     if (!response.ok) throw new Error('admin_load_failed');
                     this.applyState(data.state,true);
+                    this.lastSavedAt=data.updated_at || '';
+                    this.securityMeta=data.security || this.securityMeta;
                 },
 
                 async unlockAdmin() {
@@ -1104,30 +1125,39 @@
                     this.editMode=false;
                     this.accessReady=false;
                     this.shareUrl='';
-                    this.teacher={name:'',subject:'',school:'',stage:'',empId:'',rank:'',eduDept:'',academicYear:'',weeklyClasses:0,philosophy:'',vision:'',mission:'',avatar:''};
+                    this.teacher={name:'',subject:'',school:'',stage:'',empId:'',rank:'',eduDept:'',academicYear:'',weeklyClasses:0,philosophy:'',vision:'',mission:'',avatar:'',avatarPath:'',avatarUrl:''};
                     this.achievements=[];
                     this.trainingHistory=[];
+                    this.profileDraft={};
+                    this.analyticsDraft={};
+                    this.pendingEvidenceFile=null;
                     if (show) this.securityError='تم قفل وضع الإدارة.';
                 },
 
                 getState() {
+                    const teacher={...this.teacher};
+                    delete teacher.avatarUrl;
+                    if (teacher.avatarPath) delete teacher.avatar;
+                    const achievements=this.achievements.map(item=>{
+                        const x={...item}; delete x.fileUrl; return x;
+                    });
                     return {
-                        teacher:this.teacher,
+                        teacher,
                         schedule:this.schedule,
                         analytics:this.analytics,
-                        achievements:this.achievements,
+                        achievements,
                         trainingHistory:this.trainingHistory
                     };
                 },
 
-                async persistPortfolio(message='تم حفظ التغييرات') {
+                async persistPortfolio(message='تم حفظ التغييرات', section='general') {
                     if (!this.adminUnlocked || !this.adminKey) {
                         this.showToast('جلسة الإدارة غير مفتوحة. سجّل الدخول أولاً.','error');
                         return false;
                     }
                     this.saving=true;
                     try {
-                        let result=await this.api('save',{adminKey:this.adminKey,body:{state:this.getState()}});
+                        let result=await this.api('save',{adminKey:this.adminKey,body:{state:this.getState(),section}});
 
                         if (result.response.status===401) {
                             sessionStorage.removeItem('teacher_portfolio_admin_key');
@@ -1145,7 +1175,7 @@
                             this.adminUnlocked=true;
                             this.editMode=true;
                             sessionStorage.setItem('teacher_portfolio_admin_key',fresh);
-                            result=await this.api('save',{adminKey:this.adminKey,body:{state:this.getState()}});
+                            result=await this.api('save',{adminKey:this.adminKey,body:{state:this.getState(),section}});
                         }
 
                         if (!result.response.ok) {
@@ -1157,6 +1187,7 @@
                         const check=await this.api('admin-load',{adminKey:this.adminKey});
                         if (!check.response.ok || !check.data || !check.data.state) throw new Error('verify');
                         this.lastSavedAt=check.data.updated_at || new Date().toISOString();
+                        this.securityMeta=check.data.security || this.securityMeta;
                         this.showToast(message + ' وتم التحقق من قاعدة البيانات','success');
                         return true;
                     } catch (e) {
@@ -1175,19 +1206,24 @@
                 async ensureShareUrl() {
                     if (this.shareUrl) return this.shareUrl;
                     if (!this.adminUnlocked) return '';
-                    const {response,data}=await this.api('share-link',{adminKey:this.adminKey});
-                    if (!response.ok || !data.url) throw new Error('share_link_failed');
-                    this.shareUrl=data.url;
+                    let result=await this.api('share-link',{adminKey:this.adminKey});
+                    if (result.response.status===410) {
+                        result=await this.api('rotate-view',{adminKey:this.adminKey,body:{days:30}});
+                    }
+                    if (!result.response.ok || !result.data.url) throw new Error('share_link_failed');
+                    this.shareUrl=result.data.url;
+                    this.securityMeta.viewer_expires_at=result.data.expires_at || this.securityMeta.viewer_expires_at;
                     return this.shareUrl;
                 },
 
                 async rotateViewerLink() {
                     if (!confirm('سيتم إلغاء رابط المدير والباركود القديم فوراً. هل تريد المتابعة؟')) return;
                     try {
-                        const {response,data}=await this.api('rotate-view',{adminKey:this.adminKey});
+                        const {response,data}=await this.api('rotate-view',{adminKey:this.adminKey,body:{days:30}});
                         if (!response.ok || !data.url) throw new Error();
                         this.shareUrl=data.url;
-                        this.showToast('تم إلغاء الرابط القديم وإنشاء رابط مشاركة جديد','success');
+                        this.securityMeta.viewer_expires_at=data.expires_at || null;
+                        this.showToast('تم إلغاء الرابط القديم وإنشاء رابط صالح لمدة 30 يومًا','success');
                     } catch (_) {
                         this.showToast('تعذر تجديد رابط المشاركة','error');
                     }
@@ -1221,6 +1257,60 @@
                 selectCategory(id){ this.selectedCategory=id; },
                 addTrainingRow(){ this.trainingDraft.push({course:'',provider:'',hours:0,date:''}); },
 
+                get completionPercent(){
+                    let score=0;
+                    const t=this.teacher||{};
+                    const required=['name','subject','school','stage','rank','eduDept','academicYear'];
+                    score += Math.round((required.filter(k=>String(t[k]||'').trim()).length/required.length)*30);
+                    if(t.philosophy && t.vision && t.mission) score+=10;
+                    const assigned=this.schedule.reduce((n,d)=>n+(d.periods||[]).filter(Boolean).length,0);
+                    if(assigned>0) score+=15;
+                    const realAchievements=this.achievements.filter(x=>!x.isSample).length;
+                    score+=Math.min(25,realAchievements*5);
+                    const realTraining=this.trainingHistory.filter(x=>!x.isSample).length;
+                    score+=Math.min(10,realTraining*2);
+                    if(this.analytics.enabled && String(this.analytics.summaryText||'').trim()) score+=10;
+                    return Math.max(0,Math.min(100,score));
+                },
+                get completionHint(){
+                    const missing=[];
+                    if(!this.achievements.some(x=>!x.isSample)) missing.push('أضف شواهدك الحقيقية');
+                    if(!this.trainingHistory.some(x=>!x.isSample)) missing.push('حدّث دوراتك الفعلية');
+                    if(!this.analytics.enabled) missing.push('اعتمد نتائج الطلاب عند توفرها');
+                    return missing.length ? missing.slice(0,2).join(' • ') : 'المكونات الأساسية موثقة';
+                },
+                get analyticsImprovement(){
+                    const b=Number(this.analytics.beforeRate||0), a=Number(this.analytics.afterRate||0);
+                    return Math.round((a-b)*10)/10;
+                },
+                toggleMobileAdmin(){this.mobileAdminOpen=!this.mobileAdminOpen;},
+                closeMobileAdmin(){this.mobileAdminOpen=false;},
+                securityStatusText(){
+                    const parts=[];
+                    if(this.lastSavedAt) parts.push('آخر حفظ: '+this.formatDateTime(this.lastSavedAt));
+                    if(this.securityMeta.lastViewer) parts.push('آخر فتح للمدير: '+this.formatDateTime(this.securityMeta.lastViewer));
+                    if(this.securityMeta.viewer_expires_at) parts.push('انتهاء رابط المدير: '+this.formatDateTime(this.securityMeta.viewer_expires_at));
+                    return parts.join(' | ');
+                },
+                formatDateTime(value){
+                    if(!value) return '—';
+                    try{return new Intl.DateTimeFormat('ar-SA',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));}catch(_){return String(value);}
+                },
+                inferPeriodType(period){
+                    if(!period) return 'empty';
+                    const name=String(period.class||'').trim();
+                    if(name.startsWith('انتظار')) return 'wait';
+                    if(name.startsWith('نشاط')) return 'activity';
+                    return 'class';
+                },
+                periodType(period){return period ? (period.type||this.inferPeriodType(period)) : 'empty';},
+                periodCardClass(period){
+                    const type=this.periodType(period);
+                    if(type==='wait') return 'bg-amber-950/30 border-amber-500/30 text-amber-300';
+                    if(type==='activity') return 'bg-indigo-950/30 border-indigo-500/30 text-indigo-300';
+                    return 'bg-teal-950/40 border-teal-500/30 text-teal-300';
+                },
+
                 get filteredAchievements(){return this.selectedCategory==='all'?this.achievements:this.achievements.filter(a=>a.category===this.selectedCategory);},
                 getCategoryCount(id){return this.achievements.filter(a=>a.category===id).length;},
                 getCategoryName(id){const c=this.categories.find(x=>x.id===id);return c?c.name:'محور عام';},
@@ -1229,59 +1319,200 @@
                 openModal(name){this.modals[name]=true;if(name==='qrModal')this.$nextTick(()=>this.renderQRCode());},
                 closeModal(name){this.modals[name]=false;},
 
-                async saveTeacherProfile(){const ok=await this.persistPortfolio('تم حفظ بيانات المعلم');if(ok)this.closeModal('profile');},
-                async saveAnalytics(){const ok=await this.persistPortfolio('تم حفظ تحليل النتائج');if(ok)this.closeModal('analyticsModal');},
+                openProfileModal(){
+                    this.profileDraft=JSON.parse(JSON.stringify(this.teacher));
+                    this.openModal('profile');
+                },
+                cancelProfileEdit(){
+                    this.profileDraft={};
+                    this.closeModal('profile');
+                },
+                async saveTeacherProfile(){
+                    const previous=this.teacher;
+                    this.teacher={...previous,...JSON.parse(JSON.stringify(this.profileDraft))};
+                    const ok=await this.persistPortfolio('تم حفظ بيانات المعلم','profile');
+                    if(ok){
+                        this.profileDraft={};
+                        this.closeModal('profile');
+                    }else{
+                        this.teacher=previous;
+                    }
+                },
+                openAnalyticsModal(){
+                    this.analyticsDraft=JSON.parse(JSON.stringify(this.analytics));
+                    this.openModal('analyticsModal');
+                },
+                cancelAnalyticsEdit(){
+                    this.analyticsDraft={};
+                    this.closeModal('analyticsModal');
+                },
+                async saveAnalytics(){
+                    const previous=this.analytics;
+                    this.analytics={...previous,...JSON.parse(JSON.stringify(this.analyticsDraft))};
+                    const ok=await this.persistPortfolio('تم حفظ تحليل النتائج','analytics');
+                    if(ok){
+                        this.analyticsDraft={};
+                        this.closeModal('analyticsModal');
+                    }else{
+                        this.analytics=previous;
+                    }
+                },
 
                 openScheduleModal(){
-                    this.scheduleDraft=JSON.parse(JSON.stringify(this.schedule)).map(day=>({dayName:day.dayName,periods:day.periods.map(p=>p?{class:p.class||'',subject:p.subject||''}:{class:'',subject:''})}));
+                    this.scheduleDraft=JSON.parse(JSON.stringify(this.schedule)).map(day=>({
+                        dayName:day.dayName,
+                        periods:(day.periods||[]).map(p=>{
+                            if(!p) return {class:'',subject:'',type:'empty'};
+                            return {class:p.class||'',subject:p.subject||'',type:p.type||this.inferPeriodType(p)};
+                        })
+                    }));
                     this.openModal('scheduleModal');
                 },
                 async saveSchedule(){
                     const previous=JSON.parse(JSON.stringify(this.schedule));
                     const next=this.scheduleDraft.map(day=>({
                         dayName:day.dayName,
-                        periods:day.periods.map(p=>(String(p.class||'').trim()||String(p.subject||'').trim())
-                            ? {class:String(p.class||'').trim(),subject:String(p.subject||'').trim()}
-                            : null)
+                        periods:day.periods.map(p=>{
+                            const type=p.type||'empty';
+                            if(type==='empty') return null;
+                            const label=String(p.class||'').trim() || (type==='wait'?'انتظار':type==='activity'?'نشاط':'');
+                            return {class:label,subject:type==='class'?String(p.subject||'').trim():'',type};
+                        })
                     }));
                     this.schedule=next;
-                    const ok=await this.persistPortfolio('تم حفظ جدول الحصص');
-                    if(ok){
-                        this.closeModal('scheduleModal');
-                    } else {
-                        // Keep the user's draft visible for retry; do not silently close or lose it.
-                        this.schedule=previous;
-                    }
+                    const ok=await this.persistPortfolio('تم حفظ جدول الحصص','schedule');
+                    if(ok)this.closeModal('scheduleModal');
+                    else this.schedule=previous;
                 },
 
                 viewAchievementDetails(item){this.activeItem=item;this.openModal('detail');},
-                openAddAchievementModal(){this.formAchievement={id:null,title:'',category:'plan',organization:'',date:'',summary:'',details:'',image:''};this.openModal('achievement');},
-                openEditAchievementModal(item){this.formAchievement={details:'',...item};this.openModal('achievement');},
+                achievementPreview(item){
+                    if(!item) return '';
+                    if(item.fileType && item.fileType.startsWith('image/') && item.fileUrl) return item.fileUrl;
+                    return item.image || '';
+                },
+                openEvidence(item){
+                    const url=item?.fileUrl || item?.externalUrl || '';
+                    if(!url) return;
+                    window.open(url,'_blank','noopener,noreferrer');
+                },
+                openAddAchievementModal(){
+                    this.pendingEvidenceFile=null;
+                    this.formAchievement={id:null,title:'',category:'plan',organization:'',date:'',summary:'',details:'',image:'',filePath:'',fileName:'',fileType:'',fileUrl:'',externalUrl:'',isSample:false};
+                    this.openModal('achievement');
+                },
+                openEditAchievementModal(item){
+                    this.pendingEvidenceFile=null;
+                    this.formAchievement={details:'',externalUrl:'',filePath:'',fileName:'',fileType:'',fileUrl:'',...JSON.parse(JSON.stringify(item))};
+                    this.openModal('achievement');
+                },
+                cancelAchievementEdit(){
+                    this.pendingEvidenceFile=null;
+                    this.formAchievement={id:null,title:'',category:'plan',organization:'',date:'',summary:'',details:'',image:'',filePath:'',fileName:'',fileType:'',fileUrl:'',externalUrl:'',isSample:false};
+                    this.closeModal('achievement');
+                },
+                handleEvidenceFile(e){
+                    const file=e.target.files&&e.target.files[0];
+                    if(!file) return;
+                    if(file.size>8*1024*1024){this.showToast('الحد الأعلى للملف 8 ميجابايت','error');e.target.value='';return;}
+                    if(!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type)){this.showToast('يسمح بصور JPG/PNG/WebP أو PDF فقط','error');e.target.value='';return;}
+                    this.pendingEvidenceFile=file;
+                    this.formAchievement.fileName=file.name;
+                    this.formAchievement.fileType=file.type;
+                },
+                fileToBase64(file){
+                    return new Promise((resolve,reject)=>{
+                        const r=new FileReader();
+                        r.onload=()=>resolve(String(r.result||'').split(',')[1]||'');
+                        r.onerror=reject;
+                        r.readAsDataURL(file);
+                    });
+                },
+                async uploadAsset(file,scope){
+                    const base64=await this.fileToBase64(file);
+                    const {response,data}=await this.api('upload-asset',{adminKey:this.adminKey,body:{scope,file_name:file.name,mime:file.type,base64}});
+                    if(!response.ok) throw new Error(response.status===413?'file_large':'upload');
+                    return data;
+                },
                 async saveAchievement(){
-                    if(!String(this.formAchievement.title||'').trim()){this.showToast('اكتب عنوان الشاهد','error');return;}
-                    if(this.formAchievement.id){const i=this.achievements.findIndex(a=>a.id===this.formAchievement.id);if(i!==-1)this.achievements[i]={...this.formAchievement};}
-                    else this.achievements.unshift({...this.formAchievement,id:Date.now()});
-                    const ok=await this.persistPortfolio('تم حفظ الشاهد');if(ok)this.closeModal('achievement');
+                    if(!String(this.formAchievement.title||'').trim()){this.showToast('اكتب عنوان الشاهد أولًا','error');return;}
+                    this.saving=true;
+                    let uploaded=null;
+                    const oldPath=this.formAchievement.filePath||'';
+                    try{
+                        let item={...this.formAchievement,isSample:false};
+                        if(this.pendingEvidenceFile){
+                            uploaded=await this.uploadAsset(this.pendingEvidenceFile,'evidence');
+                            item.filePath=uploaded.path;
+                            item.fileName=uploaded.fileName;
+                            item.fileType=uploaded.fileType;
+                            item.fileUrl=uploaded.url;
+                        }
+                        if(!item.id) item.id=Date.now();
+                        const previous=this.achievements;
+                        const next=this.achievements.some(a=>a.id===item.id)
+                            ? this.achievements.map(a=>a.id===item.id?item:a)
+                            : [item,...this.achievements];
+                        this.achievements=next;
+                        this.saving=false;
+                        const ok=await this.persistPortfolio('تم حفظ الشاهد والملف','achievement');
+                        if(!ok){
+                            this.achievements=previous;
+                            if(uploaded?.path) await this.api('delete-asset',{adminKey:this.adminKey,body:{path:uploaded.path}});
+                            return;
+                        }
+                        if(uploaded?.path && oldPath && oldPath!==uploaded.path) await this.api('delete-asset',{adminKey:this.adminKey,body:{path:oldPath}});
+                        this.cancelAchievementEdit();
+                    }catch(e){
+                        this.saving=false;
+                        if(uploaded?.path) await this.api('delete-asset',{adminKey:this.adminKey,body:{path:uploaded.path}});
+                        this.showToast(e.message==='file_large'?'الملف أكبر من 8 ميجابايت':'تعذر رفع ملف الشاهد','error');
+                    }
                 },
                 async deleteAchievement(id){
                     if(!confirm('هل أنت متأكد من حذف هذا الشاهد؟'))return;
-                    const old=this.achievements;this.achievements=this.achievements.filter(a=>a.id!==id);
-                    if(!await this.persistPortfolio('تم حذف الشاهد'))this.achievements=old;
+                    const item=this.achievements.find(a=>a.id===id);
+                    const previous=this.achievements;
+                    this.achievements=this.achievements.filter(a=>a.id!==id);
+                    const ok=await this.persistPortfolio('تم حذف الشاهد','achievement');
+                    if(!ok){this.achievements=previous;return;}
+                    if(item?.filePath) await this.api('delete-asset',{adminKey:this.adminKey,body:{path:item.filePath}});
                 },
 
                 openTrainingModal(){this.trainingDraft=JSON.parse(JSON.stringify(this.trainingHistory));this.openModal('trainingModal');},
-                async saveTraining(){this.trainingHistory=this.trainingDraft.filter(x=>String(x.course||'').trim());const ok=await this.persistPortfolio('تم حفظ سجل التطوير المهني');if(ok)this.closeModal('trainingModal');},
+                async saveTraining(){
+                    const previous=this.trainingHistory;
+                    this.trainingHistory=this.trainingDraft.filter(x=>String(x.course||'').trim()).map(x=>({...x,isSample:false}));
+                    const ok=await this.persistPortfolio('تم حفظ سجل التطوير المهني','training');
+                    if(ok)this.closeModal('trainingModal'); else this.trainingHistory=previous;
+                },
 
                 triggerAvatarUpload(){document.getElementById('avatarInput').click();},
-                handleAvatarUpload(e){
-                    const file=e.target.files&&e.target.files[0];if(!file)return;
-                    if(file.size>1024*1024){this.showToast('للحماية والأداء اختر صورة أقل من 1 ميجابايت','error');return;}
-                    const r=new FileReader();r.onload=async ev=>{this.teacher.avatar=ev.target.result;await this.persistPortfolio('تم تحديث الصورة');};r.readAsDataURL(file);
-                },
-                handleItemImageUpload(e){
-                    const file=e.target.files&&e.target.files[0];if(!file)return;
-                    if(file.size>1024*1024){this.showToast('اختر صورة شاهد أقل من 1 ميجابايت','error');return;}
-                    const r=new FileReader();r.onload=ev=>{this.formAchievement.image=ev.target.result;};r.readAsDataURL(file);
+                async handleAvatarUpload(e){
+                    const file=e.target.files&&e.target.files[0]; if(!file)return;
+                    if(file.size>8*1024*1024){this.showToast('الصورة أكبر من 8 ميجابايت','error');e.target.value='';return;}
+                    if(!['image/jpeg','image/png','image/webp'].includes(file.type)){this.showToast('اختر صورة JPG أو PNG أو WebP','error');e.target.value='';return;}
+                    this.saving=true;
+                    let uploaded=null;
+                    const previous={...this.teacher};
+                    try{
+                        uploaded=await this.uploadAsset(file,'avatar');
+                        const oldPath=this.teacher.avatarPath||'';
+                        this.teacher={...this.teacher,avatarPath:uploaded.path,avatar:uploaded.url,avatarUrl:uploaded.url};
+                        this.saving=false;
+                        const ok=await this.persistPortfolio('تم تحديث الصورة الشخصية','profile');
+                        if(!ok){
+                            this.teacher=previous;
+                            await this.api('delete-asset',{adminKey:this.adminKey,body:{path:uploaded.path}});
+                            return;
+                        }
+                        if(oldPath && oldPath!==uploaded.path) await this.api('delete-asset',{adminKey:this.adminKey,body:{path:oldPath}});
+                    }catch(_){
+                        this.saving=false;
+                        if(uploaded?.path) await this.api('delete-asset',{adminKey:this.adminKey,body:{path:uploaded.path}});
+                        this.teacher=previous;
+                        this.showToast('تعذر رفع الصورة','error');
+                    }finally{e.target.value='';}
                 },
 
                 async renderQRCode(){
