@@ -84,12 +84,12 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
    const big=[...root.querySelectorAll('.sar-analysis-grid,.sar-stats,.sar-achievement,.wr-focus,.wr-performance,.wr-remedial,table,tbody')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
    const small=[...root.querySelectorAll('.sar-chart-card,.wr-indicator-card,.wr-callout')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
    const fonts=[...root.querySelectorAll('td,th')].map(e=>getComputedStyle(e).fontSize);
-   return{tables,sheets,big,small,fonts,readabilityMedia:document.querySelector('link[href*="report-readability.css"]').media,scaleGuard:!!document.querySelector('#analysisPrintScaleTune')};
+   return{tables,sheets,big,small,fonts,hasPrintDate:(root.textContent||'').includes('تاريخ الطباعة'),readabilityMedia:document.querySelector('link[href*="report-readability.css"]').media,scaleGuard:!!document.querySelector('#analysisPrintScaleTune')};
   });
   await fs.writeFile(path.join(out,`${name}.json`),JSON.stringify(info,null,2));
   await page.pdf({path:path.join(out,`${name}.pdf`),preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
   if(!baseline){
-   assert(!info.scaleGuard,'runtime 80% scaling returned');assert.notEqual(info.readabilityMedia,'screen');
+   assert(!info.scaleGuard,'runtime 80% scaling returned');assert.notEqual(info.readabilityMedia,'screen');assert(info.hasPrintDate,'automatic print date missing');
    assert(info.sheets.every(s=>Number(s.zoom)===1&&s.breakAfter==='auto'&&s.minHeight==='0px'&&s.maxHeight==='none'),JSON.stringify(info.sheets));
    assert(info.big.every(s=>s.inside==='auto'),JSON.stringify(info.big.filter(s=>s.inside!=='auto')));
    assert(info.small.every(s=>['avoid','avoid-page'].includes(s.inside)),JSON.stringify(info.small.filter(s=>!['avoid','avoid-page'].includes(s.inside))));
