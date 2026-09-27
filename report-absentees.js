@@ -11,7 +11,7 @@
  const nameKey=v=>clean(v).replace(/[\u064B-\u0652\u0670\u0640]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ة/g,'ه').replace(/[ىي]/g,'ي').toLowerCase();
  const ar=v=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:0}).format(v);
  const subjects={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
- const rowsPerPage=14;
+ const rowsPerPage=18;
  function classKey(value){
   const raw=clean(value);
   if(!raw||/^(all|كل الفصول|جميع الفصول)$/i.test(raw))return '';
@@ -58,7 +58,7 @@
    return chunks.map((students,page)=>`<article class="report-sheet nafes-absence-sheet${style==='weekly'?' weekly-report':''}" dir="rtl">
     <header class="na-head"><div><span>المملكة العربية السعودية</span><b>${esc(settings.schoolName||'مدرسة ابن سينا المتوسطة')}</b><span>متابعة المشاركة في اختبارات نافس</span></div><small>${ar(page+1)} / ${ar(chunks.length)}</small></header>
     <h2>الطلاب الذين لم يختبروا</h2><p class="na-test">${esc(group.title)}</p><p class="na-scope">${group.subjectLabel?`المادة: ${esc(group.subjectLabel)} · `:''}الفصل: ${esc(group.className||'جميع الفصول')}</p>
-    ${group.total===null?'':`<div class="na-counts"><div><span>إجمالي عدد الطلاب</span><b>${ar(group.total)}</b></div><div><span>عدد الطلاب المختبرين المرتبطين بالكشف</span><b>${group.tested===null?'—':ar(group.tested)}</b></div><div><span>لم يظهر لهم تسليم مرتبط</span><b>${ar(group.missing.length)}</b></div></div>`}
+    ${group.total===null?'':`<div class="na-counts"><div><span>إجمالي عدد الطلاب</span><b>${ar(group.total)}</b></div><div><span>عدد الطلاب المختبرين</span><b>${group.tested===null?'—':ar(group.tested)}</b></div><div><span>عدد الطلاب الذين لم يختبروا</span><b>${ar(group.missing.length)}</b></div></div>`}
     ${group.warning?`<p class="na-empty">${esc(group.warning)}</p>`:''}
     ${students.length?`<table class="na-table"><thead><tr><th>م</th><th>اسم الطالب</th><th>الفصل</th></tr></thead><tbody>${students.map((s,i)=>`<tr><td>${ar(page*rowsPerPage+i+1)}</td><td>${esc(s.name)}</td><td>${esc(s.className)}</td></tr>`).join('')}</tbody></table>`:!group.warning?'<p class="na-empty">أدّى جميع الطلاب في هذا النطاق الاختبار.</p>':''}
     <footer class="na-footer">${settings.teacherName?`المعلم: ${esc(settings.teacherName)}`:'كشف متابعة الطلاب'}</footer></article>`).join('');
