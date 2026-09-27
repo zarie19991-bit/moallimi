@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=()">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https://images.unsplash.com https://api.qrserver.com; connect-src https://udznpifopbnrcgxtpzza.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https://images.unsplash.com https://api.qrserver.com https://udznpifopbnrcgxtpzza.supabase.co; connect-src https://udznpifopbnrcgxtpzza.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
     <title>ملف الإنجاز الرقمي للمعلم / المعلمة</title>
     
     <!-- Tailwind CSS CDN -->
@@ -421,7 +421,7 @@
         </section>
 
         <!-- SECTION 5: PORTFOLIO DOMAINS & EVIDENCE GALLERY -->
-        <section id="domains" class="space-y-6">
+        <section id="domains" x-show="adminUnlocked || visibleAchievements.length > 0" class="space-y-6">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
                 <div>
                     <h3 class="text-2xl font-black text-white flex items-center gap-3">
@@ -442,7 +442,7 @@
                 <button @click="selectCategory('all')" 
                         :class="selectedCategory === 'all' ? 'bg-teal-600 text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'"
                         class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition">
-                    جميع الشواهد (<span x-text="achievements.length"></span>)
+                    جميع الشواهد (<span x-text="visibleAchievements.length"></span>)
                 </button>
                 <template x-for="cat in categories" :key="cat.id">
                     <button @click="selectCategory(cat.id)" 
@@ -565,7 +565,7 @@
         </section>
 
         <!-- SECTION 7: PROFESSIONAL DEVELOPMENT TIMELINE -->
-        <section id="dev-timeline" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
+        <section id="dev-timeline" x-show="adminUnlocked || visibleTrainingHistory.length > 0" class="bg-slate-900/90 rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 print-card">
             <div class="flex items-center justify-between border-b border-slate-800 pb-4">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2">
                     <i class="fa-solid fa-graduation-cap text-teal-400"></i>
@@ -577,7 +577,7 @@
             </div>
 
             <div class="relative border-r-2 border-slate-800 pr-6 space-y-6 mr-2">
-                <template x-for="(item, idx) in trainingHistory" :key="idx">
+                <template x-for="(item, idx) in visibleTrainingHistory" :key="idx">
                     <div class="relative group">
                         <div class="absolute -right-[31px] top-1 w-4 h-4 rounded-full bg-teal-500 border-4 border-slate-950"></div>
                         <div class="flex flex-wrap gap-2 items-center">
@@ -1311,8 +1311,10 @@
                     return 'bg-teal-950/40 border-teal-500/30 text-teal-300';
                 },
 
-                get filteredAchievements(){return this.selectedCategory==='all'?this.achievements:this.achievements.filter(a=>a.category===this.selectedCategory);},
-                getCategoryCount(id){return this.achievements.filter(a=>a.category===id).length;},
+                get visibleAchievements(){return this.adminUnlocked?this.achievements:this.achievements.filter(x=>!x.isSample);},
+                get visibleTrainingHistory(){return this.adminUnlocked?this.trainingHistory:this.trainingHistory.filter(x=>!x.isSample);},
+                get filteredAchievements(){return this.selectedCategory==='all'?this.visibleAchievements:this.visibleAchievements.filter(a=>a.category===this.selectedCategory);},
+                getCategoryCount(id){return this.visibleAchievements.filter(a=>a.category===id).length;},
                 getCategoryName(id){const c=this.categories.find(x=>x.id===id);return c?c.name:'محور عام';},
                 getCategoryIcon(id){const c=this.categories.find(x=>x.id===id);return c?c.icon:'fa-solid fa-folder';},
 
@@ -1393,7 +1395,7 @@
                 },
                 openEvidence(item){
                     const url=item?.fileUrl || item?.externalUrl || '';
-                    if(!url) return;
+                    if(!url || !url.toLowerCase().startsWith('https://')){this.showToast('رابط الشاهد غير صالح','error');return;}
                     window.open(url,'_blank','noopener,noreferrer');
                 },
                 openAddAchievementModal(){
