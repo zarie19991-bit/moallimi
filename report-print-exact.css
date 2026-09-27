@@ -333,3 +333,17 @@
     padding:1.5mm 2mm!important;
   }
 }
+/* continuous-absence-flow-v1 */
+@media print{
+  #printRoot>.nafes-absence-sheet,
+  #printRoot>.weekly-report.report-sheet.nafes-absence-sheet{
+    break-after:auto!important;
+    page-break-after:auto!important;
+    margin-bottom:4mm!important;
+  }
+  #printRoot>.nafes-absence-sheet:last-child,
+  #printRoot>.weekly-report.report-sheet.nafes-absence-sheet:last-child{
+    break-after:auto!important;
+    page-break-after:auto!important;
+  }
+}
