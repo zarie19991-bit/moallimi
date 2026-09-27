@@ -32,6 +32,7 @@ jobs:
           qa/report-print/node_modules/.bin/playwright install --with-deps chromium
           pip install PyMuPDF==1.26.4
       - name: Before - audited main
+        continue-on-error: true
         run: |
           git worktree add --detach /tmp/report-print-before 98a726494e49c30ed6f7ea6c5d60437050d2e8df
           node qa/report-print/run.cjs /tmp/report-print-before qa/report-print/output/before --baseline
