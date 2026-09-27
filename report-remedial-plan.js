@@ -8,7 +8,7 @@ const subjectAction={
 };
 function clean(s){return String(s||'').replace(/\s+/g,' ').trim()}
 function short(s,n=110){s=clean(s);return s.length<=n?s:s.slice(0,n-1).replace(/\s+\S*$/,'')+'…'}
-const referencePrintLayers=['report-readability.css','report-font-12.css','report-a4-flow-final.css','stitch-platform-theme.css'];
+const referencePrintLayers=['report-readability.css','report-font-12.css','report-a4-flow-final.css','analysis-print-scale-95.css','stitch-platform-theme.css'];
 let referencePrintRestore=[];
 function enterReferencePrintMode(){
  if(referencePrintRestore.length)return;
