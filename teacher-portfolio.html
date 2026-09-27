@@ -835,7 +835,10 @@
             </div>
             <div class="flex justify-end gap-3 border-t border-slate-800 pt-4">
                 <button @click="closeModal('scheduleModal')" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold">إلغاء</button>
-                <button @click="saveSchedule()" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold">حفظ ونشر الجدول</button>
+                <button @click="saveSchedule()" :disabled="saving" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold">
+                    <span x-show="!saving">حفظ ونشر الجدول</span>
+                    <span x-show="saving"><i class="fa-solid fa-spinner fa-spin"></i> جارٍ الحفظ والتحقق...</span>
+                </button>
             </div>
         </div>
     </div>
@@ -928,6 +931,7 @@
                 shareUrl: '',
                 securityError: '',
                 saving: false,
+                lastSavedAt: '',
                 sidebarOpen: false,
                 showIndexModal: false,
                 selectedCategory: 'all',
@@ -1112,17 +1116,55 @@
                 },
 
                 async persistPortfolio(message='تم حفظ التغييرات') {
-                    if (!this.adminUnlocked || !this.adminKey) return false;
+                    if (!this.adminUnlocked || !this.adminKey) {
+                        this.showToast('جلسة الإدارة غير مفتوحة. سجّل الدخول أولاً.','error');
+                        return false;
+                    }
                     this.saving=true;
                     try {
-                        const {response}=await this.api('save',{adminKey:this.adminKey,body:{state:this.getState()}});
-                        if (!response.ok) throw new Error(response.status===413?'large':'save');
-                        this.showToast(message,'success');
+                        let result=await this.api('save',{adminKey:this.adminKey,body:{state:this.getState()}});
+
+                        if (result.response.status===401) {
+                            sessionStorage.removeItem('teacher_portfolio_admin_key');
+                            const fresh=prompt('انتهت صلاحية مفتاح الإدارة. أدخل مفتاح التعديل الحالي لإكمال الحفظ دون فقدان تعديلاتك:');
+                            if (!fresh) {
+                                this.showToast('لم يتم الحفظ، لكن تعديلاتك ما زالت أمامك في هذه الصفحة.','error');
+                                return false;
+                            }
+                            const verified=await this.verifyAdminKey(fresh,false);
+                            if (!verified) {
+                                this.showToast('مفتاح التعديل غير صحيح. لم يتم الحفظ، ولم تُمسح تعديلاتك.','error');
+                                return false;
+                            }
+                            this.adminKey=fresh;
+                            this.adminUnlocked=true;
+                            this.editMode=true;
+                            sessionStorage.setItem('teacher_portfolio_admin_key',fresh);
+                            result=await this.api('save',{adminKey:this.adminKey,body:{state:this.getState()}});
+                        }
+
+                        if (!result.response.ok) {
+                            if (result.response.status===413) throw new Error('large');
+                            throw new Error('save');
+                        }
+
+                        // Read back from the protected API to confirm the database really contains the save.
+                        const check=await this.api('admin-load',{adminKey:this.adminKey});
+                        if (!check.response.ok || !check.data || !check.data.state) throw new Error('verify');
+                        this.lastSavedAt=check.data.updated_at || new Date().toISOString();
+                        this.showToast(message + ' وتم التحقق من قاعدة البيانات','success');
                         return true;
                     } catch (e) {
-                        this.showToast(e.message==='large'?'حجم البيانات كبير جداً؛ خفّض حجم الصور.':'تعذر حفظ التغييرات','error');
+                        const msg=e.message==='large'
+                            ? 'حجم البيانات كبير جداً؛ خفّض حجم الصور.'
+                            : e.message==='verify'
+                                ? 'وصل الحفظ للخادم، لكن تعذر التحقق منه. لا تغلق الصفحة وأعد المحاولة.'
+                                : 'تعذر حفظ التغييرات. لم تُمسح تعديلاتك الحالية.';
+                        this.showToast(msg,'error');
                         return false;
-                    } finally { this.saving=false; }
+                    } finally {
+                        this.saving=false;
+                    }
                 },
 
                 async ensureShareUrl() {
@@ -1190,8 +1232,21 @@
                     this.openModal('scheduleModal');
                 },
                 async saveSchedule(){
-                    this.schedule=this.scheduleDraft.map(day=>({dayName:day.dayName,periods:day.periods.map(p=>(String(p.class||'').trim()||String(p.subject||'').trim())?{class:String(p.class||'').trim(),subject:String(p.subject||'').trim()}:null)}));
-                    const ok=await this.persistPortfolio('تم حفظ الجدول');if(ok)this.closeModal('scheduleModal');
+                    const previous=JSON.parse(JSON.stringify(this.schedule));
+                    const next=this.scheduleDraft.map(day=>({
+                        dayName:day.dayName,
+                        periods:day.periods.map(p=>(String(p.class||'').trim()||String(p.subject||'').trim())
+                            ? {class:String(p.class||'').trim(),subject:String(p.subject||'').trim()}
+                            : null)
+                    }));
+                    this.schedule=next;
+                    const ok=await this.persistPortfolio('تم حفظ جدول الحصص');
+                    if(ok){
+                        this.closeModal('scheduleModal');
+                    } else {
+                        // Keep the user's draft visible for retry; do not silently close or lose it.
+                        this.schedule=previous;
+                    }
                 },
 
                 viewAchievementDetails(item){this.activeItem=item;this.openModal('detail');},
