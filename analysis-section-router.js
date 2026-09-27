@@ -6,7 +6,6 @@ let activeView='overview';
 let enforcing=false;
 const ALL_GRADE_LABEL='الثالث متوسط (أ - ب - ج - د)';
 const DUPLICATE_MEASURED_LABEL='عدد الطلاب ذوي الدرجات المقاسة';
-let readabilityLink=null,previousReadabilityMedia='',analysisPrintMode=false;
 
 function show(view){
   if(!panels[view])view='overview';
@@ -54,36 +53,37 @@ function ensureAnalysisPrintSignatureCss(){
   link.href='analysis-print-signatures-first-page.css?v=20260914-4';
   document.head.appendChild(link);
 }
-function ensureAnalysisPrintScaleTune(){
-  if(document.getElementById('analysisPrintScaleTune'))return;
-  const style=document.createElement('style');
-  style.id='analysisPrintScaleTune';
-  style.textContent='@media print{#printRoot .official-analysis-sheet,.print-root .official-analysis-sheet{zoom:.80!important}}';
-  document.head.appendChild(style);
-}
-function findReadabilityLink(){
-  return [...document.querySelectorAll('link[rel="stylesheet"]')].find(link=>String(link.href||'').includes('report-readability.css'))||null;
-}
+// Print geometry is owned by report-a4-flow-final.css, not runtime scaling.
 function enterAnalysisPrintMode(){
   removeDuplicateMeasuredCount(document);
   ensureAnalysisPrintSignatureCss();
-  ensureAnalysisPrintScaleTune();
-  readabilityLink=findReadabilityLink();
-  if(readabilityLink&&!analysisPrintMode){
-    previousReadabilityMedia=readabilityLink.getAttribute('media')||'';
-    readabilityLink.setAttribute('media','screen');
-    analysisPrintMode=true;
-  }
 }
-function leaveAnalysisPrintMode(){
-  if(readabilityLink&&analysisPrintMode){
-    if(previousReadabilityMedia)readabilityLink.setAttribute('media',previousReadabilityMedia);
-    else readabilityLink.removeAttribute('media');
-  }
-  readabilityLink=null;
-  previousReadabilityMedia='';
-  analysisPrintMode=false;
+// Keep related parts together only when their complete section fits A4.
+// Measure at the actual 190mm content width; large tables remain fragmentable.
+function keepPrintableSectionsTogether(){
+  const root=$('printRoot');
+  if(!root||!matchMedia('print').matches)return;
+  root.querySelectorAll('.sar-chart-card').forEach(card=>{
+    if(card.parentElement.classList.contains('sar-chart-group'))return;
+    const next=card.nextElementSibling;
+    if(!next?.classList.contains('sar-chart-card'))return;
+    const group=document.createElement('div');group.className='sar-chart-group';
+    card.before(group);group.append(card,next);
+  });
+  const width=root.style.getPropertyValue('width'),priority=root.style.getPropertyPriority('width');
+  root.style.setProperty('width','190mm','important');
+  const sections=[...root.querySelectorAll('.sar-chart-group,.sar-analysis-grid,.sar-chart-card,.sar-stats,.sar-achievement,.wr-focus,.wr-two,.wr-performance,.wr-remedial')];
+  sections.forEach(section=>section.classList.remove('print-keep-section'));
+  // Leave a little room for borders and rounding within the 277mm page area.
+  const maxHeight=270*96/25.4;
+  sections.forEach(section=>{
+    const style=getComputedStyle(section);
+    const height=section.getBoundingClientRect().height+parseFloat(style.marginTop||0)+parseFloat(style.marginBottom||0);
+    if(height>0&&height<=maxHeight)section.classList.add('print-keep-section');
+  });
+  if(width)root.style.setProperty('width',width,priority);else root.style.removeProperty('width');
 }
+addEventListener('beforeprint',keepPrintableSectionsTogether);
 function bindAnalysisPrintFidelity(){
   ['printOverviewAnalysisBtn','printSubjectAnalysisBtn'].forEach(id=>$(id)?.addEventListener('click',enterAnalysisPrintMode,true));
 }
@@ -110,7 +110,6 @@ function installSemesterControls(){
 
 function install(){
   ensureAnalysisPrintSignatureCss();
-  ensureAnalysisPrintScaleTune();
   document.querySelectorAll('.main-tab').forEach(b=>{
     b.onclick=e=>{e.preventDefault();show(b.dataset.view);};
   });
@@ -140,7 +139,6 @@ function install(){
   });
   sheetObserver.observe(document.body,{childList:true,subtree:true});
   addEventListener('beforeprint',()=>{applySemesterToSheets(document);removeDuplicateMeasuredCount(document);});
-  addEventListener('afterprint',leaveAnalysisPrintMode);
 
   $('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500));
   addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500)});
