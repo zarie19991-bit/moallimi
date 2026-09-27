@@ -8,28 +8,6 @@ const subjectAction={
 };
 function clean(s){return String(s||'').replace(/\s+/g,' ').trim()}
 function short(s,n=110){s=clean(s);return s.length<=n?s:s.slice(0,n-1).replace(/\s+\S*$/,'')+'…'}
-const referencePrintLayers=['report-readability.css','report-font-12.css','report-a4-flow-final.css','analysis-print-scale-95.css','stitch-platform-theme.css'];
-let referencePrintRestore=[];
-function enterReferencePrintMode(){
- if(referencePrintRestore.length)return;
- document.querySelectorAll('link[rel="stylesheet"]').forEach(link=>{
-   const href=link.getAttribute('href')||'';
-   if(!referencePrintLayers.some(name=>href.includes(name)))return;
-   referencePrintRestore.push({type:'link',el:link,media:link.media});
-   link.media='screen';
- });
- const guard=document.getElementById('nafesPrintReadabilityGuard');
- if(guard){
-   referencePrintRestore.push({type:'style',el:guard,disabled:guard.disabled});
-   guard.disabled=true;
- }
-}
-function leaveReferencePrintMode(){
- referencePrintRestore.splice(0).forEach(item=>{
-   if(item.type==='link')item.el.media=item.media||'';
-   else item.el.disabled=!!item.disabled;
- });
-}
 function cleanSchoolLogo(root){
  if(!root||!root.querySelectorAll)return;
  root.querySelectorAll('.wr-school').forEach(slot=>{
@@ -89,8 +67,7 @@ function init(){
  const host=$('reportPreview');if(!host)return;
  new MutationObserver(()=>queueMicrotask(patch)).observe(host,{childList:true,subtree:true,characterData:true});
  patch();
- const print=$('printReportBtn');if(print)print.onclick=()=>{patch();const pages=[...host.querySelectorAll('.weekly-report.report-sheet')];if(!pages.length)return;const root=$('printRoot');root.innerHTML=pages.map(p=>p.outerHTML).join('');cleanSchoolLogo(root);root.setAttribute('aria-hidden','false');enterReferencePrintMode();window.print();};
- addEventListener('afterprint',leaveReferencePrintMode);
+ const print=$('printReportBtn');if(print)print.onclick=()=>{patch();const pages=[...host.querySelectorAll('.weekly-report.report-sheet')];if(!pages.length)return;const root=$('printRoot');root.innerHTML=pages.map(p=>p.outerHTML).join('');cleanSchoolLogo(root);root.setAttribute('aria-hidden','false');window.print();};
  addEventListener('beforeprint',()=>{cleanSchoolLogo(host);cleanSchoolLogo($('printRoot'));});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

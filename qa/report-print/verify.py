@@ -11,6 +11,9 @@ for name in ['general','subject','official','absentees','remedial']:
   if len(texts[i].strip())<10:issues.append(f'page {i+1}: blank')
   # Render the actual printed pages as evidence.
   p.get_pixmap(matrix=fitz.Matrix(1,1)).save(folder/f'{name}-page-{i+1:02}.png')
+ for key in meta.get('groups',[]):
+  start=[i for i,t in enumerate(texts) if key+'START' in t];end=[i for i,t in enumerate(texts) if key+'END' in t]
+  if len(start)!=1 or start!=end:issues.append(f'{key}: related section split across pages {start}/{end}')
  for table in meta['tables']:
   occupied=set()
   for key in table['rows']:

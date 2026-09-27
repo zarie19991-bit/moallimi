@@ -87,8 +87,14 @@
   html body #printRoot tr,
   html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)
   :is(.wr-kpis>article,.wr-performance-card,.wr-indicator-card,.wr-callout,
-      .wr-report-meta>div,.na-counts>div,.sar-chart-card,.sar-ring,.sar-bar-item,
+      .wr-report-meta>div,.na-counts>div,.sar-ring,.sar-bar-item,
       .sar-rings,.sar-bars,.wr-signatures,.sar-signatures,.na-footer) {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  /* A measured section may move together, never an unbounded student table. */
+  html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)
+  .print-keep-section {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }

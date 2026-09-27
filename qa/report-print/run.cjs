@@ -69,19 +69,25 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
   await page.waitForFunction(()=>window.__printCalled&&document.querySelector('#printRoot')?.children.length>0);
   // Isolated exports of the actual generated subsection, not replacement templates.
   if(name==='absentees')await page.evaluate(()=>document.querySelectorAll('#printRoot > :not(.nafes-absence-sheet)').forEach(x=>x.remove()));
-  if(name==='remedial')await page.evaluate(()=>{const root=document.querySelector('#printRoot'),sheet=root.querySelector('.wr-follow-sheet'),plan=sheet.querySelector('.wr-remedial').cloneNode(true),sig=sheet.querySelector('.wr-signatures')?.cloneNode(true);root.replaceChildren(sheet);sheet.replaceChildren(plan);if(sig)sheet.append(sig);});
+  if(name==='remedial')await page.evaluate(()=>{const root=document.querySelector('#printRoot'),sheet=root.querySelector('.wr-remedial-sheet')||root.querySelector('.wr-follow-sheet'),plan=sheet.querySelector('.wr-remedial').cloneNode(true),sig=sheet.querySelector('.wr-signatures')?.cloneNode(true);root.replaceChildren(sheet);sheet.replaceChildren(plan);if(sig)sheet.append(sig);});
   // Re-run beforeprint after QA isolates a subsection (notably remedial-only),
   // so automatic print-time metadata is applied to that final DOM too.
   await page.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
   await page.emulateMedia({media:'print'});await page.evaluate(()=>document.fonts.ready);
+  await page.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
   const info=await page.evaluate(()=>{
-   const root=document.querySelector('#printRoot'),tables=[];
+   const root=document.querySelector('#printRoot'),tables=[],groups=[];
    const marker=(text)=>{const s=document.createElement('span');s.textContent=text;s.style.cssText='font:1px/1px Arial!important;display:block!important;color:#333!important';return s;};
    root.querySelectorAll('table').forEach((table,i)=>{
     const id=`T${String(i).padStart(3,'0')}`,rows=[];
     table.querySelector('thead th')?.prepend(marker(`${id}HEAD`));
     table.querySelectorAll('tbody tr').forEach((tr,j)=>{const key=`${id}R${String(j).padStart(3,'0')}`;tr.firstElementChild.prepend(marker(`${key}START`));tr.lastElementChild.append(marker(`${key}END`));rows.push(key);});
     tables.push({id,rows});
+   });
+   root.querySelectorAll('.print-keep-section').forEach((section,i)=>{
+    const id=`G${String(i).padStart(3,'0')}`,walker=document.createTreeWalker(section,NodeFilter.SHOW_TEXT),texts=[];
+    while(walker.nextNode())if(walker.currentNode.textContent.trim())texts.push(walker.currentNode);
+    if(texts.length){texts[0].before(marker(`${id}START`));texts.at(-1).after(marker(`${id}END`));groups.push(id);}
    });
    const sheets=[...root.children].map(e=>{const c=getComputedStyle(e);return{className:e.className,zoom:c.zoom,breakAfter:c.breakAfter,minHeight:c.minHeight,maxHeight:c.maxHeight,width:c.width};});
    const big=[...root.querySelectorAll('.sar-analysis-grid,.sar-stats,.sar-achievement,.wr-focus,.wr-performance,.wr-remedial,table,tbody')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
@@ -94,7 +100,7 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
     const reportDate=String(root.querySelector('.wr-report-meta>div:nth-child(2) b')?.textContent||'').trim();
     const topbar=root.querySelector('.wr-topbar'),title=root.querySelector('.wr-title-pill');
     const stylesheets=[...document.styleSheets].map(s=>s.href||'inline');
-    return{tables,sheets,big,small,fonts,supportRows,remedialRows,hasMoreNote,absenceRows,reportDate,
+    return{tables,groups,sheets,big,small,fonts,supportRows,remedialRows,hasMoreNote,absenceRows,reportDate,
       topbarBg:topbar?getComputedStyle(topbar).backgroundImage:'',
       titleBg:title?getComputedStyle(title).backgroundImage:'',
       stylesheets,
@@ -105,6 +111,11 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
   await page.pdf({path:path.join(out,`${name}.pdf`),preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
    if(!baseline){
     assert(!info.scaleGuard,'runtime 80% scaling returned');
+    assert.notEqual(info.readabilityMedia,'screen');
+    assert(info.sheets.every(s=>Number(s.zoom)===1),'document scaling returned');
+    assert(info.sheets.every(s=>!['page','always'].includes(s.breakAfter)),'forced sheet break returned');
+    assert(info.fonts.every(s=>parseFloat(s)>=16),'table font below 12pt');
+    if(['general','official','remedial'].includes(name))assert(info.groups.length,'no related section was protected');
     if(name==='general'||name==='remedial'){
       if(name==='general')assert(info.reportDate,'automatic report date missing');
       assert(info.supportRows<=8,`reference compact report should print at most 8 support students, got ${info.supportRows}`);

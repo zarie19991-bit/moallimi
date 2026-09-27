@@ -58,6 +58,25 @@ function enterAnalysisPrintMode(){
   removeDuplicateMeasuredCount(document);
   ensureAnalysisPrintSignatureCss();
 }
+// Keep related parts together only when their complete section fits A4.
+// Measure at the actual 190mm content width; large tables remain fragmentable.
+function keepPrintableSectionsTogether(){
+  const root=$('printRoot');
+  if(!root||!matchMedia('print').matches)return;
+  const width=root.style.getPropertyValue('width'),priority=root.style.getPropertyPriority('width');
+  root.style.setProperty('width','190mm','important');
+  const sections=[...root.querySelectorAll('.sar-analysis-grid,.sar-chart-card,.sar-stats,.sar-achievement,.wr-focus,.wr-two,.wr-performance,.wr-remedial')];
+  sections.forEach(section=>section.classList.remove('print-keep-section'));
+  // Leave a little room for borders and rounding within the 277mm page area.
+  const maxHeight=270*96/25.4;
+  sections.forEach(section=>{
+    const style=getComputedStyle(section);
+    const height=section.getBoundingClientRect().height+parseFloat(style.marginTop||0)+parseFloat(style.marginBottom||0);
+    if(height>0&&height<=maxHeight)section.classList.add('print-keep-section');
+  });
+  if(width)root.style.setProperty('width',width,priority);else root.style.removeProperty('width');
+}
+addEventListener('beforeprint',keepPrintableSectionsTogether);
 function bindAnalysisPrintFidelity(){
   ['printOverviewAnalysisBtn','printSubjectAnalysisBtn'].forEach(id=>$(id)?.addEventListener('click',enterAnalysisPrintMode,true));
 }
