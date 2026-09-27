@@ -6,7 +6,6 @@ let activeView='overview';
 let enforcing=false;
 const ALL_GRADE_LABEL='الثالث متوسط (أ - ب - ج - د)';
 const DUPLICATE_MEASURED_LABEL='عدد الطلاب ذوي الدرجات المقاسة';
-let readabilityLink=null,previousReadabilityMedia='',analysisPrintMode=false;
 
 function show(view){
   if(!panels[view])view='overview';
@@ -54,35 +53,10 @@ function ensureAnalysisPrintSignatureCss(){
   link.href='analysis-print-signatures-first-page.css?v=20260914-4';
   document.head.appendChild(link);
 }
-function ensureAnalysisPrintScaleTune(){
-  if(document.getElementById('analysisPrintScaleTune'))return;
-  const style=document.createElement('style');
-  style.id='analysisPrintScaleTune';
-  style.textContent='@media print{#printRoot .official-analysis-sheet,.print-root .official-analysis-sheet{zoom:.80!important}}';
-  document.head.appendChild(style);
-}
-function findReadabilityLink(){
-  return [...document.querySelectorAll('link[rel="stylesheet"]')].find(link=>String(link.href||'').includes('report-readability.css'))||null;
-}
+// Print geometry is owned by report-a4-flow-final.css, not runtime scaling.
 function enterAnalysisPrintMode(){
   removeDuplicateMeasuredCount(document);
   ensureAnalysisPrintSignatureCss();
-  ensureAnalysisPrintScaleTune();
-  readabilityLink=findReadabilityLink();
-  if(readabilityLink&&!analysisPrintMode){
-    previousReadabilityMedia=readabilityLink.getAttribute('media')||'';
-    readabilityLink.setAttribute('media','screen');
-    analysisPrintMode=true;
-  }
-}
-function leaveAnalysisPrintMode(){
-  if(readabilityLink&&analysisPrintMode){
-    if(previousReadabilityMedia)readabilityLink.setAttribute('media',previousReadabilityMedia);
-    else readabilityLink.removeAttribute('media');
-  }
-  readabilityLink=null;
-  previousReadabilityMedia='';
-  analysisPrintMode=false;
 }
 function bindAnalysisPrintFidelity(){
   ['printOverviewAnalysisBtn','printSubjectAnalysisBtn'].forEach(id=>$(id)?.addEventListener('click',enterAnalysisPrintMode,true));
@@ -110,7 +84,6 @@ function installSemesterControls(){
 
 function install(){
   ensureAnalysisPrintSignatureCss();
-  ensureAnalysisPrintScaleTune();
   document.querySelectorAll('.main-tab').forEach(b=>{
     b.onclick=e=>{e.preventDefault();show(b.dataset.view);};
   });
@@ -140,7 +113,6 @@ function install(){
   });
   sheetObserver.observe(document.body,{childList:true,subtree:true});
   addEventListener('beforeprint',()=>{applySemesterToSheets(document);removeDuplicateMeasuredCount(document);});
-  addEventListener('afterprint',leaveAnalysisPrintMode);
 
   $('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500));
   addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500)});

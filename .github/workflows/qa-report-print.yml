@@ -1,0 +1,50 @@
+name: Report A4 PDF regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'analysis.html'
+      - 'analysis-section-router.js'
+      - 'report-*.css'
+      - 'qa/report-print/**'
+      - '.github/workflows/qa-report-print.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  print-pdf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated QA dependencies
+        run: |
+          npm install --prefix qa/report-print --no-save --package-lock=false playwright@1.55.0
+          qa/report-print/node_modules/.bin/playwright install --with-deps chromium
+          pip install PyMuPDF==1.26.4
+      - name: Before - audited main
+        run: |
+          git worktree add --detach /tmp/report-print-before 98a726494e49c30ed6f7ea6c5d60437050d2e8df
+          node qa/report-print/run.cjs /tmp/report-print-before qa/report-print/output/before --baseline
+          python qa/report-print/verify.py qa/report-print/output/before --baseline
+      - name: After - branch under review
+        run: |
+          node --check analysis-section-router.js
+          node qa/report-print/run.cjs . qa/report-print/output/after
+          python qa/report-print/verify.py qa/report-print/output/after
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-print-before-after
+          path: qa/report-print/output/
+          if-no-files-found: error
+          retention-days: 14
