@@ -76,7 +76,7 @@ function applyDate(root){
     const metaDate=metaBox?.querySelector('b');
     if(metaDate){
       const metaLabel=metaBox.querySelector('span');
-      if(metaLabel)metaLabel.textContent='تاريخ الطباعة';
+      if(metaLabel)metaLabel.textContent='التاريخ';
       metaDate.textContent=d;
       return;
     }
