@@ -174,14 +174,19 @@ function patch(){
  const host=$('reportPreview');if(!host)return;
  const pages=[...host.querySelectorAll('.weekly-report.report-sheet')];if(pages.length<2)return;
  const result=analyze();if(!result.ready)return;
+ const page2=pages[1];
+ const selected=String($('reportTest')&&$('reportTest').value||'');
+ const signature=selected+'::'+result.plans.map(function(p){return [p.subject,p.indicator,p.total,p.wrong,p.dominant,p.targets.length].join('|')}).join('||');
+ if(page2.dataset.dynamicRemedialSig===signature&&page2.querySelector('[data-dynamic-remedial="1"]'))return;
  busy=true;
  try{
-  const page2=pages[1];page2.dataset.compactRemedial='1';
+  page2.dataset.compactRemedial='1';
   const title=page2.querySelector('.wr-title-pill');if(title)title.textContent='المتابعة والخطة العلاجية المبنية على الاختبار';
   page2.querySelectorAll('.wr-more-note').forEach(function(n){n.remove()});
   page2.querySelectorAll('.wr-remedial').forEach(function(n){n.remove()});
-  const sec=buildSection(result.plans),sig=page2.querySelector('.wr-signatures');
-  if(sig)sig.parentNode.insertBefore(sec,sig);else page2.appendChild(sec);
+  const sec=buildSection(result.plans),signatures=page2.querySelector('.wr-signatures');
+  if(signatures)signatures.parentNode.insertBefore(sec,signatures);else page2.appendChild(sec);
+  page2.dataset.dynamicRemedialSig=signature;
  }finally{busy=false}
 }
 function printCurrent(){
