@@ -258,3 +258,78 @@
   #printRoot .wr-signatures span{font-size:10px!important;color:#697c81!important}
   #printRoot .wr-signatures b{font-size:12px!important;color:#253f46!important}
 }
+
+/* dynamic-test-remedial-flow-v2 */
+:is(#reportPreview,#printRoot) .weekly-report .wr-remedial-diagnostic{
+  margin-top:10px!important;
+  overflow:visible!important;
+}
+:is(#reportPreview,#printRoot) .weekly-report .wr-remedial-diagnostic .wr-remedial-intro{
+  margin:0!important;
+  padding:8px 10px!important;
+  color:#475569!important;
+  background:#f8fafc!important;
+  border-bottom:1px solid #dbe4e7!important;
+  font-size:9px!important;
+  line-height:1.55!important;
+}
+:is(#reportPreview,#printRoot) .weekly-report .wr-remedial-diagnostic table{
+  table-layout:auto!important;
+}
+:is(#reportPreview,#printRoot) .weekly-report .wr-remedial-diagnostic th,
+:is(#reportPreview,#printRoot) .weekly-report .wr-remedial-diagnostic td{
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+  vertical-align:top!important;
+}
+@media print{
+  #printRoot>.weekly-report.report-sheet{
+    break-after:auto!important;
+    page-break-after:auto!important;
+    margin-bottom:4mm!important;
+  }
+  #printRoot>.weekly-report.report-sheet + .weekly-report.report-sheet .wr-topbar{
+    display:none!important;
+  }
+  #printRoot>.weekly-report.report-sheet + .weekly-report.report-sheet{
+    padding-top:0!important;
+  }
+  #printRoot .weekly-report :is(.wr-focus,.wr-performance,.wr-two,.wr-student-table-wrap,.wr-remedial,.wr-remedial-diagnostic){
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+  }
+  #printRoot .weekly-report table{
+    page-break-inside:auto!important;
+  }
+  #printRoot .weekly-report table thead{
+    display:table-header-group!important;
+  }
+  #printRoot .weekly-report table tr{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+  #printRoot .weekly-report .wr-topbar,
+  #printRoot .weekly-report .wr-title-pill,
+  #printRoot .weekly-report .wr-report-meta,
+  #printRoot .weekly-report .wr-kpis>article,
+  #printRoot .weekly-report .wr-section-title{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+  #printRoot .weekly-report .wr-remedial-diagnostic table{
+    font-size:6.2pt!important;
+    line-height:1.35!important;
+  }
+  #printRoot .weekly-report .wr-remedial-diagnostic table th{
+    font-size:6.3pt!important;
+    padding:1.2mm .8mm!important;
+  }
+  #printRoot .weekly-report .wr-remedial-diagnostic table td{
+    font-size:6.1pt!important;
+    padding:1.25mm .85mm!important;
+  }
+  #printRoot .weekly-report .wr-remedial-diagnostic .wr-remedial-intro{
+    font-size:6.5pt!important;
+    padding:1.5mm 2mm!important;
+  }
+}
