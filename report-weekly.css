@@ -30,6 +30,29 @@
 .wr-follow-meta{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#f7f9fb;border:1px solid var(--line);border-radius:11px;padding:9px 12px;margin-bottom:13px;font-size:11px;color:#60767c}.wr-follow-meta b{color:#5f2495;font-size:13px}
 .wr-student-table-wrap{overflow:hidden;border:1px solid var(--line);border-radius:14px}.wr-student-table{width:100%;border-collapse:collapse;table-layout:fixed;direction:rtl;font-size:11px}.wr-student-table th{background:#244d57;color:#fff;padding:10px 8px;text-align:center;font-weight:900;border-left:1px solid rgba(255,255,255,.12)}.wr-student-table td{padding:11px 9px;vertical-align:top;border-top:1px solid #e4ebec;border-left:1px solid #eef2f2;background:#fff;line-height:1.55}.wr-student-table tbody tr:nth-child(even) td{background:#fafcfc}.wr-student-table th:nth-child(1),.wr-student-table td:nth-child(1){width:5%;text-align:center}.wr-student-table th:nth-child(2),.wr-student-table td:nth-child(2){width:25%}.wr-student-table th:nth-child(3),.wr-student-table td:nth-child(3){width:14%;text-align:center}.wr-student-table th:nth-child(4),.wr-student-table td:nth-child(4){width:15%;text-align:center}.wr-student-table th:nth-child(5),.wr-student-table td:nth-child(5){width:41%}.wr-student-name{display:block;font-size:12px;line-height:1.55;color:#1d373e;word-break:keep-all;overflow-wrap:normal}.wr-student-class{display:block;color:#74868b;font-size:9.7px;margin-top:4px}.wr-result-cell b,.wr-result-cell strong{display:block}.wr-result-cell strong{color:#a45518;font-size:13px;margin-top:4px}.wr-weak-subject b,.wr-weak-subject span{display:block}.wr-weak-subject span{color:#8a5a20;font-size:10px;margin-top:3px}.wr-student-indicators{display:grid;gap:5px}.wr-student-ind{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:start;background:#f8f6fb;border:1px solid #ebe3f2;border-radius:8px;padding:6px 7px}.wr-ind-subject{color:#5f2495;font-weight:900;font-size:9.5px;white-space:nowrap}.wr-ind-text{font-size:10px;line-height:1.45}.wr-student-ind strong{font-size:9px;color:#8b3e13;white-space:nowrap}.wr-no-indicator{color:#7b898d;font-size:10px}.wr-empty-follow{border:1px dashed #cbd9db;border-radius:14px;text-align:center;padding:34px;color:#657980;background:#fafcfc}
 .wr-signatures{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}.wr-signatures>div{border-top:1px solid #b9c9cc;padding:10px 12px;text-align:center;display:grid;gap:7px}.wr-signatures span{font-size:10px;color:#697c81}.wr-signatures b{font-size:12px;color:#253f46}
+
+.wr-plan-note{margin:0 0 14px;padding:11px 14px;border:1px solid #eadbb7;border-right:4px solid #d99431;border-radius:12px;background:#fff9ea;color:#74561f;font-size:11.5px;line-height:1.6}
+.wr-week-plan{margin-top:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+.wr-week-plan table{width:100%;border-collapse:collapse;table-layout:fixed}
+.wr-week-plan th{background:#5f2495;color:#fff;padding:10px 8px;font-size:11px;text-align:center}
+.wr-week-plan td{padding:9px 8px;border-top:1px solid #e8edef;border-left:1px solid #eef2f2;vertical-align:top;font-size:10.5px;line-height:1.55}
+.wr-week-plan th:nth-child(1),.wr-week-plan td:nth-child(1){width:5%;text-align:center}
+.wr-week-plan th:nth-child(2),.wr-week-plan td:nth-child(2){width:10%}
+.wr-week-plan th:nth-child(3),.wr-week-plan td:nth-child(3){width:29%}
+.wr-week-plan th:nth-child(4),.wr-week-plan td:nth-child(4){width:10%;text-align:center}
+.wr-week-plan th:nth-child(5),.wr-week-plan td:nth-child(5){width:28%}
+.wr-week-plan th:nth-child(6),.wr-week-plan td:nth-child(6){width:18%}
+.wr-low-list-wrap{overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#fff}
+.wr-low-list-table{width:100%;border-collapse:collapse;table-layout:fixed;direction:rtl}
+.wr-low-list-table th{background:#155e63;color:#fff;padding:10px 8px;text-align:center;font-size:11.5px}
+.wr-low-list-table td{padding:10px 9px;border-top:1px solid #e4ebec;border-left:1px solid #eef2f2;font-size:11px;line-height:1.45}
+.wr-low-list-table tbody tr:nth-child(even) td{background:#f8fbfb}
+.wr-low-list-table th:nth-child(1),.wr-low-list-table td:nth-child(1){width:8%;text-align:center}
+.wr-low-list-table th:nth-child(2),.wr-low-list-table td:nth-child(2){width:42%}
+.wr-low-list-table th:nth-child(3),.wr-low-list-table td:nth-child(3){width:14%;text-align:center}
+.wr-low-list-table th:nth-child(4),.wr-low-list-table td:nth-child(4){width:18%;text-align:center}
+.wr-low-list-table th:nth-child(5),.wr-low-list-table td:nth-child(5){width:18%;text-align:center}
+.wr-low-list-table td:nth-child(5) strong{color:#a45518}
 @media(max-width:850px){.weekly-report-settings .wr-settings-grid,.weekly-report-settings .wr-logo-fields{grid-template-columns:1fr}.wr-topbar{height:auto;grid-template-columns:1fr;padding:20px}.wr-admin{text-align:center}.wr-report-meta,.wr-kpis,.wr-indicator-grid,.wr-two,.wr-performance-grid{grid-template-columns:1fr}.wr-logo-card{width:190px}.wr-student-table{min-width:760px}.wr-student-table-wrap{overflow:auto}}
 @page{size:A4 portrait;margin:0}
 @media print{
