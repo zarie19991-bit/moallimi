@@ -70,6 +70,9 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
   // Isolated exports of the actual generated subsection, not replacement templates.
   if(name==='absentees')await page.evaluate(()=>document.querySelectorAll('#printRoot > :not(.nafes-absence-sheet)').forEach(x=>x.remove()));
   if(name==='remedial')await page.evaluate(()=>{const root=document.querySelector('#printRoot'),sheet=root.querySelector('.wr-follow-sheet'),plan=sheet.querySelector('.wr-remedial').cloneNode(true),sig=sheet.querySelector('.wr-signatures')?.cloneNode(true);root.replaceChildren(sheet);sheet.replaceChildren(plan);if(sig)sheet.append(sig);});
+  // Re-run beforeprint after QA isolates a subsection (notably remedial-only),
+  // so automatic print-time metadata is applied to that final DOM too.
+  await page.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
   await page.emulateMedia({media:'print'});await page.evaluate(()=>document.fonts.ready);
   const info=await page.evaluate(()=>{
    const root=document.querySelector('#printRoot'),tables=[];
