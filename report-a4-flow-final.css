@@ -48,7 +48,7 @@
   }
   /* Flow containers must not reserve an A4 sheet or move as one large unit. */
   html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)
-  :is(.sar-analysis-grid,.sar-chart-card,.sar-stats,.sar-achievement,.sar-student-table,
+  :is(.sar-chart-group,.sar-analysis-grid,.sar-chart-card,.sar-stats,.sar-achievement,.sar-student-table,
       .wr-focus,.wr-performance,.wr-remedial,.wr-remedial-diagnostic,.wr-student-table-wrap,
       .wr-two,.wr-triple,.wr-band,.wr-indicator-grid,.wr-indicator-card,.wr-callout,
       .wr-performance-grid,.wr-kpis,.analysis-card,.analysis-section,.report-section,
@@ -91,6 +91,14 @@
       .sar-rings,.sar-bars,.wr-signatures,.sar-signatures,.na-footer) {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+  /* Absolute chart captions can be painted on the preceding printed page. */
+  html body #printRoot :is(.official-analysis-sheet,.subject-analysis-sheet) .sar-chart-card > h2 {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    white-space: normal !important;
+    margin: 0 0 3mm !important;
   }
   /* A measured section may move together, never an unbounded student table. */
   html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)

@@ -86,7 +86,7 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
    });
    root.querySelectorAll('.print-keep-section').forEach((section,i)=>{
     const id=`G${String(i).padStart(3,'0')}`,walker=document.createTreeWalker(section,NodeFilter.SHOW_TEXT),texts=[];
-    while(walker.nextNode())if(walker.currentNode.textContent.trim())texts.push(walker.currentNode);
+    while(walker.nextNode())if(walker.currentNode.textContent.trim()&&!walker.currentNode.parentElement.closest('[class*=teacher]'))texts.push(walker.currentNode);
     if(texts.length){texts[0].before(marker(`${id}START`));texts.at(-1).after(marker(`${id}END`));groups.push(id);}
    });
    const sheets=[...root.children].map(e=>{const c=getComputedStyle(e);return{className:e.className,zoom:c.zoom,breakAfter:c.breakAfter,minHeight:c.minHeight,maxHeight:c.maxHeight,width:c.width};});

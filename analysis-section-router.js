@@ -63,9 +63,16 @@ function enterAnalysisPrintMode(){
 function keepPrintableSectionsTogether(){
   const root=$('printRoot');
   if(!root||!matchMedia('print').matches)return;
+  root.querySelectorAll('.sar-chart-card').forEach(card=>{
+    if(card.parentElement.classList.contains('sar-chart-group'))return;
+    const next=card.nextElementSibling;
+    if(!next?.classList.contains('sar-chart-card'))return;
+    const group=document.createElement('div');group.className='sar-chart-group';
+    card.before(group);group.append(card,next);
+  });
   const width=root.style.getPropertyValue('width'),priority=root.style.getPropertyPriority('width');
   root.style.setProperty('width','190mm','important');
-  const sections=[...root.querySelectorAll('.sar-analysis-grid,.sar-chart-card,.sar-stats,.sar-achievement,.wr-focus,.wr-two,.wr-performance,.wr-remedial')];
+  const sections=[...root.querySelectorAll('.sar-chart-group,.sar-analysis-grid,.sar-chart-card,.sar-stats,.sar-achievement,.wr-focus,.wr-two,.wr-performance,.wr-remedial')];
   sections.forEach(section=>section.classList.remove('print-keep-section'));
   // Leave a little room for borders and rounding within the 277mm page area.
   const maxHeight=270*96/25.4;
