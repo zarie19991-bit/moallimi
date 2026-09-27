@@ -7,7 +7,7 @@ const baseline=process.argv.includes('--baseline');
 const subjects=['reading','math','science'];
 const students=Array.from({length:140},(_,i)=>({id:`s${i}`,full_name:`محمد عبدالله التجريبي ${i+1}`,class_name:['أ','ب','ج','د'][i%4],national_id_last3:String(100+i),is_active:true}));
 const tests=subjects.map(s=>({id:s,title:`اختبار تجريبي ${s}`,subjects:[s],kind:'indicator',term:'الفصل الدراسي الأول',total:12}));
-const attempts=subjects.flatMap(subject=>students.slice(0,72).map((s,i)=>({id:`${subject}-${i}`,source:'assessment',test_id:subject,student_id:s.id,student_name:s.full_name,student_no:s.national_id_last3,class_name:s.class_name,subjects:[subject],status:'submitted',submitted_at:'2026-09-27T08:00:00Z',score:4,total:12,percent:100/3,section_scores:[{subject,score:4,total:12,percent:100/3}],questions:Array.from({length:12},(_,j)=>({id:`q${j}`,subject,indicator_key:`${subject}:i${j}`,indicator_text:`مهارة تجريبية ${j+1} فهم المعلومات وتطبيق المعرفة في مواقف جديدة`,question:'سؤال تجريبي',options:['أ','ب','ج','د'],answer:0,correct_index:0,correct:j<4,scorable:true}))})));
+const attempts=subjects.flatMap(subject=>students.slice(0,72).map((s,i)=>({id:`${subject}-${i}`,source:'assessment',test_id:subject,student_id:s.id,student_name:s.full_name,student_no:s.national_id_last3,class_name:s.class_name,subjects:[subject],status:'submitted',submitted_at:'2026-09-27T08:00:00Z',score:4,total:12,percent:100/3,section_scores:[{subject,score:4,total:12,percent:100/3}],questions:Array.from({length:5},(_,j)=>({id:`q${j}`,subject,indicator_key:`${subject}:i${j}`,indicator_text:`مهارة تجريبية ${j+1} فهم المعلومات وتطبيق المعرفة في مواقف جديدة`,question:'سؤال تجريبي',options:['أ','ب','ج','د'],answer:0,correct_index:0,correct:j<3,scorable:true}))})));
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml'};
 const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://local').pathname));if(!p.startsWith(root+path.sep))throw Error('path');res.setHeader('Content-Type',types[path.extname(p)]||'application/octet-stream');res.end(await fs.readFile(p));}catch{res.writeHead(404);res.end();}});
 (async()=>{
@@ -80,7 +80,7 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
     table.querySelectorAll('tbody tr').forEach((tr,j)=>{const key=`${id}R${String(j).padStart(3,'0')}`;tr.firstElementChild.prepend(marker(`${key}START`));tr.lastElementChild.append(marker(`${key}END`));rows.push(key);});
     tables.push({id,rows});
    });
-   const sheets=[...root.children].map(e=>{const c=getComputedStyle(e);return{zoom:c.zoom,breakAfter:c.breakAfter,minHeight:c.minHeight,maxHeight:c.maxHeight,width:c.width};});
+   const sheets=[...root.children].map(e=>{const c=getComputedStyle(e);return{className:e.className,zoom:c.zoom,breakAfter:c.breakAfter,minHeight:c.minHeight,maxHeight:c.maxHeight,width:c.width};});
    const big=[...root.querySelectorAll('.sar-analysis-grid,.sar-stats,.sar-achievement,.wr-focus,.wr-performance,.wr-remedial,table,tbody')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
    const small=[...root.querySelectorAll('.sar-chart-card,.wr-indicator-card,.wr-callout')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
    const fonts=[...root.querySelectorAll('td,th')].map(e=>getComputedStyle(e).fontSize);
