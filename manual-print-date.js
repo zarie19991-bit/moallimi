@@ -72,8 +72,11 @@ function applyDate(root){
   root.querySelectorAll(selector).forEach(sheet=>{
     sheet.querySelectorAll('.manual-print-date-line').forEach(x=>x.remove());
 
-    const metaDate=sheet.querySelector('.wr-report-meta>div:nth-child(2) b');
+    const metaBox=sheet.querySelector('.wr-report-meta>div:nth-child(2)');
+    const metaDate=metaBox?.querySelector('b');
     if(metaDate){
+      const metaLabel=metaBox.querySelector('span');
+      if(metaLabel)metaLabel.textContent='تاريخ الطباعة';
       metaDate.textContent=d;
       return;
     }
