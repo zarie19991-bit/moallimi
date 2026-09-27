@@ -63,7 +63,7 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
    await page.waitForSelector('#subjectOfficialReport .na-table');await page.click('#printSubjectReportBtn');
   }else{
    await page.click('[data-view="report"]');await page.waitForSelector('#reportMultiPicker input[data-test-id]');
-   await page.click('#buildReportBtn');await page.waitForSelector('#reportPreview .wr-remedial tbody tr');
+   await page.click('#buildReportBtn');await page.waitForSelector('#reportPreview .wr-week-plan tbody tr');
    await page.click('#printReportBtn');
   }
   await page.waitForFunction(()=>window.__printCalled&&document.querySelector('#printRoot')?.children.length>0);
