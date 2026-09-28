@@ -31,7 +31,24 @@ function styles(){if(document.getElementById('pretestTeacherStyles'))return;cons
 .journey-preview-shell{max-width:1120px;margin:12px auto;background:#f8fafc;border-radius:28px;overflow:hidden;box-shadow:0 35px 100px rgba(2,6,23,.38)}
 .journey-preview-head{position:sticky;top:0;z-index:3;background:linear-gradient(135deg,#0f172a,#075985,#0f766e);color:#fff;padding:20px 22px}.journey-preview-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.journey-preview-head h2{font-size:28px;margin:4px 0}.journey-preview-head p{margin:0;color:#dbeafe;font-size:15px;line-height:1.8}.journey-preview-close{border:0;background:rgba(255,255,255,.12);color:#fff;width:40px;height:40px;border-radius:12px;font-size:24px;cursor:pointer}
 .journey-preview-safe{display:inline-flex;align-items:center;gap:6px;background:#fef3c7;color:#92400e;border-radius:999px;padding:6px 10px;font-size:13px;font-weight:900;margin-top:9px}
-.journey-preview-body{padding:18px}.journey-preview-indicator{background:#fff;border:1px solid #dbeafe;border-radius:24px;padding:18px;margin-bottom:16px;box-shadow:0 8px 24px rgba(15,23,42,.05)}.journey-preview-kicker{font-size:13px;font-weight:900;color:#0369a1}.journey-preview-indicator h3{font-size:23px;color:#0f172a;margin:6px 0;line-height:1.7}.journey-preview-official{font-size:16px;color:#475569;line-height:1.8}
+.journey-preview-body{padding:22px;font-size:18px!important}
+.journey-preview-shell{font-size:18px!important}
+.journey-preview-head h2{font-size:34px!important;line-height:1.4!important}
+.journey-preview-head p{font-size:18px!important;line-height:1.9!important}
+.journey-preview-safe{font-size:15px!important;padding:8px 12px!important}
+.journey-preview-kicker{font-size:16px!important}
+.journey-preview-indicator h3{font-size:28px!important;line-height:1.7!important}
+.journey-preview-official{font-size:19px!important;line-height:2!important}
+.journey-preview-guide b{font-size:18px!important}
+.journey-preview-guide p,.journey-preview-guide li{font-size:17px!important;line-height:2!important}
+.journey-preview-flow span{font-size:15px!important;padding:10px 14px!important}
+.journey-preview-stage-title b{font-size:20px!important}
+.journey-preview-stage-title span{font-size:14px!important}
+.journey-preview-qmeta{font-size:14px!important}
+.journey-preview-stim{font-size:18px!important;line-height:2!important;padding:12px!important}
+.journey-preview-prompt{font-size:21px!important;line-height:2!important}
+.journey-preview-option{font-size:18px!important;line-height:1.9!important;padding:13px 14px!important}
+.journey-preview-chip{font-size:15px!important;padding:8px 11px!important}.journey-preview-indicator{background:#fff;border:1px solid #dbeafe;border-radius:24px;padding:18px;margin-bottom:16px;box-shadow:0 8px 24px rgba(15,23,42,.05)}.journey-preview-kicker{font-size:13px;font-weight:900;color:#0369a1}.journey-preview-indicator h3{font-size:23px;color:#0f172a;margin:6px 0;line-height:1.7}.journey-preview-official{font-size:16px;color:#475569;line-height:1.8}
 .journey-preview-guide{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.journey-preview-guide>div{border-radius:16px;padding:12px;border:1px solid #e2e8f0;background:#f8fafc}.journey-preview-guide b{display:block;font-size:14px;color:#0f172a;margin-bottom:5px}.journey-preview-guide p,.journey-preview-guide li{font-size:14px;color:#475569;line-height:1.8;margin:0}.journey-preview-guide ol,.journey-preview-guide ul{margin:0;padding-right:18px}
 .journey-preview-flow{display:flex;gap:7px;overflow:auto;margin:14px 0 4px;padding-bottom:3px}.journey-preview-flow span{flex:0 0 auto;border-radius:999px;background:#ecfeff;color:#155e75;border:1px solid #a5f3fc;padding:9px 12px;font-size:12px;font-weight:900}
 .journey-preview-stage{margin-top:14px;border-top:1px solid #e2e8f0;padding-top:14px}.journey-preview-stage-title{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:9px}.journey-preview-stage-title b{font-size:16px;color:#0f172a}.journey-preview-stage-title span{font-size:12px;color:#64748b}
