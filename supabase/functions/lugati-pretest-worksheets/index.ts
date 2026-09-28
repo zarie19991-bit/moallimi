@@ -147,6 +147,23 @@ async function listTemplates(req:Request,b:any,a:Access){
  if(dids.length){const demos=await demoStudentIds();const {data:rows,error:e}=await db.from("lugati_pretest_student_assignments").select("dispatch_id,student_id,journey_status,current_stage,exit_passed,retention_status").in("dispatch_id",dids);if(e)throw e;for(const r of rows||[]){if(demos.has(String(r.student_id)))continue;const k=String(r.dispatch_id),s=stats.get(k)||{sent:0,in_progress:0,support:0,exit:0,ready:0,retention_review:0,total:0};s.total++;if(r.current_stage==="exit"&&r.journey_status!=="ready")s.exit++;else s[r.journey_status]=(s[r.journey_status]||0)+1;if(r.retention_status==="needs_review")s.retention_review++;stats.set(k,s)}}
  return json(req,{ok:true,subject_key:subject,templates:(t||[]).map((x:any)=>{const d=latest.get(String(x.id));return{...x,global_indicator:Number(x.display_index||globalNo(x.outcome_code,Number(x.indicator_index))),last_dispatch:d?{...d,stats:stats.get(String(d.id))||{total:0,sent:0,in_progress:0,support:0,exit:0,ready:0,retention_review:0}}:null}})});
 }
+async function previewTemplate(req:Request,b:any,a:Access){
+ if(a.role!=="teacher")return json(req,{error:"هذه العملية للمعلم فقط."},403);
+ const tid=tidy(b?.template_id);if(!tid)return json(req,{error:"حدد المؤشر أولًا."},400);
+ const {data:t,error}=await db.from("lugati_pretest_templates")
+  .select("id,subject_key,outcome_code,indicator_index,display_index,indicator_text,student_title,golden_rule,common_trap,recognition_cues,solution_steps,question_patterns,transfer_rule,challenge_minutes,ready_percent,quality_passed")
+  .eq("id",tid).eq("is_active",true).maybeSingle();
+ if(error)throw error;if(!t)return json(req,{error:"المؤشر غير موجود."},404);
+ if(!teacherAllows(a,t.subject_key))return json(req,{error:"هذا المؤشر خارج مادة حسابك."},403);
+ if(!t.quality_passed)return json(req,{error:"هذا المؤشر لم يجتز بوابة الجودة."},409);
+ const {data:raw,error:ie}=await db.from("lugati_pretest_items").select("*").eq("template_id",tid).in("stage",["guided","challenge","exit"]).order("order_no");if(ie)throw ie;
+ const pool=await objectivePool(t),rows=raw||[];
+ const guided=rows.filter((i:any)=>i.stage==="guided"&&visibleItem(t,i,"guided")).map((i:any)=>publicItem(i,objectiveFor(i,t,pool)));
+ const challenge=rows.filter((i:any)=>i.stage==="challenge"&&visibleItem(t,i,"challenge")).map((i:any)=>publicItem(i));
+ const exit=rows.filter((i:any)=>i.stage==="exit"&&visibleItem(t,i,"exit")).map((i:any)=>publicItem(i));
+ return json(req,{ok:true,preview:true,template:{id:t.id,subject_key:t.subject_key,outcome_code:t.outcome_code,indicator_index:t.indicator_index,global_indicator:Number(t.display_index||globalNo(t.outcome_code,Number(t.indicator_index))),indicator_text:t.indicator_text,student_title:t.student_title,golden_rule:t.golden_rule,common_trap:t.common_trap,recognition_cues:t.recognition_cues||[],solution_steps:t.solution_steps||[],question_patterns:t.question_patterns||[],transfer_rule:t.transfer_rule||"",challenge_minutes:t.challenge_minutes,ready_percent:t.ready_percent},guided,challenge,exit});
+}
+
 async function sendAll(req:Request,b:any,a:Access){
  if(a.role!=="teacher")return json(req,{error:"هذه العملية للمعلم فقط."},403);
  const tid=tidy(b?.template_id);if(!tid)return json(req,{error:"حدد المؤشر أولًا."},400);
@@ -582,6 +599,7 @@ Deno.serve(async(req:Request)=>{
  if(req.method!=="POST")return json(req,{error:"method_not_allowed"},405);
  try{const a=await access(req),b=await req.json().catch(()=>({})),act=tidy(b?.action);
   if(act==="list_templates")return await listTemplates(req,b,a);
+  if(act==="preview_template")return await previewTemplate(req,b,a);
   if(act==="send_all")return await sendAll(req,b,a);
   if(act==="send_bundle")return await sendBundle(req,b,a);
   if(act==="journey_map"||act==="my_assignments")return await mapFor(req,b,a);
