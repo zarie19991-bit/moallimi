@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const $=id=>document.getElementById(id);
+const $=id=>document.getElementById(id);\nconst makeReviewId=()=>('R'+Date.now().toString(36).toUpperCase());
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const labels={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
@@ -157,7 +157,7 @@ function buildAssignments(){
  $('assignmentStats').innerHTML=counts.map((n,i)=>'<div class="quality-card ok"><span>نموذج '+letters[i]+'</span><b>'+ar(n)+' طلاب</b></div>').join('');
  $('assignments').innerHTML=assignments.map(a=>'<div class="assignment-row"><b>'+esc(a.student.full_name||a.student.student_name||'طالب')+'</b><span class="model-badge">نموذج '+a.letter+'</span></div>').join('');
  $('assignmentSection').classList.remove('hidden');$('assignmentSection').scrollIntoView({behavior:'smooth'});setStatus('تم توزيع النماذج بالتساوي قدر الإمكان. أصبحت البيانات جاهزة للمرحلة التالية: ورقة التظليل بالاسم وQR.','ok');
- try{localStorage.setItem('nafes_review_correction_draft',JSON.stringify({title:$('reviewTitle').value,subject:selectedSubject(),class_name:$('className').value,question_count:Number($('questionCount').value),model_count:models.length,indicator_counts:getSelectedIndicators(),assignments:assignments.map(a=>({student_id:a.student.id,student_name:a.student.full_name||a.student.student_name,model:a.letter})),saved_at:new Date().toISOString()}));}catch(_){}
+ try{const existing=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');const reviewId=existing?.review_id||makeReviewId();localStorage.setItem('nafes_review_correction_draft',JSON.stringify({review_id:reviewId,title:$('reviewTitle').value,subject:selectedSubject(),class_name:$('className').value,question_count:Number($('questionCount').value),model_count:models.length,indicator_counts:getSelectedIndicators(),assignments:assignments.map((a,i)=>({sheet_no:i+1,student_name:a.student.full_name||a.student.student_name,model:a.letter})),answer_keys:models.map((m,i)=>({model:letters[i],answers:modelQuestions(m).map(q=>({question_id:q.id||q.question_id||'',correct_index:Number(q.correctIndex),indicator:q.indicator_key||q.indicator||q.indicator_text||''}))})),saved_at:new Date().toISOString()}));}catch(_){}
 }
 async function load(){
  if(!window.NafesTeacher?.getKey()){NafesTeacher.requireKey('أدخل مفتاح المعلم لفتح قسم المراجعة والتصحيح الآلي.');setStatus('يلزم تسجيل دخول المعلم.');return;}
