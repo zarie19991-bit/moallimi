@@ -39,27 +39,71 @@ function normalizeOrientation(c){
 }
 function integralDark(d){
  const w=d.width,h=d.height,ii=new Uint32Array((w+1)*(h+1));
- for(let y=1;y<=h;y++){let row=0;for(let x=1;x<=w;x++){const i=((y-1)*w+(x-1))*4;const gray=(d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114);row+=gray<85?1:0;ii[y*(w+1)+x]=ii[(y-1)*(w+1)+x]+row;}}
+ for(let y=1;y<=h;y++){let row=0;for(let x=1;x<=w;x++){const i=((y-1)*w+(x-1))*4;const gray=(d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114);row+=gray<105?1:0;ii[y*(w+1)+x]=ii[(y-1)*(w+1)+x]+row;}}
  return{ii,w,h};
 }
 function rectSum(I,x,y,w,h){const W=I.w+1,x1=Math.max(0,x),y1=Math.max(0,y),x2=Math.min(I.w,x+w),y2=Math.min(I.h,y+h);return I.ii[y2*W+x2]-I.ii[y1*W+x2]-I.ii[y2*W+x1]+I.ii[y1*W+x1];}
-function findMarker(I,nx,ny){
- const size=Math.max(8,Math.round(I.w*(4/210))),half=Math.round(size/2),rx=Math.round(I.w*.10),ry=Math.round(I.h*.12);
- const cx=Math.round(I.w*nx),cy=Math.round(I.h*ny),step=Math.max(2,Math.floor(size/4));let best=null;
- for(let y=cy-ry;y<=cy+ry;y+=step)for(let x=cx-rx;x<=cx+rx;x+=step){
-   const dark=rectSum(I,x-half,y-half,size,size),score=dark/(size*size);
-   if(!best||score>best.score)best={x,y,score};
+function markerWorkCanvas(src){
+ const maxW=1400;
+ if(src.width<=maxW)return{canvas:src,sx:1,sy:1};
+ const scale=maxW/src.width,c=document.createElement('canvas');
+ c.width=Math.round(src.width*scale);c.height=Math.round(src.height*scale);
+ c.getContext('2d',{willReadFrequently:true}).drawImage(src,0,0,c.width,c.height);
+ return{canvas:c,sx:src.width/c.width,sy:src.height/c.height};
+}
+function markerCandidates(c){
+ const d=imageData(c),I=integralDark(d),raw=[];
+ const sizes=[.007,.010,.013,.017,.022,.028].map(f=>Math.max(7,Math.round(I.w*f)));
+ for(const size of sizes){
+   const half=Math.floor(size/2),step=Math.max(3,Math.floor(size/2));
+   for(let y=half;y<I.h-half;y+=step)for(let x=half;x<I.w-half;x+=step){
+     const score=rectSum(I,x-half,y-half,size,size)/(size*size);
+     if(score>=.72)raw.push({x,y,size,score});
+   }
  }
- return best&&best.score>.52?best:null;
+ raw.sort((a,b)=>b.score-a.score);
+ const out=[];
+ for(const p of raw){
+   if(out.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<Math.max(p.size,q.size)*1.4))continue;
+   out.push(p);if(out.length>=120)break;
+ }
+ return out;
+}
+function detectMarkerSets(src){
+ const prep=markerWorkCanvas(src),c=prep.canvas,cands=markerCandidates(c),rows=[],target=172/64;
+ for(let i=0;i<cands.length;i++)for(let j=i+1;j<cands.length;j++){
+   let a=cands[i],b=cands[j];if(a.x>b.x){const t=a;a=b;b=t;}
+   const dx=b.x-a.x;if(dx<c.width*.32||Math.abs(a.y-b.y)>c.height*.04)continue;
+   rows.push({l:a,r:b,y:(a.y+b.y)/2,dx,ink:(a.score+b.score)/2});
+ }
+ const rects=[];
+ for(let i=0;i<rows.length;i++)for(let j=i+1;j<rows.length;j++){
+   let top=rows[i],bottom=rows[j];if(top.y>bottom.y){const t=top;top=bottom;bottom=t;}
+   const dy=bottom.y-top.y;if(dy<c.height*.10)continue;
+   if(Math.abs(top.l.x-bottom.l.x)>c.width*.045||Math.abs(top.r.x-bottom.r.x)>c.width*.045)continue;
+   const dx=(top.dx+bottom.dx)/2,aspect=dx/dy,aspectErr=Math.abs(Math.log(aspect/target));
+   if(aspectErr>.28)continue;
+   const area=(dx*dy)/(c.width*c.height);
+   rects.push({top,bottom,score:area+(top.ink+bottom.ink)*.12-aspectErr*.35});
+ }
+ rects.sort((a,b)=>b.score-a.score);
+ const chosen=[];
+ for(const r of rects){
+   const center={x:(r.top.l.x+r.top.r.x+r.bottom.l.x+r.bottom.r.x)/4,y:(r.top.y+r.bottom.y)/2};
+   const dx=(r.top.dx+r.bottom.dx)/2,dy=r.bottom.y-r.top.y;
+   if(chosen.some(s=>Math.abs(center.x-s.center.x)<Math.min(dx,s.dx)*.25&&Math.abs(center.y-s.center.y)<Math.min(dy,s.dy)*.55))continue;
+   chosen.push({r,center,dx,dy});if(chosen.length>=8)break;
+ }
+ return chosen.map(x=>({
+   tl:{x:x.r.top.l.x*prep.sx,y:x.r.top.l.y*prep.sy,score:x.r.top.l.score},
+   tr:{x:x.r.top.r.x*prep.sx,y:x.r.top.r.y*prep.sy,score:x.r.top.r.score},
+   bl:{x:x.r.bottom.l.x*prep.sx,y:x.r.bottom.l.y*prep.sy,score:x.r.bottom.l.score},
+   br:{x:x.r.bottom.r.x*prep.sx,y:x.r.bottom.r.y*prep.sy,score:x.r.bottom.r.score}
+ })).sort((a,b)=>Math.min(a.tl.y,a.tr.y)-Math.min(b.tl.y,b.tr.y)||Math.min(a.tl.x,a.bl.x)-Math.min(b.tl.x,b.bl.x));
 }
 function detectMarkers(c){
- const d=imageData(c),I=integralDark(d);
- const pts={
-   tl:findMarker(I,.092,.273),tr:findMarker(I,.911,.273),
-   bl:findMarker(I,.092,.704),br:findMarker(I,.911,.704)
- };
- if(Object.values(pts).some(x=>!x))return null;
- return{...pts,image:d};
+ const pts=detectMarkerSets(c)[0];if(!pts)return null;
+ return{...pts,image:imageData(c)};
 }
 function mapTemplate(markers,x,y){
  const T=NafesOmrTemplate.markers,u=(x-T.tl[0])/(T.tr[0]-T.tl[0]),v=(y-T.tl[1])/(T.bl[1]-T.tl[1]);
@@ -117,9 +161,22 @@ async function sourcePages(file){
  }else out.push(await canvasFromImage(file));
  return out;
 }
+function cropAroundMarkers(c,m){
+ const left=Math.min(m.tl.x,m.bl.x),right=Math.max(m.tr.x,m.br.x),top=Math.min(m.tl.y,m.tr.y),bottom=Math.max(m.bl.y,m.br.y);
+ const dx=Math.max(1,right-left),dy=Math.max(1,bottom-top);
+ const x=Math.max(0,left-dx*.10),y=Math.max(0,top-dy*.78),x2=Math.min(c.width,right+dx*.10),y2=Math.min(c.height,bottom+dy*.55);
+ return cropCanvas(c,x,y,x2-x,y2-y);
+}
 function regionsForPage(c){
- const portrait=c.height/c.width>1.18;if(!portrait)return[c];
- const h=Math.floor(c.height/2);return[cropCanvas(c,0,0,c.width,h),cropCanvas(c,0,h,c.width,c.height-h)];
+ let page=c,sets=detectMarkerSets(page);
+ if(!sets.length&&c.width>c.height){page=rotateCanvas(c,90);sets=detectMarkerSets(page);}
+ if(sets.length)return sets.map(m=>cropAroundMarkers(page,m));
+ const portrait=page.height/page.width>1.18;if(!portrait)return[page];
+ const h=page.height;
+ return[
+   cropCanvas(page,0,0,page.width,Math.min(h,Math.round(h*.58))),
+   cropCanvas(page,0,Math.round(h*.30),page.width,Math.round(h*.58))
+ ];
 }
 async function processFile(){
  if(!file||!draft)return;results=[];$('resultsSection').classList.add('hidden');$('approvedSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('processBtn').disabled=true;
