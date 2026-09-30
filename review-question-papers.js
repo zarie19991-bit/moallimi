@@ -4,6 +4,7 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
+const DEFAULT_QUESTION_START=11;
 function getDraft(){try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
 function subjectLabel(s){return({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||s||'—';}
 function copiesFor(d,model){return(d.assignments||[]).filter(a=>a.model===model).length;}
@@ -16,7 +17,7 @@ function similarity(a,b){
  const wa=new Set(A.split(' ').filter(w=>w.length>1)),wb=new Set(B.split(' ').filter(w=>w.length>1));let inter=0;
  for(const w of wa)if(wb.has(w))inter++;const union=wa.size+wb.size-inter;return union?inter/union:0;
 }
-function groupsFromQuestions(questions){
+function groupsFromQuestions(questions,startNo=DEFAULT_QUESTION_START){
  const groups=[],byKey=new Map();
  questions.forEach((q,i)=>{
    const ctx=String(q.context||'').trim();
@@ -27,7 +28,7 @@ function groupsFromQuestions(questions){
      groups.push(group);
      byKey.set(key,group);
    }
-   group.questions.push({...q,_no:i+1});
+   group.questions.push({...q,_no:startNo+i});
  });
  return groups;
 }
@@ -88,7 +89,7 @@ function onePage(model,d,groups,pageNo,totalQuestions){
  '</div></div></section>';
 }
 function modelBooklet(model,d){
- const questions=model.questions||[],groups=groupsFromQuestions(questions);
+ const questions=model.questions||[],startNo=Number(d.question_start||DEFAULT_QUESTION_START),groups=groupsFromQuestions(questions,startNo);
  if(d.subject==='reading'&&questions.length===20){
    const bad=groups.length!==4||groups.some(g=>!g.context||g.questions.length!==5);
    if(bad){
