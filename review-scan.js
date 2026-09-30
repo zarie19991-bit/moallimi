@@ -91,6 +91,11 @@ function detectMarkerSets(src){
  for(const r of rects){
    const center={x:(r.top.l.x+r.top.r.x+r.bottom.l.x+r.bottom.r.x)/4,y:(r.top.y+r.bottom.y)/2};
    const dx=(r.top.dx+r.bottom.dx)/2,dy=r.bottom.y-r.top.y;
+   const sharesMarkerRow=chosen.some(s=>{
+     const ys=[s.r.top.y,s.r.bottom.y],ry=[r.top.y,r.bottom.y],tol=Math.max(8,Math.min(dy,s.dy)*.08);
+     return ry.some(y=>ys.some(sy=>Math.abs(y-sy)<tol));
+   });
+   if(sharesMarkerRow)continue;
    if(chosen.some(s=>Math.abs(center.x-s.center.x)<Math.min(dx,s.dx)*.25&&Math.abs(center.y-s.center.y)<Math.min(dy,s.dy)*.55))continue;
    chosen.push({r,center,dx,dy});if(chosen.length>=8)break;
  }
@@ -149,6 +154,18 @@ async function processRegion(c,pageNo,regionNo){
  if(!markers){r.unresolved++;r.error='تعذر تحديد علامات المحاذاة في ورقة التظليل.';}
  if(markers&&answers.length)scoreResult(r);return r;
 }
+function assignLegacySheetsByOrder(){
+ const unresolved=results.filter(r=>!r.qrValid&&r.markersOk).sort((a,b)=>a.pageNo-b.pageNo||a.regionNo-b.regionNo);
+ if(!unresolved.length)return;
+ const used=new Set(results.filter(r=>r.qrValid&&r.assignment).map(r=>Number(r.assignment.sheet_no)));
+ const remaining=(draft?.assignments||[]).filter(a=>!used.has(Number(a.sheet_no))).sort((a,b)=>Number(a.sheet_no)-Number(b.sheet_no));
+ if(unresolved.length!==remaining.length)return;
+ unresolved.forEach((r,i)=>{
+   const a=remaining[i];r.assignment=a;r.model=a.model;r.studentName=a.student_name;r.qrValid=true;
+   r.identitySource='print-order';r.qr={reviewId:draft.review_id,sheetNo:Number(a.sheet_no),model:a.model,legacyOrder:true};
+   if(r.answers.length)scoreResult(r);
+ });
+}
 async function canvasFromImage(file){
  const bmp=await createImageBitmap(file),c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;c.getContext('2d',{willReadFrequently:true}).drawImage(bmp,0,0);return c;
 }
@@ -170,7 +187,10 @@ function cropAroundMarkers(c,m){
 function regionsForPage(c){
  let page=c,sets=detectMarkerSets(page);
  if(!sets.length&&c.width>c.height){page=rotateCanvas(c,90);sets=detectMarkerSets(page);}
- if(sets.length)return sets.map(m=>cropAroundMarkers(page,m));
+ if(sets.length){
+   const ordered=[...sets].sort((a,b)=>Math.min(a.tl.y,a.tr.y)-Math.min(b.tl.y,b.tr.y));
+   return ordered.slice(0,2).map(m=>cropAroundMarkers(page,m));
+ }
  const portrait=page.height/page.width>1.18;if(!portrait)return[page];
  const h=page.height;
  return[
@@ -183,6 +203,7 @@ async function processFile(){
  try{
    setProgress(3,'قراءة الملف…');const pages=await sourcePages(file),totalRegions=pages.reduce((n,p)=>n+regionsForPage(p).length,0);let done=0;
    for(let pi=0;pi<pages.length;pi++){const regs=regionsForPage(pages[pi]);for(let ri=0;ri<regs.length;ri++){setProgress(5+90*done/Math.max(1,totalRegions),'الصفحة '+ar(pi+1)+' — قراءة الورقة '+ar(ri+1));const r=await processRegion(regs[ri],pi+1,ri+1);if(r.qrRaw||r.markersOk)results.push(r);done++;await new Promise(res=>setTimeout(res,0));}}
+   assignLegacySheetsByOrder();
    setProgress(100,'اكتمل التحليل');renderResults();
  }catch(e){setProgress(0,'تعذر التحليل: '+e.message);}
  finally{$('processBtn').disabled=false;}
