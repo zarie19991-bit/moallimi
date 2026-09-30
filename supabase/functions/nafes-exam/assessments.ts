@@ -56,6 +56,39 @@ function selectIndicatorQuestions(candidates:Row[],count:number,subject:string,s
   return picked;
 }
 
+function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
+  if(count%5!==0)fail('في مراجعة القراءة يجب أن يكون عدد أسئلة كل مؤشر من مضاعفات ٥ حتى يكون كل نص متبوعًا بخمسة أسئلة.');
+  const groups=new Map<string,Row[]>();
+  for(const q of candidates){
+    const context=String(q.context||'').trim();
+    if(!context)continue;
+    const list=groups.get(context)||[];
+    list.push(q);
+    groups.set(context,list);
+  }
+  const randomized=shuffle([...groups.entries()],randomFrom(seed))
+    .map(([context,rows])=>({context,rows}))
+    .sort((a,b)=>a.context.length-b.context.length);
+  const neededGroups=count/5;
+  const picked:Row[]=[];
+  let chosenGroups=0;
+  for(const group of randomized){
+    if(chosenGroups>=neededGroups)break;
+    const available=group.rows.filter(q=>{
+      const sk=stemKey(q),ck=questionKey(q);
+      return !!sk&&!usedStems.has(sk)&&!usedContent.has(ck);
+    });
+    if(available.length<5)continue;
+    const batch=selectIndicatorQuestions(available,5,'reading',seed+'|passage|'+chosenGroups,usedContent,usedStems);
+    picked.push(...batch);
+    chosenGroups++;
+  }
+  if(picked.length!==count){
+    fail(`لا توجد نصوص قراءة كافية تحقق البناء المطلوب (نص ثم ٥ أسئلة). المطلوب ${neededGroups} نصوص، والمتاح حاليًا ${chosenGroups} فقط لهذا الاختيار.`);
+  }
+  return picked;
+}
+
 const SIM_BANK_COLUMNS='id,grade_key,subject_key,outcome_code,indicator_index,indicator_key,indicator_text,context_text,question_text,normalized_content_text,options,correct_index,explanation,difficulty,cognitive_level,review_status,content_sha256,semantic_similarity_cleared,semantic_review_evidence,is_active';
 
 function isValidSemanticEvidence(ev:any):boolean {
@@ -734,7 +767,9 @@ async function draftSections(db:any,c:Row,regenerate=false):Promise<Row[]> {
       for(const i of s.indicators){
         let candidates=pool.filter(q=>q.indicator_key===i.key);
         if(s.fixed_model)candidates=candidates.filter(q=>q.model_no===s.fixed_model);
-        const picked=selectIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems);
+        const picked=(c.review_passage_mode===true&&s.subject==='reading')
+          ?selectReadingPassageQuestions(candidates,i.count,token(8),used,usedStems)
+          :selectIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems);
         qs.push(...picked);
       }
     }
