@@ -40,28 +40,13 @@ function groupUnits(g){
  return (g.context?8+Math.ceil(String(g.context).length/180)*3.2:0)+g.questions.reduce((n,q)=>n+questionUnits(q),0);
 }
 function splitIntoTwo(groups){
- const total=groups.reduce((n,g)=>n+groupUnits(g),0),target=total/2;
- const pages=[[],[]];let used=0,page=0;
- for(const g of groups){
-   const units=groupUnits(g);
-   if(page===0&&used>0&&used+units>target){
-     page=1;
-   }
-   if(page===0&&units>target&&g.questions.length>1){
-     const first={context:g.context,questions:[]},second={context:'',continued:true,questions:[]};
-     let gu= g.context?8+Math.ceil(String(g.context).length/180)*3.2:0;
-     for(const q of g.questions){
-       const qu=questionUnits(q);
-       if(first.questions.length&&gu+qu>target){second.questions.push(q);}
-       else{first.questions.push(q);gu+=qu;}
-     }
-     pages[0].push(first);
-     if(second.questions.length)pages[1].push(second);
-     page=1;used=0;
-   }else{
-     pages[page].push(g);used+=units;
-   }
+ const valid=groups.filter(g=>g&&g.questions?.length);
+ if(valid.length===4&&valid.every(g=>g.questions.length===5)){
+   return [valid.slice(0,2),valid.slice(2,4)];
  }
+ const pages=[[],[]];
+ const target=Math.ceil(valid.length/2);
+ valid.forEach((g,i)=>pages[i<target?0:1].push(g));
  return pages;
 }
 function cleanStem(question,context){
@@ -104,7 +89,14 @@ function onePage(model,d,groups,pageNo,totalQuestions){
  '</div></div></section>';
 }
 function modelBooklet(model,d){
- const questions=model.questions||[],groups=groupsFromQuestions(questions),pages=splitIntoTwo(groups);
+ const questions=model.questions||[],groups=groupsFromQuestions(questions);
+ if(d.subject==='reading'&&questions.length===20){
+   const bad=groups.length!==4||groups.some(g=>!g.context||g.questions.length!==5);
+   if(bad){
+     return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>يجب أن يتكون من ٤ نصوص، وتحت كل نص ٥ أسئلة. أعد إنشاء النماذج من قسم المراجعة والتصحيح الآلي.</p></div></div></section>';
+   }
+ }
+ const pages=splitIntoTwo(groups);
  return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+onePage(model,d,pages[0],1,questions.length)+onePage(model,d,pages[1],2,questions.length)+'</div>';
 }
 function render(){
