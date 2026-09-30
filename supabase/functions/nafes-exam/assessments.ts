@@ -66,9 +66,11 @@ function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string
     list.push(q);
     groups.set(context,list);
   }
+  // Keep passage choice genuinely varied across review models.
+  // Print compactness is scored on the client after generation; sorting here by
+  // passage length forced the same short texts to recur across models.
   const randomized=shuffle([...groups.entries()],randomFrom(seed))
-    .map(([context,rows])=>({context,rows}))
-    .sort((a,b)=>a.context.length-b.context.length);
+    .map(([context,rows])=>({context,rows}));
   const neededGroups=count/5;
   const picked:Row[]=[];
   let chosenGroups=0;
