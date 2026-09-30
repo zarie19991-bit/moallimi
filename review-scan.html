@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#17324d">
+<title>رفع أوراق الطلاب وتصحيحها | معلّمي</title>
+<link rel="stylesheet" href="review-scan.css?v=20260930-1">
+<script src="teacher-preboot.js?v=20260919-scope2"></script>
+</head>
+<body>
+<header class="topbar">
+  <a href="review-correction.html">← المراجعة والتصحيح الآلي</a>
+  <div><b>رفع أوراق الطلاب وتصحيحها</b><span id="reviewMeta"></span></div>
+  <a href="review-bubble-sheets.html">طباعة أوراق التظليل</a>
+</header>
+
+<main class="page">
+  <section class="hero">
+    <div>
+      <span class="eyebrow">التصحيح الورقي الآلي</span>
+      <h1>ارفع ملف PDF واحدًا للفصل كاملًا</h1>
+      <p>تقرأ المنصة QR لكل طالب، وتحدد النموذج، ثم تقرأ التظليل وتعرض الحالات غير الواضحة قبل اعتماد النتيجة.</p>
+    </div>
+    <div class="hero-badge"><b>MR2</b><span>نموذج التظليل الحالي</span></div>
+  </section>
+
+  <section id="noDraft" class="notice error hidden">
+    لا توجد مراجعة معتمدة على هذا الجهاز. أنشئ النماذج ووزعها على الطلاب أولًا ثم اطبع أوراق التظليل.
+  </section>
+
+  <section class="card upload-card">
+    <div class="upload-copy">
+      <h2>١. رفع ملف المسح</h2>
+      <p>يمكن أن يحتوي كل وجه A4 على ورقتي تظليل (أعلى وأسفل)، أو تكون كل ورقة تظليل ممسوحة وحدها.</p>
+    </div>
+    <label class="dropzone" id="dropzone">
+      <input id="fileInput" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">
+      <b>اختر PDF أو اسحبه هنا</b>
+      <span>يفضل مسح واضح بدقة 200–300 dpi ومن دون قص حواف الورقة.</span>
+    </label>
+    <div class="actions">
+      <button id="processBtn" class="primary" type="button" disabled>بدء القراءة والتصحيح</button>
+      <button id="clearBtn" class="secondary" type="button">مسح الملف</button>
+    </div>
+    <div id="progressWrap" class="progress-wrap hidden">
+      <div class="progress"><i id="progressBar"></i></div>
+      <span id="progressText">جاهز</span>
+    </div>
+  </section>
+
+  <section id="summarySection" class="hidden">
+    <div id="summaryCards" class="summary-grid"></div>
+  </section>
+
+  <section id="resultsSection" class="card hidden">
+    <header class="section-head">
+      <div><h2>٢. مراجعة الأوراق</h2><p>الأوراق الواضحة تُصحح مباشرة. افتح فقط الحالات المعلّمة بالمراجعة.</p></div>
+      <div class="actions">
+        <button id="reviewNextBtn" class="secondary" type="button">فتح أول حالة تحتاج مراجعة</button>
+        <button id="approveBtn" class="primary" type="button">اعتماد النتائج</button>
+      </div>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>الطالب</th><th>النموذج</th><th>الدرجة</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="approvedSection" class="card hidden">
+    <header class="section-head"><div><h2>٣. النتائج المعتمدة</h2><p>تم حفظ نتيجة هذه الدفعة على الجهاز وربط كل إجابة بمؤشرها.</p></div><button id="exportBtn" class="secondary" type="button">تصدير CSV</button></header>
+    <div id="indicatorSummary" class="indicator-summary"></div>
+  </section>
+</main>
+
+<div id="sheetModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <header><div><b id="modalTitle"></b><span id="modalSub"></span></div><button id="closeModal" type="button">×</button></header>
+    <div class="modal-grid">
+      <div class="scan-preview"><img id="scanImage" alt="صورة ورقة التظليل الممسوحة"></div>
+      <div>
+        <div id="manualAssignmentWrap" class="manual-assignment hidden"><label>تعذر قراءة QR — اختر الطالب:<select id="manualAssignment"></select></label></div>
+        <div id="answerEditor" class="answer-editor"></div>
+      </div>
+    </div>
+    <footer><button id="saveSheetBtn" class="primary" type="button">حفظ مراجعة الورقة</button></footer>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="review-omr-template.js?v=20260930-1"></script>
+<script src="teacher-access.js?v=20260920-scope5"></script>
+<script src="review-scan.js?v=20260930-1"></script>
+</body>
+</html>
