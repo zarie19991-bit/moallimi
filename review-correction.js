@@ -58,7 +58,19 @@ function renderIndicators(){
 function distributeIndicatorCounts(){
  const rows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
  if(!rows.length)return;
- const total=Number($('questionCount').value||20),base=Math.floor(total/rows.length),extra=total%rows.length;
+ const total=Number($('questionCount').value||20);
+ if(selectedSubject()==='reading'){
+   const blocks=Math.floor(total/5);
+   if(blocks<rows.length){
+     rows.forEach((r,i)=>{const x=r.querySelector('.indicator-count');x.disabled=false;x.value=5;});
+     updateIndicatorSummary();
+     return;
+   }
+   const base=Math.floor(blocks/rows.length),extra=blocks%rows.length;
+   rows.forEach((r,i)=>{const x=r.querySelector('.indicator-count');x.disabled=false;x.value=(base+(i<extra?1:0))*5;});
+   return;
+ }
+ const base=Math.floor(total/rows.length),extra=total%rows.length;
  rows.forEach((r,i)=>{const x=r.querySelector('.indicator-count');x.disabled=false;x.value=base+(i<extra?1:0);});
 }
 function updateIndicatorSummary(){
@@ -67,7 +79,8 @@ function updateIndicatorSummary(){
  sel.forEach(r=>r.querySelector('.indicator-count').disabled=false);
  rows.filter(r=>!r.querySelector('.indicator-check')?.checked).forEach(r=>r.querySelector('.indicator-count').disabled=true);
  const total=sel.reduce((n,r)=>n+Number(r.querySelector('.indicator-count').value||0),0),target=Number($('questionCount').value||20);
- $('indicatorSummary').textContent='المحدد: '+ar(sel.length)+' مؤشر · مجموع الأسئلة: '+ar(total)+' من '+ar(target)+(sel.length&&total!==target?' — عدّل الأعداد أو أعد التوزيع.':'');
+ const readingNote=selectedSubject()==='reading'?' · بناء القراءة: كل نص يتبعه ٥ أسئلة':'';
+ $('indicatorSummary').textContent='المحدد: '+ar(sel.length)+' مؤشر · مجموع الأسئلة: '+ar(total)+' من '+ar(target)+readingNote+(sel.length&&total!==target?' — اختر عدد أسئلة يكفي ٥ أسئلة لكل مؤشر أو عدّل التوزيع.':'');
 }
 function getSelectedIndicators(){
  return [...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked).map(r=>({key:r.dataset.key,count:Number(r.querySelector('.indicator-count').value||0)}));
@@ -78,7 +91,7 @@ function selectedStudents(){
 }
 function configForModel(letter){
  const subject=selectedSubject(),inds=getSelectedIndicators();
- return {kind:'multi_indicator',grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections:[{subject:subject,question_count:Number($('questionCount').value),duration_minutes:45,calculator:subject==='math',model_no:1,indicators:inds}],count_mode:'per_indicator',settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
+ return {kind:'multi_indicator',review_passage_mode:subject==='reading',grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections:[{subject:subject,question_count:Number($('questionCount').value),duration_minutes:45,calculator:subject==='math',model_no:1,indicators:inds}],count_mode:'per_indicator',settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
 }
 function questionIds(d){
  return (d.sections||[]).flatMap(s=>(s.questions||[]).map(q=>String(q.id||q.question_id||q.question||'')));
@@ -156,6 +169,10 @@ function validate(){
  if(!$('reviewTitle').value.trim())throw new Error('اكتب اسم المراجعة.');
  if(!inds.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
  if(sum!==q)throw new Error('مجموع أسئلة المؤشرات يجب أن يساوي '+q+' سؤالًا.');
+ if(selectedSubject()==='reading'){
+   if(q%5!==0)throw new Error('عدد أسئلة القراءة يجب أن يكون من مضاعفات ٥.');
+   if(inds.some(x=>x.count%5!==0||x.count<5))throw new Error('في القراءة: كل مؤشر مختار يجب أن يأخذ ٥ أسئلة أو مضاعفاتها حتى يكون البناء: نص ثم ٥ أسئلة.');
+ }
  if(!stu.length)throw new Error('اختر طالبًا واحدًا على الأقل لتجهيز التوزيع.');
  const levels=Number($('knowledge').value)+Number($('application').value)+Number($('reasoning').value);
  if(levels!==100)throw new Error('مجموع مستويات معرفة/تطبيق/استدلال يجب أن يساوي 100%.');
