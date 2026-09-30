@@ -149,3 +149,5 @@ review-omr-template.js
 review-scan.html
 review-scan.css
 review-scan.js
+
+review-draft-sync.js
