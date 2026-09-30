@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
-const $=id=>document.getElementById(id);\nconst makeReviewId=()=>('R'+Date.now().toString(36).toUpperCase());
+const $=id=>document.getElementById(id);
+const makeReviewId=()=>('R'+Date.now().toString(36).toUpperCase());
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const labels={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
