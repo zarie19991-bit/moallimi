@@ -954,6 +954,61 @@ async function teacherData(db:any,b:Row) {
  return{attempts,tests,indicators:cursor===0?FRAMEWORK:[],thresholds:THRESHOLDS,next_cursor:cursor+limit<offset?cursor+limit:null};
 }
 
+function validatePaperReviewPayload(raw:unknown,owner:Row):Row {
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))fail('بيانات المراجعة الورقية غير مكتملة.');
+  const p=raw as Row;
+  const reviewId=tidy(p.review_id,80);
+  if(!/^R[A-Z0-9_-]{4,79}$/i.test(reviewId))fail('معرّف المراجعة الورقية غير صالح.');
+  const subject=tidy(p.subject,20);
+  if(!SUBJECTS.includes(subject))fail('مادة المراجعة غير صحيحة.');
+  assertSubjectScope(owner,subject);
+  const models=Array.isArray(p.models)?p.models:[];
+  const keys=Array.isArray(p.answer_keys)?p.answer_keys:[];
+  const assignments=Array.isArray(p.assignments)?p.assignments:[];
+  if(models.length<1||models.length>10)fail('عدد نماذج المراجعة يجب أن يكون من ١ إلى ١٠.');
+  if(keys.length!==models.length)fail('مفاتيح الإجابة لا تطابق عدد النماذج.');
+  if(assignments.length>500)fail('عدد الطلاب في المراجعة أكبر من الحد المسموح.');
+  const compact={
+    ...p,
+    review_id:reviewId,
+    title:tidy(p.title,160)||'مراجعة ورقية',
+    subject,
+    class_name:tidy(p.class_name,80),
+    question_count:Number(p.question_count||0),
+    question_start:Number(p.question_start||1),
+    model_count:Number(p.model_count||models.length),
+    models,answer_keys:keys,assignments,
+    indicator_counts:Array.isArray(p.indicator_counts)?p.indicator_counts:[],
+    saved_at:tidy(p.saved_at,80)||new Date().toISOString()
+  };
+  if(!Number.isInteger(compact.question_count)||compact.question_count<1||compact.question_count>60)fail('عدد أسئلة المراجعة غير صالح.');
+  const bytes=new TextEncoder().encode(JSON.stringify(compact)).byteLength;
+  if(bytes>2500000)fail('حجم بيانات المراجعة أكبر من الحد المسموح.');
+  return compact;
+}
+async function teacherPaperReviewUpsert(db:any,b:Row,owner:Row){
+  const payload=validatePaperReviewPayload(b.review||b.payload,owner);
+  const row={
+    owner_id:owner.id,review_id:payload.review_id,title:payload.title,subject:payload.subject,
+    class_name:payload.class_name||'',payload,updated_at:new Date().toISOString()
+  };
+  const existing=must(await db.from('nafes_paper_reviews').select('id').eq('owner_id',owner.id).eq('review_id',payload.review_id).maybeSingle());
+  const saved=existing
+    ?must(await db.from('nafes_paper_reviews').update(row).eq('id',existing.id).select('id,review_id,title,subject,class_name,updated_at').single())
+    :must(await db.from('nafes_paper_reviews').insert(row).select('id,review_id,title,subject,class_name,updated_at').single());
+  return{ok:true,review:saved};
+}
+async function teacherPaperReviewGet(db:any,b:Row,owner:Row){
+  let q=db.from('nafes_paper_reviews').select('id,review_id,title,subject,class_name,payload,created_at,updated_at').eq('owner_id',owner.id);
+  const reviewId=tidy(b.review_id,80);
+  if(reviewId)q=q.eq('review_id',reviewId);
+  else q=q.order('updated_at',{ascending:false}).limit(1);
+  const row=must(await q.maybeSingle());
+  if(!row)return{ok:true,review:null};
+  assertSubjectScope(owner,row.subject);
+  return{ok:true,review:{...row,payload:row.payload}};
+}
+
 async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
   const reviewId=tidy(b.review_id,80);
   if(!/^R[A-Z0-9_-]{4,79}$/i.test(reviewId))fail('معرّف المراجعة الورقية غير صالح.');
@@ -1090,6 +1145,8 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_test_delete'){assertMainAccount(owner);return await teacherTestDelete(db,b,owner);}
  if(b.action==='teacher_tests_bulk_clear'){assertMainAccount(owner);return await teacherTestsBulkClear(db,b,owner);}
  if(b.action==='teacher_data')return await scopedTeacherData(db,b,owner);
+ if(b.action==='teacher_paper_review_upsert')return await teacherPaperReviewUpsert(db,b,owner);
+ if(b.action==='teacher_paper_review_get')return await teacherPaperReviewGet(db,b,owner);
  if(b.action==='teacher_paper_review_save')return await teacherPaperReviewSave(db,b,owner);
  if(b.action==='teacher_paper') {
   if(!SOURCES[b.source]||!isUUID(b.attempt_id)||b.source==='simulation')fail('المحاولة غير موجودة.',404);
