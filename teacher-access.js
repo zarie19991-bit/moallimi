@@ -78,7 +78,18 @@
     const s = scope(); document.documentElement.dataset.teacherScope = s; document.documentElement.classList.remove('teacher-scoped-preboot'); document.getElementById('nafesTeacherScopeStyle')?.remove();
     const currentPage=(location.pathname.split('/').pop()||'index.html').toLowerCase();
     if (s !== 'all' && (currentPage==='' || currentPage==='index.html')) { location.replace('teacher.html'); return; }
-    if (s === 'all') return;
+    if (s === 'all') {
+      for (const id of ['subjectSelect','reportSubjectSelect','paperSubject','subject']) {
+        const sel=document.getElementById(id);if(!sel)continue;
+        [...sel.options].forEach(o=>{o.hidden=false;o.disabled=false;});
+      }
+      document.querySelectorAll('.section-row[data-subject]').forEach(row=>{row.hidden=false;const enabled=row.querySelector('.enabled');if(enabled)enabled.disabled=false;});
+      const overviewTab=document.querySelector('[data-view="overview"]'),reportTab=document.querySelector('[data-view="report"]');
+      if(overviewTab)overviewTab.style.display='';if(reportTab)reportTab.style.display='';
+      document.querySelectorAll('[data-master-home]').forEach(a=>{a.setAttribute('href','./');});
+      document.querySelectorAll('[data-teacher-area-title]').forEach(el=>{el.textContent=(profile?.label||readCachedProfile()?.label||'الحساب الرئيسي')+' — جميع المواد';});
+      return;
+    }
     const style = document.createElement('style'); style.id = 'nafesTeacherScopeStyle'; style.textContent = `[data-subject]:not([data-subject="${s}"]){display:none!important}.selection-panel[data-select-subject]:not([data-select-subject="${s}"]){display:none!important}#navStudentsBtn,.btn-quick-manage,.simulation-secondary-btn,#resetTrialDataBtn{display:none!important}`; document.head.appendChild(style);
     const fix = () => {
       for (const id of ['subjectSelect','reportSubjectSelect','paperSubject']) { const sel = document.getElementById(id); if (!sel) continue; [...sel.options].forEach(o => { o.hidden = o.value && o.value !== s; o.disabled = o.value && o.value !== s; }); if ([...sel.options].some(o => o.value === s)) { sel.value = s; sel.dispatchEvent(new Event('change', { bubbles: true })); } }
