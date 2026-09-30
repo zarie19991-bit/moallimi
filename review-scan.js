@@ -3,7 +3,7 @@
 const $=id=>document.getElementById(id);
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const letters=['أ','ب','ج','د'];
-let draft=null,file=null,results=[],activeIndex=-1;
+let draft=null,file=null,results=[],activeIndex=-1,studentRoster=[],ocrWorkerPromise=null;
 
 function keyForModel(model){return draft?.answer_keys?.find(x=>x.model===model)?.answers||[];}
 function assignmentBySheet(no){return draft?.assignments?.find(x=>Number(x.sheet_no)===Number(no))||null;}
@@ -141,6 +141,47 @@ function readAnswers(c,markers,total,startNo){
  });
 }
 function thumb(c){const w=520,h=Math.round(c.height*w/c.width),o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(c,0,0,w,h);return o.toDataURL('image/jpeg',.68);}
+function normalizeArabic(v){
+ return String(v||'').normalize('NFKD').replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[^\u0621-\u063A\u0641-\u064A0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+function editDistance(a,b){
+ a=String(a||'');b=String(b||'');const prev=Array.from({length:b.length+1},(_,i)=>i),cur=new Array(b.length+1);
+ for(let i=1;i<=a.length;i++){cur[0]=i;for(let j=1;j<=b.length;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));for(let j=0;j<=b.length;j++)prev[j]=cur[j];}
+ return prev[b.length];
+}
+function nameMatchScore(name,text){
+ const n=normalizeArabic(name),t=normalizeArabic(text);if(!n||!t)return 0;if(t.includes(n))return 1;
+ const tokens=n.split(' ').filter(x=>x.length>1),tt=t.split(' ').filter(x=>x.length>1);
+ let covered=0;
+ for(const tok of tokens){
+   let best=0;for(const x of tt){const d=editDistance(tok,x),s=1-d/Math.max(tok.length,x.length,1);if(s>best)best=s;}
+   if(best>=.72)covered+=best;
+ }
+ const tokenScore=tokens.length?covered/tokens.length:0;
+ const lines=String(text||'').split(/[\n\r]+/).map(normalizeArabic).filter(Boolean);let lineScore=0;
+ for(const line of lines){const d=editDistance(n,line),s=1-d/Math.max(n.length,line.length,1);if(s>lineScore)lineScore=s;}
+ return Math.max(tokenScore,lineScore);
+}
+function ocrWorker(){
+ if(!window.Tesseract?.createWorker)return Promise.resolve(null);
+ if(!ocrWorkerPromise)ocrWorkerPromise=Tesseract.createWorker('ara').catch(()=>null);
+ return ocrWorkerPromise;
+}
+async function inferNameFromPrintedHeader(canvas){
+ const candidates=new Map();
+ for(const a of (draft?.assignments||[])){if(a.student_name)candidates.set(normalizeArabic(a.student_name),{name:a.student_name,id:a.student_id||'',assignment:a});}
+ for(const s of studentRoster){const name=s.full_name||s.student_name||'';if(name&&!candidates.has(normalizeArabic(name)))candidates.set(normalizeArabic(name),{name,id:s.id||'',assignment:null});}
+ if(!candidates.size)return null;
+ const header=cropCanvas(canvas,0,0,canvas.width,Math.max(1,Math.round(canvas.height*.34)));
+ const worker=await ocrWorker();if(!worker)return null;
+ try{
+   const out=await worker.recognize(header),text=out?.data?.text||'';if(!text.trim())return null;
+   const ranked=[...candidates.values()].map(x=>({...x,score:nameMatchScore(x.name,text)})).sort((a,b)=>b.score-a.score);
+   const best=ranked[0],second=ranked[1];
+   if(!best||best.score<.62||(second&&best.score-second.score<.07))return null;
+   return{...best,text};
+ }catch(_){return null;}
+}
 function scoreResult(r){
  const key=keyForModel(r.model),start=Number(draft.question_start||1);let score=0,total=Math.min(Number(draft.question_count||20),key.length||20);
  r.answers.forEach((a,i)=>{const k=key[i];a.correctIndex=k?Number(k.correct_index):null;a.indicator=k?.indicator||'';a.correct=a.selected!==null&&a.correctIndex!==null&&Number(a.selected)===Number(a.correctIndex);if(a.correct)score++;});
@@ -150,7 +191,7 @@ async function processRegion(c,pageNo,regionNo){
  const normed=normalizeOrientation(c),canvas=normed.canvas,qrRaw=normed.qr?.data||'',q=parseQr(qrRaw);
  const qrValid=!!q&&q.reviewId===draft.review_id,assignment=qrValid?assignmentBySheet(q.sheetNo):null,model=assignment?.model||q?.model||'';
  const markers=detectMarkers(canvas),answers=markers?readAnswers(canvas,markers,Number(draft.question_count||20),Number(draft.question_start||1)):[];
- const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,answers,thumbnail:thumb(canvas),unresolved:0,score:0,total:Number(draft.question_count||20)};
+ const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,answers,thumbnail:thumb(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),sourceCanvas:canvas};
  if(!markers){r.unresolved++;r.error='تعذر تحديد علامات المحاذاة في ورقة التظليل.';}
  if(markers&&answers.length)scoreResult(r);return r;
 }
@@ -171,6 +212,22 @@ function assignLegacySheetsByOrder(){
    r.identitySource='print-order';
    r.qr={reviewId:draft.review_id,sheetNo:Number(a.sheet_no),model:a.model,legacyOrder:true};
    if(r.answers.length)scoreResult(r);
+ }
+}
+async function recoverLegacyNamesByOcr(){
+ const targets=results.filter(r=>r.markersOk&&(!r.studentName||r.studentName==='غير معروف'));
+ if(!targets.length)return;
+ let done=0;
+ for(const r of targets){
+   setProgress(92+Math.round(6*done/Math.max(1,targets.length)),'قراءة اسم الطالب من الورقة '+ar(done+1)+' من '+ar(targets.length)+'…');
+   const hit=await inferNameFromPrintedHeader(r.sourceCanvas);
+   if(hit){
+     r.studentName=hit.name;r.identitySource='header-ocr';
+     let a=hit.assignment;
+     if(!a)a=(draft?.assignments||[]).find(x=>normalizeArabic(x.student_name)===normalizeArabic(hit.name))||null;
+     if(a){r.assignment=a;r.model=a.model;r.qrValid=true;r.qr={reviewId:draft.review_id,sheetNo:Number(a.sheet_no),model:a.model,legacyOcr:true};if(r.answers.length)scoreResult(r);}
+   }
+   done++;await new Promise(res=>setTimeout(res,0));
  }
 }
 async function canvasFromImage(file){
@@ -211,6 +268,8 @@ async function processFile(){
    setProgress(3,'قراءة الملف…');const pages=await sourcePages(file),totalRegions=pages.reduce((n,p)=>n+regionsForPage(p).length,0);let done=0;
    for(let pi=0;pi<pages.length;pi++){const regs=regionsForPage(pages[pi]);for(let ri=0;ri<regs.length;ri++){setProgress(5+90*done/Math.max(1,totalRegions),'الصفحة '+ar(pi+1)+' — قراءة الورقة '+ar(ri+1));const r=await processRegion(regs[ri],pi+1,ri+1);if(r.qrRaw||r.markersOk)results.push(r);done++;await new Promise(res=>setTimeout(res,0));}}
    assignLegacySheetsByOrder();
+   await recoverLegacyNamesByOcr();
+   results.forEach(r=>{delete r.sourceCanvas;});
    setProgress(100,'اكتمل التحليل');renderResults();
  }catch(e){setProgress(0,'تعذر التحليل: '+e.message);}
  finally{$('processBtn').disabled=false;}
@@ -259,6 +318,7 @@ function exportCsv(){
 async function init(){
  draft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(null));if(!draft){$('noDraft').classList.remove('hidden');$('processBtn').disabled=true;return;}$('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+(draft.assignments?.length||0)+' طالب';
  if(!NafesTeacher?.getKey())NafesTeacher.requireKey('أدخل مفتاح المعلم لرفع أوراق الطلاب وتصحيحها.');
+ try{const stu=await NafesTeacher.api('teacher_students_list',{include_archived:false});studentRoster=stu.students||[];}catch(_){studentRoster=[];}
  const saved=JSON.parse(localStorage.getItem('nafes_review_scan_results_'+draft.review_id)||'null');if(saved)renderApproved(saved);
 }
 $('fileInput').addEventListener('change',e=>{file=e.target.files?.[0]||null;$('processBtn').disabled=!file;$('dropzone').querySelector('b').textContent=file?file.name:'اختر PDF أو اسحبه هنا';});
