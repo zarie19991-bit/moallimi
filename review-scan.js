@@ -151,11 +151,19 @@ function saveModal(){
  if(!r.qrValid){const no=Number($('manualAssignment').value||0),a=assignmentBySheet(no);if(a){r.assignment=a;r.model=a.model;r.studentName=a.student_name;r.qrValid=true;r.qr={reviewId:draft.review_id,sheetNo:no,model:a.model,manual:true};}}
  r.answers.forEach(a=>{if(a.status==='multiple'||a.status==='ambiguous')a.status='manual';});scoreResult(r);$('sheetModal').classList.add('hidden');renderResults();
 }
-function approve(){
+async function approve(){
  const unresolved=results.filter(r=>!r.qrValid||!r.markersOk||r.answers.some(a=>a.status==='multiple'||a.status==='ambiguous'));
  if(unresolved.length){openModal(results.indexOf(unresolved[0]));return;}
  const payload={review_id:draft.review_id,title:draft.title,approved_at:new Date().toISOString(),results:results.map(r=>({student_id:r.assignment?.student_id||'',student_name:r.studentName,model:r.model,score:r.score,total:r.total,answers:r.answers.map(a=>({question:a.question,selected:a.selected,correct_index:a.correctIndex,correct:a.correct,indicator:a.indicator,status:a.status}))}))};
- localStorage.setItem('nafes_review_scan_results_'+draft.review_id,JSON.stringify(payload));renderApproved(payload);
+ const btn=$('approveBtn');btn.disabled=true;btn.textContent='جارٍ حفظ النتائج في المنصة…';
+ try{
+   const saved=await NafesTeacher.api('teacher_paper_review_save',{
+     review_id:draft.review_id,title:draft.title,subject:draft.subject,class_name:draft.class_name,
+     indicator_counts:draft.indicator_counts||[],models:draft.models||[],answer_keys:draft.answer_keys||[],results:payload.results
+   });
+   payload.platform=saved;localStorage.setItem('nafes_review_scan_results_'+draft.review_id,JSON.stringify(payload));renderApproved(payload);
+ }catch(e){alert('تعذر اعتماد النتائج في المنصة: '+e.message);}
+ finally{btn.disabled=false;btn.textContent='اعتماد النتائج';}
 }
 function renderApproved(payload){
  const map=new Map();for(const r of payload.results)for(const a of r.answers){if(!a.indicator)continue;const x=map.get(a.indicator)||{correct:0,total:0};x.total++;if(a.correct)x.correct++;map.set(a.indicator,x);}
