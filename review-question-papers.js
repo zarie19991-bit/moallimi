@@ -17,18 +17,17 @@ function similarity(a,b){
  for(const w of wa)if(wb.has(w))inter++;const union=wa.size+wb.size-inter;return union?inter/union:0;
 }
 function groupsFromQuestions(questions){
- const groups=[];
+ const groups=[],byKey=new Map();
  questions.forEach((q,i)=>{
    const ctx=String(q.context||'').trim();
-   const last=groups.at(-1);
-   if(ctx&&last?.context&&similarity(ctx,last.context)>=.80){
-     last.questions.push({...q,_no:i+1});
-     if(norm(ctx).length>norm(last.context).length)last.context=ctx;
-   }else if(!ctx&&last&&!last.context){
-     last.questions.push({...q,_no:i+1});
-   }else{
-     groups.push({context:ctx,questions:[{...q,_no:i+1}]});
+   const key=ctx?norm(ctx):'__NO_CONTEXT__:'+i;
+   let group=byKey.get(key);
+   if(!group){
+     group={context:ctx,questions:[]};
+     groups.push(group);
+     byKey.set(key,group);
    }
+   group.questions.push({...q,_no:i+1});
  });
  return groups;
 }
