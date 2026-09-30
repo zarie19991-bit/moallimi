@@ -999,7 +999,8 @@ async function teacherPaperReviewUpsert(db:any,b:Row,owner:Row){
   return{ok:true,review:saved};
 }
 async function teacherPaperReviewGet(db:any,b:Row,owner:Row){
-  let q=db.from('nafes_paper_reviews').select('id,review_id,title,subject,class_name,payload,created_at,updated_at').eq('owner_id',owner.id);
+  let q=db.from('nafes_paper_reviews').select('id,review_id,title,subject,class_name,payload,created_at,updated_at');
+  if(teacherScope(owner)!=='all')q=q.eq('owner_id',owner.id);
   const reviewId=tidy(b.review_id,80);
   if(reviewId)q=q.eq('review_id',reviewId);
   else q=q.order('updated_at',{ascending:false}).limit(1);
@@ -1007,6 +1008,13 @@ async function teacherPaperReviewGet(db:any,b:Row,owner:Row){
   if(!row)return{ok:true,review:null};
   assertSubjectScope(owner,row.subject);
   return{ok:true,review:{...row,payload:row.payload}};
+}
+async function teacherPaperReviewList(db:any,owner:Row){
+  let q=db.from('nafes_paper_reviews').select('id,review_id,title,subject,class_name,created_at,updated_at,owner_id').order('updated_at',{ascending:false}).limit(200);
+  const scope=teacherScope(owner);
+  if(scope!=='all')q=q.eq('owner_id',owner.id).eq('subject',scope);
+  const rows=must(await q);
+  return{ok:true,reviews:rows||[]};
 }
 
 async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
@@ -1147,6 +1155,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_data')return await scopedTeacherData(db,b,owner);
  if(b.action==='teacher_paper_review_upsert')return await teacherPaperReviewUpsert(db,b,owner);
  if(b.action==='teacher_paper_review_get')return await teacherPaperReviewGet(db,b,owner);
+ if(b.action==='teacher_paper_review_list')return await teacherPaperReviewList(db,owner);
  if(b.action==='teacher_paper_review_save')return await teacherPaperReviewSave(db,b,owner);
  if(b.action==='teacher_paper') {
   if(!SOURCES[b.source]||!isUUID(b.attempt_id)||b.source==='simulation')fail('المحاولة غير موجودة.',404);
