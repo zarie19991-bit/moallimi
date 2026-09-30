@@ -132,3 +132,11 @@ exam.js
 simulation.html
 teacher-portfolio.html
 report-a4-flow-final.css
+
+# المراجعة والتصحيح الآلي الورقي.
+review-correction.html
+review-correction.css
+review-correction.js
+review-bubble-sheets.html
+review-bubble-sheets.css
+review-bubble-sheets.js
