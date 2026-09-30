@@ -1,7 +1,8 @@
 (()=>{
 'use strict';
 const $=id=>document.getElementById(id);
-const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const STORAGE='nafes_manual_print_date_v2';
 
 function installPrintReadabilityGuard(){
   if($('nafesPrintReadabilityGuard'))return;
@@ -54,20 +55,27 @@ function installPrintReadabilityGuard(){
   document.head.appendChild(style);
 }
 
-function printDate(){
-  const now=new Date();
-  try{
-    return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-arab',{
-      day:'2-digit',month:'2-digit',year:'numeric'
-    }).format(now);
-  }catch(_){
-    return `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
-  }
+function storedValue(){
+  try{return localStorage.getItem(STORAGE)||'';}catch(_){return'';}
 }
-
-function applyDate(root){
+function value(){
+  const input=$('manualPrintDate');
+  return String(input?input.value:storedValue()).trim();
+}
+function setValue(v){
+  const text=String(v??'').trim();
+  try{localStorage.setItem(STORAGE,text);}catch(_){}
+  const input=$('manualPrintDate');
+  if(input&&input.value!==text)input.value=text;
+  apply(document);
+}
+function blankDate(){
+  return '________________';
+}
+function apply(root){
   if(!root)return;
-  const d=printDate();
+  const d=value();
+  const shown=d||blankDate();
   const selector='.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet';
   root.querySelectorAll(selector).forEach(sheet=>{
     sheet.querySelectorAll('.manual-print-date-line').forEach(x=>x.remove());
@@ -76,37 +84,57 @@ function applyDate(root){
     const metaDate=metaBox?.querySelector('b');
     if(metaDate){
       const metaLabel=metaBox.querySelector('span');
-      if(metaLabel)metaLabel.textContent='التاريخ';
-      metaDate.textContent=d;
+      if(metaLabel&&metaLabel.textContent!=='التاريخ')metaLabel.textContent='التاريخ';
+      if(metaDate.textContent!==shown)metaDate.textContent=shown;
       return;
     }
 
     const line=document.createElement('div');
     line.className='manual-print-date-line';
-    line.setAttribute('data-print-date','auto');
-    line.innerHTML=`<span>تاريخ الطباعة</span><b>${E(d)}</b>`;
+    line.setAttribute('data-print-date','manual');
+    line.innerHTML=`<span>تاريخ الطباعة</span><b>${E(shown)}</b>`;
 
     const title=sheet.querySelector(':scope > h1,:scope > .wr-title-pill,:scope > h2');
-    if(title){
-      title.insertAdjacentElement('afterend',line);
-      return;
-    }
+    if(title){title.insertAdjacentElement('afterend',line);return;}
     const head=sheet.querySelector(':scope > .sar-head,:scope > .report-head,:scope > .wr-topbar');
     if(head)head.insertAdjacentElement('afterend',line);
     else sheet.prepend(line);
   });
 }
-
-function removeLegacyManualControl(){
+function installManualControl(){
+  if($('manualPrintDate'))return;
+  const dashboard=$('dashboard');
+  if(!dashboard)return;
+  const tabs=dashboard.querySelector('.main-tabs');
+  const box=document.createElement('section');
+  box.className='card manual-date-control no-print';
+  box.innerHTML=`
+    <div class="manual-date-copy">
+      <b>تاريخ الطباعة</b>
+      <span>يدوي فقط — لن تضع المنصة تاريخ اليوم تلقائيًا.</span>
+    </div>
+    <label>
+      <span>اكتب التاريخ كما تريد</span>
+      <input id="manualPrintDate" type="text" inputmode="text" autocomplete="off" placeholder="مثال: ١٩ / ٠٤ / ١٤٤٨هـ">
+    </label>
+    <button id="clearManualPrintDate" type="button">مسح التاريخ</button>`;
+  if(tabs)tabs.insertAdjacentElement('afterend',box);else dashboard.prepend(box);
   const input=$('manualPrintDate');
-  input?.closest('.manual-date-control')?.remove();
+  input.value=storedValue();
+  input.addEventListener('input',()=>{
+    try{localStorage.setItem(STORAGE,input.value.trim());}catch(_){}
+    apply(document);
+  });
+  $('clearManualPrintDate').addEventListener('click',()=>setValue(''));
 }
 
 function init(){
   installPrintReadabilityGuard();
-  removeLegacyManualControl();
-  window.addEventListener('beforeprint',()=>applyDate($('printRoot')));
+  installManualControl();
+  apply(document);
+  window.addEventListener('beforeprint',()=>apply(document));
 }
 
+window.NafesManualPrintDate={value,setValue,apply};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
