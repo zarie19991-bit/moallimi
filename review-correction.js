@@ -6,6 +6,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const labels={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
+const MAX_CROSS_MODEL_REPEATS=10;
 let catalog=null,students=[],models=[],activeModel=0,assignments=[];
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
@@ -201,17 +202,70 @@ function layoutScore(d){
 function orderedQuestions(qs){
  return clusterModelQuestions(qs).flatMap(g=>g.questions.map(x=>x.q));
 }
-async function bestCandidate(letter,used){
+function rotateList(list,shift){
+ const a=[...list],n=a.length;if(!n)return a;
+ const k=((shift%n)+n)%n;return a.slice(k).concat(a.slice(0,k));
+}
+function questionId(q){return String(q?.id||q?.question_id||q?.question||'');}
+function samePositionCount(a,b){
+ const A=modelQuestions(a),B=modelQuestions(b),n=Math.min(A.length,B.length);let same=0;
+ for(let i=0;i<n;i++)if(questionId(A[i])&&questionId(A[i])===questionId(B[i]))same++;
+ return same;
+}
+function reorderModelQuestions(d,modelIndex,previous){
+ const section=(d?.sections||[])[0];if(!section||!Array.isArray(section.questions)||section.questions.length<2)return d;
+ const qs=[...section.questions],reading=selectedSubject()==='reading';
+ let candidates=[];
+ if(reading){
+   const groups=clusterModelQuestions(qs).map(g=>g.questions.map(x=>x.q));
+   for(let gs=0;gs<Math.max(1,groups.length);gs++){
+     for(let variant=0;variant<Math.max(2,Math.min(6,qs.length));variant++){
+       let moved=rotateList(groups,gs+modelIndex).map((g,gi)=>{
+         let row=rotateList(g,1+modelIndex+gi+variant);
+         if((modelIndex+gi+variant)%2)row=[...row].reverse();
+         return row;
+       });
+       if((modelIndex+variant)%2)moved=[...moved].reverse();
+       candidates.push(moved.flat());
+     }
+   }
+ }else{
+   for(let shift=1;shift<qs.length;shift++){
+     let row=rotateList(qs,shift+modelIndex);
+     if((shift+modelIndex)%2)row=[...row].reverse();
+     candidates.push(row);
+   }
+ }
+ if(!candidates.length)return d;
+ const prevQs=previous?modelQuestions(previous):[];
+ const score=row=>{
+   let same=0;
+   for(let i=0;i<Math.min(row.length,prevQs.length);i++)if(questionId(row[i])&&questionId(row[i])===questionId(prevQs[i]))same++;
+   const sameIndicator=row.reduce((n,q,i)=>n+(prevQs[i]&&String(q.indicator_key||q.indicator||'')===String(prevQs[i].indicator_key||prevQs[i].indicator||'')?1:0),0);
+   return same*1000+sameIndicator;
+ };
+ candidates.sort((a,b)=>score(a)-score(b));
+ section.questions=candidates[0];
+ return d;
+}
+async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  const reading=selectedSubject()==='reading';
- const attempts=reading?9:($('avoidRepeats').checked?2:1);
- let best=null,bestScore=Infinity;
+ const attempts=reading?24:($('avoidRepeats').checked?16:10);
+ let best=null,bestScore=Infinity,bestOverlap=Infinity;
  for(let n=0;n<attempts;n++){
-   const d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:n>0});
-   const repeatPenalty=overlapCount(d,used)*1000;
+   let d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:n>0});
+   d=reorderModelQuestions(d,modelIndex,previous);
+   const overlap=overlapCount(d,used);
+   const repeatPenalty=overlap*1000000;
+   const positionPenalty=previous?samePositionCount(previous,d)*10000:0;
    const cognitivePenalty=cognitiveScore(d)*2;
-   const printPenalty=reading?layoutScore(d)*3:0;
-   const score=repeatPenalty+cognitivePenalty+printPenalty;
-   if(score<bestScore){best=d;bestScore=score;}
+   const printPenalty=reading?layoutScore(d):0;
+   const score=repeatPenalty+positionPenalty+cognitivePenalty+printPenalty;
+   if(score<bestScore){best=d;bestScore=score;bestOverlap=overlap;}
+   if(overlap===0&&(!previous||samePositionCount(previous,d)===0))break;
+ }
+ if(!best||bestOverlap>repeatBudget){
+   throw new Error('تعذر بناء نموذج ضمن حد التكرار المتبقي ('+repeatBudget+'). جرّب مؤشرات أخرى أو قلّل عدد النماذج.');
  }
  return best;
 }
@@ -240,7 +294,8 @@ function renderQuality(){
  const cards=[
   ['النماذج',models.length,'ok'],
   ['إجمالي الأسئلة',total,'ok'],
-  ['التكرارات بين النماذج',dup,dup?'warn':'ok'],
+  ['التكرارات بين النماذج',dup,dup>MAX_CROSS_MODEL_REPEATS?'warn':'ok'],
+  ['الحد الأعلى للتكرار',MAX_CROSS_MODEL_REPEATS,'ok'],
   ['أسئلة بلا وسم معرفي',unknown,unknown?'warn':'ok']
  ];
  $('quality').innerHTML=cards.map(x=>'<div class="quality-card '+x[2]+'"><span>'+x[0]+'</span><b>'+ar(x[1])+'</b></div>').join('');
@@ -256,13 +311,22 @@ function renderModel(i){
 async function buildModels(){
  try{validate();}catch(e){setStatus(e.message,'error');return;}
  const btn=$('buildModels');btn.disabled=true;models=[];assignments=[];$('previewSection').classList.add('hidden');$('assignmentSection').classList.add('hidden');
- const count=Number($('modelCount').value||5),used=new Set();
+ const count=Number($('modelCount').value||5),used=new Set();let repeatTotal=0;
  try{
    for(let i=0;i<count;i++){
-     setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' ومقارنته ببقية النماذج…');
-     const d=await bestCandidate(letters[i],used);models.push(d);questionIds(d).forEach(id=>used.add(id));
+     const remaining=Math.max(0,MAX_CROSS_MODEL_REPEATS-repeatTotal);
+     setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' — التكرار المسموح المتبقي '+remaining+' فقط…');
+     const previous=models[i-1]||null;
+     const d=await bestCandidate(letters[i],used,remaining,i,previous);
+     const overlap=overlapCount(d,used);
+     repeatTotal+=overlap;
+     if(repeatTotal>MAX_CROSS_MODEL_REPEATS)throw new Error('تجاوزت النماذج حد التكرار الأقصى وهو '+MAX_CROSS_MODEL_REPEATS+'.');
+     models.push(d);questionIds(d).forEach(id=>used.add(id));
    }
-   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});setStatus('تم إنشاء '+count+' نماذج فعلية من بنك المؤشرات. راجعها قبل تجهيز أوراق التظليل.','ok');
+   if(models.length>1&&samePositionCount(models[0],models[1])>0){
+     throw new Error('لم يتحقق اختلاف ترتيب النموذجين الأول والثاني بالكامل. أعد الإنشاء.');
+   }
+   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});setStatus('تم إنشاء '+count+' نماذج. إجمالي التكرار '+repeatTotal+' من حد أقصى '+MAX_CROSS_MODEL_REPEATS+'، وترتيب النموذجين أ وب مختلف بالكامل.','ok');
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
