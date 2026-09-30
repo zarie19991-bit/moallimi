@@ -78,19 +78,27 @@ function renderGroup(g){
  let out='<section class="passage-group">';
  if(g.context)out+='<div class="passage">'+esc(g.context)+'</div>';
  if(g.continued)out+='<div class="continued">تابع أسئلة النص السابق</div>';
+ const first=g.questions[0]?._no||1,last=g.questions.at(-1)?._no||first;
+ out+='<div class="after-passage">بعد قراءتك للنص أعلاه، أجب عن الأسئلة من '+ar(first)+' - '+ar(last)+'</div>';
  const seenImages=new Set();
  for(const q of g.questions){const src=String(q.image_url||'').trim();if(src&&!seenImages.has(src)){seenImages.add(src);out+='<img class="q-image" src="'+esc(src)+'" alt="'+esc(q.image_alt||'صورة مرتبطة بالأسئلة')+'">';}}
  out+='<div class="passage-questions">'+g.questions.map(q=>renderQuestion(q,g.context)).join('')+'</div></section>';
  return out;
 }
 function pageHeader(model,d,pageNo,totalQuestions){
- return '<header class="paper-head"><div><h1>'+esc(d.title||'مراجعة مؤشرات نافس')+'</h1><div class="meta"><span><b>المادة:</b> '+esc(subjectLabel(d.subject))+'</span><span><b>الفصل:</b> '+esc(d.class_name||'—')+'</span><span><b>الأسئلة:</b> '+ar(totalQuestions)+'</span></div></div><div class="model-badge">نموذج '+esc(model.model)+'</div></header>'+
- '<div class="page-number">الصفحة '+ar(pageNo)+' من ٢</div>';
+ return '<div class="exam-frame-head">'+
+ '<div class="official"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><b>إدارة تعليم نجران</b><b>مدرسة ابن سينا المتوسطة</b></div>'+
+ '<div class="exam-brand">مراجعة نافس</div>'+
+ '<div class="grade-box"><b>ثالث متوسط</b><span>نموذج '+esc(model.model)+'</span></div>'+
+ '</div>'+
+ '<div class="title-strip">'+esc(d.title||'مراجعة مؤشرات نافس')+'</div>'+
+ '<div class="student-line"><b>الاسم:</b><span></span></div>'+
+ '<div class="page-number">الصفحة '+ar(pageNo)+' من ٢ · عدد الأسئلة '+ar(totalQuestions)+'</div>';
 }
 function onePage(model,d,groups,pageNo,totalQuestions){
  return '<section class="paper-page" data-model="'+esc(model.model)+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
  pageHeader(model,d,pageNo,totalQuestions)+
- (pageNo===1?'<div class="instructions">اقرأ النص أولًا، ثم أجب عن جميع الأسئلة التابعة له. سجّل الإجابات في ورقة التظليل.</div>':'')+
+ (pageNo===1?'':'')+
  groups.map(renderGroup).join('')+
  '<footer class="footer"><span>منصة معلّمي — مراجعة مؤشرات نافس</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/٢</span></footer>'+
  '</div></div></section>';
@@ -98,21 +106,6 @@ function onePage(model,d,groups,pageNo,totalQuestions){
 function modelBooklet(model,d){
  const questions=model.questions||[],groups=groupsFromQuestions(questions),pages=splitIntoTwo(groups);
  return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+onePage(model,d,pages[0],1,questions.length)+onePage(model,d,pages[1],2,questions.length)+'</div>';
-}
-function fitPages(){
- document.querySelectorAll('.paper-page').forEach(page=>{
-   const inner=page.querySelector('.page-inner'),flow=page.querySelector('.page-flow');
-   if(!inner||!flow)return;
-   flow.style.zoom='1';
-   requestAnimationFrame(()=>{
-     const available=inner.clientHeight,needed=flow.scrollHeight;
-     if(needed>available){
-       const ratio=Math.max(.76,Math.min(1,(available/needed)*.985));
-       flow.style.zoom=String(ratio);
-       page.dataset.fit=ratio<.84?'tight':'compact';
-     }else page.dataset.fit='normal';
-   });
- });
 }
 function render(){
  const d=getDraft();
@@ -132,11 +125,9 @@ function renderPages(){
  $('pages').innerHTML=html;
  const copies=models.reduce((n,m)=>n+(mode==='students'?Math.max(1,copiesFor(d,m.model)):1),0);
  $('screenMeta').textContent=ar(models.length)+' نماذج · صفحتان كحد أقصى لكل نموذج · '+ar(copies)+' نسخة';
- requestAnimationFrame(()=>requestAnimationFrame(fitPages));
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
 $('printBtn').onclick=()=>window.print();
-addEventListener('resize',()=>requestAnimationFrame(fitPages));
 render();
 })();
