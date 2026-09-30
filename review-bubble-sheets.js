@@ -1,0 +1,48 @@
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
+function draft(){try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
+function answerRows(from,to){
+ let out='';
+ for(let n=from;n<=to;n++){
+   out+='<div class="answer-row"><span class="qno">'+ar(n)+'</span>';
+   for(const letter of ['أ','ب','ج','د'])out+='<span class="choice"><i class="bubble"></i><b class="letter">'+letter+'</b></span>';
+   out+='</div>';
+ }
+ return out;
+}
+function makeSheet(item,index,d){
+ const total=Number(d.question_count||20),split=Math.ceil(total/2),sheetNo=index+1;
+ const payload='MR1|'+String(d.review_id||'R')+'|'+String(sheetNo)+'|'+String(item.model||'');
+ return '<section class="bubble-sheet" data-qr="'+esc(payload)+'">'+
+ '<i class="fid tr"></i><i class="fid tl"></i><i class="fid br"></i><i class="fid bl"></i>'+
+ '<header class="sheet-head"><div class="identity"><h1>'+esc(d.title||'مراجعة مؤشرات نافس')+'</h1>'+
+ '<div class="identity-grid"><span><b>اسم الطالب:</b> '+esc(item.student_name||'')+'</span><span><b>الفصل:</b> '+esc(d.class_name||'—')+'</span>'+
+ '<span><b>المادة:</b> '+esc(({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[d.subject]||d.subject||'—')+'</span><span><b>عدد الأسئلة:</b> '+ar(total)+'</span></div>'+
+ '<div class="model">نموذج '+esc(item.model||'—')+'</div></div><div class="qr" data-qr-box></div></header>'+
+ '<div class="answers"><div class="answer-col">'+answerRows(1,split)+'</div><div class="answer-col">'+(split<total?answerRows(split+1,total):'')+'</div></div>'+
+ '<footer class="sheet-foot">ظلّل دائرة واحدة فقط لكل سؤال تظليلًا واضحًا. عند تغيير الإجابة امسح التظليل السابق جيدًا.<div class="sheet-code">'+esc(payload)+'</div></footer></section>';
+}
+async function render(){
+ const d=draft();
+ if(!d||!Array.isArray(d.assignments)||!d.assignments.length){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">لا توجد مراجعة مجهزة للطباعة.</div>';return;}
+ $('screenTitle').textContent=d.title||'أوراق التظليل';
+ $('screenMeta').textContent=ar(d.assignments.length)+' طالب · '+ar(d.model_count||5)+' نماذج';
+ let html='';
+ for(let i=0;i<d.assignments.length;i+=2){
+   html+='<section class="paper">';
+   html+=makeSheet(d.assignments[i],i,d);
+   if(d.assignments[i+1])html+=makeSheet(d.assignments[i+1],i+1,d);
+   html+='</section>';
+ }
+ $('pages').innerHTML=html;
+ for(const sheet of document.querySelectorAll('.bubble-sheet')){
+   const box=sheet.querySelector('[data-qr-box]');
+   try{await NafesQR.render(box,sheet.dataset.qr);}catch(_){box.textContent='QR';}
+ }
+}
+$('printBtn').onclick=()=>window.print();
+render();
+})();
