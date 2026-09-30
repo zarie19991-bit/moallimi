@@ -5,7 +5,8 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
 const DEFAULT_QUESTION_START=1;
-function getDraft(){try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
+let activeDraft=null;
+function getDraft(){if(activeDraft)return activeDraft;try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
 function subjectLabel(s){return({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||s||'—';}
 function copiesFor(d,model){return(d.assignments||[]).filter(a=>a.model===model).length;}
 function norm(s){return String(s||'').normalize('NFKC').replace(/[\u064B-\u0652\u0670\u0640]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ة/g,'ه').replace(/[ىي]/g,'ي').replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim().toLowerCase();}
@@ -101,7 +102,8 @@ function modelBooklet(model,d){
  const pages=splitIntoTwo(groups);
  return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+onePage(model,d,pages[0],1,2,questions.length)+onePage(model,d,pages[1],2,2,questions.length)+'</div>';
 }
-function render(){
+async function render(){
+ activeDraft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(getDraft()));
  const d=getDraft();
  if(!d||!Array.isArray(d.models)||!d.models.length){document.body.innerHTML='<div class="empty"><h2>لا توجد أوراق أسئلة جاهزة بعد</h2><p>ارجع إلى قسم «المراجعة والتصحيح الآلي»، أنشئ النماذج ثم اعتمد التوزيع مرة أخرى.</p><a href="review-correction.html">العودة للقسم</a></div>';return;}
  $('screenTitle').textContent=d.title||'أوراق الأسئلة';
