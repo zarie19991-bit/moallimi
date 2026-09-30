@@ -5,7 +5,6 @@ const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const letters=['أ','ب','ج','د'];
 let draft=null,file=null,results=[],activeIndex=-1;
 
-function loadDraft(){try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
 function keyForModel(model){return draft?.answer_keys?.find(x=>x.model===model)?.answers||[];}
 function assignmentBySheet(no){return draft?.assignments?.find(x=>Number(x.sheet_no)===Number(no))||null;}
 function assignmentOptions(selected=''){return (draft?.assignments||[]).map(a=>'<option value="'+a.sheet_no+'" '+(String(a.sheet_no)===String(selected)?'selected':'')+'>'+a.student_name+' — نموذج '+a.model+'</option>').join('');}
@@ -172,8 +171,8 @@ function renderApproved(payload){
 function exportCsv(){
  const saved=JSON.parse(localStorage.getItem('nafes_review_scan_results_'+draft.review_id)||'null');if(!saved)return;const rows=[['اسم الطالب','النموذج','الدرجة','المجموع']];saved.results.forEach(r=>rows.push([r.student_name,r.model,r.score,r.total]));const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(draft.title||'نتائج المراجعة')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
-function init(){
- draft=loadDraft();if(!draft){$('noDraft').classList.remove('hidden');$('processBtn').disabled=true;return;}$('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+(draft.assignments?.length||0)+' طالب';
+async function init(){
+ draft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(null));if(!draft){$('noDraft').classList.remove('hidden');$('processBtn').disabled=true;return;}$('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+(draft.assignments?.length||0)+' طالب';
  if(!NafesTeacher?.getKey())NafesTeacher.requireKey('أدخل مفتاح المعلم لرفع أوراق الطلاب وتصحيحها.');
  const saved=JSON.parse(localStorage.getItem('nafes_review_scan_results_'+draft.review_id)||'null');if(saved)renderApproved(saved);
 }
