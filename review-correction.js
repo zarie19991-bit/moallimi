@@ -126,14 +126,17 @@ function contextSimilarity(a,b){
  return union?inter/union:0;
 }
 function clusterModelQuestions(qs){
- const groups=[];
+ const groups=[],byKey=new Map();
  qs.forEach((q,index)=>{
    const ctx=String(q.context||'').trim();
-   if(!ctx){groups.push({context:'',questions:[{q,index}]});return;}
-   let best=null,bestScore=0;
-   for(const g of groups){if(!g.context)continue;const s=contextSimilarity(ctx,g.context);if(s>bestScore){bestScore=s;best=g;}}
-   if(best&&bestScore>=0.80){best.questions.push({q,index});if(normalizeContext(ctx).length>normalizeContext(best.context).length)best.context=ctx;}
-   else groups.push({context:ctx,questions:[{q,index}]});
+   const key=ctx?normalizeContext(ctx):'__NO_CONTEXT__:'+index;
+   let group=byKey.get(key);
+   if(!group){
+     group={context:ctx,questions:[]};
+     groups.push(group);
+     byKey.set(key,group);
+   }
+   group.questions.push({q,index});
  });
  return groups;
 }
