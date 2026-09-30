@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
-const DEFAULT_QUESTION_START=11;
+const DEFAULT_QUESTION_START=1;
 function getDraft(){try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
 function subjectLabel(s){return({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||s||'—';}
 function copiesFor(d,model){return(d.assignments||[]).filter(a=>a.model===model).length;}
