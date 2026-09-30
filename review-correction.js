@@ -218,41 +218,106 @@ async function buildModels(){
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
-function buildAssignments(){
+async function buildAssignments(){
  const list=selectedStudents(),count=models.length;
  assignments=list.map((s,i)=>({student:s,model:i%count,letter:letters[i%count]}));
  const counts=Array.from({length:count},(_,i)=>assignments.filter(a=>a.model===i).length);
  $('assignmentStats').innerHTML=counts.map((n,i)=>'<div class="quality-card ok"><span>نموذج '+letters[i]+'</span><b>'+ar(n)+' طلاب</b></div>').join('');
  $('assignments').innerHTML=assignments.map(a=>'<div class="assignment-row"><b>'+esc(a.student.full_name||a.student.student_name||'طالب')+'</b><span class="model-badge">نموذج '+a.letter+'</span></div>').join('');
- $('assignmentSection').classList.remove('hidden');$('assignmentSection').scrollIntoView({behavior:'smooth'});setStatus('تم توزيع النماذج بالتساوي قدر الإمكان. أصبحت البيانات جاهزة للمرحلة التالية: ورقة التظليل بالاسم وQR.','ok');
+ $('assignmentSection').classList.remove('hidden');$('assignmentSection').scrollIntoView({behavior:'smooth'});
  try{
- const existing=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
- const reviewId=existing?.review_id||makeReviewId();
- const printable=models.map((m,i)=>({model:letters[i],questions:orderedQuestions(modelQuestions(m))}));
- localStorage.setItem('nafes_review_correction_draft',JSON.stringify({
-   review_id:reviewId,title:$('reviewTitle').value,subject:selectedSubject(),class_name:$('className').value,
-   question_count:Number($('questionCount').value),question_start:1,model_count:models.length,indicator_counts:getSelectedIndicators(),
-   assignments:assignments.map((a,i)=>({sheet_no:i+1,student_id:a.student.id||'',student_name:a.student.full_name||a.student.student_name,model:a.letter})),
-   models:printable.map(m=>({model:m.model,questions:m.questions.map(q=>({
-     id:q.id||q.question_id||'',context:q.context||'',question:q.question||'',options:q.options||[],
-     image_url:q.image_url||q.imageUrl||q.media_url||'',image_alt:q.image_alt||q.imageAlt||'',
-     indicator:q.indicator_key||q.indicator||q.indicator_text||''
-   }))})),
-   answer_keys:printable.map(m=>({model:m.model,answers:m.questions.map(q=>({
-     question_id:q.id||q.question_id||'',correct_index:Number(q.correctIndex),
-     indicator:q.indicator_key||q.indicator||q.indicator_text||''
-   }))})),
-   saved_at:new Date().toISOString()
- }));
-}catch(_){}
+   const existing=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
+   const reviewId=existing?.review_id||makeReviewId();
+   const printable=models.map((m,i)=>({model:letters[i],questions:orderedQuestions(modelQuestions(m))}));
+   const draftPayload={
+     review_id:reviewId,title:$('reviewTitle').value,subject:selectedSubject(),class_name:$('className').value,
+     question_count:Number($('questionCount').value),question_start:1,model_count:models.length,indicator_counts:getSelectedIndicators(),
+     assignments:assignments.map((a,i)=>({sheet_no:i+1,student_id:a.student.id||'',student_name:a.student.full_name||a.student.student_name,model:a.letter})),
+     models:printable.map(m=>({model:m.model,questions:m.questions.map(q=>({
+       id:q.id||q.question_id||'',context:q.context||'',question:q.question||'',options:q.options||[],
+       image_url:q.image_url||q.imageUrl||q.media_url||'',image_alt:q.image_alt||q.imageAlt||'',
+       indicator:q.indicator_key||q.indicator||q.indicator_text||'',cognitive_level:q.cognitive_level||q.cognitive||'',difficulty:q.difficulty||''
+     }))})),
+     answer_keys:printable.map(m=>({model:m.model,answers:m.questions.map(q=>({
+       question_id:q.id||q.question_id||'',correct_index:Number(q.correctIndex),
+       indicator:q.indicator_key||q.indicator||q.indicator_text||''
+     }))})),
+     saved_at:new Date().toISOString()
+   };
+   localStorage.setItem('nafes_review_correction_draft',JSON.stringify(draftPayload));
+   history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(reviewId));
+   setStatus('جارٍ حفظ المراجعة والنماذج ومفاتيح الإجابة وتوزيع الطلاب في قاعدة البيانات…');
+   await NafesTeacher.api('teacher_paper_review_upsert',{review:draftPayload});
+   setStatus('تم حفظ المراجعة في منصة معلّمي. يمكنك الخروج والعودة من جهاز آخر بنفس حساب المعلم دون فقدانها.','ok');
+ }catch(e){
+   setStatus('تم تجهيز الأوراق على هذا الجهاز، لكن تعذر الحفظ الدائم: '+e.message,'error');
+ }
 }
+function restoreReviewPayload(payload){
+ if(!payload||!Array.isArray(payload.models)||!payload.models.length)return false;
+ localStorage.setItem('nafes_review_correction_draft',JSON.stringify(payload));
+ if($('reviewTitle'))$('reviewTitle').value=payload.title||'مراجعة مؤشرات نافس';
+ if($('subject')&&[...$('subject').options].some(o=>o.value===payload.subject)){$('subject').value=payload.subject;renderIndicators();}
+ if($('className')&&[...$('className').options].some(o=>o.value===String(payload.class_name||'')))$('className').value=String(payload.class_name||'');
+ if($('questionCount')&&[...$('questionCount').options].some(o=>Number(o.value)===Number(payload.question_count)))$('questionCount').value=String(payload.question_count);
+ if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);
+ const indMap=new Map((payload.indicator_counts||[]).map(x=>[String(x.key),Number(x.count||0)]));
+ document.querySelectorAll('.indicator-row').forEach(r=>{
+   const n=indMap.get(String(r.dataset.key)),check=r.querySelector('.indicator-check'),cnt=r.querySelector('.indicator-count');
+   if(check){check.checked=Number.isFinite(n);if(cnt&&Number.isFinite(n)){cnt.disabled=false;cnt.value=String(n);}}
+ });
+ updateIndicatorSummary();
+ const selectedIds=new Set((payload.assignments||[]).map(a=>String(a.student_id||'')));
+ const selectedNames=new Set((payload.assignments||[]).map(a=>String(a.student_name||'')));
+ document.querySelectorAll('.student-check').forEach(x=>{
+   const s=visibleStudents().find(st=>String(st.id)===String(x.dataset.id));
+   x.checked=!!s&&(selectedIds.has(String(s.id))||selectedNames.has(String(s.full_name||s.student_name||'')));
+ });
+ $('studentCount').textContent=ar(selectedStudents().length)+' طالب محدد';
+ const keyByModel=new Map((payload.answer_keys||[]).map(k=>[String(k.model),new Map((k.answers||[]).map(a=>[String(a.question_id||''),a]))]));
+ models=(payload.models||[]).map(m=>{
+   const keys=keyByModel.get(String(m.model))||new Map();
+   return{sections:[{subject:payload.subject,questions:(m.questions||[]).map(q=>{
+     const k=keys.get(String(q.id||q.question_id||''))||{};
+     return{...q,correctIndex:Number(k.correct_index),indicator_key:q.indicator||k.indicator||'',cognitive_level:q.cognitive_level||'',difficulty:q.difficulty||''};
+   })}]};
+ });
+ const studentMap=new Map(visibleStudents().map(s=>[String(s.id),s]));
+ assignments=(payload.assignments||[]).map(a=>{
+   const student=studentMap.get(String(a.student_id||''))||visibleStudents().find(s=>String(s.full_name||s.student_name||'')===String(a.student_name||''))||{id:a.student_id||'',full_name:a.student_name||'طالب'};
+   const model=Math.max(0,letters.indexOf(String(a.model||'')));
+   return{student,model,letter:String(a.model||letters[model]||'أ')};
+ });
+ if(models.length){activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');}
+ if(assignments.length){
+   const counts=Array.from({length:models.length},(_,i)=>assignments.filter(a=>a.model===i).length);
+   $('assignmentStats').innerHTML=counts.map((n,i)=>'<div class="quality-card ok"><span>نموذج '+letters[i]+'</span><b>'+ar(n)+' طلاب</b></div>').join('');
+   $('assignments').innerHTML=assignments.map(a=>'<div class="assignment-row"><b>'+esc(a.student.full_name||a.student.student_name||'طالب')+'</b><span class="model-badge">نموذج '+a.letter+'</span></div>').join('');
+   $('assignmentSection').classList.remove('hidden');
+ }
+ history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(payload.review_id));
+ return true;
+}
+async function restoreSavedReview(){
+ try{
+   const local=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
+   const rid=new URLSearchParams(location.search).get('rid')||local?.review_id||'';
+   let res=await NafesTeacher.api('teacher_paper_review_get',rid?{review_id:rid}:{});
+   if(!res?.review&&rid)res=await NafesTeacher.api('teacher_paper_review_get',{});
+   const payload=res?.review?.payload;
+   if(payload&&restoreReviewPayload(payload)){setStatus('تمت استعادة آخر مراجعة محفوظة من قاعدة البيانات، بما فيها النماذج ومفاتيح الإجابة وتوزيع الطلاب.','ok');return true;}
+ }catch(e){console.warn('paper review restore failed',e);}
+ return false;
+}
+
 async function load(){
  if(!window.NafesTeacher?.getKey()){NafesTeacher.requireKey('أدخل مفتاح المعلم لفتح قسم المراجعة والتصحيح الآلي.');setStatus('يلزم تسجيل دخول المعلم.');return;}
  try{
    setStatus('جارٍ تحميل بنك المؤشرات وسجل الطلاب…');
    const [cat,stu]=await Promise.all([NafesTeacher.api('teacher_catalog'),NafesTeacher.api('teacher_students_list',{include_archived:false})]);
    catalog=cat;students=stu.students||[];populateSubject();populateClasses();renderIndicators();updateLevelSummary();
-   setStatus('تم ربط القسم ببنك المؤشرات وسجل الطلاب الحالي في منصة معلّمي.','ok');
+   const restored=await restoreSavedReview();
+   if(!restored)setStatus('تم ربط القسم ببنك المؤشرات وسجل الطلاب الحالي في منصة معلّمي.','ok');
  }catch(e){setStatus(e.message,'error');}
 }
 $('subject').addEventListener('change',()=>{renderIndicators();});
