@@ -111,7 +111,7 @@ function installManualControl(){
   box.className='card manual-date-control no-print';
   box.innerHTML=`
     <div class="manual-date-copy">
-      <b>تاريخ الطباعة</b>
+      <b>التاريخ (اختياري)</b>
       <span>يدوي فقط — لن تضع المنصة تاريخ اليوم تلقائيًا.</span>
     </div>
     <label>
