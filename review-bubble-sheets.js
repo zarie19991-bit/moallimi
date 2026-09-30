@@ -5,25 +5,15 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const DEFAULT_QUESTION_START=1;
 function draft(){try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
-function answerRows(from,to){
- let out='';
- for(let n=from;n<=to;n++){
-   out+='<div class="answer-row"><span class="qno">'+ar(n)+'</span>';
-   for(const letter of ['أ','ب','ج','د'])out+='<span class="choice"><i class="bubble"></i><b class="letter">'+letter+'</b></span>';
-   out+='</div>';
- }
- return out;
-}
 function makeSheet(item,index,d){
- const total=Number(d.question_count||20),startNo=Number(d.question_start||DEFAULT_QUESTION_START),split=Math.ceil(total/2),sheetNo=index+1;
- const payload='MR1|'+String(d.review_id||'R')+'|'+String(sheetNo)+'|'+String(item.model||'');
+ const total=Number(d.question_count||20),startNo=Number(d.question_start||DEFAULT_QUESTION_START),sheetNo=index+1;
+ const payload='MR2|'+String(d.review_id||'R')+'|'+String(sheetNo)+'|'+String(item.model||'');
  return '<section class="bubble-sheet" data-qr="'+esc(payload)+'">'+
- '<i class="fid tr"></i><i class="fid tl"></i><i class="fid br"></i><i class="fid bl"></i>'+
  '<header class="sheet-head"><div class="identity"><h1>'+esc(d.title||'مراجعة مؤشرات نافس')+'</h1>'+
  '<div class="identity-grid"><span><b>اسم الطالب:</b> '+esc(item.student_name||'')+'</span><span><b>الفصل:</b> '+esc(d.class_name||'—')+'</span>'+
  '<span><b>المادة:</b> '+esc(({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[d.subject]||d.subject||'—')+'</span><span><b>عدد الأسئلة:</b> '+ar(total)+'</span></div>'+
  '<div class="model">نموذج '+esc(item.model||'—')+'</div></div><div class="qr" data-qr-box></div></header>'+
- '<div class="answers"><div class="answer-col">'+answerRows(startNo,startNo+split-1)+'</div><div class="answer-col">'+(split<total?answerRows(startNo+split,startNo+total-1):'')+'</div></div>'+
+ '<div class="omr-wrap">'+NafesOmrTemplate.svg(startNo,total)+'</div>'+
  '<footer class="sheet-foot">ظلّل دائرة واحدة فقط لكل سؤال تظليلًا واضحًا. عند تغيير الإجابة امسح التظليل السابق جيدًا.<div class="sheet-code">'+esc(payload)+'</div></footer></section>';
 }
 async function render(){
