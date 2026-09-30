@@ -144,3 +144,8 @@ review-bubble-sheets.js
 review-question-papers.html
 review-question-papers.css
 review-question-papers.js
+
+review-omr-template.js
+review-scan.html
+review-scan.css
+review-scan.js
