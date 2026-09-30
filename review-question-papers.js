@@ -7,40 +7,117 @@ const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
 function getDraft(){try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
 function subjectLabel(s){return({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||s||'—';}
 function copiesFor(d,model){return(d.assignments||[]).filter(a=>a.model===model).length;}
-function normText(s){return String(s||'').replace(/\s+/g,' ').trim();}
-function renderQuestions(questions){
- const seenContexts=new Set(),seenImages=new Set();
- let out='';
+function norm(s){return String(s||'').normalize('NFKC').replace(/[\u064B-\u0652\u0670\u0640]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ة/g,'ه').replace(/[ىي]/g,'ي').replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim().toLowerCase();}
+function similarity(a,b){
+ const A=norm(a),B=norm(b);if(!A||!B)return 0;if(A===B)return 1;
+ const min=Math.min(A.length,B.length),max=Math.max(A.length,B.length);
+ if(min>=90&&(A.includes(B)||B.includes(A)))return min/max;
+ if(min<90)return 0;
+ const wa=new Set(A.split(' ').filter(w=>w.length>1)),wb=new Set(B.split(' ').filter(w=>w.length>1));let inter=0;
+ for(const w of wa)if(wb.has(w))inter++;const union=wa.size+wb.size-inter;return union?inter/union:0;
+}
+function groupsFromQuestions(questions){
+ const groups=[];
  questions.forEach((q,i)=>{
-   const contextKey=normText(q.context);
-   if(contextKey&&!seenContexts.has(contextKey)){
-     seenContexts.add(contextKey);
-     out+='<div class="passage">'+esc(q.context)+'</div>';
+   const ctx=String(q.context||'').trim();
+   const last=groups.at(-1);
+   if(ctx&&last?.context&&similarity(ctx,last.context)>=.80){
+     last.questions.push({...q,_no:i+1});
+     if(norm(ctx).length>norm(last.context).length)last.context=ctx;
+   }else if(!ctx&&last&&!last.context){
+     last.questions.push({...q,_no:i+1});
+   }else{
+     groups.push({context:ctx,questions:[{...q,_no:i+1}]});
    }
-   const imageKey=String(q.image_url||'').trim();
-   if(imageKey&&!seenImages.has(imageKey)){
-     seenImages.add(imageKey);
-     out+='<img class="q-image" src="'+esc(imageKey)+'" alt="'+esc(q.image_alt||'صورة مرتبطة بالأسئلة')+'">';
-   }
-   out+='<article class="question"><p class="stem">'+ar(i+1)+') '+esc(q.question||'')+'</p><div class="choices">'+
-   (q.options||[]).map((o,j)=>'<div class="choice"><b>'+letters[j]+')</b><span>'+esc(o)+'</span></div>').join('')+
-   '</div></article>';
  });
+ return groups;
+}
+function questionUnits(q){
+ const stem=String(q.question||'').length,opts=(q.options||[]).join(' ').length;
+ return 7+Math.ceil(stem/85)*1.5+Math.ceil(opts/130)*1.4+(q.image_url?10:0);
+}
+function groupUnits(g){
+ return (g.context?8+Math.ceil(String(g.context).length/180)*3.2:0)+g.questions.reduce((n,q)=>n+questionUnits(q),0);
+}
+function splitIntoTwo(groups){
+ const total=groups.reduce((n,g)=>n+groupUnits(g),0),target=total/2;
+ const pages=[[],[]];let used=0,page=0;
+ for(const g of groups){
+   const units=groupUnits(g);
+   if(page===0&&used>0&&used+units>target){
+     page=1;
+   }
+   if(page===0&&units>target&&g.questions.length>1){
+     const first={context:g.context,questions:[]},second={context:'',continued:true,questions:[]};
+     let gu= g.context?8+Math.ceil(String(g.context).length/180)*3.2:0;
+     for(const q of g.questions){
+       const qu=questionUnits(q);
+       if(first.questions.length&&gu+qu>target){second.questions.push(q);}
+       else{first.questions.push(q);gu+=qu;}
+     }
+     pages[0].push(first);
+     if(second.questions.length)pages[1].push(second);
+     page=1;used=0;
+   }else{
+     pages[page].push(g);used+=units;
+   }
+ }
+ return pages;
+}
+function cleanStem(question,context){
+ const stem=String(question||'').trim(),ctx=String(context||'').trim();
+ if(ctx.length>90&&stem.startsWith(ctx))return stem.slice(ctx.length).replace(/^\s*[:\-–—،.؛]*\s*/,'').trim()||stem;
+ return stem;
+}
+function renderQuestion(q,context){
+ return '<article class="question"><p class="stem">'+ar(q._no)+') '+esc(cleanStem(q.question,context))+'</p><div class="choices">'+
+ (q.options||[]).map((o,j)=>'<div class="choice"><b>'+letters[j]+')</b><span>'+esc(o)+'</span></div>').join('')+
+ '</div></article>';
+}
+function renderGroup(g){
+ let out='<section class="passage-group">';
+ if(g.context)out+='<div class="passage">'+esc(g.context)+'</div>';
+ if(g.continued)out+='<div class="continued">تابع أسئلة النص السابق</div>';
+ const seenImages=new Set();
+ for(const q of g.questions){const src=String(q.image_url||'').trim();if(src&&!seenImages.has(src)){seenImages.add(src);out+='<img class="q-image" src="'+esc(src)+'" alt="'+esc(q.image_alt||'صورة مرتبطة بالأسئلة')+'">';}}
+ out+='<div class="passage-questions">'+g.questions.map(q=>renderQuestion(q,g.context)).join('')+'</div></section>';
  return out;
 }
-function paper(model,d,copyIndex,totalCopies){
- const questions=model.questions||[];
- return '<section class="paper" data-model="'+esc(model.model)+'">'+
- '<header class="paper-head"><div><h1>'+esc(d.title||'مراجعة مؤشرات نافس')+'</h1><div class="meta"><span><b>المادة:</b> '+esc(subjectLabel(d.subject))+'</span><span><b>الفصل:</b> '+esc(d.class_name||'—')+'</span><span><b>الأسئلة:</b> '+ar(questions.length)+'</span></div></div><div class="model-badge">نموذج '+esc(model.model)+'</div></header>'+
- '<div class="instructions">اقرأ النصوص والأسئلة جيدًا، ثم سجّل إجابتك في ورقة التظليل. النص المشترك يظهر مرة واحدة فقط للأسئلة التابعة له.</div>'+
- renderQuestions(questions)+
- '<footer class="footer"><span>منصة معلّمي — مراجعة مؤشرات نافس</span><span>نموذج '+esc(model.model)+(totalCopies>1?' · نسخة '+ar(copyIndex)+'/'+ar(totalCopies):'')+'</span></footer></section>';
+function pageHeader(model,d,pageNo,totalQuestions){
+ return '<header class="paper-head"><div><h1>'+esc(d.title||'مراجعة مؤشرات نافس')+'</h1><div class="meta"><span><b>المادة:</b> '+esc(subjectLabel(d.subject))+'</span><span><b>الفصل:</b> '+esc(d.class_name||'—')+'</span><span><b>الأسئلة:</b> '+ar(totalQuestions)+'</span></div></div><div class="model-badge">نموذج '+esc(model.model)+'</div></header>'+
+ '<div class="page-number">الصفحة '+ar(pageNo)+' من ٢</div>';
+}
+function onePage(model,d,groups,pageNo,totalQuestions){
+ return '<section class="paper-page" data-model="'+esc(model.model)+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
+ pageHeader(model,d,pageNo,totalQuestions)+
+ (pageNo===1?'<div class="instructions">اقرأ النص أولًا، ثم أجب عن جميع الأسئلة التابعة له. سجّل الإجابات في ورقة التظليل.</div>':'')+
+ groups.map(renderGroup).join('')+
+ '<footer class="footer"><span>منصة معلّمي — مراجعة مؤشرات نافس</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/٢</span></footer>'+
+ '</div></div></section>';
+}
+function modelBooklet(model,d){
+ const questions=model.questions||[],groups=groupsFromQuestions(questions),pages=splitIntoTwo(groups);
+ return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+onePage(model,d,pages[0],1,questions.length)+onePage(model,d,pages[1],2,questions.length)+'</div>';
+}
+function fitPages(){
+ document.querySelectorAll('.paper-page').forEach(page=>{
+   const inner=page.querySelector('.page-inner'),flow=page.querySelector('.page-flow');
+   if(!inner||!flow)return;
+   flow.style.zoom='1';
+   requestAnimationFrame(()=>{
+     const available=inner.clientHeight,needed=flow.scrollHeight;
+     if(needed>available){
+       const ratio=Math.max(.76,Math.min(1,(available/needed)*.985));
+       flow.style.zoom=String(ratio);
+       page.dataset.fit=ratio<.84?'tight':'compact';
+     }else page.dataset.fit='normal';
+   });
+ });
 }
 function render(){
  const d=getDraft();
  if(!d||!Array.isArray(d.models)||!d.models.length){document.body.innerHTML='<div class="empty"><h2>لا توجد أوراق أسئلة جاهزة بعد</h2><p>ارجع إلى قسم «المراجعة والتصحيح الآلي»، أنشئ النماذج ثم اعتمد التوزيع مرة أخرى.</p><a href="review-correction.html">العودة للقسم</a></div>';return;}
  $('screenTitle').textContent=d.title||'أوراق الأسئلة';
- $('screenMeta').textContent=ar(d.models.length)+' نماذج · '+ar((d.assignments||[]).length)+' طالب';
  $('modelFilter').innerHTML='<option value="all">جميع النماذج</option>'+d.models.map(m=>'<option value="'+esc(m.model)+'">نموذج '+esc(m.model)+' فقط</option>').join('');
  renderPages();
 }
@@ -50,14 +127,16 @@ function renderPages(){
  let html='';
  for(const m of models){
    const copies=mode==='students'?Math.max(1,copiesFor(d,m.model)):1;
-   for(let i=1;i<=copies;i++)html+=paper(m,d,i,copies);
+   for(let i=0;i<copies;i++)html+=modelBooklet(m,d);
  }
  $('pages').innerHTML=html;
- const displayed=models.reduce((n,m)=>n+(mode==='students'?Math.max(1,copiesFor(d,m.model)):1),0);
- $('screenMeta').textContent=ar(models.length)+' نماذج · '+ar(displayed)+' نسخة معروضة للطباعة';
+ const copies=models.reduce((n,m)=>n+(mode==='students'?Math.max(1,copiesFor(d,m.model)):1),0);
+ $('screenMeta').textContent=ar(models.length)+' نماذج · صفحتان كحد أقصى لكل نموذج · '+ar(copies)+' نسخة';
+ requestAnimationFrame(()=>requestAnimationFrame(fitPages));
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
 $('printBtn').onclick=()=>window.print();
+addEventListener('resize',()=>requestAnimationFrame(fitPages));
 render();
 })();
