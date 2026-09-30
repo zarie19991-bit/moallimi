@@ -94,12 +94,57 @@ function cognitiveScore(d){
 function overlapCount(d,used){
  return questionIds(d).filter(id=>used.has(id)).length;
 }
+function normalizeContext(s){
+ return String(s||'').normalize('NFKC')
+  .replace(/[\u064B-\u0652\u0670\u0640]/g,'')
+  .replace(/[إأآٱ]/g,'ا').replace(/ة/g,'ه').replace(/[ىي]/g,'ي')
+  .replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim().toLowerCase();
+}
+function contextSimilarity(a,b){
+ const A=normalizeContext(a),B=normalizeContext(b);
+ if(!A||!B)return 0;
+ if(A===B)return 1;
+ const min=Math.min(A.length,B.length),max=Math.max(A.length,B.length);
+ if(min>=90&&(A.includes(B)||B.includes(A)))return min/max;
+ if(min<90)return 0;
+ const wa=new Set(A.split(' ').filter(w=>w.length>1)),wb=new Set(B.split(' ').filter(w=>w.length>1));
+ let inter=0; for(const w of wa)if(wb.has(w))inter++;
+ const union=wa.size+wb.size-inter;
+ return union?inter/union:0;
+}
+function clusterModelQuestions(qs){
+ const groups=[];
+ qs.forEach((q,index)=>{
+   const ctx=String(q.context||'').trim();
+   if(!ctx){groups.push({context:'',questions:[{q,index}]});return;}
+   let best=null,bestScore=0;
+   for(const g of groups){if(!g.context)continue;const s=contextSimilarity(ctx,g.context);if(s>bestScore){bestScore=s;best=g;}}
+   if(best&&bestScore>=0.80){best.questions.push({q,index});if(normalizeContext(ctx).length>normalizeContext(best.context).length)best.context=ctx;}
+   else groups.push({context:ctx,questions:[{q,index}]});
+ });
+ return groups;
+}
+function layoutScore(d){
+ const qs=modelQuestions(d),groups=clusterModelQuestions(qs);
+ const passages=groups.filter(g=>g.context);
+ const uniqueChars=passages.reduce((n,g)=>n+normalizeContext(g.context).length,0);
+ const isolated=groups.filter(g=>!g.context).length;
+ const images=qs.filter(q=>q.image_url||q.imageUrl||q.media_url).length;
+ return passages.length*120 + uniqueChars/12 + isolated*35 + images*30;
+}
+function orderedQuestions(qs){
+ return clusterModelQuestions(qs).flatMap(g=>g.questions.map(x=>x.q));
+}
 async function bestCandidate(letter,used){
- const attempts=$('avoidRepeats').checked?2:1;
+ const reading=selectedSubject()==='reading';
+ const attempts=reading?5:($('avoidRepeats').checked?2:1);
  let best=null,bestScore=Infinity;
  for(let n=0;n<attempts;n++){
    const d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:n>0});
-   const score=overlapCount(d,used)*100+cognitiveScore(d);
+   const repeatPenalty=overlapCount(d,used)*1000;
+   const cognitivePenalty=cognitiveScore(d)*2;
+   const printPenalty=reading?layoutScore(d):0;
+   const score=repeatPenalty+cognitivePenalty+printPenalty;
    if(score<bestScore){best=d;bestScore=score;}
  }
  return best;
@@ -158,7 +203,26 @@ function buildAssignments(){
  $('assignmentStats').innerHTML=counts.map((n,i)=>'<div class="quality-card ok"><span>نموذج '+letters[i]+'</span><b>'+ar(n)+' طلاب</b></div>').join('');
  $('assignments').innerHTML=assignments.map(a=>'<div class="assignment-row"><b>'+esc(a.student.full_name||a.student.student_name||'طالب')+'</b><span class="model-badge">نموذج '+a.letter+'</span></div>').join('');
  $('assignmentSection').classList.remove('hidden');$('assignmentSection').scrollIntoView({behavior:'smooth'});setStatus('تم توزيع النماذج بالتساوي قدر الإمكان. أصبحت البيانات جاهزة للمرحلة التالية: ورقة التظليل بالاسم وQR.','ok');
- try{const existing=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');const reviewId=existing?.review_id||makeReviewId();localStorage.setItem('nafes_review_correction_draft',JSON.stringify({review_id:reviewId,title:$('reviewTitle').value,subject:selectedSubject(),class_name:$('className').value,question_count:Number($('questionCount').value),model_count:models.length,indicator_counts:getSelectedIndicators(),assignments:assignments.map((a,i)=>({sheet_no:i+1,student_name:a.student.full_name||a.student.student_name,model:a.letter})),models:models.map((m,i)=>({model:letters[i],questions:modelQuestions(m).map(q=>({id:q.id||q.question_id||'',context:q.context||'',question:q.question||'',options:q.options||[],image_url:q.image_url||q.imageUrl||q.media_url||'',image_alt:q.image_alt||q.imageAlt||'',indicator:q.indicator_key||q.indicator||q.indicator_text||''}))})),answer_keys:models.map((m,i)=>({model:letters[i],answers:modelQuestions(m).map(q=>({question_id:q.id||q.question_id||'',correct_index:Number(q.correctIndex),indicator:q.indicator_key||q.indicator||q.indicator_text||''}))})),saved_at:new Date().toISOString()}));}catch(_){}
+ try{
+ const existing=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
+ const reviewId=existing?.review_id||makeReviewId();
+ const printable=models.map((m,i)=>({model:letters[i],questions:orderedQuestions(modelQuestions(m))}));
+ localStorage.setItem('nafes_review_correction_draft',JSON.stringify({
+   review_id:reviewId,title:$('reviewTitle').value,subject:selectedSubject(),class_name:$('className').value,
+   question_count:Number($('questionCount').value),model_count:models.length,indicator_counts:getSelectedIndicators(),
+   assignments:assignments.map((a,i)=>({sheet_no:i+1,student_name:a.student.full_name||a.student.student_name,model:a.letter})),
+   models:printable.map(m=>({model:m.model,questions:m.questions.map(q=>({
+     id:q.id||q.question_id||'',context:q.context||'',question:q.question||'',options:q.options||[],
+     image_url:q.image_url||q.imageUrl||q.media_url||'',image_alt:q.image_alt||q.imageAlt||'',
+     indicator:q.indicator_key||q.indicator||q.indicator_text||''
+   }))})),
+   answer_keys:printable.map(m=>({model:m.model,answers:m.questions.map(q=>({
+     question_id:q.id||q.question_id||'',correct_index:Number(q.correctIndex),
+     indicator:q.indicator_key||q.indicator||q.indicator_text||''
+   }))})),
+   saved_at:new Date().toISOString()
+ }));
+}catch(_){}
 }
 async function load(){
  if(!window.NafesTeacher?.getKey()){NafesTeacher.requireKey('أدخل مفتاح المعلم لفتح قسم المراجعة والتصحيح الآلي.');setStatus('يلزم تسجيل دخول المعلم.');return;}
