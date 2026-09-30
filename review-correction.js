@@ -306,6 +306,10 @@ async function restoreSavedReview(){
    if(!res?.review&&rid)res=await NafesTeacher.api('teacher_paper_review_get',{});
    const payload=res?.review?.payload;
    if(payload&&restoreReviewPayload(payload)){setStatus('تمت استعادة آخر مراجعة محفوظة من قاعدة البيانات، بما فيها النماذج ومفاتيح الإجابة وتوزيع الطلاب.','ok');return true;}
+   if(local?.review_id&&Array.isArray(local.models)&&local.models.length){
+     await NafesTeacher.api('teacher_paper_review_upsert',{review:local});
+     if(restoreReviewPayload(local)){setStatus('تم نقل المراجعة الموجودة على هذا الجهاز إلى قاعدة البيانات وحفظها بشكل دائم.','ok');return true;}
+   }
  }catch(e){console.warn('paper review restore failed',e);}
  return false;
 }
