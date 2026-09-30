@@ -15,6 +15,47 @@ function setReviewLinks(reviewId){
  const papers=document.querySelectorAll('a[href^="review-question-papers.html"]');
  scan.forEach(a=>a.href='review-scan.html'+q);bubbles.forEach(a=>a.href='review-bubble-sheets.html'+q);papers.forEach(a=>a.href='review-question-papers.html'+q);
 }
+function formatArchiveTime(v){
+ if(!v)return'';
+ try{return new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v));}catch(_){return String(v);}
+}
+function archiveItem(row){
+ const rid=encodeURIComponent(row.review_id||''),subject=labels[row.subject]||row.subject||'—',cls=row.class_name?('فصل '+row.class_name):'جميع الفصول';
+ return '<article class="archive-item" data-review-id="'+esc(row.review_id||'')+'">'+
+   '<h3>'+esc(row.title||'مراجعة ورقية')+'</h3>'+
+   '<div class="archive-meta"><span>'+esc(subject)+'</span><span>'+esc(cls)+'</span><span>'+esc(formatArchiveTime(row.updated_at||row.created_at))+'</span></div>'+
+   '<div class="archive-actions">'+
+     '<button type="button" class="open-review" data-open-review="'+esc(row.review_id||'')+'">فتح الاختبار</button>'+
+     '<a href="review-question-papers.html?rid='+rid+'">أوراق الأسئلة</a>'+
+     '<a href="review-bubble-sheets.html?rid='+rid+'">ورق التظليل</a>'+
+     '<a href="review-scan.html?rid='+rid+'">رفع وتصحيح</a>'+
+   '</div></article>';
+}
+async function loadArchive(){
+ const host=$('reviewArchive'),state=$('archiveState');if(!host||!state)return;
+ state.textContent='جارٍ تحميل المراجعات المحفوظة…';
+ try{
+   const res=await NafesTeacher.api('teacher_paper_review_list',{});
+   const rows=Array.isArray(res?.reviews)?res.reviews:[];
+   host.innerHTML=rows.length?rows.map(archiveItem).join(''):'<div class="archive-empty">لا توجد اختبارات ورقية محفوظة حتى الآن.</div>';
+   state.textContent=rows.length?'محفوظ '+ar(rows.length)+' اختبار/مراجعة ورقية.':'ابدأ بإنشاء أول مراجعة وسيتم حفظها هنا.';
+ }catch(e){
+   const local=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
+   host.innerHTML=local?.review_id?archiveItem({review_id:local.review_id,title:local.title,subject:local.subject,class_name:local.class_name,updated_at:local.saved_at}):'<div class="archive-empty">تعذر تحميل الأرشيف الدائم الآن.</div>';
+   state.textContent='تعذر تحميل الأرشيف من قاعدة البيانات: '+(e.message||e);
+ }
+}
+async function openArchivedReview(reviewId){
+ if(!reviewId)return;
+ try{
+   setStatus('جارٍ فتح الاختبار الورقي المحفوظ…');
+   const res=await NafesTeacher.api('teacher_paper_review_get',{review_id:reviewId});
+   if(!res?.review?.payload)throw new Error('لم يتم العثور على المراجعة المحفوظة.');
+   restoreReviewPayload(res.review.payload);
+   setStatus('تم فتح المراجعة المحفوظة، ويمكنك إعادة طباعة أوراق الأسئلة أو ورق التظليل.','ok');
+   document.querySelector('.builder-grid')?.scrollIntoView({behavior:'smooth'});
+ }catch(e){setStatus('تعذر فتح المراجعة: '+(e.message||e),'error');}
+}
 function selectedSubject(){return $('subject').value||'reading';}
 function allowedSubjects(){
  const scope=window.NafesTeacher?.getScope?.()||'all';
@@ -255,7 +296,7 @@ async function buildAssignments(){
    history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(reviewId));setReviewLinks(reviewId);
    setStatus('جارٍ حفظ المراجعة والنماذج ومفاتيح الإجابة وتوزيع الطلاب في قاعدة البيانات…');
    await NafesTeacher.api('teacher_paper_review_upsert',{review:draftPayload});
-   setStatus('تم حفظ المراجعة في منصة معلّمي. يمكنك الخروج والعودة من جهاز آخر بنفس حساب المعلم دون فقدانها.','ok');
+   setStatus('تم حفظ المراجعة في منصة معلّمي. يمكنك الخروج والعودة من جهاز آخر بنفس حساب المعلم دون فقدانها.','ok');await loadArchive();
  }catch(e){
    setStatus('تم تجهيز الأوراق على هذا الجهاز، لكن تعذر الحفظ الدائم: '+e.message,'error');
  }
@@ -325,9 +366,11 @@ async function load(){
  if(!window.NafesTeacher?.getKey()){NafesTeacher.requireKey('أدخل مفتاح المعلم لفتح قسم المراجعة والتصحيح الآلي.');setStatus('يلزم تسجيل دخول المعلم.');return;}
  try{
    setStatus('جارٍ تحميل بنك المؤشرات وسجل الطلاب…');
+   await NafesTeacher.ensureProfile?.();
    const [cat,stu]=await Promise.all([NafesTeacher.api('teacher_catalog'),NafesTeacher.api('teacher_students_list',{include_archived:false})]);
    catalog=cat;students=stu.students||[];populateSubject();populateClasses();renderIndicators();updateLevelSummary();
    const restored=await restoreSavedReview();
+   await loadArchive();
    if(!restored)setStatus('تم ربط القسم ببنك المؤشرات وسجل الطلاب الحالي في منصة معلّمي.','ok');
  }catch(e){setStatus(e.message,'error');}
 }
@@ -346,6 +389,9 @@ $('buildModels').onclick=buildModels;
 $('rebuildModels').onclick=buildModels;
 $('assignModels').onclick=buildAssignments;
 $('modelTabs').addEventListener('click',e=>{const b=e.target.closest('[data-model]');if(b)renderModel(Number(b.dataset.model));});
+$('refreshArchive')?.addEventListener('click',loadArchive);
+$('reviewArchive')?.addEventListener('click',e=>{const b=e.target.closest('[data-open-review]');if(b)openArchivedReview(b.dataset.openReview);});
+addEventListener('nafes:teacher-profile',()=>{const keep=$('subject')?.value;populateSubject();if(keep&&[...$('subject').options].some(o=>o.value===keep))$('subject').value=keep;renderIndicators();});
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)load();});
 load();
 })();
