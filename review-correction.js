@@ -156,6 +156,12 @@ function cognitiveScore(d){
 function overlapCount(d,used){
  return questionIds(d).filter(id=>used.has(id)).length;
 }
+function incompleteChoices(d){
+ return modelQuestions(d).filter(q=>!Array.isArray(q.options)||q.options.length!==4||q.options.some(o=>!String(o??'').trim()));
+}
+function hasValidAnswerKey(d){
+ return modelQuestions(d).every(q=>Number.isInteger(Number(q.correctIndex))&&Number(q.correctIndex)>=0&&Number(q.correctIndex)<4);
+}
 function normalizeContext(s){
  return String(s||'').normalize('NFKC')
   .replace(/[\u064B-\u0652\u0670\u0640]/g,'')
@@ -254,6 +260,7 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  let best=null,bestScore=Infinity,bestOverlap=Infinity;
  for(let n=0;n<attempts;n++){
    let d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:n>0});
+   if(incompleteChoices(d).length||!hasValidAnswerKey(d))continue;
    d=reorderModelQuestions(d,modelIndex,previous);
    const overlap=overlapCount(d,used);
    const repeatPenalty=overlap*1000000;
@@ -265,7 +272,7 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
    if(overlap===0&&(!previous||samePositionCount(previous,d)===0))break;
  }
  if(!best||bestOverlap>repeatBudget){
-   throw new Error('تعذر بناء نموذج ضمن حد التكرار المتبقي ('+repeatBudget+'). جرّب مؤشرات أخرى أو قلّل عدد النماذج.');
+   throw new Error('تعذر بناء نموذج مكتمل الإجابات ضمن حد التكرار المتبقي ('+repeatBudget+'). لن يتم اعتماد أي سؤال ناقص الخيارات.');
  }
  return best;
 }
@@ -331,6 +338,9 @@ async function buildModels(){
  finally{btn.disabled=false;}
 }
 async function buildAssignments(){
+ const bad=models.flatMap((m,i)=>incompleteChoices(m).map((q,n)=>({model:letters[i],question:q.question||'',n:n+1})));
+ if(bad.length){setStatus('تم إيقاف التجهيز لأن هناك '+bad.length+' سؤالًا ناقص الاختيارات. أعد إنشاء النماذج؛ لن تُطبع ورقة ناقصة.','error');return;}
+ if(models.some(m=>!hasValidAnswerKey(m))){setStatus('تم إيقاف التجهيز لأن مفتاح إجابة أحد الأسئلة غير مكتمل. أعد إنشاء النماذج.','error');return;}
  const list=selectedStudents(),count=models.length;
  assignments=list.map((s,i)=>({student:s,model:i%count,letter:letters[i%count]}));
  const counts=Array.from({length:count},(_,i)=>assignments.filter(a=>a.model===i).length);
