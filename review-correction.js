@@ -232,7 +232,7 @@ function buildAssignments(){
  localStorage.setItem('nafes_review_correction_draft',JSON.stringify({
    review_id:reviewId,title:$('reviewTitle').value,subject:selectedSubject(),class_name:$('className').value,
    question_count:Number($('questionCount').value),question_start:1,model_count:models.length,indicator_counts:getSelectedIndicators(),
-   assignments:assignments.map((a,i)=>({sheet_no:i+1,student_name:a.student.full_name||a.student.student_name,model:a.letter})),
+   assignments:assignments.map((a,i)=>({sheet_no:i+1,student_id:a.student.id||'',student_name:a.student.full_name||a.student.student_name,model:a.letter})),
    models:printable.map(m=>({model:m.model,questions:m.questions.map(q=>({
      id:q.id||q.question_id||'',context:q.context||'',question:q.question||'',options:q.options||[],
      image_url:q.image_url||q.imageUrl||q.media_url||'',image_alt:q.image_alt||q.imageAlt||'',
