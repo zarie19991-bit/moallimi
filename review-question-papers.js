@@ -40,15 +40,16 @@ function questionUnits(q){
 function groupUnits(g){
  return (g.context?8+Math.ceil(String(g.context).length/180)*3.2:0)+g.questions.reduce((n,q)=>n+questionUnits(q),0);
 }
-function splitIntoTwo(groups){
- const valid=groups.filter(g=>g&&g.questions?.length);
- if(valid.length===4&&valid.every(g=>g.questions.length===5)){
-   return [valid.slice(0,2),valid.slice(2,4)];
+function paginateGroups(groups){
+ const valid=groups.filter(g=>g&&g.questions?.length),pages=[];let page=[],units=0;
+ const LIMIT=52;
+ for(const g of valid){
+   const gu=groupUnits(g);
+   if(page.length&&units+gu>LIMIT){pages.push(page);page=[];units=0;}
+   page.push(g);units+=gu;
  }
- const pages=[[],[]];
- const target=Math.ceil(valid.length/2);
- valid.forEach((g,i)=>pages[i<target?0:1].push(g));
- return pages;
+ if(page.length)pages.push(page);
+ return pages.length?pages:[[]];
 }
 function cleanStem(question,context){
  const stem=String(question||'').trim(),ctx=String(context||'').trim();
@@ -56,8 +57,12 @@ function cleanStem(question,context){
  return stem;
 }
 function renderQuestion(q,context){
+ const opts=Array.isArray(q.options)?q.options.filter(o=>String(o??'').trim()):[];
+ if(opts.length!==4){
+   return '<article class="question question-error"><p class="stem">'+ar(q._no)+') '+esc(cleanStem(q.question,context))+'</p><div class="missing-choices">تعذر عرض هذا السؤال لأن الاختيارات الأربعة لم تُحفظ كاملة.</div></article>';
+ }
  return '<article class="question"><p class="stem">'+ar(q._no)+') '+esc(cleanStem(q.question,context))+'</p><div class="choices">'+
- (q.options||[]).map((o,j)=>'<div class="choice"><b>'+letters[j]+')</b><span>'+esc(o)+'</span></div>').join('')+
+ opts.map((o,j)=>'<div class="choice"><b>'+letters[j]+')</b><span>'+esc(o)+'</span></div>').join('')+
  '</div></article>';
 }
 function renderGroup(g){
@@ -99,8 +104,10 @@ function modelBooklet(model,d){
      groups.map((g,i)=>onePage(model,d,[g],i+1,4,questions.length)).join('')+
      '</div>';
  }
- const pages=splitIntoTwo(groups);
- return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+onePage(model,d,pages[0],1,2,questions.length)+onePage(model,d,pages[1],2,2,questions.length)+'</div>';
+ const pages=paginateGroups(groups);
+ return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+
+   pages.map((page,i)=>onePage(model,d,page,i+1,pages.length,questions.length)).join('')+
+   '</div>';
 }
 async function render(){
  activeDraft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(getDraft()));
@@ -120,7 +127,7 @@ function renderPages(){
  }
  $('pages').innerHTML=html;
  const copies=models.reduce((n,m)=>n+(mode==='students'?Math.max(1,copiesFor(d,m.model)):1),0);
- $('screenMeta').textContent=ar(models.length)+' نماذج · ورقتان A4 عند الطباعة على الوجهين لكل نموذج · '+ar(copies)+' نسخة';
+ $('screenMeta').textContent=ar(models.length)+' نماذج · الصفحات تتكيف تلقائيًا حتى لا تختفي أي إجابة · '+ar(copies)+' نسخة';
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
