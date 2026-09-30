@@ -8,6 +8,13 @@ const labels={reading:'القراءة',math:'الرياضيات',science:'الع
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
 let catalog=null,students=[],models=[],activeModel=0,assignments=[];
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
+function setReviewLinks(reviewId){
+ const q=reviewId?'?rid='+encodeURIComponent(reviewId):'';
+ const scan=document.querySelectorAll('a[href^="review-scan.html"]');
+ const bubbles=document.querySelectorAll('a[href^="review-bubble-sheets.html"]');
+ const papers=document.querySelectorAll('a[href^="review-question-papers.html"]');
+ scan.forEach(a=>a.href='review-scan.html'+q);bubbles.forEach(a=>a.href='review-bubble-sheets.html'+q);papers.forEach(a=>a.href='review-question-papers.html'+q);
+}
 function selectedSubject(){return $('subject').value||'reading';}
 function allowedSubjects(){
  const scope=window.NafesTeacher?.getScope?.()||'all';
@@ -245,7 +252,7 @@ async function buildAssignments(){
      saved_at:new Date().toISOString()
    };
    localStorage.setItem('nafes_review_correction_draft',JSON.stringify(draftPayload));
-   history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(reviewId));
+   history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(reviewId));setReviewLinks(reviewId);
    setStatus('جارٍ حفظ المراجعة والنماذج ومفاتيح الإجابة وتوزيع الطلاب في قاعدة البيانات…');
    await NafesTeacher.api('teacher_paper_review_upsert',{review:draftPayload});
    setStatus('تم حفظ المراجعة في منصة معلّمي. يمكنك الخروج والعودة من جهاز آخر بنفس حساب المعلم دون فقدانها.','ok');
@@ -295,7 +302,7 @@ function restoreReviewPayload(payload){
    $('assignments').innerHTML=assignments.map(a=>'<div class="assignment-row"><b>'+esc(a.student.full_name||a.student.student_name||'طالب')+'</b><span class="model-badge">نموذج '+a.letter+'</span></div>').join('');
    $('assignmentSection').classList.remove('hidden');
  }
- history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(payload.review_id));
+ history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(payload.review_id));setReviewLinks(payload.review_id);
  return true;
 }
 async function restoreSavedReview(){
