@@ -4,7 +4,8 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const DEFAULT_QUESTION_START=1;
-function draft(){try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
+let activeDraft=null;
+function draft(){if(activeDraft)return activeDraft;try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
 function makeSheet(item,index,d){
  const total=Number(d.question_count||20),startNo=Number(d.question_start||DEFAULT_QUESTION_START),sheetNo=index+1;
  const payload='MR2|'+String(d.review_id||'R')+'|'+String(sheetNo)+'|'+String(item.model||'');
@@ -17,6 +18,7 @@ function makeSheet(item,index,d){
  '<footer class="sheet-foot">ظلّل دائرة واحدة فقط لكل سؤال تظليلًا واضحًا. عند تغيير الإجابة امسح التظليل السابق جيدًا.<div class="sheet-code">'+esc(payload)+'</div></footer></section>';
 }
 async function render(){
+ activeDraft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(draft()));
  const d=draft();
  if(!d||!Array.isArray(d.assignments)||!d.assignments.length){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">لا توجد مراجعة مجهزة للطباعة.</div>';return;}
  $('screenTitle').textContent=d.title||'أوراق التظليل';
