@@ -70,7 +70,7 @@ function renderGroup(g){
  out+='<div class="passage-questions">'+g.questions.map(q=>renderQuestion(q,g.context)).join('')+'</div></section>';
  return out;
 }
-function pageHeader(model,d,pageNo,totalQuestions){
+function pageHeader(model,d,pageNo,totalPages,totalQuestions){
  return '<div class="exam-frame-head">'+
  '<div class="official"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><b>إدارة تعليم نجران</b><b>مدرسة ابن سينا المتوسطة</b></div>'+
  '<div class="exam-brand">مراجعة نافس</div>'+
@@ -78,14 +78,13 @@ function pageHeader(model,d,pageNo,totalQuestions){
  '</div>'+
  '<div class="title-strip">'+esc(d.title||'مراجعة مؤشرات نافس')+'</div>'+
  '<div class="student-line"><b>الاسم:</b><span></span></div>'+
- '<div class="page-number">الصفحة '+ar(pageNo)+' من ٢ · عدد الأسئلة '+ar(totalQuestions)+'</div>';
+ '<div class="page-number">الصفحة '+ar(pageNo)+' من '+ar(totalPages)+' · عدد الأسئلة '+ar(totalQuestions)+'</div>';
 }
-function onePage(model,d,groups,pageNo,totalQuestions){
+function onePage(model,d,groups,pageNo,totalPages,totalQuestions){
  return '<section class="paper-page" data-model="'+esc(model.model)+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
- pageHeader(model,d,pageNo,totalQuestions)+
- (pageNo===1?'':'')+
+ pageHeader(model,d,pageNo,totalPages,totalQuestions)+
  groups.map(renderGroup).join('')+
- '<footer class="footer"><span>منصة معلّمي — مراجعة مؤشرات نافس</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/٢</span></footer>'+
+ '<footer class="footer"><span>منصة معلّمي — مراجعة مؤشرات نافس</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/'+ar(totalPages)+'</span></footer>'+
  '</div></div></section>';
 }
 function modelBooklet(model,d){
@@ -95,9 +94,12 @@ function modelBooklet(model,d){
    if(bad){
      return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>يجب أن يتكون من ٤ نصوص، وتحت كل نص ٥ أسئلة. أعد إنشاء النماذج من قسم المراجعة والتصحيح الآلي.</p></div></div></section>';
    }
+   return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+
+     groups.map((g,i)=>onePage(model,d,[g],i+1,4,questions.length)).join('')+
+     '</div>';
  }
  const pages=splitIntoTwo(groups);
- return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+onePage(model,d,pages[0],1,questions.length)+onePage(model,d,pages[1],2,questions.length)+'</div>';
+ return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+onePage(model,d,pages[0],1,2,questions.length)+onePage(model,d,pages[1],2,2,questions.length)+'</div>';
 }
 function render(){
  const d=getDraft();
@@ -116,7 +118,7 @@ function renderPages(){
  }
  $('pages').innerHTML=html;
  const copies=models.reduce((n,m)=>n+(mode==='students'?Math.max(1,copiesFor(d,m.model)):1),0);
- $('screenMeta').textContent=ar(models.length)+' نماذج · صفحتان كحد أقصى لكل نموذج · '+ar(copies)+' نسخة';
+ $('screenMeta').textContent=ar(models.length)+' نماذج · ورقتان A4 عند الطباعة على الوجهين لكل نموذج · '+ar(copies)+' نسخة';
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
