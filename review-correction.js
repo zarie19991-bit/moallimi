@@ -130,20 +130,22 @@ function layoutScore(d){
  const uniqueChars=passages.reduce((n,g)=>n+normalizeContext(g.context).length,0);
  const isolated=groups.filter(g=>!g.context).length;
  const images=qs.filter(q=>q.image_url||q.imageUrl||q.media_url).length;
- return passages.length*120 + uniqueChars/12 + isolated*35 + images*30;
+ const passagePenalty=Math.max(0,passages.length-3)*1200;
+ const textPenalty=Math.max(0,uniqueChars-2600)*1.8;
+ return passages.length*180 + uniqueChars/8 + isolated*60 + images*45 + passagePenalty + textPenalty;
 }
 function orderedQuestions(qs){
  return clusterModelQuestions(qs).flatMap(g=>g.questions.map(x=>x.q));
 }
 async function bestCandidate(letter,used){
  const reading=selectedSubject()==='reading';
- const attempts=reading?5:($('avoidRepeats').checked?2:1);
+ const attempts=reading?9:($('avoidRepeats').checked?2:1);
  let best=null,bestScore=Infinity;
  for(let n=0;n<attempts;n++){
    const d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:n>0});
    const repeatPenalty=overlapCount(d,used)*1000;
    const cognitivePenalty=cognitiveScore(d)*2;
-   const printPenalty=reading?layoutScore(d):0;
+   const printPenalty=reading?layoutScore(d)*3:0;
    const score=repeatPenalty+cognitivePenalty+printPenalty;
    if(score<bestScore){best=d;bestScore=score;}
  }
