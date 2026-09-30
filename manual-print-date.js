@@ -69,30 +69,31 @@ function setValue(v){
   if(input&&input.value!==text)input.value=text;
   apply(document);
 }
-function blankDate(){
-  return '________________';
-}
 function apply(root){
   if(!root)return;
   const d=value();
-  const shown=d||blankDate();
   const selector='.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet';
   root.querySelectorAll(selector).forEach(sheet=>{
     sheet.querySelectorAll('.manual-print-date-line').forEach(x=>x.remove());
 
-    const metaBox=sheet.querySelector('.wr-report-meta>div:nth-child(2)');
+    const meta=document.querySelector ? sheet.querySelector('.wr-report-meta') : null;
+    const metaBox=sheet.querySelector('.wr-report-meta>div[data-manual-print-date],.wr-report-meta>div:nth-child(2)');
     const metaDate=metaBox?.querySelector('b');
     if(metaDate){
       const metaLabel=metaBox.querySelector('span');
       if(metaLabel&&metaLabel.textContent!=='التاريخ')metaLabel.textContent='التاريخ';
-      if(metaDate.textContent!==shown)metaDate.textContent=shown;
+      metaBox.classList.toggle('manual-print-date-hidden',!d);
+      meta?.classList.toggle('manual-print-date-empty',!d);
+      metaDate.textContent=d;
       return;
     }
+
+    if(!d)return;
 
     const line=document.createElement('div');
     line.className='manual-print-date-line';
     line.setAttribute('data-print-date','manual');
-    line.innerHTML=`<span>تاريخ الطباعة</span><b>${E(shown)}</b>`;
+    line.innerHTML=`<span>تاريخ الطباعة</span><b>${E(d)}</b>`;
 
     const title=sheet.querySelector(':scope > h1,:scope > .wr-title-pill,:scope > h2');
     if(title){title.insertAdjacentElement('afterend',line);return;}
