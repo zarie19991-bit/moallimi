@@ -32,6 +32,8 @@ async function render(){
  if(!d||!Array.isArray(d.assignments)||!d.assignments.length){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">لا توجد مراجعة مجهزة للطباعة.</div>';return;}
  $('screenTitle').textContent=d.title||'أوراق التظليل';
  $('screenMeta').textContent=ar(d.assignments.length)+' طالب · '+ar(d.model_count||5)+' نماذج';
+ const rid=d.review_id||new URLSearchParams(location.search).get('rid')||'';
+ document.querySelectorAll('a[href^="review-scan.html"]').forEach(a=>a.href='review-scan.html'+(rid?'?rid='+encodeURIComponent(rid):''));
  let html='';
  for(let i=0;i<d.assignments.length;i+=2){
    html+='<section class="paper">';
