@@ -11,7 +11,12 @@ async function load(){
    const rid=new URLSearchParams(location.search).get('rid')||fallback?.review_id||'';
    let res=await NafesTeacher.api('teacher_paper_review_get',rid?{review_id:rid}:{});
    if(!res?.review&&rid)res=await NafesTeacher.api('teacher_paper_review_get',{});
-   return store(res?.review?.payload)||fallback;
+   if(res?.review?.payload)return store(res.review.payload);
+   if(fallback?.review_id){
+     try{await NafesTeacher.api('teacher_paper_review_upsert',{review:fallback});}catch(_){}
+     return fallback;
+   }
+   return null;
  }catch(_){return fallback;}
 }
 async function save(payload){
