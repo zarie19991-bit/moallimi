@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>أوراق أسئلة المراجعة | معلّمي</title>
-<link rel="stylesheet" href="review-question-papers.css?v=20260930-1">
+<link rel="stylesheet" href="review-question-papers.css?v=20260930-2">
 </head>
 <body>
 <div class="screen-bar">
@@ -12,10 +12,15 @@
   <div><b id="screenTitle">أوراق الأسئلة</b><span id="screenMeta"></span></div>
   <div class="screen-actions">
     <select id="modelFilter"></select>
+    <select id="copyMode" title="عدد النسخ">
+      <option value="master" selected>نسخة واحدة من كل نموذج</option>
+      <option value="students">نسخ بعدد الطلاب</option>
+    </select>
     <button id="printBtn" type="button">طباعة</button>
   </div>
 </div>
+<div class="screen-note">الوضع الافتراضي يعرض نسخة واحدة فقط من كل نموذج. عند الحاجة لنسخ الطلاب اختر «نسخ بعدد الطلاب» أو استخدم عدد النسخ من نافذة الطابعة.</div>
 <main id="pages"></main>
-<script src="review-question-papers.js?v=20260930-1"></script>
+<script src="review-question-papers.js?v=20260930-2"></script>
 </body>
 </html>
