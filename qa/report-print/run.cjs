@@ -63,7 +63,7 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
    await page.waitForSelector('#subjectOfficialReport .na-table');await page.click('#printSubjectReportBtn');
   }else{
    await page.click('[data-view="report"]');await page.waitForSelector('#reportMultiPicker input[data-test-id]');
-   await page.click('#buildReportBtn');await page.waitForSelector('#reportPreview .wr-remedial tbody tr');
+    await page.click('#buildReportBtn');await page.waitForSelector(baseline?'#reportPreview .wr-remedial tbody tr':'#reportPreview .wr-week-plan tbody tr');
    await page.click('#printReportBtn');
   }
   await page.waitForFunction(()=>window.__printCalled&&document.querySelector('#printRoot')?.children.length>0);
@@ -93,14 +93,15 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
    const big=[...root.querySelectorAll('.sar-analysis-grid,.sar-stats,.sar-achievement,.wr-focus,.wr-performance,.wr-remedial,table,tbody')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
    const small=[...root.querySelectorAll('.sar-chart-card,.wr-indicator-card,.wr-callout')].map(e=>({class:e.className,inside:getComputedStyle(e).breakInside}));
     const fonts=[...root.querySelectorAll('td,th')].map(e=>getComputedStyle(e).fontSize);
-    const supportRows=root.querySelectorAll('.wr-follow-sheet .wr-student-table tbody tr').length;
-    const remedialRows=root.querySelectorAll('.wr-remedial tbody tr').length;
-    const hasMoreNote=!!root.querySelector('.wr-more-note');
+     const supportRows=root.querySelectorAll('.wr-low-list-table tbody tr').length;
+     const remedialRows=root.querySelectorAll('.wr-week-plan tbody tr').length;
+     const studentListSheets=root.querySelectorAll('.wr-student-list-sheet').length;
+     const perStudentIndicatorCards=root.querySelectorAll('.wr-student-list-sheet .wr-student-ind').length;
     const absenceRows=[...root.querySelectorAll('.nafes-absence-sheet .na-table tbody')].map(x=>x.children.length);
     const reportDate=String(root.querySelector('.wr-report-meta>div:nth-child(2) b')?.textContent||'').trim();
     const topbar=root.querySelector('.wr-topbar'),title=root.querySelector('.wr-title-pill');
     const stylesheets=[...document.styleSheets].map(s=>s.href||'inline');
-    return{tables,groups,sheets,big,small,fonts,supportRows,remedialRows,hasMoreNote,absenceRows,reportDate,
+     return{tables,groups,sheets,big,small,fonts,supportRows,remedialRows,studentListSheets,perStudentIndicatorCards,absenceRows,reportDate,
       topbarBg:topbar?getComputedStyle(topbar).backgroundImage:'',
       titleBg:title?getComputedStyle(title).backgroundImage:'',
       stylesheets,
@@ -116,11 +117,16 @@ const server=http.createServer(async(req,res)=>{try{const p=path.resolve(root,'.
     assert(info.sheets.every(s=>!['page','always'].includes(s.breakAfter)),'forced sheet break returned');
     assert(info.fonts.every(s=>parseFloat(s)>=16),'table font below 12pt');
     if(['general','official','remedial'].includes(name))assert(info.groups.length,'no related section was protected');
-    if(name==='general'||name==='remedial'){
-      if(name==='general')assert(info.reportDate,'automatic report date missing');
-      assert(info.supportRows<=8,`reference compact report should print at most 8 support students, got ${info.supportRows}`);
-      assert(info.remedialRows<=3,`reference remedial plan should contain at most 3 rows, got ${info.remedialRows}`);
-      if(name==='general')assert(info.hasMoreNote,'reference additional-students note missing');
+    if(name==='general'){
+      assert(info.reportDate,'automatic report date missing');
+      assert.equal(info.supportRows,72,`all low-score students must be listed on separate pages, got ${info.supportRows}`);
+      assert.equal(info.studentListSheets,4,`72 students at 20 per page should create 4 student-list sheets, got ${info.studentListSheets}`);
+      assert.equal(info.remedialRows,6,`weekly plan should contain the 6 weak global indicators in this fixture, got ${info.remedialRows}`);
+      assert.equal(info.perStudentIndicatorCards,0,'student-name pages must not contain per-student indicator cards');
+      assert.equal(info.absenceRows.length,0,'general report must not append absentee pages');
+    }
+    if(name==='remedial'){
+      assert.equal(info.remedialRows,6,`weekly plan should contain the 6 weak global indicators in this fixture, got ${info.remedialRows}`);
     }
     if(name==='absentees'||name==='subject'){
       assert(info.absenceRows.every(n=>n<=18),`absence page exceeds 18 rows: ${JSON.stringify(info.absenceRows)}`);
