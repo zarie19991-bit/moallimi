@@ -155,16 +155,23 @@ async function processRegion(c,pageNo,regionNo){
  if(markers&&answers.length)scoreResult(r);return r;
 }
 function assignLegacySheetsByOrder(){
- const unresolved=results.filter(r=>!r.qrValid&&r.markersOk).sort((a,b)=>a.pageNo-b.pageNo||a.regionNo-b.regionNo);
- if(!unresolved.length)return;
- const used=new Set(results.filter(r=>r.qrValid&&r.assignment).map(r=>Number(r.assignment.sheet_no)));
- const remaining=(draft?.assignments||[]).filter(a=>!used.has(Number(a.sheet_no))).sort((a,b)=>Number(a.sheet_no)-Number(b.sheet_no));
- if(unresolved.length!==remaining.length)return;
- unresolved.forEach((r,i)=>{
-   const a=remaining[i];r.assignment=a;r.model=a.model;r.studentName=a.student_name;r.qrValid=true;
-   r.identitySource='print-order';r.qr={reviewId:draft.review_id,sheetNo:Number(a.sheet_no),model:a.model,legacyOrder:true};
+ const unidentified=results.filter(r=>!r.qrValid&&r.markersOk).sort((a,b)=>a.pageNo-b.pageNo||a.regionNo-b.regionNo);
+ if(!unidentified.length)return;
+ const byNo=new Map((draft?.assignments||[]).map(a=>[Number(a.sheet_no),a]));
+ const alreadyUsed=new Set(results.filter(r=>r.qrValid&&r.assignment).map(r=>Number(r.assignment.sheet_no)));
+ for(const r of unidentified){
+   const expectedNo=(Number(r.pageNo)-1)*2+Number(r.regionNo);
+   let a=byNo.get(expectedNo);
+   if(!a||alreadyUsed.has(Number(a.sheet_no))){
+     a=(draft?.assignments||[]).find(x=>!alreadyUsed.has(Number(x.sheet_no)))||null;
+   }
+   if(!a)continue;
+   alreadyUsed.add(Number(a.sheet_no));
+   r.assignment=a;r.model=a.model;r.studentName=a.student_name;r.qrValid=true;
+   r.identitySource='print-order';
+   r.qr={reviewId:draft.review_id,sheetNo:Number(a.sheet_no),model:a.model,legacyOrder:true};
    if(r.answers.length)scoreResult(r);
- });
+ }
 }
 async function canvasFromImage(file){
  const bmp=await createImageBitmap(file),c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;c.getContext('2d',{willReadFrequently:true}).drawImage(bmp,0,0);return c;
