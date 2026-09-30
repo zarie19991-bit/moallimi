@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#065f46">
+<title>المراجعة والتصحيح الآلي | معلّمي</title>
+<link rel="stylesheet" href="review-correction.css?v=20260930-1">
+<link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
+<script src="teacher-preboot.js?v=20260919-scope2"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./"><img class="moallimi-logo-full" src="moallimi-logo-ui.png?v=20260920-png1" alt="شعار منصة معلّمي"></a>
+  <nav class="top-links">
+    <a href="./">المؤشرات</a>
+    <a href="create.html">إنشاء اختبار</a>
+    <a class="active" href="review-correction.html">المراجعة والتصحيح الآلي</a>
+    <a href="analysis.html">تحليل النتائج</a>
+    <a href="teacher.html">حساب المعلم</a>
+  </nav>
+</header>
+
+<main class="page">
+  <section class="hero">
+    <div>
+      <span class="eyebrow">قسم جديد في منصة معلّمي</span>
+      <h1>المراجعة والتصحيح الآلي</h1>
+      <p>بناء مراجعات متعددة النماذج من بنك المؤشرات، توزيعها على الطلاب، ثم تجهيزها لمسار التظليل والتصحيح الجماعي.</p>
+    </div>
+    <div class="hero-status">
+      <span>النماذج الافتراضية</span>
+      <b>٥ نماذج</b>
+      <small>قابلة للزيادة حتى ١٠</small>
+    </div>
+  </section>
+
+  <section class="progress" aria-label="مراحل العمل">
+    <div class="stage active"><b>١</b><span>إعداد المراجعة</span></div>
+    <div class="stage"><b>٢</b><span>بناء النماذج</span></div>
+    <div class="stage"><b>٣</b><span>توزيع الطلاب</span></div>
+    <div class="stage"><b>٤</b><span>أوراق التظليل</span></div>
+    <div class="stage"><b>٥</b><span>رفع وتصحيح</span></div>
+    <div class="stage"><b>٦</b><span>التحليل</span></div>
+  </section>
+
+  <div id="status" class="status">جارٍ تحميل بنك المؤشرات والطلاب…</div>
+
+  <section class="builder-grid">
+    <article class="card">
+      <header class="card-head"><span class="step-no">١</span><div><h2>بيانات المراجعة</h2><p>اضبط المراجعة مرة واحدة، والمنصة تبني النماذج المتكافئة.</p></div></header>
+      <div class="fields">
+        <label class="field wide"><span>اسم المراجعة</span><input id="reviewTitle" value="مراجعة مؤشرات نافس" maxlength="160"></label>
+        <label class="field"><span>المادة</span><select id="subject"></select></label>
+        <label class="field"><span>الفصل</span><select id="className"><option value="">جميع الفصول</option></select></label>
+        <label class="field"><span>عدد الأسئلة</span><select id="questionCount"><option>10</option><option>15</option><option selected>20</option><option>25</option><option>30</option></select></label>
+        <label class="field"><span>عدد النماذج</span><select id="modelCount"><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label>
+      </div>
+      <div class="switches">
+        <label><input id="avoidRepeats" type="checkbox" checked><span>تقليل تكرار السؤال بين النماذج قدر الإمكان</span></label>
+        <label><input id="compactPrint" type="checkbox" checked><span>تحسين الطباعة وتقليل عدد الصفحات</span></label>
+        <label><input id="imageWhenNeeded" type="checkbox" checked><span>استخدام الصور والرسومات المرتبطة بالسؤال فقط</span></label>
+      </div>
+    </article>
+
+    <article class="card">
+      <header class="card-head"><span class="step-no">٢</span><div><h2>مستويات الأسئلة</h2><p>تستخدم كهدف لموازنة النماذج عند اختيار الأسئلة من البنك.</p></div></header>
+      <div class="levels">
+        <label><span>معرفة</span><input id="knowledge" type="number" min="0" max="100" value="25"><b>%</b></label>
+        <label><span>تطبيق</span><input id="application" type="number" min="0" max="100" value="40"><b>%</b></label>
+        <label><span>استدلال</span><input id="reasoning" type="number" min="0" max="100" value="35"><b>%</b></label>
+      </div>
+      <div id="levelSummary" class="mini-note"></div>
+    </article>
+  </section>
+
+  <section class="card">
+    <header class="card-head"><span class="step-no">٣</span><div><h2>اختيار المؤشرات</h2><p>اختر المؤشرات التي سبق تدريسها. يوزع النظام عدد الأسئلة عليها بالتساوي ويمكنك تعديل العدد لكل مؤشر.</p></div></header>
+    <div class="indicator-tools">
+      <input id="indicatorSearch" type="search" placeholder="ابحث في المؤشرات…">
+      <button id="selectAllIndicators" type="button" class="secondary">اختيار الظاهر</button>
+      <button id="clearIndicators" type="button" class="secondary">مسح الاختيار</button>
+    </div>
+    <div id="indicators" class="indicators"></div>
+    <div id="indicatorSummary" class="selection-summary"></div>
+  </section>
+
+  <section class="card">
+    <header class="card-head"><span class="step-no">٤</span><div><h2>الطلاب وتوزيع النماذج</h2><p>يقرأ القسم سجل الطلاب الحالي، ويُوزع النماذج أ، ب، ج، د، هـ… تلقائيًا.</p></div></header>
+    <div class="student-toolbar">
+      <label class="check-all"><input id="selectAllStudents" type="checkbox" checked> اختيار جميع الطلاب في الفصل</label>
+      <span id="studentCount">٠ طالب</span>
+    </div>
+    <div id="students" class="students"></div>
+  </section>
+
+  <section class="action-card">
+    <div>
+      <h2>جاهز لبناء النماذج؟</h2>
+      <p>لن يتم نشر اختبار للطلاب. هذه الخطوة تنشئ مسودات مراجعة للمعلم فقط لمعاينتها قبل الطباعة.</p>
+    </div>
+    <button id="buildModels" type="button" class="primary">إنشاء النماذج ومعاينتها</button>
+  </section>
+
+  <section id="previewSection" class="card hidden">
+    <header class="card-head"><span class="step-no">٥</span><div><h2>معاينة النماذج</h2><p>قارن النماذج قبل الاعتماد. يظهر التكرار والتوزيع الفعلي للمؤشرات والمستويات المتاحة في بيانات البنك.</p></div></header>
+    <div id="quality" class="quality-grid"></div>
+    <div id="modelTabs" class="model-tabs"></div>
+    <div id="modelPreview" class="model-preview"></div>
+    <div class="preview-actions">
+      <button id="assignModels" type="button" class="primary">اعتماد التوزيع وتجهيز أوراق التظليل</button>
+      <button id="rebuildModels" type="button" class="secondary">إعادة بناء النماذج</button>
+    </div>
+  </section>
+
+  <section id="assignmentSection" class="card hidden">
+    <header class="card-head"><span class="step-no">٦</span><div><h2>توزيع النماذج على الطلاب</h2><p>توزيع دائري متوازن على الطلاب المحددين. هذه البيانات ستكون أساس طباعة ورقة التظليل باسم الطالب.</p></div></header>
+    <div id="assignmentStats" class="quality-grid"></div>
+    <div id="assignments" class="assignment-list"></div>
+    <div class="next-phase">
+      <b>المرحلة التالية في التنفيذ</b>
+      <span>إنشاء ورقة التظليل المطبوعة باسم الطالب + QR، ثم رفع PDF واحد للتصحيح الجماعي والمراجعة اليدوية.</span>
+    </div>
+  </section>
+</main>
+
+<script src="nafes-reading.js?v=20260909-final"></script>
+<script src="nafes-math.js?v=20260909-final"></script>
+<script src="nafes-science.js?v=20260909-final"></script>
+<script src="teacher-access.js?v=20260920-scope5"></script>
+<script src="review-correction.js?v=20260930-1"></script>
+</body>
+</html>
