@@ -809,11 +809,16 @@ async function catalog(db:any) {
   const counts=must(await db.rpc('nafes_teacher_catalog_counts'));
   const available=new Map<string,number>((counts||[]).map((x:Row)=>[x.key,x.available]));
   try{
-    const curated=must(await db.from('nafes_indicator_curated_bank')
-      .select('indicator_key,subject_key,quality_version')
-      .in('quality_version',['science-curated-v2','math-curated-v1']));
     const curatedCounts=new Map<string,number>();
-    for(const q of curated||[])curatedCounts.set(q.indicator_key,(curatedCounts.get(q.indicator_key)||0)+1);
+    for(let start=0;;start+=1000){
+      const page=must(await db.from('nafes_indicator_curated_bank')
+        .select('indicator_key,subject_key,quality_version')
+        .in('quality_version',['science-curated-v2','math-curated-v1'])
+        .order('id',{ascending:true})
+        .range(start,start+999));
+      for(const q of page||[])curatedCounts.set(q.indicator_key,(curatedCounts.get(q.indicator_key)||0)+1);
+      if(!page||page.length<1000)break;
+    }
     for(const [key,n] of curatedCounts)available.set(key,n);
   }catch(_){};
   const simCounts=await simulationCatalogCounts(db);
