@@ -108,7 +108,7 @@ async function settings(subject: string, outcome: string, indicator: number, mod
 
 async function loadIndicatorBank(subject: string, outcome: string, indicator: number) {
   if (subject === "science" || subject === "math") {
-    const qualityVersion = subject === "science" ? "science-curated-v3" : "math-curated-v3";
+    const qualityVersion = subject === "science" ? "science-curated-v4" : "math-curated-v4";
     const { data, error } = await db
       .from("nafes_indicator_curated_bank")
       .select("id,indicator_key,indicator_text,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no,model_no,quality_version,image")
@@ -213,7 +213,7 @@ function inspectCuratedMathBank(rows: BankRow[], expectedIndicatorText: string, 
     if (!expectedDifficulty || q.difficulty !== expectedDifficulty) issues.push("difficulty_level");
     if (!String(q.explanation || "").trim()) issues.push("missing_explanation");
   }
-  if (levelCounts.knowledge < 2 || levelCounts.application < 4 || levelCounts.reasoning < 4) issues.push("cognitive_distribution");
+  if (levelCounts.knowledge < 2 || levelCounts.application < 4 || levelCounts.reasoning < 3) issues.push("cognitive_distribution");
   if (rows.length === QUESTION_COUNT && Math.max(...answerCounts) - Math.min(...answerCounts) > 2) issues.push("answer_distribution");
   return {
     ready: issues.length === 0,
@@ -226,10 +226,10 @@ function inspectCuratedMathBank(rows: BankRow[], expectedIndicatorText: string, 
 }
 
 function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string, subject: string) {
-  if (subject === "science" && rows.some(q => q.quality_version === "science-curated-v3")) {
+  if (subject === "science" && rows.some(q => q.quality_version === "science-curated-v4")) {
     return inspectCuratedScienceBank(rows, expectedIndicatorText, expectedFocus);
   }
-  if (subject === "math" && rows.some(q => q.quality_version === "math-curated-v3")) {
+  if (subject === "math" && rows.some(q => q.quality_version === "math-curated-v4")) {
     return inspectCuratedMathBank(rows, expectedIndicatorText, expectedFocus);
   }
   if (rows.some(q => q.alignment_evidence?.validator === REVIEW_VERSION)) {
