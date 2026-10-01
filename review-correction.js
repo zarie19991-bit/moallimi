@@ -7,6 +7,7 @@ const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const labels={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
 const MAX_CROSS_MODEL_REPEATS=10;
+function repeatLimit(){return selectedSubject()==='reading'?MAX_CROSS_MODEL_REPEATS:0;}
 let catalog=null,students=[],models=[],activeModel=0,assignments=[];
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
@@ -259,7 +260,9 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  const attempts=reading?24:($('avoidRepeats').checked?16:10);
  let best=null,bestScore=Infinity,bestOverlap=Infinity;
  for(let n=0;n<attempts;n++){
-   let d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:n>0});
+   const body={config:configForModel(letter),regenerate:n>0};
+   if(!reading&&used.size)body.exclude_question_ids=[...used];
+   let d=await NafesTeacher.api('teacher_preview',body);
    if(incompleteChoices(d).length||!hasValidAnswerKey(d))continue;
    d=reorderModelQuestions(d,modelIndex,previous);
    const overlap=overlapCount(d,used);
@@ -291,9 +294,11 @@ function validate(){
      if(x.count>available)throw new Error('المؤشر المحدد يحتوي '+available+' سؤالًا محكّمًا فقط، بينما طلبت '+x.count+'. خفّض عدد أسئلته أو اختر مؤشرات إضافية.');
    }
    const modelCount=Number($('modelCount').value||5);
-   const unavoidable=inds.reduce((n,x)=>n+Math.max(0,modelCount*x.count-Number(byKey.get(String(x.key))||0)),0);
-   if(unavoidable>MAX_CROSS_MODEL_REPEATS){
-     throw new Error('هذا الإعداد يحتاج إلى تكرار لا يقل عن '+unavoidable+' سؤالًا بين النماذج، بينما الحد الاحترافي هو '+MAX_CROSS_MODEL_REPEATS+'. اختر مؤشرات أكثر، أو خفّض عدد النماذج أو عدد الأسئلة.');
+   const insufficient=inds.find(x=>modelCount*x.count>Number(byKey.get(String(x.key))||0));
+   if(insufficient){
+     const available=Number(byKey.get(String(insufficient.key))||0);
+     const need=modelCount*insufficient.count;
+     throw new Error('لإنتاج '+modelCount+' نماذج بلا تكرار، هذا المؤشر يحتاج '+need+' سؤالًا مختلفًا بينما المتاح '+available+' فقط. اختر مؤشرات أكثر، أو خفّض عدد النماذج أو عدد الأسئلة لكل مؤشر.');
    }
  }
  if(!stu.length)throw new Error('اختر طالبًا واحدًا على الأقل لتجهيز التوزيع.');
@@ -312,8 +317,8 @@ function renderQuality(){
  const cards=[
   ['النماذج',models.length,'ok'],
   ['إجمالي الأسئلة',total,'ok'],
-  ['التكرارات بين النماذج',dup,dup>MAX_CROSS_MODEL_REPEATS?'warn':'ok'],
-  ['الحد الأعلى للتكرار',MAX_CROSS_MODEL_REPEATS,'ok'],
+  ['التكرارات بين النماذج',dup,dup>repeatLimit()?'warn':'ok'],
+  ['الحد الأعلى للتكرار',repeatLimit(),'ok'],
   ['أسئلة بلا وسم معرفي',unknown,unknown?'warn':'ok']
  ];
  $('quality').innerHTML=cards.map(x=>'<div class="quality-card '+x[2]+'"><span>'+x[0]+'</span><b>'+ar(x[1])+'</b></div>').join('');
@@ -329,22 +334,22 @@ function renderModel(i){
 async function buildModels(){
  try{validate();}catch(e){setStatus(e.message,'error');return;}
  const btn=$('buildModels');btn.disabled=true;models=[];assignments=[];$('previewSection').classList.add('hidden');$('assignmentSection').classList.add('hidden');
- const count=Number($('modelCount').value||5),used=new Set();let repeatTotal=0;
+ const count=Number($('modelCount').value||5),used=new Set();let repeatTotal=0,maxRepeats=repeatLimit();
  try{
    for(let i=0;i<count;i++){
-     const remaining=Math.max(0,MAX_CROSS_MODEL_REPEATS-repeatTotal);
+     const remaining=Math.max(0,maxRepeats-repeatTotal);
      setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' — التكرار المسموح المتبقي '+remaining+' فقط…');
      const previous=models[i-1]||null;
      const d=await bestCandidate(letters[i],used,remaining,i,previous);
      const overlap=overlapCount(d,used);
      repeatTotal+=overlap;
-     if(repeatTotal>MAX_CROSS_MODEL_REPEATS)throw new Error('تجاوزت النماذج حد التكرار الأقصى وهو '+MAX_CROSS_MODEL_REPEATS+'.');
+     if(repeatTotal>maxRepeats)throw new Error('تجاوزت النماذج حد التكرار الأقصى وهو '+maxRepeats+'.');
      models.push(d);questionIds(d).forEach(id=>used.add(id));
    }
    if(models.length>1&&samePositionCount(models[0],models[1])>0){
      throw new Error('لم يتحقق اختلاف ترتيب النموذجين الأول والثاني بالكامل. أعد الإنشاء.');
    }
-   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});setStatus('تم إنشاء '+count+' نماذج. إجمالي التكرار '+repeatTotal+' من حد أقصى '+MAX_CROSS_MODEL_REPEATS+'، وترتيب النموذجين أ وب مختلف بالكامل.','ok');
+   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});setStatus('تم إنشاء '+count+' نماذج. إجمالي التكرار '+repeatTotal+' من حد أقصى '+maxRepeats+'، وترتيب النموذجين أ وب مختلف بالكامل.','ok');
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
