@@ -70,17 +70,18 @@ T.api=async function(action,payload={}){
   }
   const data=await baseApi(action,payload);
   if(action!=='teacher_data'||!Array.isArray(data?.attempts))return data;
+  const cleanAttempts=data.attempts.filter(a=>a?.is_demo!==true);
   const next=data?.next_cursor,current=Number(payload?.cursor||0);
   if(next!==null&&next!==undefined&&(!Number.isSafeInteger(next)||next<=current))throw new Error('لم تصل صفحات النتائج بترتيب صحيح. اضغط «تحديث البيانات» وأعد المحاولة.');
   try{
     const students=await rosterMap();
-    if(!students.size)return data;
-    return {...data,attempts:data.attempts.map(a=>{
+    if(!students.size)return {...data,attempts:cleanAttempts};
+    return {...data,attempts:cleanAttempts.map(a=>{
       const student=students.get(String(a?.student_id||''));
       if(!student)return a;
       return {...a,student_name:a.student_name||student.full_name||a.full_name,class_name:a.class_name||student.class_name||''};
     })};
-  }catch(error){console.error('analysis roster enrichment failed',error);return data;}
+  }catch(error){console.error('analysis roster enrichment failed',error);return {...data,attempts:cleanAttempts};}
 };
 
 function clearAllCaches(){resetRoster();T.clearReadCache?.();delete window.__NAFES_ANALYSIS_DATA_CACHE__;}
