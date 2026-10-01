@@ -25,8 +25,8 @@ function qrDecode(c){
  if(typeof jsQR!=='function')return null;const d=imageData(c);const q=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});return q?{data:q.data,location:q.location}:null;
 }
 function parseQr(raw){
- const m=String(raw||'').match(/^MR2\|([^|]+)\|(\d+)\|(.+)$/);if(!m)return null;
- return{version:2,reviewId:m[1],sheetNo:Number(m[2]),model:m[3]};
+ const m=String(raw||'').match(/^MR(2|3)\|([^|]+)\|(\d+)\|(.+)$/);if(!m)return null;
+ return{version:Number(m[1]),reviewId:m[2],sheetNo:Number(m[3]),model:m[4]};
 }
 function normalizeOrientation(c){
  let out=c;if(out.height>out.width*1.05)out=rotateCanvas(out,90);
@@ -70,7 +70,7 @@ function markerCandidates(c){
  return out;
 }
 function detectMarkerSets(src){
- const prep=markerWorkCanvas(src),c=prep.canvas,cands=markerCandidates(c),rows=[],target=172/64;
+ const prep=markerWorkCanvas(src),c=prep.canvas,cands=markerCandidates(c),rows=[],T=NafesOmrTemplate.markers,target=(T.tr[0]-T.tl[0])/(T.bl[1]-T.tl[1]);
  for(let i=0;i<cands.length;i++)for(let j=i+1;j<cands.length;j++){
    let a=cands[i],b=cands[j];if(a.x>b.x){const t=a;a=b;b=t;}
    const dx=b.x-a.x;if(dx<c.width*.32||Math.abs(a.y-b.y)>c.height*.04)continue;
@@ -126,8 +126,8 @@ function darknessAt(d,cx,cy,r){
 }
 function readAnswers(c,markers,total,startNo){
  const span=(Math.hypot(markers.tr.x-markers.tl.x,markers.tr.y-markers.tl.y)+Math.hypot(markers.br.x-markers.bl.x,markers.br.y-markers.bl.y))/2;
- const radius=Math.max(2.5,span*(1.05/172)),allScores=[],raw=[];
- for(let i=0;i<Math.min(total,20);i++){
+ const radius=Math.max(2.5,span*(1.05/Math.max(1,NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0]))),allScores=[],raw=[];
+ for(let i=0;i<Math.min(total,NafesOmrTemplate.maxQuestions||60);i++){
    const scores=NafesOmrTemplate.answerPoints(i).map(p=>{const m=mapTemplate(markers,p.x,p.y);return darknessAt(markers.image,m.x,m.y,radius);});
    raw.push(scores);allScores.push(...scores);
  }
@@ -256,11 +256,7 @@ function regionsForPage(c){
    return ordered.slice(0,2).map(m=>cropAroundMarkers(page,m));
  }
  const portrait=page.height/page.width>1.18;if(!portrait)return[page];
- const h=page.height;
- return[
-   cropCanvas(page,0,0,page.width,Math.min(h,Math.round(h*.58))),
-   cropCanvas(page,0,Math.round(h*.30),page.width,Math.round(h*.58))
- ];
+ return[page];
 }
 async function processFile(){
  if(!file||!draft)return;results=[];$('resultsSection').classList.add('hidden');$('approvedSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('processBtn').disabled=true;
