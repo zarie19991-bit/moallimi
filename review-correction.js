@@ -324,7 +324,7 @@ function renderModelTabs(){
 function renderModel(i){
  activeModel=i;renderModelTabs();
  const m=models[i],qs=modelQuestions(m),stats=modelStats(m);
- $('modelPreview').innerHTML='<div class="selection-summary">نموذج '+letters[i]+' · '+ar(qs.length)+' سؤالًا · معرفة '+ar(stats.knowledge)+' · تطبيق '+ar(stats.application)+' · استدلال '+ar(stats.reasoning)+(stats.unknown?' · غير موسوم '+ar(stats.unknown):'')+'</div>'+qs.map((q,n)=>'<article class="question-card"><div class="q-meta"><span class="chip">س'+ar(n+1)+'</span><span class="chip">'+esc(q.indicator_text||q.indicator||'مؤشر نافس')+'</span><span class="chip">'+({knowledge:'معرفة',application:'تطبيق',reasoning:'استدلال',unknown:'غير موسوم'})[cognitiveOf(q)]+'</span></div>'+(q.context?'<p>'+esc(q.context)+'</p>':'')+'<p><b>'+esc(q.question||'')+'</b></p><ol type="أ">'+(q.options||[]).map(o=>'<li>'+esc(o)+'</li>').join('')+'</ol><div class="correct-key">مفتاح المعلم: '+esc((q.options||[])[q.correctIndex]||'—')+'</div></article>').join('');
+ $('modelPreview').innerHTML='<div class="selection-summary">نموذج '+letters[i]+' · '+ar(qs.length)+' سؤالًا · معرفة '+ar(stats.knowledge)+' · تطبيق '+ar(stats.application)+' · استدلال '+ar(stats.reasoning)+(stats.unknown?' · غير موسوم '+ar(stats.unknown):'')+'</div>'+qs.map((q,n)=>{const img=q.image?.url||q.image_url||q.imageUrl||q.media_url||'';return '<article class="question-card"><div class="q-meta"><span class="chip">س'+ar(n+1)+'</span><span class="chip">'+esc(q.indicator_text||q.indicator||'مؤشر نافس')+'</span><span class="chip">'+({knowledge:'معرفة',application:'تطبيق',reasoning:'استدلال',unknown:'غير موسوم'})[cognitiveOf(q)]+'</span></div>'+(q.context?'<p>'+esc(q.context)+'</p>':'')+(img?'<img class="preview-q-image" src="'+esc(img)+'" alt="'+esc(q.image?.alt||q.image_alt||'صورة السؤال')+'">':'')+'<p><b>'+esc(q.question||'')+'</b></p><ol type="أ">'+(q.options||[]).map(o=>'<li>'+esc(o)+'</li>').join('')+'</ol><div class="correct-key">مفتاح المعلم: '+esc((q.options||[])[q.correctIndex]||'—')+'</div></article>';}).join('');
 }
 async function buildModels(){
  try{validate();}catch(e){setStatus(e.message,'error');return;}
@@ -368,7 +368,7 @@ async function buildAssignments(){
      assignments:assignments.map((a,i)=>({sheet_no:i+1,student_id:a.student.id||'',student_name:a.student.full_name||a.student.student_name,model:a.letter})),
      models:printable.map(m=>({model:m.model,questions:m.questions.map(q=>({
        id:q.id||q.question_id||'',context:q.context||'',question:q.question||'',options:q.options||[],
-       image_url:q.image_url||q.imageUrl||q.media_url||'',image_alt:q.image_alt||q.imageAlt||'',
+       image_url:q.image_url||q.imageUrl||q.media_url||q.image?.url||'',image_alt:q.image_alt||q.imageAlt||q.image?.alt||'',
        indicator:q.indicator_key||q.indicator||q.indicator_text||'',cognitive_level:q.cognitive_level||q.cognitive||'',difficulty:q.difficulty||''
      }))})),
      answer_keys:printable.map(m=>({model:m.model,answers:m.questions.map(q=>({
