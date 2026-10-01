@@ -150,7 +150,7 @@ function inspectCuratedScienceBank(rows: BankRow[], expectedIndicatorText: strin
   const levelCounts: Record<string, number> = { knowledge: 0, application: 0, reasoning: 0 };
   const answerCounts = [0, 0, 0, 0];
   const stems = new Set<string>();
-  const banned = /أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين/;
+  const banned = /أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين|ما الإجابة التي تنقل مفهوم|لزم حل المهمة/;
   if (rows.length !== QUESTION_COUNT) issues.push("count");
   const positions = rows.map(q => Number(q.question_no));
   const expectedPositions = Array.from({ length: QUESTION_COUNT }, (_, i) => i + 1);
@@ -162,6 +162,12 @@ function inspectCuratedScienceBank(rows: BankRow[], expectedIndicatorText: strin
     if (!stem || stems.has(stem)) issues.push("duplicate_stem");
     stems.add(stem);
     if (banned.test(q.question_text)) issues.push("templated_language");
+    const needsVisual=/(أي رسم(?! سهمي)|الرسم الآتي|الشكل الآتي|المخطط الآتي|الصورة الآتية|أي نقطة في الشكل)/.test(q.question_text);
+    const image=(q.alignment_evidence as any)?.image;
+    if(needsVisual&&(!image?.url||!image?.alt))issues.push("missing_visual");
+    const needsVisual=/(أي رسم(?! سهمي)|الرسم الآتي|الشكل الآتي|المخطط الآتي|الصورة الآتية|أي نقطة في الشكل)/.test(q.question_text);
+    const image=(q.alignment_evidence as any)?.image;
+    if(needsVisual&&(!image?.url||!image?.alt))issues.push("missing_visual");
     if (norm(q.indicator_text) !== norm(expectedIndicatorText)) issues.push("indicator_mismatch");
     if (q.measurement_focus !== expectedFocus) issues.push("measurement_focus_mismatch");
     if (options.length !== 4 || new Set(options).size !== 4 || options.some(x => !x)) issues.push("options");
@@ -190,7 +196,7 @@ function inspectCuratedMathBank(rows: BankRow[], expectedIndicatorText: string, 
   const levelCounts: Record<string, number> = { knowledge: 0, application: 0, reasoning: 0 };
   const answerCounts = [0, 0, 0, 0];
   const stems = new Set<string>();
-  const banned = /أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين/;
+  const banned = /أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين|ما الإجابة التي تنقل مفهوم|لزم حل المهمة/;
   if (rows.length !== QUESTION_COUNT) issues.push("count");
   const positions = rows.map(q => Number(q.question_no));
   const expectedPositions = Array.from({ length: QUESTION_COUNT }, (_, i) => i + 1);
