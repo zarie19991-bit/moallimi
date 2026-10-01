@@ -7,7 +7,7 @@ const CURATED_COLUMNS='id,subject_key,outcome_code,indicator_index,indicator_key
 const isUUID=(s:unknown)=>/^[a-f0-9-]{36}$/i.test(String(s));
 function must(result:Row) {if(result.error)throw result.error;return result.data;}
 function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:row.context_text||null,question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
-function curatedVersion(subject:string){return subject==='science'?'science-curated-v2':subject==='math'?'math-curated-v1':'';}
+function curatedVersion(subject:string){return subject==='science'?'science-curated-v3':subject==='math'?'math-curated-v3':'';}
 function renderedCurated(row:Row){return{id:row.id,bank_source:'indicator_curated_bank',quality_version:row.quality_version,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:row.indicator_key,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:row.context_text||null,question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:row.image&&row.image.url?{url:String(row.image.url),alt:String(row.image.alt||'')}:null};}
 async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
   const all:Row[]=[];
@@ -813,7 +813,7 @@ async function catalog(db:any) {
     for(let start=0;;start+=1000){
       const page=must(await db.from('nafes_indicator_curated_bank')
         .select('indicator_key,subject_key,quality_version')
-        .in('quality_version',['science-curated-v2','math-curated-v1'])
+        .in('quality_version',['science-curated-v3','math-curated-v3'])
         .order('id',{ascending:true})
         .range(start,start+999));
       for(const q of page||[])curatedCounts.set(q.indicator_key,(curatedCounts.get(q.indicator_key)||0)+1);
