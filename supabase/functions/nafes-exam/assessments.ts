@@ -98,6 +98,23 @@ function levelTargets(subject:string,count:number){
   for(let i=0;i<raw.length&&left>0;i++,left--)raw[i].count++;
   return Object.fromEntries(raw.map(x=>[x.level,x.count])) as Record<string,number>;
 }
+function rebalanceQuestionOptions(qs:Row[],seed:string):Row[]{
+  const rnd=randomFrom(seed+'|answer-balance');
+  const shift=Math.floor(rnd()*4);
+  return qs.map((q,i)=>{
+    const options=Array.isArray(q.options)?q.options.map(String):[];
+    const ci=Number(q.correctIndex);
+    if(options.length!==4||!Number.isInteger(ci)||ci<0||ci>3)return q;
+    const target=(i+shift)%4;
+    if(target===ci)return q;
+    const correct=options[ci],d=options.filter((_,idx)=>idx!==ci);
+    const next=target===0?[correct,d[0],d[1],d[2]]
+      :target===1?[d[0],correct,d[1],d[2]]
+      :target===2?[d[0],d[1],correct,d[2]]
+      :[d[0],d[1],d[2],correct];
+    return {...q,options:next,correctIndex:target};
+  });
+}
 function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
   const mixed=shuffle(candidates,randomFrom(seed+'|curated'));
   const unique:Row[]=[];
@@ -111,19 +128,21 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
   const targets=levelTargets(subject,count),picked:Row[]=[];
   const pickedIds=new Set<string>();
   for(const level of ['knowledge','application','reasoning']){
-    const need=Number(targets[level]||0);
-    if(!need)continue;
+    const desired=Number(targets[level]||0);
+    if(!desired)continue;
     const pool=shuffle(unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id))),randomFrom(seed+'|'+level));
-    if(pool.length<need)fail(`رصيد مستوى ${level} غير كافٍ في المؤشر المحكَّم: المطلوب ${need} والمتاح ${pool.length}.`);
-    for(const q of pool.slice(0,need)){picked.push(q);pickedIds.add(String(q.id));}
+    const take=Math.min(desired,pool.length);
+    for(const q of pool.slice(0,take)){picked.push(q);pickedIds.add(String(q.id));}
   }
   if(picked.length<count){
     const rest=shuffle(unique.filter(q=>!pickedIds.has(String(q.id))),randomFrom(seed+'|fallback'));
     picked.push(...rest.slice(0,count-picked.length));
   }
+  if(picked.length!==count)fail(`تعذر تكوين نموذج متوازن لهذا المؤشر: المطلوب ${count} والمتاح بعد التحكيم ${picked.length}.`);
   const arranged=arrangeObjectiveQuestions(picked,seed+'|arrange');
-  for(const q of arranged){usedContent.add(questionKey(q));usedStems.add(stemKey(q));}
-  return arranged;
+  const balanced=rebalanceQuestionOptions(arranged,seed);
+  for(const q of balanced){usedContent.add(questionKey(q));usedStems.add(stemKey(q));}
+  return balanced;
 }
 function arrangeObjectiveQuestions(qs:Row[],seed:string):Row[]{
   const remaining=shuffle(qs,randomFrom(seed));
