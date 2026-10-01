@@ -65,12 +65,12 @@ function renderQuestion(q,context){
  opts.map((o,j)=>'<div class="choice"><b>'+letters[j]+')</b><span>'+esc(o)+'</span></div>').join('')+
  '</div></article>';
 }
-function renderGroup(g){
+function renderGroup(g,subject){
  let out='<section class="passage-group">';
  if(g.context)out+='<div class="passage">'+esc(g.context)+'</div>';
  if(g.continued)out+='<div class="continued">تابع أسئلة النص السابق</div>';
  const first=g.questions[0]?._no||1,last=g.questions.at(-1)?._no||first;
- out+='<div class="after-passage">بعد قراءتك للنص أعلاه، أجب عن الأسئلة من '+ar(first)+' - '+ar(last)+'</div>';
+ if(subject==='reading'&&g.context)out+='<div class="after-passage">بعد قراءتك للنص أعلاه، أجب عن الأسئلة من '+ar(first)+' - '+ar(last)+'</div>';
  const seenImages=new Set();
  for(const q of g.questions){const src=String(q.image_url||'').trim();if(src&&!seenImages.has(src)){seenImages.add(src);out+='<img class="q-image" src="'+esc(src)+'" alt="'+esc(q.image_alt||'صورة مرتبطة بالأسئلة')+'">';}}
  out+='<div class="passage-questions">'+g.questions.map(q=>renderQuestion(q,g.context)).join('')+'</div></section>';
@@ -89,7 +89,7 @@ function pageHeader(model,d,pageNo,totalPages,totalQuestions){
 function onePage(model,d,groups,pageNo,totalPages,totalQuestions){
  return '<section class="paper-page" data-model="'+esc(model.model)+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
  pageHeader(model,d,pageNo,totalPages,totalQuestions)+
- groups.map(renderGroup).join('')+
+ groups.map(g=>renderGroup(g,d.subject)).join('')+
  '<footer class="footer"><span>منصة معلّمي — مراجعة مؤشرات نافس</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/'+ar(totalPages)+'</span></footer>'+
  '</div></div></section>';
 }
