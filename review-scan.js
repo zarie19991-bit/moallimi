@@ -25,7 +25,7 @@ function qrDecode(c){
  if(typeof jsQR!=='function')return null;const d=imageData(c);const q=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});return q?{data:q.data,location:q.location}:null;
 }
 function parseQr(raw){
- const m=String(raw||'').match(/^MR(2|3)\|([^|]+)\|(\d+)\|(.+)$/);if(!m)return null;
+ const m=String(raw||'').match(/^MR(2|3|4)\|([^|]+)\|(\d+)\|(.+)$/);if(!m)return null;
  return{version:Number(m[1]),reviewId:m[2],sheetNo:Number(m[3]),model:m[4]};
 }
 function normalizeOrientation(c){
@@ -134,9 +134,9 @@ function darknessAt(d,cx,cy,r){
 }
 function readAnswers(c,markers,total,startNo){
  const span=(Math.hypot(markers.tr.x-markers.tl.x,markers.tr.y-markers.tl.y)+Math.hypot(markers.br.x-markers.bl.x,markers.br.y-markers.bl.y))/2;
- const radius=Math.max(2.5,span*(1.05/Math.max(1,NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0]))),allScores=[],raw=[];
+ const radius=Math.max(2.5,span*(1.08/Math.max(1,NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0]))),allScores=[],raw=[];
  for(let i=0;i<Math.min(total,NafesOmrTemplate.maxQuestions||60);i++){
-   const scores=NafesOmrTemplate.answerPoints(i).map(p=>{const m=mapTemplate(markers,p.x,p.y);return darknessAt(markers.image,m.x,m.y,radius);});
+   const scores=NafesOmrTemplate.answerPoints(i,total).map(p=>{const m=mapTemplate(markers,p.x,p.y);return darknessAt(markers.image,m.x,m.y,radius);});
    raw.push(scores);allScores.push(...scores);
  }
  const base=median(allScores),threshold=Math.min(.34,Math.max(.12,base+.095));
@@ -261,6 +261,7 @@ function regionsForPage(c){
  if(!sets.length&&c.width>c.height){page=rotateCanvas(c,90);sets=detectMarkerSets(page);}
  if(sets.length){
    const ordered=[...sets].sort((a,b)=>Math.min(a.tl.y,a.tr.y)-Math.min(b.tl.y,b.tr.y));
+   if(ordered.length===1)return[page];
    return ordered.slice(0,2).map(m=>cropAroundMarkers(page,m));
  }
  const portrait=page.height/page.width>1.18;if(!portrait)return[page];
