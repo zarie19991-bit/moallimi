@@ -111,7 +111,7 @@ async function loadIndicatorBank(subject: string, outcome: string, indicator: nu
     const qualityVersion = subject === "science" ? "science-curated-v2" : "math-curated-v1";
     const { data, error } = await db
       .from("nafes_indicator_curated_bank")
-      .select("id,indicator_key,indicator_text,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no,model_no,quality_version")
+      .select("id,indicator_key,indicator_text,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no,model_no,quality_version,image")
       .eq("subject_key", subject)
       .eq("outcome_code", outcome)
       .eq("indicator_index", indicator)
@@ -125,7 +125,7 @@ async function loadIndicatorBank(subject: string, outcome: string, indicator: nu
       measurement_focus: String(q.indicator_key || ""),
       alignment_profile: qualityVersion,
       alignment_verified: true,
-      alignment_evidence: { validator: qualityVersion },
+      alignment_evidence: { validator: qualityVersion, image: q.image || null },
     })) as BankRow[];
   }
   const { data, error } = await db
