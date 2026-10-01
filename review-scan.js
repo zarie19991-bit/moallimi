@@ -29,11 +29,19 @@ function parseQr(raw){
  return{version:Number(m[1]),reviewId:m[2],sheetNo:Number(m[3]),model:m[4]};
 }
 function normalizeOrientation(c){
- let out=c;if(out.height>out.width*1.05)out=rotateCanvas(out,90);
- let qr=qrDecode(out);if(qr){
+ let out=c.height>=c.width?c:rotateCanvas(c,90);
+ let qr=qrDecode(out);
+ if(!qr){
+   const flipped=rotateCanvas(out,180),q2=qrDecode(flipped);
+   if(q2){out=flipped;qr=q2;}
+ }
+ if(qr){
    const ys=Object.values(qr.location||{}).filter(v=>v&&Number.isFinite(v.y)).map(v=>v.y);
    const cy=ys.length?ys.reduce((a,b)=>a+b,0)/ys.length:0;
-   if(cy>out.height*.58){out=rotateCanvas(out,180);qr=qrDecode(out);}
+   if(cy<out.height*.18&&parseQr(qr.data)?.version===3){
+     const flipped=rotateCanvas(out,180),q2=qrDecode(flipped);
+     if(q2){out=flipped;qr=q2;}
+   }
  }
  return{canvas:out,qr};
 }
