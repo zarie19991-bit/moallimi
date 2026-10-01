@@ -3,10 +3,41 @@ import { hasCurrentReview, reviewedImage, REVIEW_VERSION } from './reviewed-bank
 import { type Row, SUBJECTS, THRESHOLDS, tidy, fail, hash, token, shuffle, randomFrom, normalizeConfig, questionKey, indicatorOf, selectUnique, buildForms, cleanAnswers, gradeSections, publicSections, permuteQuestion, normalizeArabicName, normalizeLast3Digits, verifyStudentIdentity } from './assessment-engine.ts';
 const BASE='https://zarie19991-bit.github.io/moallimi/';
 const BANK_COLUMNS='id,subject_key,outcome_code,indicator_index,indicator_text,model_no,question_no,measurement_focus,alignment_profile,alignment_verified,alignment_evidence,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level';
+const CURATED_COLUMNS='id,subject_key,outcome_code,indicator_index,indicator_key,indicator_text,model_no,question_no,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,quality_version,image';
 const isUUID=(s:unknown)=>/^[a-f0-9-]{36}$/i.test(String(s));
 function must(result:Row) {if(result.error)throw result.error;return result.data;}
 function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:row.context_text||null,question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
-async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {const all:Row[]=[];const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];for(let start=0;;start+=500){let query=db.from('nafes_question_bank').select(BANK_COLUMNS).eq('grade_key','middle_3').eq('subject_key',subject).eq('is_active',true).eq('review_status','approved').lte('model_no',4).order('id');if(scoped.length)query=query.in('outcome_code',[...new Set(scoped.map(i=>i!.outcome))]).in('indicator_index',[...new Set(scoped.map(i=>i!.indicator))]);if(ids?.length)query=query.in('id',ids);const page=must(await query.range(start,start+499));for(const q of page||[])if(hasCurrentReview(q))all.push(rendered(q));if(!page||page.length<500)break;}return all;}
+function curatedVersion(subject:string){return subject==='science'?'science-curated-v2':subject==='math'?'math-curated-v1':'';}
+function renderedCurated(row:Row){return{id:row.id,bank_source:'indicator_curated_bank',quality_version:row.quality_version,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:row.indicator_key,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:row.context_text||null,question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:row.image&&row.image.url?{url:String(row.image.url),alt:String(row.image.alt||'')}:null};}
+async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
+  const all:Row[]=[];
+  const version=curatedVersion(subject);
+  if(version){
+    for(let start=0;;start+=500){
+      let query=db.from('nafes_indicator_curated_bank').select(CURATED_COLUMNS)
+        .eq('subject_key',subject).eq('quality_version',version)
+        .order('indicator_key',{ascending:true}).order('model_no',{ascending:true}).order('question_no',{ascending:true});
+      if(keys?.length)query=query.in('indicator_key',keys);
+      if(ids?.length)query=query.in('id',ids);
+      const page=must(await query.range(start,start+499));
+      for(const q of page||[])all.push(renderedCurated(q));
+      if(!page||page.length<500)break;
+    }
+    return all;
+  }
+  const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];
+  for(let start=0;;start+=500){
+    let query=db.from('nafes_question_bank').select(BANK_COLUMNS)
+      .eq('grade_key','middle_3').eq('subject_key',subject).eq('is_active',true)
+      .eq('review_status','approved').lte('model_no',4).order('id');
+    if(scoped.length)query=query.in('outcome_code',[...new Set(scoped.map(i=>i!.outcome))]).in('indicator_index',[...new Set(scoped.map(i=>i!.indicator))]);
+    if(ids?.length)query=query.in('id',ids);
+    const page=must(await query.range(start,start+499));
+    for(const q of page||[])if(hasCurrentReview(q))all.push(rendered(q));
+    if(!page||page.length<500)break;
+  }
+  return all;
+}
 
 
 function stemKey(q:Row){
@@ -54,6 +85,64 @@ function selectIndicatorQuestions(candidates:Row[],count:number,subject:string,s
   }
   for(const q of picked){usedContent.add(questionKey(q));usedStems.add(stemKey(q));}
   return picked;
+}
+
+function levelTargets(subject:string,count:number){
+  const base=subject==='science'
+    ?{knowledge:3,application:7,reasoning:5}
+    :{knowledge:2,application:8,reasoning:5};
+  const total=15;
+  const raw=Object.entries(base).map(([level,n])=>({level,raw:count*n/total,count:Math.floor(count*n/total)}));
+  let left=count-raw.reduce((s,x)=>s+x.count,0);
+  raw.sort((x,y)=>(y.raw-y.count)-(x.raw-x.count));
+  for(let i=0;i<raw.length&&left>0;i++,left--)raw[i].count++;
+  return Object.fromEntries(raw.map(x=>[x.level,x.count])) as Record<string,number>;
+}
+function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
+  const mixed=shuffle(candidates,randomFrom(seed+'|curated'));
+  const unique:Row[]=[];
+  const localStems=new Set<string>();
+  for(const q of mixed){
+    const ck=questionKey(q),sk=stemKey(q);
+    if(!sk||usedContent.has(ck)||usedStems.has(sk)||localStems.has(sk))continue;
+    localStems.add(sk);unique.push(q);
+  }
+  if(unique.length<count)fail(`لا توجد أسئلة محكَّمة كافية لهذا المؤشر: المطلوب ${count} والمتاح ${unique.length}.`);
+  const targets=levelTargets(subject,count),picked:Row[]=[];
+  const pickedIds=new Set<string>();
+  for(const level of ['knowledge','application','reasoning']){
+    const need=Number(targets[level]||0);
+    if(!need)continue;
+    const pool=shuffle(unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id))),randomFrom(seed+'|'+level));
+    if(pool.length<need)fail(`رصيد مستوى ${level} غير كافٍ في المؤشر المحكَّم: المطلوب ${need} والمتاح ${pool.length}.`);
+    for(const q of pool.slice(0,need)){picked.push(q);pickedIds.add(String(q.id));}
+  }
+  if(picked.length<count){
+    const rest=shuffle(unique.filter(q=>!pickedIds.has(String(q.id))),randomFrom(seed+'|fallback'));
+    picked.push(...rest.slice(0,count-picked.length));
+  }
+  const arranged=arrangeObjectiveQuestions(picked,seed+'|arrange');
+  for(const q of arranged){usedContent.add(questionKey(q));usedStems.add(stemKey(q));}
+  return arranged;
+}
+function arrangeObjectiveQuestions(qs:Row[],seed:string):Row[]{
+  const remaining=shuffle(qs,randomFrom(seed));
+  const out:Row[]=[];
+  while(remaining.length){
+    const last=out[out.length-1],last2=out[out.length-2];
+    let best=0,bestPenalty=Number.POSITIVE_INFINITY;
+    for(let i=0;i<remaining.length;i++){
+      const q=remaining[i];
+      let p=0;
+      if(last&&q.indicator_key===last.indicator_key)p+=80;
+      if(last&&q.cognitive_level===last.cognitive_level)p+=22;
+      if(last2&&q.cognitive_level===last2.cognitive_level&&last?.cognitive_level===q.cognitive_level)p+=30;
+      if(last&&Number(q.correctIndex)===Number(last.correctIndex))p+=8;
+      if(p<bestPenalty){bestPenalty=p;best=i;}
+    }
+    out.push(remaining.splice(best,1)[0]);
+  }
+  return out;
 }
 
 function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
@@ -719,6 +808,14 @@ async function simulationCatalogCounts(db:any):Promise<Map<string,number>> {
 async function catalog(db:any) {
   const counts=must(await db.rpc('nafes_teacher_catalog_counts'));
   const available=new Map<string,number>((counts||[]).map((x:Row)=>[x.key,x.available]));
+  try{
+    const curated=must(await db.from('nafes_indicator_curated_bank')
+      .select('indicator_key,subject_key,quality_version')
+      .in('quality_version',['science-curated-v2','math-curated-v1']));
+    const curatedCounts=new Map<string,number>();
+    for(const q of curated||[])curatedCounts.set(q.indicator_key,(curatedCounts.get(q.indicator_key)||0)+1);
+    for(const [key,n] of curatedCounts)available.set(key,n);
+  }catch(_){};
   const simCounts=await simulationCatalogCounts(db);
   const simSummary={
     reading:[...simCounts.entries()].filter(([k])=>k.startsWith('reading:')).reduce((s,[,c])=>s+c,0),
@@ -771,9 +868,12 @@ async function draftSections(db:any,c:Row,regenerate=false):Promise<Row[]> {
         if(s.fixed_model)candidates=candidates.filter(q=>q.model_no===s.fixed_model);
         const picked=(c.review_passage_mode===true&&s.subject==='reading')
           ?selectReadingPassageQuestions(candidates,i.count,token(8),used,usedStems)
-          :selectIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems);
+          :((s.subject==='math'||s.subject==='science')
+            ?selectCuratedIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems)
+            :selectIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems));
         qs.push(...picked);
       }
+      if(s.subject==='math'||s.subject==='science')qs=arrangeObjectiveQuestions(qs,token(8)+'|section');
     }
 
     sections.push({...s,questions:qs});
@@ -1200,6 +1300,10 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   const other=all.filter((x:Row)=>x.id!==old.id);
   const usedContent=new Set(other.map(questionKey)),usedStems=new Set(other.map(stemKey));
   let candidates=pool.filter(q=>!usedContent.has(questionKey(q))&&!usedStems.has(stemKey(q)));
+  if((old.subject==='math'||old.subject==='science')&&old.cognitive_level){
+    const sameLevel=candidates.filter(q=>q.cognitive_level===old.cognitive_level);
+    if(sameLevel.length)candidates=sameLevel;
+  }
   if(old.image?.url){const visual=candidates.filter(q=>!!q.image?.url);if(visual.length)candidates=visual;}
   if(!candidates.length)fail('لا يوجد سؤال بديل مستقل بصياغة مختلفة متاح لهذا المؤشر في بنك الأسئلة المعتمد.');
   const replacement=selectIndicatorQuestions(candidates,1,old.subject,token(8),usedContent,usedStems)[0];
