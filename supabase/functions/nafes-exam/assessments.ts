@@ -115,8 +115,19 @@ function rebalanceQuestionOptions(qs:Row[],seed:string):Row[]{
     return {...q,options:next,correctIndex:target};
   });
 }
+function curatedQuestionEligible(q:Row){
+  const text=String(q?.question??q?.question_text??'').trim();
+  const options=Array.isArray(q?.options)?q.options.map((x:any)=>String(x).trim()):[];
+  const ci=Number(q?.correctIndex??q?.correct_index);
+  if(!text||options.length!==4||new Set(options).size!==4||options.some((x:string)=>!x))return false;
+  if(!Number.isInteger(ci)||ci<0||ci>3)return false;
+  if(/أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين|ما الإجابة التي تنقل مفهوم|لزم حل المهمة/.test(text))return false;
+  const needsVisual=/(أي رسم(?! سهمي)|الرسم الآتي|الشكل الآتي|المخطط الآتي|الصورة الآتية|أي نقطة في الشكل)/.test(text);
+  if(needsVisual&&(!q?.image?.url||!q?.image?.alt))return false;
+  return true;
+}
 function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
-  const mixed=shuffle(candidates,randomFrom(seed+'|curated'));
+  const mixed=shuffle(candidates.filter(curatedQuestionEligible),randomFrom(seed+'|curated'));
   const unique:Row[]=[];
   const localStems=new Set<string>();
   for(const q of mixed){
