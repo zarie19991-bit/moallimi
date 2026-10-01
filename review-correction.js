@@ -284,6 +284,17 @@ function validate(){
  if(selectedSubject()==='reading'){
    if(q%5!==0)throw new Error('عدد أسئلة القراءة يجب أن يكون من مضاعفات ٥.');
    if(inds.some(x=>x.count%5!==0||x.count<5))throw new Error('في القراءة: كل مؤشر مختار يجب أن يأخذ ٥ أسئلة أو مضاعفاتها حتى يكون البناء: نص ثم ٥ أسئلة.');
+ }else{
+   const byKey=new Map(subjectIndicators().map(i=>[String(i.key),Number(i.available||0)]));
+   for(const x of inds){
+     const available=Number(byKey.get(String(x.key))||0);
+     if(x.count>available)throw new Error('المؤشر المحدد يحتوي '+available+' سؤالًا محكّمًا فقط، بينما طلبت '+x.count+'. خفّض عدد أسئلته أو اختر مؤشرات إضافية.');
+   }
+   const modelCount=Number($('modelCount').value||5);
+   const unavoidable=inds.reduce((n,x)=>n+Math.max(0,modelCount*x.count-Number(byKey.get(String(x.key))||0)),0);
+   if(unavoidable>MAX_CROSS_MODEL_REPEATS){
+     throw new Error('هذا الإعداد يحتاج إلى تكرار لا يقل عن '+unavoidable+' سؤالًا بين النماذج، بينما الحد الاحترافي هو '+MAX_CROSS_MODEL_REPEATS+'. اختر مؤشرات أكثر، أو خفّض عدد النماذج أو عدد الأسئلة.');
+   }
  }
  if(!stu.length)throw new Error('اختر طالبًا واحدًا على الأقل لتجهيز التوزيع.');
  const levels=Number($('knowledge').value)+Number($('application').value)+Number($('reasoning').value);
