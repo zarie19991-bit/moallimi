@@ -107,14 +107,15 @@ async function settings(subject: string, outcome: string, indicator: number, mod
 }
 
 async function loadIndicatorBank(subject: string, outcome: string, indicator: number) {
-  if (subject === "science") {
+  if (subject === "science" || subject === "math") {
+    const qualityVersion = subject === "science" ? "science-curated-v2" : "math-curated-v1";
     const { data, error } = await db
       .from("nafes_indicator_curated_bank")
       .select("id,indicator_key,indicator_text,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no,model_no,quality_version")
-      .eq("subject_key", "science")
+      .eq("subject_key", subject)
       .eq("outcome_code", outcome)
       .eq("indicator_index", indicator)
-      .eq("quality_version", "science-curated-v2")
+      .eq("quality_version", qualityVersion)
       .lte("model_no", MODEL_COUNT)
       .order("model_no", { ascending: true })
       .order("question_no", { ascending: true });
@@ -122,9 +123,9 @@ async function loadIndicatorBank(subject: string, outcome: string, indicator: nu
     return (data || []).map((q: Record<string, unknown>) => ({
       ...q,
       measurement_focus: String(q.indicator_key || ""),
-      alignment_profile: "science-curated-v2",
+      alignment_profile: qualityVersion,
       alignment_verified: true,
-      alignment_evidence: { validator: "science-curated-v2" },
+      alignment_evidence: { validator: qualityVersion },
     })) as BankRow[];
   }
   const { data, error } = await db
@@ -185,9 +186,53 @@ function inspectCuratedScienceBank(rows: BankRow[], expectedIndicatorText: strin
   };
 }
 
+function inspectCuratedMathBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string) {
+  const issues: string[] = [];
+  const levelCounts: Record<string, number> = { knowledge: 0, application: 0, reasoning: 0 };
+  const answerCounts = [0, 0, 0, 0];
+  const stems = new Set<string>();
+  const banned = /أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين/;
+  if (rows.length !== QUESTION_COUNT) issues.push("count");
+  const positions = rows.map(q => Number(q.question_no));
+  const expectedPositions = Array.from({ length: QUESTION_COUNT }, (_, i) => i + 1);
+  if (positions.some((x, i) => x !== expectedPositions[i])) issues.push("positions");
+
+  for (const q of rows) {
+    const stem = norm(q.question_text);
+    const options = Array.isArray(q.options) ? q.options.map((x) => String(x).trim()) : [];
+    if (!stem || stems.has(stem)) issues.push("duplicate_stem");
+    stems.add(stem);
+    if (banned.test(q.question_text)) issues.push("templated_language");
+    if (norm(q.indicator_text) !== norm(expectedIndicatorText)) issues.push("indicator_mismatch");
+    if (q.measurement_focus !== expectedFocus) issues.push("measurement_focus_mismatch");
+    if (options.length !== 4 || new Set(options).size !== 4 || options.some(x => !x)) issues.push("options");
+    if (!Number.isInteger(q.correct_index) || q.correct_index < 0 || q.correct_index > 3) issues.push("correct_index");
+    else answerCounts[q.correct_index]++;
+    if (!(q.cognitive_level in levelCounts)) issues.push("cognitive_level");
+    else levelCounts[q.cognitive_level]++;
+    const expectedDifficulty = q.cognitive_level === "knowledge" ? "easy" : q.cognitive_level === "application" ? "medium" : q.cognitive_level === "reasoning" ? "hard" : "";
+    if (!expectedDifficulty || q.difficulty !== expectedDifficulty) issues.push("difficulty_level");
+    if (!String(q.explanation || "").trim()) issues.push("missing_explanation");
+  }
+  const expectedLevels = { knowledge: 2, application: 8, reasoning: 5 };
+  if (Object.entries(expectedLevels).some(([level, count]) => levelCounts[level] !== count)) issues.push("cognitive_distribution");
+  if (rows.length === QUESTION_COUNT && Math.max(...answerCounts) - Math.min(...answerCounts) > 2) issues.push("answer_distribution");
+  return {
+    ready: issues.length === 0,
+    issues: [...new Set(issues)],
+    approved_count: rows.length,
+    required_count: QUESTION_COUNT,
+    answer_distribution: answerCounts,
+    cognitive_distribution: levelCounts,
+  };
+}
+
 function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string, subject: string) {
   if (subject === "science" && rows.some(q => q.quality_version === "science-curated-v2")) {
     return inspectCuratedScienceBank(rows, expectedIndicatorText, expectedFocus);
+  }
+  if (subject === "math" && rows.some(q => q.quality_version === "math-curated-v1")) {
+    return inspectCuratedMathBank(rows, expectedIndicatorText, expectedFocus);
   }
   if (rows.some(q => q.alignment_evidence?.validator === REVIEW_VERSION)) {
     return inspectReviewedBank(rows, expectedIndicatorText, expectedFocus, subject);
