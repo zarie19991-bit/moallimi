@@ -858,8 +858,9 @@ async function catalog(db:any) {
 }
 async function findDraft(db:any,id:unknown,owner:Row) {if(!isUUID(id))fail('المسودة غير موجودة.');const t=must(await db.from('nafes_assessments').select('*').eq('id',id).eq('owner_id',owner.id).maybeSingle());if(!t)fail('المسودة غير موجودة.',404);if(t.status!=='draft')fail('نُشر الاختبار بالفعل؛ أنشئ نسخة جديدة لتغيير الأسئلة.',409);return t;}
 function preview(t:Row) {return{draft_id:t.id,config:t.config,sections:t.rendered_sections};}
-async function draftSections(db:any,c:Row,regenerate=false):Promise<Row[]> {
+async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:unknown[]=[]):Promise<Row[]> {
   const isSimulation=c.kind==='simulation'&&c.bank_source==='simulation_bank';
+  const excludedIds=new Set((Array.isArray(excludeQuestionIds)?excludeQuestionIds:[]).slice(0,2000).map(String));
   const simulationMode=c.simulation_mode==='custom'?'custom':'standard';
   const sections:Row[]=[];
   const used=new Set<string>();
@@ -887,6 +888,7 @@ async function draftSections(db:any,c:Row,regenerate=false):Promise<Row[]> {
       }
     } else {
       pool=await fullPool(db,s.subject,s.indicators?.map((i:Row)=>i.key));
+      if(excludedIds.size)pool=pool.filter(q=>!excludedIds.has(String(q.id)));
       for(const i of s.indicators){
         let candidates=pool.filter(q=>q.indicator_key===i.key);
         if(s.fixed_model)candidates=candidates.filter(q=>q.model_no===s.fixed_model);
@@ -1307,7 +1309,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_preview') {
   const config=normalizeConfig(b.config);
   assertIndicatorBuilderConfig(owner,config);
-  const sections=await draftSections(db,config,b.regenerate===true);
+  const sections=await draftSections(db,config,b.regenerate===true,Array.isArray(b.exclude_question_ids)?b.exclude_question_ids:[]);
   const draft=must(await db.from('nafes_assessments').insert({owner_id:owner.id,kind:config.kind,title:config.title,config,rendered_sections:sections}).select().single());
   return preview(draft);
  }
