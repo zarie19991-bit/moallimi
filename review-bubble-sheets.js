@@ -12,20 +12,19 @@ function digitPanel(title,cols,klass=''){
 }
 function makeSheet(item,index,d){
  const total=Number(d.question_count||20),startNo=Number(d.question_start||1),sheetNo=Number(item.sheet_no||index+1),nameMode=d.bubble_name_mode==='blank'?'blank':'printed';
- const payload='MR3|'+String(d.review_id||'R')+'|'+String(sheetNo)+'|'+String(item.model||'');
+ const payload='MR4|'+String(d.review_id||'R')+'|'+String(sheetNo)+'|'+String(item.model||'');
  const name=nameMode==='printed'?esc(item.student_name||''):'';
- const school=esc(d.school_name||'مدرسة ابن سينا المتوسطة');
- const cls=esc(d.class_name||'');
+ const school=esc(d.school_name||'مدرسة ابن سينا المتوسطة'),cls=esc(d.class_name||'');
  return '<section class="bubble-sheet" data-qr="'+esc(payload)+'">'+
  '<div class="sheet-title">ورقة التظليل</div>'+
- '<div class="brand-row"><div class="brand-block"><b>منصة معلّمي</b><span>التصحيح الآلي للمراجعات الورقية</span></div><div class="platform-mark">معلّمي<small>NAFES</small></div><div class="brand-block"><b>المراجعة الورقية</b><span>اختبارات المؤشرات</span></div></div>'+
+ '<div class="brand-row"><div class="brand-block"><b>'+school+'</b><span>المراجعات والاختبارات الورقية</span></div><div class="qr" data-qr-box></div><div class="brand-block"><b>منصة معلّمي</b><span>التصحيح الآلي وتحليل مؤشرات نافس</span></div></div>'+
  '<div class="exam-pill">'+esc(d.title||'مراجعة مؤشرات نافس')+'<br>الصف الثالث متوسط</div>'+
  '<div class="student-name"><b>الاسم الرباعي</b><span>'+name+'</span></div>'+
  '<div class="info-grid">'+digitPanel('رقم السجل المدني / رقم الإقامة',10,'identity-number')+digitPanel('رمز المدرسة',6,'school-code')+
- '<div class="info-stack"><div class="info-panel"><b>اسم المدرسة</b><span>'+school+'</span></div><div class="info-panel"><b>الفصل</b><span>'+cls+'</span></div><div class="info-panel model-panel"><b>الصف الثالث متوسط</b><span class="model-badge">نموذج '+esc(item.model||'—')+'</span></div></div></div>'+
+ '<div class="info-stack"><div class="info-panel"><b>اسم المدرسة</b><span class="field-line">'+school+'</span></div><div class="info-panel"><b>الفصل</b><span class="field-line">'+cls+'</span></div><div class="info-panel grade-panel"><strong>الصف الثالث متوسط</strong><span class="field-line"></span><span class="model-badge">نموذج '+esc(item.model||'—')+'</span></div></div></div>'+
  '<div class="answers-title">إجابات الأسئلة</div>'+
  '<div class="omr-wrap">'+NafesOmrTemplate.svg(startNo,total)+'</div>'+
- '<footer class="sheet-foot"><div><b>تعليمات:</b> ظلّل دائرة واحدة فقط لكل سؤال تظليلًا واضحًا. الهوية غير مطبوعة مسبقًا.<div class="privacy-note">QR مخصص لربط الورقة بالطالب والنموذج داخل منصة معلّمي.</div><div class="sheet-code">'+esc(payload)+'</div></div><div class="qr" data-qr-box></div></footer></section>';
+ '<footer class="sheet-foot"><div><b>التعليمات:</b> ظلّل دائرة واحدة فقط لكل سؤال. الهوية فارغة ولا تُطبع مسبقًا.</div><div class="sheet-code">'+esc(payload)+'</div></footer></section>';
 }
 function renderOmrQr(box,payload){
  const lib=window.qrcodegen;if(!lib?.QrCode)throw new Error('تعذر تحميل مولّد QR.');
@@ -40,7 +39,7 @@ async function render(){
  activeDraft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(draft()));
  const d=draft();
  if(!d||!Array.isArray(d.assignments)||!d.assignments.length){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">لا توجد مراجعة مجهزة للطباعة.</div>';return;}
- if(![20,30,60].includes(Number(d.question_count||0))){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">ورقة التظليل الجديدة تدعم ٢٠ أو ٣٠ أو ٦٠ سؤالًا. افتح المراجعة وأعد حفظها بأحد هذه الأعداد.</div>';return;}
+ if(![20,30,60].includes(Number(d.question_count||0))){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">ورقة التظليل تدعم ٢٠ أو ٣٠ أو ٦٠ سؤالًا.</div>';return;}
  $('screenTitle').textContent=d.title||'أوراق التظليل';
  $('screenMeta').textContent=ar(d.assignments.length)+' طالب · '+ar(d.question_count)+' سؤال · '+(d.bubble_name_mode==='blank'?'الاسم فارغ':'الاسم مطبوع');
  const rid=d.review_id||new URLSearchParams(location.search).get('rid')||'';
@@ -48,7 +47,7 @@ async function render(){
  $('pages').innerHTML=d.assignments.map((item,i)=>'<section class="paper">'+makeSheet(item,i,d)+'</section>').join('');
  for(const sheet of document.querySelectorAll('.bubble-sheet')){
    const box=sheet.querySelector('[data-qr-box]');
-   try{renderOmrQr(box,sheet.dataset.qr);}catch(_){box.textContent='QR غير متاح';}
+   try{renderOmrQr(box,sheet.dataset.qr);}catch(_){box.textContent='QR';}
  }
 }
 $('printBtn').onclick=()=>window.print();
