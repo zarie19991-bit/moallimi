@@ -101,7 +101,7 @@ function subjectIndicators(){
 function renderIndicators(){
  const q=$('indicatorSearch').value.trim();
  const items=subjectIndicators().filter(i=>!q||String(i.text||'').includes(q));
- $('indicators').innerHTML=items.map((i,n)=>'<label class="indicator-row" data-key="'+esc(i.key)+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'"><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا</small></span><input class="indicator-count" type="number" min="1" max="30" value="1" disabled aria-label="عدد الأسئلة"></label>').join('');
+ $('indicators').innerHTML=items.map((i,n)=>'<label class="indicator-row" data-key="'+esc(i.key)+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'"><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا</small></span><input class="indicator-count" type="number" min="1" max="60" value="1" disabled aria-label="عدد الأسئلة"></label>').join('');
  updateIndicatorSummary();
 }
 function distributeIndicatorCounts(){
@@ -353,7 +353,7 @@ async function buildAssignments(){
    const printable=models.map((m,i)=>({model:letters[i],questions:orderedQuestions(modelQuestions(m))}));
    const draftPayload={
      review_id:reviewId,title:$('reviewTitle').value,subject:selectedSubject(),class_name:$('className').value,
-     question_count:Number($('questionCount').value),question_start:1,model_count:models.length,indicator_counts:getSelectedIndicators(),
+     question_count:Number($('questionCount').value),question_start:1,model_count:models.length,bubble_name_mode:$('bubbleNameMode')?.value||'printed',indicator_counts:getSelectedIndicators(),
      assignments:assignments.map((a,i)=>({sheet_no:i+1,student_id:a.student.id||'',student_name:a.student.full_name||a.student.student_name,model:a.letter})),
      models:printable.map(m=>({model:m.model,questions:m.questions.map(q=>({
        id:q.id||q.question_id||'',context:q.context||'',question:q.question||'',options:q.options||[],
@@ -382,7 +382,7 @@ function restoreReviewPayload(payload){
  if($('subject')&&[...$('subject').options].some(o=>o.value===payload.subject)){$('subject').value=payload.subject;renderIndicators();}
  if($('className')&&[...$('className').options].some(o=>o.value===String(payload.class_name||'')))$('className').value=String(payload.class_name||'');
  if($('questionCount')&&[...$('questionCount').options].some(o=>Number(o.value)===Number(payload.question_count)))$('questionCount').value=String(payload.question_count);
- if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);
+ if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);if($('bubbleNameMode'))$('bubbleNameMode').value=payload.bubble_name_mode==='blank'?'blank':'printed';
  const indMap=new Map((payload.indicator_counts||[]).map(x=>[String(x.key),Number(x.count||0)]));
  document.querySelectorAll('.indicator-row').forEach(r=>{
    const n=indMap.get(String(r.dataset.key)),check=r.querySelector('.indicator-check'),cnt=r.querySelector('.indicator-count');
