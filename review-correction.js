@@ -418,12 +418,12 @@ async function buildModels(){
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
-async function buildAssignments(){
+async async function buildAssignments(){
  const bad=models.flatMap((m,i)=>incompleteChoices(m).map((q,n)=>({model:letters[i],question:q.question||'',n:n+1})));
  if(bad.length){setStatus('تم إيقاف التجهيز لأن هناك '+bad.length+' سؤالًا ناقص الاختيارات. أعد إنشاء النماذج؛ لن تُطبع ورقة ناقصة.','error');return;}
  if(models.some(m=>!hasValidAnswerKey(m))){setStatus('تم إيقاف التجهيز لأن مفتاح إجابة أحد الأسئلة غير مكتمل. أعد إنشاء النماذج.','error');return;}
- const list=selectedStudents(),count=models.length;
- assignments=list.map((s,i)=>({student:s,model:i%count,letter:letters[i%count]}));
+ const list=selectedStudents(),count=models.length,subjects=selectedSubjects();
+ assignments=list.map((st,i)=>({student:st,model:i%count,letter:letters[i%count]}));
  const counts=Array.from({length:count},(_,i)=>assignments.filter(a=>a.model===i).length);
  $('assignmentStats').innerHTML=counts.map((n,i)=>'<div class="quality-card ok"><span>نموذج '+letters[i]+'</span><b>'+ar(n)+' طلاب</b></div>').join('');
  $('assignments').innerHTML=assignments.map(a=>'<div class="assignment-row"><b>'+esc(a.student.full_name||a.student.student_name||'طالب')+'</b><span class="model-badge">نموذج '+a.letter+'</span></div>').join('');
@@ -431,63 +431,76 @@ async function buildAssignments(){
  try{
    const existing=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
    const reviewId=existing?.review_id||makeReviewId();
-   const printable=models.map((m,i)=>({model:letters[i],questions:orderedQuestions(modelQuestions(m))}));
+   const printable=models.map((m,i)=>({
+     model:letters[i],
+     questions:(m.sections||[]).flatMap(sec=>orderedQuestions(sec.questions||[]).map(q=>({...q,subject:sec.subject})))
+   }));
+   const selectedIndicators=getSelectedIndicators();
    const draftPayload={
-     review_id:reviewId,title:$('reviewTitle').value,subject:selectedSubject(),class_name:$('className').value,
-     question_count:Number($('questionCount').value),question_start:1,model_count:models.length,bubble_name_mode:$('bubbleNameMode')?.value||'printed',indicator_counts:getSelectedIndicators(),
-     assignments:assignments.map((a,i)=>({sheet_no:i+1,student_id:a.student.id||'',student_name:a.student.full_name||a.student.student_name,model:a.letter})),
+     review_id:reviewId,title:$('reviewTitle').value,subject:subjects[0],subjects,class_name:$('className').value,
+     question_count:Number($('questionCount').value),question_start:1,model_count:models.length,bubble_name_mode:$('bubbleNameMode')?.value||'printed',
+     indicator_counts:selectedIndicators,
+     assignments:assignments.map((a,i)=>({sheet_no:i+1,student_id:a.student.id||'',student_name:a.student.full_name||a.student.student_name,class_name:a.student.class_name||'',model:a.letter})),
      models:printable.map(m=>({model:m.model,questions:m.questions.map(q=>({
-       id:q.id||q.question_id||'',context:q.context||'',question:q.question||'',options:q.options||[],
+       id:q.id||q.question_id||'',subject:q.subject||String(q.indicator_key||q.indicator||'').split(':')[0]||subjects[0],context:q.context||'',question:q.question||'',options:q.options||[],
        image_url:q.image_url||q.imageUrl||q.media_url||q.image?.url||'',image_alt:q.image_alt||q.imageAlt||q.image?.alt||'',
        indicator:q.indicator_key||q.indicator||q.indicator_text||'',cognitive_level:q.cognitive_level||q.cognitive||'',difficulty:q.difficulty||''
      }))})),
      answer_keys:printable.map(m=>({model:m.model,answers:m.questions.map(q=>({
        question_id:q.id||q.question_id||'',correct_index:Number(q.correctIndex),
+       subject:q.subject||String(q.indicator_key||q.indicator||'').split(':')[0]||subjects[0],
        indicator:q.indicator_key||q.indicator||q.indicator_text||''
      }))})),
      saved_at:new Date().toISOString()
    };
    localStorage.setItem('nafes_review_correction_draft',JSON.stringify(draftPayload));
    history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(reviewId));setReviewLinks(reviewId);
-   setStatus('جارٍ حفظ المراجعة والنماذج ومفاتيح الإجابة وتوزيع الطلاب في قاعدة البيانات…');
+   setStatus('جارٍ حفظ الاختبار متعدد المؤشرات والمواد في قاعدة البيانات…');
    await NafesTeacher.api('teacher_paper_review_upsert',{review:draftPayload});
-   setStatus('تم حفظ المراجعة في منصة معلّمي. يمكنك الخروج والعودة من جهاز آخر بنفس حساب المعلم دون فقدانها.','ok');await loadArchive();
- }catch(e){
-   setStatus('تم تجهيز الأوراق على هذا الجهاز، لكن تعذر الحفظ الدائم: '+e.message,'error');
- }
+   setStatus('تم حفظ الاختبار. المواد مرتبة داخله: '+subjects.map(x=>labels[x]).join(' + ')+'.','ok');await loadArchive();
+ }catch(e){setStatus('تم تجهيز الأوراق على هذا الجهاز، لكن تعذر الحفظ الدائم: '+e.message,'error');}
 }
 function restoreReviewPayload(payload){
  if(!payload||!Array.isArray(payload.models)||!payload.models.length)return false;
  localStorage.setItem('nafes_review_correction_draft',JSON.stringify(payload));
  if($('reviewTitle'))$('reviewTitle').value=payload.title||'مراجعة مؤشرات نافس';
- if($('subject')&&[...$('subject').options].some(o=>o.value===payload.subject)){$('subject').value=payload.subject;renderIndicators();}
+ const payloadSubjects=(Array.isArray(payload.subjects)&&payload.subjects.length?payload.subjects:[payload.subject]).filter(x=>allowedSubjects().includes(x));
+ document.querySelectorAll('.subject-check').forEach(x=>x.checked=payloadSubjects.includes(String(x.value)));
+ if(!document.querySelector('.subject-check:checked')&&document.querySelector('.subject-check'))document.querySelector('.subject-check').checked=true;
+ if($('subject'))$('subject').value=selectedSubjects()[0]||payload.subject||'reading';
  if($('className')&&[...$('className').options].some(o=>o.value===String(payload.class_name||'')))$('className').value=String(payload.class_name||'');
+ renderStudents();
  if($('questionCount')&&[...$('questionCount').options].some(o=>Number(o.value)===Number(payload.question_count)))$('questionCount').value=String(payload.question_count);
- if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);if($('bubbleNameMode'))$('bubbleNameMode').value=payload.bubble_name_mode==='blank'?'blank':'printed';
- const indMap=new Map((payload.indicator_counts||[]).map(x=>[String(x.key),Number(x.count||0)]));
- document.querySelectorAll('.indicator-row').forEach(r=>{
-   const n=indMap.get(String(r.dataset.key)),check=r.querySelector('.indicator-check'),cnt=r.querySelector('.indicator-count');
-   if(check){check.checked=Number.isFinite(n);if(cnt&&Number.isFinite(n)){cnt.disabled=false;cnt.value=String(n);}}
- });
- updateIndicatorSummary();
+ if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);
+ if($('bubbleNameMode'))$('bubbleNameMode').value=payload.bubble_name_mode==='blank'?'blank':'printed';
+ indicatorState.clear();
+ for(const x of payload.indicator_counts||[]){
+   const subject=x.subject||String(x.key||'').split(':')[0]||payload.subject;
+   indicatorState.set(String(x.key),{checked:true,count:Number(x.count||0),subject});
+ }
+ renderIndicators();updateIndicatorSummary();
  const selectedIds=new Set((payload.assignments||[]).map(a=>String(a.student_id||'')));
  const selectedNames=new Set((payload.assignments||[]).map(a=>String(a.student_name||'')));
  document.querySelectorAll('.student-check').forEach(x=>{
-   const s=visibleStudents().find(st=>String(st.id)===String(x.dataset.id));
-   x.checked=!!s&&(selectedIds.has(String(s.id))||selectedNames.has(String(s.full_name||s.student_name||'')));
+   const st=visibleStudents().find(v=>String(v.id)===String(x.dataset.id));
+   x.checked=!!st&&(selectedIds.has(String(st.id))||selectedNames.has(String(st.full_name||st.student_name||'')));
  });
  $('studentCount').textContent=ar(selectedStudents().length)+' طالب محدد';
  const keyByModel=new Map((payload.answer_keys||[]).map(k=>[String(k.model),new Map((k.answers||[]).map(a=>[String(a.question_id||''),a]))]));
  models=(payload.models||[]).map(m=>{
-   const keys=keyByModel.get(String(m.model))||new Map();
-   return{sections:[{subject:payload.subject,questions:(m.questions||[]).map(q=>{
+   const keys=keyByModel.get(String(m.model))||new Map(),sectionMap=new Map();
+   for(const q of m.questions||[]){
      const k=keys.get(String(q.id||q.question_id||''))||{};
-     return{...q,correctIndex:Number(k.correct_index),indicator_key:q.indicator||k.indicator||'',cognitive_level:q.cognitive_level||'',difficulty:q.difficulty||''};
-   })}]};
+     const subject=q.subject||k.subject||String(q.indicator||k.indicator||'').split(':')[0]||payload.subject||'reading';
+     if(!sectionMap.has(subject))sectionMap.set(subject,{subject,questions:[]});
+     sectionMap.get(subject).questions.push({...q,subject,correctIndex:Number(k.correct_index),indicator_key:q.indicator||k.indicator||'',cognitive_level:q.cognitive_level||'',difficulty:q.difficulty||''});
+   }
+   const order=(payloadSubjects.length?payloadSubjects:[...sectionMap.keys()]);
+   return{sections:order.filter(x=>sectionMap.has(x)).map(x=>sectionMap.get(x)).concat([...sectionMap.entries()].filter(([x])=>!order.includes(x)).map(([,v])=>v))};
  });
- const studentMap=new Map(visibleStudents().map(s=>[String(s.id),s]));
+ const studentMap=new Map(visibleStudents().map(st=>[String(st.id),st]));
  assignments=(payload.assignments||[]).map(a=>{
-   const student=studentMap.get(String(a.student_id||''))||visibleStudents().find(s=>String(s.full_name||s.student_name||'')===String(a.student_name||''))||{id:a.student_id||'',full_name:a.student_name||'طالب'};
+   const student=studentMap.get(String(a.student_id||''))||visibleStudents().find(st=>String(st.full_name||st.student_name||'')===String(a.student_name||''))||{id:a.student_id||'',full_name:a.student_name||'طالب',class_name:a.class_name||''};
    const model=Math.max(0,letters.indexOf(String(a.model||'')));
    return{student,model,letter:String(a.model||letters[model]||'أ')};
  });
@@ -529,15 +542,21 @@ async function load(){
    if(!restored)setStatus('تم ربط القسم ببنك المؤشرات وسجل الطلاب الحالي في منصة معلّمي.','ok');
  }catch(e){setStatus(e.message,'error');}
 }
-$('subject').addEventListener('change',()=>{renderIndicators();});
+$('subjectChoices').addEventListener('change',e=>{
+ if(!e.target.matches('.subject-check'))return;
+ captureIndicatorState();
+ if(!document.querySelector('.subject-check:checked'))e.target.checked=true;
+ $('subject').value=selectedSubjects()[0]||'reading';
+ renderIndicators();
+});
 $('className').addEventListener('change',renderStudents);
 $('questionCount').addEventListener('change',()=>{distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
 ['knowledge','application','reasoning'].forEach(id=>$(id).addEventListener('input',updateLevelSummary));
 $('indicatorSearch').addEventListener('input',renderIndicators);
-$('indicators').addEventListener('change',e=>{if(e.target.matches('.indicator-check')){distributeIndicatorCounts();updateIndicatorSummary();}});
-$('indicators').addEventListener('input',e=>{if(e.target.matches('.indicator-count'))updateIndicatorSummary();});
-$('selectAllIndicators').onclick=()=>{[...document.querySelectorAll('.indicator-row:not([hidden]) .indicator-check')].forEach(x=>x.checked=true);distributeIndicatorCounts();updateIndicatorSummary();};
-$('clearIndicators').onclick=()=>{document.querySelectorAll('.indicator-check').forEach(x=>x.checked=false);updateIndicatorSummary();};
+$('indicators').addEventListener('change',e=>{if(e.target.matches('.indicator-check')){captureIndicatorState();distributeIndicatorCounts();updateIndicatorSummary();}});
+$('indicators').addEventListener('input',e=>{if(e.target.matches('.indicator-count')){captureIndicatorState();updateIndicatorSummary();}});
+$('selectAllIndicators').onclick=()=>{[...document.querySelectorAll('.indicator-row .indicator-check')].forEach(x=>x.checked=true);captureIndicatorState();distributeIndicatorCounts();updateIndicatorSummary();};
+$('clearIndicators').onclick=()=>{document.querySelectorAll('.indicator-check').forEach(x=>x.checked=false);captureIndicatorState();updateIndicatorSummary();};
 $('selectAllStudents').onchange=e=>{document.querySelectorAll('.student-check').forEach(x=>x.checked=e.target.checked);$('studentCount').textContent=ar(selectedStudents().length)+' طالب محدد';};
 $('students').addEventListener('change',()=>{$('studentCount').textContent=ar(selectedStudents().length)+' طالب محدد';});
 $('buildModels').onclick=buildModels;
@@ -546,7 +565,7 @@ $('assignModels').onclick=buildAssignments;
 $('modelTabs').addEventListener('click',e=>{const b=e.target.closest('[data-model]');if(b)renderModel(Number(b.dataset.model));});
 $('refreshArchive')?.addEventListener('click',loadArchive);
 $('reviewArchive')?.addEventListener('click',e=>{const b=e.target.closest('[data-open-review]');if(b)openArchivedReview(b.dataset.openReview);});
-addEventListener('nafes:teacher-profile',()=>{const keep=$('subject')?.value;populateSubject();if(keep&&[...$('subject').options].some(o=>o.value===keep))$('subject').value=keep;renderIndicators();});
+addEventListener('nafes:teacher-profile',()=>{const keep=selectedSubjects();populateSubject();document.querySelectorAll('.subject-check').forEach(x=>x.checked=keep.includes(String(x.value)));if(!document.querySelector('.subject-check:checked')&&document.querySelector('.subject-check'))document.querySelector('.subject-check').checked=true;$('subject').value=selectedSubjects()[0]||'reading';renderIndicators();});
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)load();});
 load();
 })();
