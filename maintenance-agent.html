@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f6b63">
 <title>وكيل صيانة المنصة | معلّمي</title>
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
-<link rel="stylesheet" href="maintenance-agent.css?v=20261002-1">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261002-brain1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -55,6 +55,22 @@
       </section>
     </div>
 
+    <section class="panel brain-panel">
+      <div class="panel-head"><div><span class="kicker">عقل منصة معلّمي</span><h2>اسأل الوكيل عن منصتك</h2></div><span id="brainBadge" class="status-pill info">جارٍ تحميل المعرفة…</span></div>
+      <p class="brain-intro">يعتمد على خريطة موثقة للمنصة وقرارات المشروع والمسارات الحية في GitHub وSupabase. لا يرسل السؤال إلى ذكاء خارجي ولا يحفظ المحادثة.</p>
+      <div class="brain-suggestions">
+        <button type="button" data-brain-q="ما أخطر مشكلة في المنصة الآن؟">ما أخطر مشكلة الآن؟</button>
+        <button type="button" data-brain-q="كيف يعمل التصحيح الآلي OMR من رفع الورقة حتى التحليل؟">كيف يعمل OMR؟</button>
+        <button type="button" data-brain-q="ما سبب مشكلة صياغة الأسئلة في العلوم؟">مشكلة صياغة العلوم</button>
+        <button type="button" data-brain-q="ما الذي لا يجوز للوكيل تعديله تلقائيًا؟">حدود الأمان</button>
+      </div>
+      <form id="brainForm" class="brain-form">
+        <textarea id="brainQuestion" rows="3" maxlength="700" placeholder="مثال: لماذا بعض أسئلة العلوم تظهر بصياغة آلية؟"></textarea>
+        <button id="brainAsk" class="btn primary" type="submit">اسأل عن المنصة</button>
+      </form>
+      <div id="brainAnswer" class="brain-answer"><div class="empty">اكتب سؤالك عن المنصة، وسأجيب من المعرفة الموثقة داخل المشروع.</div></div>
+    </section>
+
     <section class="panel">
       <div class="panel-head"><div><span class="kicker">خطط تحتاج قرارك</span><h2>اقتراحات الإصلاح</h2></div><span class="subtle">الاعتماد هنا لا يعني التنفيذ؛ يحفظ قرارك فقط.</span></div>
       <div id="proposals" class="proposal-list"><div class="empty">لا توجد خطط بعد.</div></div>
@@ -74,6 +90,6 @@
 </div>
 
 <script src="teacher-access.js?v=20260930-mainfix2"></script>
-<script src="maintenance-agent.js?v=20261002-1"></script>
+<script src="maintenance-agent.js?v=20261002-brain1"></script>
 </body>
 </html>
