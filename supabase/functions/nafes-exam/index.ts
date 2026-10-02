@@ -165,9 +165,6 @@ function inspectCuratedScienceBank(rows: BankRow[], expectedIndicatorText: strin
     const needsVisual=/(أي رسم(?! سهمي)|الرسم الآتي|الشكل الآتي|المخطط الآتي|الصورة الآتية|أي نقطة في الشكل)/.test(q.question_text);
     const image=(q.alignment_evidence as any)?.image;
     if(needsVisual&&(!image?.url||!image?.alt))issues.push("missing_visual");
-    const needsVisual=/(أي رسم(?! سهمي)|الرسم الآتي|الشكل الآتي|المخطط الآتي|الصورة الآتية|أي نقطة في الشكل)/.test(q.question_text);
-    const image=(q.alignment_evidence as any)?.image;
-    if(needsVisual&&(!image?.url||!image?.alt))issues.push("missing_visual");
     if (norm(q.indicator_text) !== norm(expectedIndicatorText)) issues.push("indicator_mismatch");
     if (q.measurement_focus !== expectedFocus) issues.push("measurement_focus_mismatch");
     if (options.length !== 4 || new Set(options).size !== 4 || options.some(x => !x)) issues.push("options");
