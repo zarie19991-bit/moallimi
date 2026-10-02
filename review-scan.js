@@ -314,6 +314,9 @@ async function approve(){
  finally{btn.disabled=false;btn.textContent='اعتماد النتائج';}
 }
 function renderApproved(payload){
+ const rid=encodeURIComponent(draft?.review_id||payload?.review_id||'');
+ if($('paperAnalysisLink'))$('paperAnalysisLink').href='review-analysis.html?rid='+rid;
+ if($('paperReportLink'))$('paperReportLink').href='review-report.html?rid='+rid;
  const map=new Map();for(const r of payload.results)for(const a of r.answers){if(!a.indicator)continue;const x=map.get(a.indicator)||{correct:0,total:0};x.total++;if(a.correct)x.correct++;map.set(a.indicator,x);}
  $('indicatorSummary').innerHTML=[...map].map(([k,v])=>'<div class="indicator-item"><b>'+k+'</b><span>'+ar(v.correct)+' من '+ar(v.total)+' · '+ar(Math.round(v.correct*100/Math.max(1,v.total)))+'%</span></div>').join('')||'<div>تم حفظ النتائج.</div>';$('approvedSection').classList.remove('hidden');$('approvedSection').scrollIntoView({behavior:'smooth'});
 }

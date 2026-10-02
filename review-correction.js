@@ -27,7 +27,9 @@ function setReviewLinks(reviewId){
  const scan=document.querySelectorAll('a[href^="review-scan.html"]');
  const bubbles=document.querySelectorAll('a[href^="review-bubble-sheets.html"]');
  const papers=document.querySelectorAll('a[href^="review-question-papers.html"]');
- scan.forEach(a=>a.href='review-scan.html'+q);bubbles.forEach(a=>a.href='review-bubble-sheets.html'+q);papers.forEach(a=>a.href='review-question-papers.html'+q);
+ const analysis=document.querySelectorAll('a[href^="review-analysis.html"]');
+ const reports=document.querySelectorAll('a[href^="review-report.html"]');
+ scan.forEach(a=>a.href='review-scan.html'+q);bubbles.forEach(a=>a.href='review-bubble-sheets.html'+q);papers.forEach(a=>a.href='review-question-papers.html'+q);analysis.forEach(a=>a.href='review-analysis.html'+q);reports.forEach(a=>a.href='review-report.html'+q);
 }
 function formatArchiveTime(v){
  if(!v)return'';
@@ -43,6 +45,8 @@ function archiveItem(row){
      '<a href="review-question-papers.html?rid='+rid+'">أوراق الأسئلة</a>'+
      '<a href="review-bubble-sheets.html?rid='+rid+'">ورق التظليل</a>'+
      '<a href="review-scan.html?rid='+rid+'">رفع وتصحيح</a>'+
+     '<a href="review-analysis.html?rid='+rid+'">التحليل</a>'+
+     '<a href="review-report.html?rid='+rid+'">التقرير</a>'+
    '</div></article>';
 }
 async function loadArchive(){
