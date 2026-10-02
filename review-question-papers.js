@@ -136,9 +136,9 @@ function pageHeader(model,d,pageNo,totalPages,totalQuestions){
  '<div class="page-number">الصفحة '+ar(pageNo)+' من '+ar(totalPages)+' · عدد الأسئلة '+ar(totalQuestions)+'</div>';
 }
 function onePage(model,d,groups,pageNo,totalPages,totalQuestions){
- return '<section class="paper-page" data-model="'+esc(model.model)+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
+ return '<section class="paper-page" data-model="'+esc(model.model)+'" data-subject="'+esc(d.subject||'')+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
  pageHeader(model,d,pageNo,totalPages,totalQuestions)+
- groups.map(g=>renderGroup(g,d.subject)).join('')+
+ '<div class="questions-flow">'+groups.map(g=>renderGroup(g,d.subject)).join('')+'</div>'+
  '<footer class="footer"><span>منصة معلّمي — مراجعة مؤشرات نافس</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/'+ar(totalPages)+'</span></footer>'+
  '</div></div></section>';
 }
@@ -158,6 +158,102 @@ function modelBooklet(model,d){
    pages.map((page,i)=>onePage(model,d,page,i+1,pages.length,questions.length)).join('')+
    '</div>';
 }
+function pageFits(page){
+ const flow=page?.querySelector('.questions-flow');
+ if(!flow)return true;
+ return flow.scrollHeight<=flow.clientHeight+2;
+}
+function emptyPageFrom(page){
+ const clone=page.cloneNode(true);
+ clone.querySelector('.questions-flow')?.replaceChildren();
+ return clone;
+}
+function renumberBooklet(booklet){
+ const pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+ const total=pages.length;
+ pages.forEach((page,i)=>{
+   const no=i+1;
+   page.dataset.page=String(no);
+   const pageNumber=page.querySelector('.page-number');
+   if(pageNumber){
+     const m=pageNumber.textContent.match(/عدد الأسئلة\s+(.+)$/);
+     const q=m?m[1]:'';
+     pageNumber.textContent='الصفحة '+ar(no)+' من '+ar(total)+(q?' · عدد الأسئلة '+q:'');
+   }
+   const tail=page.querySelector('.footer span:last-child');
+   if(tail)tail.textContent='نموذج '+(page.dataset.model||'')+' · '+ar(no)+'/'+ar(total);
+ });
+}
+function fitBooklet(booklet){
+ const first=booklet.querySelector(':scope > .paper-page');
+ if(!first||first.dataset.subject==='reading')return;
+
+ let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+
+ // أولاً: أي صفحة ممتلئة أكثر من المساحة الفعلية تنقل آخر سؤال
+ // إلى الصفحة التالية حتى لا يُقص أي سؤال أو اختيار.
+ for(let i=0;i<pages.length;i++){
+   let page=pages[i],flow=page.querySelector('.questions-flow');
+   while(!pageFits(page)&&flow?.children.length>1){
+     let next=pages[i+1];
+     if(!next){
+       next=emptyPageFrom(page);
+       booklet.insertBefore(next,page.nextSibling);
+       pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+     }
+     const nextFlow=next.querySelector('.questions-flow');
+     nextFlow.prepend(flow.lastElementChild);
+   }
+ }
+
+ // ثانياً: نملأ الفراغ الحقيقي في كل صفحة من الصفحة التالية.
+ // القياس هنا من المتصفح نفسه، لا من تقدير تقريبي لطول النص.
+ pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+ for(let i=0;i<pages.length-1;i++){
+   const page=pages[i],flow=page.querySelector('.questions-flow');
+   let next=pages[i+1],nextFlow=next.querySelector('.questions-flow');
+   while(nextFlow?.firstElementChild){
+     const candidate=nextFlow.firstElementChild;
+     flow.append(candidate);
+     if(!pageFits(page)){
+       nextFlow.prepend(candidate);
+       break;
+     }
+   }
+ }
+
+ // احذف الصفحات الفارغة ثم أعد المحاولة مرة ثانية بعد تغير التوزيع.
+ [...booklet.querySelectorAll(':scope > .paper-page')].forEach(page=>{
+   if(!page.querySelector('.questions-flow')?.children.length)page.remove();
+ });
+ pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+ for(let i=0;i<pages.length-1;i++){
+   const page=pages[i],flow=page.querySelector('.questions-flow');
+   const next=pages[i+1],nextFlow=next.querySelector('.questions-flow');
+   while(nextFlow?.firstElementChild){
+     const candidate=nextFlow.firstElementChild;
+     flow.append(candidate);
+     if(!pageFits(page)){nextFlow.prepend(candidate);break;}
+   }
+ }
+ [...booklet.querySelectorAll(':scope > .paper-page')].forEach(page=>{
+   if(!page.querySelector('.questions-flow')?.children.length)page.remove();
+ });
+ renumberBooklet(booklet);
+}
+function fitAllRenderedPages(){
+ document.querySelectorAll('.model-booklet').forEach(fitBooklet);
+}
+function scheduleRealPageFit(){
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   fitAllRenderedPages();
+   const images=[...document.querySelectorAll('#pages img')];
+   Promise.allSettled(images.map(img=>img.complete?Promise.resolve():new Promise(r=>{
+     img.addEventListener('load',r,{once:true});
+     img.addEventListener('error',r,{once:true});
+   }))).then(()=>fitAllRenderedPages());
+ }));
+}
 async function render(){
  activeDraft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(getDraft()));
  const d=getDraft();
@@ -175,8 +271,9 @@ function renderPages(){
    for(let i=0;i<copies;i++)html+=modelBooklet(m,d);
  }
  $('pages').innerHTML=html;
+ scheduleRealPageFit();
  const copies=models.reduce((n,m)=>n+(mode==='students'?Math.max(1,copiesFor(d,m.model)):1),0);
- $('screenMeta').textContent=ar(models.length)+' نماذج · الصفحات تُملأ وتُوازن تلقائيًا مع الحفاظ على وضوح الأسئلة وعدم قص الإجابات · '+ar(copies)+' نسخة';
+ $('screenMeta').textContent=ar(models.length)+' نماذج · تعبئة فعلية لمساحة A4 قبل الانتقال للصفحة التالية · '+ar(copies)+' نسخة';
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
