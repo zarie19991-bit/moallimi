@@ -151,3 +151,9 @@ review-scan.css
 review-scan.js
 
 review-draft-sync.js
+review-analysis.html
+review-analysis.js
+review-report.html
+review-report.js
+review-results.css
+review-results-core.js
