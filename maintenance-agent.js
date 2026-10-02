@@ -11,13 +11,14 @@ function setState(msg,type=''){const el=$('state');el.textContent=msg;el.classNa
 async function call(action,body={}){
  const key=window.NafesTeacher?.getKey?.();
  if(!key)throw new Error('يلزم دخول الحساب الرئيسي.');
- const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
+ const timeoutMs=action==='indicator_audit'?90000:30000;
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeoutMs);
  try{
   const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','x-teacher-key':key},body:JSON.stringify({...body,action}),cache:'no-store',signal:ctrl.signal});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||data.error)throw new Error(data.error||'تعذر تنفيذ طلب وكيل الصيانة.');
   return data;
- }catch(e){if(e.name==='AbortError')throw new Error('استغرق الفحص أكثر من 30 ثانية. أعد المحاولة.');throw e;}
+ }catch(e){if(e.name==='AbortError')throw new Error(action==='indicator_audit'?'استغرق فحص جميع المؤشرات أكثر من 90 ثانية. أعد المحاولة.':'استغرق الفحص أكثر من 30 ثانية. أعد المحاولة.');throw e;}
  finally{clearTimeout(timer);}
 }
 function metric(label,value,muted=false){return '<div class="metric"><span>'+esc(label)+'</span><b class="'+(muted?'muted':'')+'">'+esc(value)+'</b></div>'}
@@ -51,6 +52,53 @@ function renderProposals(rows){
    const pending=p.status==='pending';
    return '<article class="proposal"><div class="proposal-head"><h3>'+esc(p.title)+'</h3><span class="risk">المخاطر: '+esc(riskLabel[p.risk_level]||p.risk_level)+'</span></div><p>الوضع: '+esc(({pending:'بانتظار قرارك',approved:'معتمدة — دون تنفيذ',rejected:'مرفوضة',applied:'مطبقة'})[p.status]||p.status)+'</p>'+(pending?'<div class="proposal-actions"><button class="approve" data-approve="'+esc(p.id)+'">اعتماد الخطة دون تنفيذ</button><button class="reject" data-reject="'+esc(p.id)+'">رفض</button></div>':'')+'</article>';
  }).join(''):'<div class="empty">لا توجد خطط إصلاح حتى الآن.</div>';
+}
+
+
+function renderIndicatorAudit(run){
+ const host=$('indicatorAuditResult'),badge=$('indicatorAuditBadge');
+ if(!host)return;
+ const m=run?.metrics||{},subs=m.subjects||{},tot=m.totals||{};
+ const sev=run?.severity||'ok';
+ if(badge){badge.className='status-pill '+sev;badge.textContent=sevLabel[sev]||sev;}
+ const labels={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
+ const subjectCards=['reading','math','science'].map(k=>{
+   const x=subs[k]||{};
+   return '<div class="indicator-subject-card"><b>'+labels[k]+'</b>'+
+     '<span>'+ar(x.indicators||0)+' مؤشر</span>'+
+     '<span>'+ar(x.questions||0)+' سؤال</span>'+
+     '<span>مؤشرات سليمة آليًا: '+ar(x.clean_indicators||0)+'</span></div>';
+ }).join('');
+ const findings=(run?.findings||[]).map(f=>'<article class="finding"><span class="dot '+esc(f.severity)+'"></span><div><div class="proposal-head"><h3>'+esc(f.title)+'</h3><span class="status-pill '+esc(f.severity)+'">'+esc(sevLabel[f.severity]||f.severity)+'</span></div><p>'+esc(f.detail)+'</p><p class="safe-action"><b>الإجراء المقترح:</b> '+esc(f.safe_action)+'</p></div></article>').join('');
+ host.innerHTML='<div class="indicator-audit-summary">'+
+   '<div class="indicator-audit-kpis">'+
+     metric('إجمالي المؤشرات',ar(m.total_indicators||0))+
+     metric('إجمالي الأسئلة',ar(m.total_questions||0))+
+     metric('تسرب عبارات داخلية',ar(Number(tot.prompt_context||0)+Number(tot.prompt_stem||0)))+
+     metric('عائلات صياغة متكررة',ar(tot.template_family_groups||0))+
+   '</div>'+
+   '<div class="indicator-subjects">'+subjectCards+'</div>'+
+   '<div class="indicator-audit-note">تم حفظ التفاصيل لكل مؤشر وتسليم التقرير للمساعد. اكتب في المحادثة <b>«راجع تقرير المؤشرات»</b> لأراجعه معك وأبدأ معالجة الأخطاء.</div>'+
+   (findings||'<div class="empty">لم يكتشف الفحص الآلي أخطاء بنيوية.</div>')+
+ '</div>';
+}
+async function runIndicatorAudit(){
+ const btn=$('runIndicatorAudit');if(!btn)return;
+ btn.disabled=true;
+ const badge=$('indicatorAuditBadge'),host=$('indicatorAuditResult');
+ if(badge){badge.className='status-pill info';badge.textContent='جارٍ فحص جميع المؤشرات…';}
+ host.innerHTML='<div class="empty">يجري الآن فحص القراءة والرياضيات والعلوم سؤالًا سؤالًا. قد يستغرق ذلك عدة ثوانٍ.</div>';
+ setState('جارٍ فحص جميع اختبارات المؤشرات وإنشاء تقرير للمساعد…');
+ try{
+   const d=await call('indicator_audit');
+   renderIndicatorAudit(d.run);
+   await Promise.all([loadHistory(),loadHandoffs()]);
+   setState('اكتمل فحص جميع اختبارات المؤشرات وتم تسليم التقرير للمساعد.','ok');
+ }catch(e){
+   if(badge){badge.className='status-pill critical';badge.textContent='تعذر الفحص';}
+   host.innerHTML='<div class="empty">'+esc(e.message||String(e))+'</div>';
+   setState(e.message||String(e),'error');
+ }finally{btn.disabled=false;}
 }
 
 const confidenceLabel={high:'ثقة عالية',medium:'ثقة متوسطة',low:'معرفة غير مكتملة'};
@@ -215,6 +263,7 @@ async function init(){
   await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs()]);
  }catch(e){setState(e.message||String(e),'error');}
 }
+$('runIndicatorAudit')?.addEventListener('click',runIndicatorAudit);
 $('brainForm')?.addEventListener('submit',e=>{e.preventDefault();askBrain($('brainQuestion').value);});
 document.querySelectorAll('[data-brain-q]').forEach(b=>b.addEventListener('click',()=>askBrain(b.dataset.brainQ||'')));
 $('brainAnswer')?.addEventListener('click',e=>{const b=e.target.closest('[data-brain-followup]');if(b)askBrain((lastBrainQuestion?lastBrainQuestion+' — ':'')+(b.dataset.brainFollowup||''));});
