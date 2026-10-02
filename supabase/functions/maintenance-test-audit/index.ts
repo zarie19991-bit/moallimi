@@ -27,11 +27,39 @@ async function fetchTests(){
   }
   return out;
 }
+async function attemptedAssessmentIds(ids:string[]){
+  const out=new Set<string>();
+  for(let i=0;i<ids.length;i+=200){
+    const part=ids.slice(i,i+200);
+    if(!part.length)continue;
+    const {data,error}=await db.from("nafes_assessment_attempts").select("assessment_id").in("assessment_id",part);
+    if(error)throw error;
+    for(const row of data||[])if(row.assessment_id)out.add(String(row.assessment_id));
+  }
+  return out;
+}
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
   if(req.method!=="POST")return json({error:"method_not_allowed"},405);
   try{
-    const owner=await master(req),tests=await fetchTests(),reports=tests.map(auditTest),summaryData=summarize(reports);
+    const owner=await master(req),tests=await fetchTests(),reports=tests.map(auditTest);
+    const attempted=await attemptedAssessmentIds(tests.filter((t:any)=>t.status==="published").map((t:any)=>String(t.id)));
+    let historicalImbalance=0;
+    for(const r of reports){
+      if(r.status==="published"&&attempted.has(String(r.assessment_id))&&Number(r.issues?.answer_position_imbalance||0)>0){
+        historicalImbalance+=Number(r.issues.answer_position_imbalance||0);
+        r.issues.historical_answer_position_imbalance=r.issues.answer_position_imbalance;
+        r.issues.answer_position_imbalance=0;
+      }
+    }
+    const summaryData=summarize(reports);
+    if(historicalImbalance>0){
+      summaryData.findings.push({code:"TEST_HISTORICAL_ANSWER_IMBALANCE",area:"question_quality",severity:"info",
+        title:"اختبار منشور تاريخيًا بتوزيع إجابات قديم",detail:"يوجد "+historicalImbalance+" اختبارًا منشورًا له محاولات طلاب سابقة بتوزيع إجابات غير مثالي. لم يُعدَّل حفاظًا على نزاهة المحاولات التاريخية.",
+        safe_action:"يُحفظ كسجل تاريخي، وتطبق الموازنة تلقائيًا على الاختبارات الجديدة.",auto_apply:false,source:"generated_indicator_tests",
+        source_files:["supabase/functions/nafes-exam/assessments.ts"]});
+      summaryData.totals.historical_answer_position_imbalanced_tests=historicalImbalance;
+    }
     const findings=summaryData.findings;
     const severity=findings.some((x:any)=>x.severity==="critical")?"critical":findings.some((x:any)=>x.severity==="warning")?"warning":"info";
     const metrics={source:"generated_indicator_tests",audit_version:"generated-indicator-tests-v1",total_tests:reports.length,total_rendered_questions:reports.reduce((z:number,r:any)=>z+r.question_count,0),totals:summaryData.totals,privacy:{contains_student_names:false,contains_student_ids:false,contains_teacher_keys:false,student_attempts_read:false,roster_read:false}};

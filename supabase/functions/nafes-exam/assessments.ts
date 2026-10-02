@@ -13,11 +13,22 @@ function studentFacingContext(subject:unknown,value:unknown){
   if((subject==='math'||subject==='science')&&INTERNAL_STUDENT_CONTEXT.test(ctx))return null;
   return ctx;
 }
+function studentFacingQuestion(subject:unknown,value:unknown,cognitiveLevel:unknown){
+  const text=String(value||'').trim();
+  if(!text||!(subject==='math'||subject==='science'))return text;
+  const level=String(cognitiveLevel||'');
+  if(level!=='knowledge'&&level!=='application')return text;
+  if(!INTERNAL_STUDENT_STEM.test(text))return text;
+  const matches=[...text.matchAll(/«([^»]+)»/g)];
+  const task=matches.length?String(matches[matches.length-1][1]||'').trim():'';
+  if(task.length<4)return text;
+  return /[؟?!.]$/.test(task)?task:task+'؟';
+}
 
 function must(result:Row) {if(result.error)throw result.error;return result.data;}
 function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:studentFacingContext(row.subject_key,row.context_text),question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
 function curatedVersion(subject:string){return subject==='science'?'science-curated-v4':subject==='math'?'math-curated-v4':'';}
-function renderedCurated(row:Row){return{id:row.id,bank_source:'indicator_curated_bank',quality_version:row.quality_version,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:row.indicator_key,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:studentFacingContext(row.subject_key,row.context_text),question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:row.image&&row.image.url?{url:String(row.image.url),alt:String(row.image.alt||'')}:null};}
+function renderedCurated(row:Row){return{id:row.id,bank_source:'indicator_curated_bank',quality_version:row.quality_version,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:row.indicator_key,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:studentFacingContext(row.subject_key,row.context_text),question:studentFacingQuestion(row.subject_key,row.question_text,row.cognitive_level),options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:row.image&&row.image.url?{url:String(row.image.url),alt:String(row.image.alt||'')}:null};}
 async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
   const all:Row[]=[];
   const version=curatedVersion(subject);
