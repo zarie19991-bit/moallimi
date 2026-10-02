@@ -35,3 +35,14 @@
 .handoff-pill.verification_failed{background:#ffebe9;color:#a42e28}
 .handoff-pill.closed{background:#eef1f3;color:#5d6a70}
 .handoff-card>.btn{margin-top:10px;font-size:10.5px}
+
+.indicator-audit-panel{border-color:#d4e6d9;background:linear-gradient(180deg,#fff,#fbfefb)}
+.indicator-audit-result{display:grid;gap:12px;margin-top:13px}
+.indicator-audit-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:10px}
+.indicator-audit-kpis .metric{padding:12px;box-shadow:none}
+.indicator-subjects{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:11px}
+.indicator-subject-card{border:1px solid #dbe8df;border-radius:13px;background:#fff;padding:12px;display:grid;gap:5px}
+.indicator-subject-card b{font-size:13px;color:#205a49}
+.indicator-subject-card span{font-size:10.5px;color:#6a7c77}
+.indicator-audit-note{border:1px solid #cfe2d6;background:#eef8f1;color:#315f4d;border-radius:12px;padding:11px 13px;line-height:1.8;font-size:11px;margin-bottom:10px}
+@media(max-width:760px){.indicator-audit-kpis{grid-template-columns:1fr 1fr}.indicator-subjects{grid-template-columns:1fr}}
