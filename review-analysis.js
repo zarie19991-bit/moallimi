@@ -76,7 +76,7 @@ async function load(initial=false){
 }
 $('reviewSelect').addEventListener('change',()=>{$('classSelect').value='';load(true);});
 $('classSelect').addEventListener('change',()=>load(false));
-$('refreshBtn').onclick=()=>load(false);
+$('refreshBtn').onclick=()=>load(false);\n$('printAnalysisBtn').onclick=()=>window.print();
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)load(true);});
 load(true);
 })();
