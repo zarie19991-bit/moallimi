@@ -6,7 +6,16 @@ const sevRank={info:1,warning:2,critical:3};
 const maxSeverity=issues=>issues.reduce((a,x)=>sevRank[x.severity]>sevRank[a]?x.severity:a,'info');
 const safeNum=v=>Number.isFinite(Number(v))?Number(v):0;
 function waitFrame(){return new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));}
+async function waitForSurface(){
+  const start=Date.now();
+  while(Date.now()-start<10000){
+    if(document.querySelector('.paper-page,.bubble-sheet,.report-sheet:not([hidden])'))return;
+    if(document.readyState==='complete'&&document.querySelector('.empty'))return;
+    await new Promise(r=>setTimeout(r,180));
+  }
+}
 async function settle(){
+  await waitForSurface();
   try{if(document.fonts?.ready)await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,2500))]);}catch(_){}
   const imgs=[...document.images];
   await Promise.allSettled(imgs.map(img=>img.complete?Promise.resolve():new Promise(r=>{img.addEventListener('load',r,{once:true});img.addEventListener('error',r,{once:true});setTimeout(r,2500);})));
