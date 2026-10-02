@@ -2,3 +2,23 @@
 .title-strip small{display:block;font-size:7.5pt;font-weight:700;margin-top:.7mm}
 .subject-divider{display:flex;align-items:center;justify-content:space-between;gap:4mm;border:1.2px solid #456078;background:#edf4f2;padding:1.5mm 2.4mm;margin:1.5mm 0 1.2mm;border-radius:2mm}
 .subject-divider b{font-size:10pt}.subject-divider span{font-size:7.5pt;color:#4c6762}
+
+/* Measured self-healing print layout. Applied only when the rendered page
+   would otherwise overflow A4. Keeps normal pages at the original sizes. */
+.paper-page.compact-page .passage{font-size:10.1pt;line-height:1.26;padding:2mm 2.6mm;margin-bottom:1mm}
+.paper-page.compact-page .after-passage{font-size:9.2pt;margin-bottom:1mm}
+.paper-page.compact-page .question{padding-bottom:.65mm;margin-bottom:.65mm}
+.paper-page.compact-page .stem{font-size:10.1pt;line-height:1.24;margin-bottom:.45mm}
+.paper-page.compact-page .choices{font-size:9.2pt;line-height:1.16;row-gap:.2mm}
+.paper-page.compact-page .q-image{max-height:28mm;margin:.7mm auto}
+.paper-page.compact-page .subject-divider{padding:1.2mm 2mm;margin:1.1mm 0 .9mm}
+
+.paper-page.compact-page-strong .passage{font-size:9.7pt;line-height:1.21;padding:1.6mm 2.3mm;margin-bottom:.8mm}
+.paper-page.compact-page-strong .after-passage{font-size:9pt;margin-bottom:.7mm}
+.paper-page.compact-page-strong .question{padding-bottom:.45mm;margin-bottom:.45mm}
+.paper-page.compact-page-strong .stem{font-size:9.5pt;line-height:1.18;margin-bottom:.35mm}
+.paper-page.compact-page-strong .choices{font-size:9pt;line-height:1.12;column-gap:3mm;row-gap:.15mm}
+.paper-page.compact-page-strong .q-image{max-height:24mm;margin:.5mm auto}
+.paper-page.compact-page-strong .subject-divider{padding:1mm 1.8mm;margin:.8mm 0 .7mm}
+.continued{font-size:9pt;font-weight:900;color:#456078;background:#f3f7f6;border:1px dashed #8fa4a0;border-radius:2mm;padding:1mm 2mm;margin:1mm 0}
+.paper-page[data-layout-unresolved="1"] .page-inner{outline:2px solid #b42318;outline-offset:-2px}

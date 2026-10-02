@@ -159,15 +159,96 @@ function modelBooklet(model,d){
  const pages=paginateGroups(groups,mode);
  return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+pages.map((page,i)=>onePage(model,d,page,i+1,pages.length,questions.length)).join('')+'</div>';
 }
-function pageFits(page){
+function pageFits(page,slack=2){
  const flow=page?.querySelector('.questions-flow');
  if(!flow)return true;
- return flow.scrollHeight<=flow.clientHeight+2;
+ return flow.scrollHeight<=flow.clientHeight+slack&&flow.scrollWidth<=flow.clientWidth+slack;
 }
 function emptyPageFrom(page){
  const clone=page.cloneNode(true);
+ clone.classList.remove('compact-page','compact-page-strong');
  clone.querySelector('.questions-flow')?.replaceChildren();
  return clone;
+}
+function ensureNextPage(booklet,page){
+ let pages=[...booklet.querySelectorAll(':scope > .paper-page')],i=pages.indexOf(page),next=pages[i+1];
+ if(!next){
+   next=emptyPageFrom(page);
+   booklet.insertBefore(next,page.nextSibling);
+ }
+ return next;
+}
+function continuationGroupFrom(group){
+ const clone=group.cloneNode(false);
+ clone.removeAttribute('style');
+ clone.dataset.continuation='1';
+ clone.querySelectorAll?.('*').forEach(()=>{});
+ const subject=String(group.dataset.subject||'');
+ const notice=document.createElement('div');
+ notice.className='continued';
+ notice.textContent=subject==='reading'?'تابع أسئلة النص السابق':'تابع الأسئلة';
+ clone.appendChild(notice);
+ group.querySelectorAll(':scope > .q-image').forEach(img=>clone.appendChild(img.cloneNode(true)));
+ const wrap=document.createElement('div');
+ wrap.className='passage-questions';
+ clone.appendChild(wrap);
+ return clone;
+}
+function splitOversizeGroup(page,next){
+ const flow=page.querySelector('.questions-flow'),nextFlow=next?.querySelector('.questions-flow');
+ const group=flow?.lastElementChild;
+ if(!flow||!nextFlow||!group)return false;
+ const wrap=group.querySelector(':scope > .passage-questions');
+ if(!wrap||wrap.children.length<=1)return false;
+ const continuation=continuationGroupFrom(group),nextWrap=continuation.querySelector('.passage-questions');
+ nextFlow.prepend(continuation);
+ while(!pageFits(page)&&wrap.children.length>1){
+   nextWrap.prepend(wrap.lastElementChild);
+ }
+ if(!nextWrap.children.length)continuation.remove();
+ return pageFits(page);
+}
+function compactUntilFits(page){
+ if(pageFits(page))return true;
+ page.classList.add('compact-page');
+ void page.offsetHeight;
+ if(pageFits(page))return true;
+ page.classList.add('compact-page-strong');
+ void page.offsetHeight;
+ return pageFits(page);
+}
+function repairOverflow(booklet){
+ let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+ for(let i=0;i<pages.length;i++){
+   let page=pages[i],flow=page.querySelector('.questions-flow');
+   let guard=0;
+   while(!pageFits(page)&&guard++<80){
+     // احتفظ بالمحتوى الواضح أولاً: ضغط خفيف ومدروس لا يهبط بخط السؤال
+     // إلى حجم غير مناسب للطباعة.
+     if(compactUntilFits(page))break;
+
+     // إذا كانت الصفحة تحتوي أكثر من مجموعة، انقل آخر مجموعة كاملة.
+     if(flow?.children.length>1){
+       const next=ensureNextPage(booklet,page),nextFlow=next.querySelector('.questions-flow');
+       nextFlow.prepend(flow.lastElementChild);
+       pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+       continue;
+     }
+
+     // النص الطويل مع عدة أسئلة قد لا يتسع حتى بعد الضغط. عندها فقط
+     // قسّم أسئلة المجموعة مع إشارة واضحة «تابع أسئلة النص السابق».
+     const next=ensureNextPage(booklet,page);
+     if(splitOversizeGroup(page,next)){
+       pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+       break;
+     }
+
+     // لا نقص سؤالًا منفردًا. نترك الصفحة بعلامة واضحة للفحص بدل
+     // إخفاء الجزء المتجاوز بصريًا.
+     page.dataset.layoutUnresolved='1';
+     break;
+   }
+ }
 }
 function renumberBooklet(booklet){
  const pages=[...booklet.querySelectorAll(':scope > .paper-page')];
@@ -185,61 +266,47 @@ function renumberBooklet(booklet){
    if(tail)tail.textContent='نموذج '+(page.dataset.model||'')+' · '+ar(no)+'/'+ar(total);
  });
 }
-function fitBooklet(booklet){
- const first=booklet.querySelector(':scope > .paper-page');
- if(!first||first.dataset.subject==='reading')return;
-
- let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
-
- // أولاً: أي صفحة ممتلئة أكثر من المساحة الفعلية تنقل آخر سؤال
- // إلى الصفحة التالية حتى لا يُقص أي سؤال أو اختيار.
- for(let i=0;i<pages.length;i++){
-   let page=pages[i],flow=page.querySelector('.questions-flow');
-   while(!pageFits(page)&&flow?.children.length>1){
-     let next=pages[i+1];
-     if(!next){
-       next=emptyPageFrom(page);
-       booklet.insertBefore(next,page.nextSibling);
-       pages=[...booklet.querySelectorAll(':scope > .paper-page')];
-     }
-     const nextFlow=next.querySelector('.questions-flow');
-     nextFlow.prepend(flow.lastElementChild);
-   }
- }
-
- // ثانياً: نملأ الفراغ الحقيقي في كل صفحة من الصفحة التالية.
- // القياس هنا من المتصفح نفسه، لا من تقدير تقريبي لطول النص.
- pages=[...booklet.querySelectorAll(':scope > .paper-page')];
- for(let i=0;i<pages.length-1;i++){
-   const page=pages[i],flow=page.querySelector('.questions-flow');
-   let next=pages[i+1],nextFlow=next.querySelector('.questions-flow');
-   while(nextFlow?.firstElementChild){
-     const candidate=nextFlow.firstElementChild;
-     flow.append(candidate);
-     if(!pageFits(page)){
-       nextFlow.prepend(candidate);
-       break;
-     }
-   }
- }
-
- // احذف الصفحات الفارغة ثم أعد المحاولة مرة ثانية بعد تغير التوزيع.
+function removeEmptyPages(booklet){
  [...booklet.querySelectorAll(':scope > .paper-page')].forEach(page=>{
    if(!page.querySelector('.questions-flow')?.children.length)page.remove();
  });
- pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+}
+function fillAvailableSpace(booklet){
+ let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
  for(let i=0;i<pages.length-1;i++){
    const page=pages[i],flow=page.querySelector('.questions-flow');
    const next=pages[i+1],nextFlow=next.querySelector('.questions-flow');
    while(nextFlow?.firstElementChild){
      const candidate=nextFlow.firstElementChild;
      flow.append(candidate);
-     if(!pageFits(page)){nextFlow.prepend(candidate);break;}
+     if(!pageFits(page,-4)){
+       nextFlow.prepend(candidate);
+       break;
+     }
    }
  }
- [...booklet.querySelectorAll(':scope > .paper-page')].forEach(page=>{
-   if(!page.querySelector('.questions-flow')?.children.length)page.remove();
- });
+ removeEmptyPages(booklet);
+}
+function fitBooklet(booklet){
+ const first=booklet.querySelector(':scope > .paper-page');
+ if(!first)return;
+ const readingOnly=first.dataset.subject==='reading';
+
+ // 1) أصلح أي تجاوز بالقياس الحقيقي من المتصفح، بما في ذلك صفحات القراءة.
+ repairOverflow(booklet);
+ removeEmptyPages(booklet);
+
+ // 2) القراءة الخالصة تحافظ على النص ومجموعته؛ لا نملأ الفراغ بسحب نص تالٍ.
+ // الرياضيات والعلوم والاختبارات المختلطة تستفيد من المساحة المتبقية.
+ if(!readingOnly){
+   fillAvailableSpace(booklet);
+   repairOverflow(booklet);
+   removeEmptyPages(booklet);
+   fillAvailableSpace(booklet);
+   repairOverflow(booklet);
+   removeEmptyPages(booklet);
+ }
+
  renumberBooklet(booklet);
 }
 function fitAllRenderedPages(){
