@@ -2,7 +2,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-agent';
-let latestRun=null,latestPrintRun=null,allProposals=[],lastBrainQuestion='';
+let latestRun=null,latestPrintRun=null,allProposals=[],allHandoffs=[],lastBrainQuestion='';
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sevLabel={ok:'سليم',info:'معلومة',warning:'تحذير',critical:'حرج'};
@@ -98,14 +98,16 @@ const printTargets={
 };
 function renderPrintAudit(run){
   latestPrintRun=run||null;
-  const host=$('printAuditResult'),btn=$('printPreparePlan'),badge=$('printAuditBadge');
-  if(btn)btn.disabled=!run||!(run.findings||[]).length;
+  const host=$('printAuditResult'),btn=$('printPreparePlan'),handoffBtn=$('printHandoff'),badge=$('printAuditBadge');
+  const hasIssues=!!run&&(run.findings||[]).length>0;
+  if(btn)btn.disabled=!hasIssues;
+  if(handoffBtn)handoffBtn.disabled=!hasIssues;
   const sev=run?.severity||'ok';
   if(badge){badge.className='status-pill '+sev;badge.textContent=sevLabel[sev]||sev;}
   const rows=run?.findings||[];
   host.innerHTML=rows.length?rows.map(f=>'<article class="finding"><span class="dot '+esc(f.severity)+'"></span><div><div class="proposal-head"><h3>'+esc(f.title)+'</h3><span class="status-pill '+esc(f.severity)+'">'+esc(sevLabel[f.severity]||f.severity)+'</span></div><p>'+esc(f.detail)+'</p><p class="safe-action"><b>المعالجة المقترحة:</b> '+esc(f.safe_action)+'</p></div></article>').join(''):'<div class="empty">الفحص المرئي لم يكتشف مشكلة تخطيط في القالب الحالي.</div>';
 }
-async function auditSurface(source){
+async function auditSurface(source,handoffId=''){
   const target=printTargets[source];if(!target)return;
   const host=$('printAuditFrameHost'),result=$('printAuditResult'),badge=$('printAuditBadge');
   document.querySelectorAll('[data-print-audit]').forEach(b=>b.disabled=true);
@@ -130,10 +132,14 @@ async function auditSurface(source){
     }
     const audit=await iframe.contentWindow.NafesPrintAudit.run();
     audit.version=iframe.contentWindow.NafesPrintAudit.version||'visual-print-audit-v1';
-    const saved=await call('print_audit_ingest',{audit});
+    const saved=await call('print_audit_ingest',{audit,...(handoffId?{handoff_id:handoffId}:{})});
     renderPrintAudit(saved.run);
     await loadHistory();
-    setState(saved.run.summary,'ok');
+    if(saved.handoff){
+      await loadHandoffs();
+      const verified=saved.handoff.status==='verified';
+      setState(verified?'أكد الوكيل نجاح الإصلاح بعد إعادة الفحص.':'ما زالت بعض الأخطاء موجودة بعد الإصلاح؛ أعاد الوكيل الطلب للمراجعة. ',verified?'ok':'error');
+    }else setState(saved.run.summary,'ok');
   }catch(e){
     if(badge){badge.className='status-pill warning';badge.textContent='تعذر الفحص';}
     result.innerHTML='<div class="empty">'+esc(e.message||String(e))+'</div>';
@@ -141,6 +147,57 @@ async function auditSurface(source){
     host.replaceChildren();
     document.querySelectorAll('[data-print-audit]').forEach(b=>b.disabled=false);
   }
+}
+
+
+const handoffStatusLabel={
+  needs_assistant:'بانتظار معالجة المساعد',
+  fix_in_progress:'المساعد يعالج المشكلة',
+  fix_ready:'الإصلاح جاهز لإعادة الفحص',
+  verified:'تم التحقق من الإصلاح',
+  verification_failed:'لم يجتز الإصلاح إعادة الفحص',
+  closed:'مغلق'
+};
+function renderHandoffs(rows){
+  allHandoffs=rows||[];
+  const host=$('handoffState');if(!host)return;
+  if(!allHandoffs.length){host.innerHTML='<div class="empty">لا توجد عمليات تسليم للمساعد حتى الآن.</div>';return;}
+  host.innerHTML=allHandoffs.slice(0,6).map(h=>{
+    const status=handoffStatusLabel[h.status]||h.status;
+    const fix=h.fix||{},verify=h.verification||{};
+    const action=h.status==='fix_ready'
+      ?'<button type="button" class="btn primary" data-verify-handoff="'+esc(h.id)+'" data-source="'+esc(h.source||'')+'">إعادة الفحص والتحقق</button>'
+      :'';
+    const note=h.status==='needs_assistant'
+      ?'<p>التقرير محفوظ للمساعد. في المحادثة يكفي أن تقول: <b>راجع الوكيل</b>.</p>'
+      :h.status==='fix_ready'
+        ?'<p>تم تسجيل الإصلاح'+(fix.commit_sha?' عند النسخة '+esc(String(fix.commit_sha).slice(0,8)):'')+'. الوكيل ينتظر إعادة الفحص المرئي.</p>'
+        :h.status==='verified'
+          ?'<p>نجح الفحص بعد الإصلاح ولم تبق الأخطاء المستهدفة.</p>'
+          :h.status==='verification_failed'
+            ?'<p>أعاد الوكيل الفحص وما زالت أخطاء مستهدفة موجودة؛ يحتاج الإصلاح جولة أخرى.</p>'
+            :'';
+    return '<article class="handoff-card"><div class="proposal-head"><h3>'+esc(h.summary||'تسليم صيانة')+'</h3><span class="handoff-pill '+esc(h.status)+'">'+esc(status)+'</span></div>'+note+
+      '<div class="handoff-meta"><span>'+esc((h.source_files||[]).join(' · ')||'—')+'</span>'+
+      (verify.after_issue_count!==undefined?'<span>بعد الإصلاح: '+ar(verify.after_issue_count)+' ملاحظات</span>':'')+
+      '</div>'+action+'</article>';
+  }).join('');
+}
+async function loadHandoffs(){
+  const d=await call('handoffs');
+  renderHandoffs(d.handoffs||[]);
+  return d;
+}
+async function createPrintHandoff(){
+  if(!latestPrintRun)return;
+  const btn=$('printHandoff');btn.disabled=true;
+  try{
+    setState('جارٍ تجهيز تقرير الأخطاء للمساعد…');
+    const d=await call('create_handoff',{run_id:latestPrintRun.id});
+    await loadHandoffs();
+    setState('تم تجهيز التقرير. اكتب لي في المحادثة «راجع الوكيل» وسأقرأه مباشرة وأبدأ الإصلاح.','ok');
+  }catch(e){setState(e.message||String(e),'error');}
+  finally{btn.disabled=false;}
 }
 
 async function loadHistory(){
@@ -155,7 +212,7 @@ async function init(){
   const p=await window.NafesTeacher.ensureProfile();
   if(p?.subject_scope!=='all'){$('denied').hidden=false;$('mainContent').hidden=true;setState('لا توجد صلاحية لهذا الحساب.','error');return;}
   $('mainContent').hidden=false;setState('الوضع الآمن جاهز. يمكنك تشغيل الفحص الشامل.','ok');
-  await Promise.all([loadHistory(),loadBrainOverview()]);
+  await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs()]);
  }catch(e){setState(e.message||String(e),'error');}
 }
 $('brainForm')?.addEventListener('submit',e=>{e.preventDefault();askBrain($('brainQuestion').value);});
@@ -163,6 +220,11 @@ document.querySelectorAll('[data-brain-q]').forEach(b=>b.addEventListener('click
 $('brainAnswer')?.addEventListener('click',e=>{const b=e.target.closest('[data-brain-followup]');if(b)askBrain((lastBrainQuestion?lastBrainQuestion+' — ':'')+(b.dataset.brainFollowup||''));});
 
 document.querySelectorAll('[data-print-audit]').forEach(b=>b.addEventListener('click',()=>auditSurface(b.dataset.printAudit||'')));
+$('printHandoff')?.addEventListener('click',createPrintHandoff);
+$('handoffState')?.addEventListener('click',e=>{
+  const b=e.target.closest('[data-verify-handoff]');
+  if(b)auditSurface(b.dataset.source||'',b.dataset.verifyHandoff||'');
+});
 $('printPreparePlan')?.addEventListener('click',async()=>{
  if(!latestPrintRun)return;
  const btn=$('printPreparePlan');btn.disabled=true;
