@@ -2,7 +2,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-agent';
-let latestRun=null,allProposals=[],lastBrainQuestion='';
+let latestRun=null,latestPrintRun=null,allProposals=[],lastBrainQuestion='';
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sevLabel={ok:'سليم',info:'معلومة',warning:'تحذير',critical:'حرج'};
@@ -90,6 +90,59 @@ async function askBrain(question){
  }finally{if(btn)btn.disabled=false;}
 }
 
+
+const printTargets={
+  question_papers:'review-question-papers.html',
+  bubble_sheets:'review-bubble-sheets.html',
+  paper_report:'review-report.html'
+};
+function renderPrintAudit(run){
+  latestPrintRun=run||null;
+  const host=$('printAuditResult'),btn=$('printPreparePlan'),badge=$('printAuditBadge');
+  if(btn)btn.disabled=!run||!(run.findings||[]).length;
+  const sev=run?.severity||'ok';
+  if(badge){badge.className='status-pill '+sev;badge.textContent=sevLabel[sev]||sev;}
+  const rows=run?.findings||[];
+  host.innerHTML=rows.length?rows.map(f=>'<article class="finding"><span class="dot '+esc(f.severity)+'"></span><div><div class="proposal-head"><h3>'+esc(f.title)+'</h3><span class="status-pill '+esc(f.severity)+'">'+esc(sevLabel[f.severity]||f.severity)+'</span></div><p>'+esc(f.detail)+'</p><p class="safe-action"><b>المعالجة المقترحة:</b> '+esc(f.safe_action)+'</p></div></article>').join(''):'<div class="empty">الفحص المرئي لم يكتشف مشكلة تخطيط في القالب الحالي.</div>';
+}
+async function auditSurface(source){
+  const target=printTargets[source];if(!target)return;
+  const host=$('printAuditFrameHost'),result=$('printAuditResult'),badge=$('printAuditBadge');
+  document.querySelectorAll('[data-print-audit]').forEach(b=>b.disabled=true);
+  if($('printPreparePlan'))$('printPreparePlan').disabled=true;
+  if(badge){badge.className='status-pill info';badge.textContent='جارٍ القياس الفعلي…';}
+  result.innerHTML='<div class="empty">جارٍ فتح قالب الطباعة وقياس A4 والعناصر داخل الصفحة…</div>';
+  host.replaceChildren();
+  const iframe=document.createElement('iframe');
+  iframe.src=target+'?audit='+Date.now();
+  iframe.title='فحص الطباعة';
+  iframe.tabIndex=-1;
+  host.appendChild(iframe);
+  try{
+    await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('لم يكتمل تحميل صفحة الطباعة خلال الوقت المحدد.')),22000);
+      iframe.addEventListener('load',()=>{clearTimeout(timer);resolve();},{once:true});
+    });
+    const started=Date.now();
+    while(!iframe.contentWindow?.NafesPrintAudit){
+      if(Date.now()-started>22000)throw new Error('أداة القياس لم تصبح جاهزة داخل صفحة الطباعة.');
+      await new Promise(r=>setTimeout(r,250));
+    }
+    const audit=await iframe.contentWindow.NafesPrintAudit.run();
+    audit.version=iframe.contentWindow.NafesPrintAudit.version||'visual-print-audit-v1';
+    const saved=await call('print_audit_ingest',{audit});
+    renderPrintAudit(saved.run);
+    await loadHistory();
+    setState(saved.run.summary,'ok');
+  }catch(e){
+    if(badge){badge.className='status-pill warning';badge.textContent='تعذر الفحص';}
+    result.innerHTML='<div class="empty">'+esc(e.message||String(e))+'</div>';
+  }finally{
+    host.replaceChildren();
+    document.querySelectorAll('[data-print-audit]').forEach(b=>b.disabled=false);
+  }
+}
+
 async function loadHistory(){
  const d=await call('history',{limit:12});
  renderHistory(d.runs||[]);renderProposals(d.proposals||[]);
@@ -108,6 +161,20 @@ async function init(){
 $('brainForm')?.addEventListener('submit',e=>{e.preventDefault();askBrain($('brainQuestion').value);});
 document.querySelectorAll('[data-brain-q]').forEach(b=>b.addEventListener('click',()=>askBrain(b.dataset.brainQ||'')));
 $('brainAnswer')?.addEventListener('click',e=>{const b=e.target.closest('[data-brain-followup]');if(b)askBrain((lastBrainQuestion?lastBrainQuestion+' — ':'')+(b.dataset.brainFollowup||''));});
+
+document.querySelectorAll('[data-print-audit]').forEach(b=>b.addEventListener('click',()=>auditSurface(b.dataset.printAudit||'')));
+$('printPreparePlan')?.addEventListener('click',async()=>{
+ if(!latestPrintRun)return;
+ const btn=$('printPreparePlan');btn.disabled=true;
+ try{
+   setState('جارٍ إعداد خطة إصلاح للطباعة دون تنفيذ…');
+   const d=await call('prepare_plan',{run_id:latestPrintRun.id});
+   renderProposals(d.proposals||[]);
+   await loadHistory();
+   setState('تم إنشاء خطة إصلاح للطباعة. تحتاج قرارك قبل أي تنفيذ.','ok');
+ }catch(e){setState(e.message||String(e),'error');}
+ finally{btn.disabled=false;}
+});
 
 $('runScan').onclick=async()=>{
  const btn=$('runScan');btn.disabled=true;setState('جارٍ فحص قاعدة البيانات وبنوك الأسئلة دون قراءة بيانات الطلاب الشخصية…');

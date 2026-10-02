@@ -14,3 +14,10 @@
 .brain-followups button{font:inherit;border:0;background:#e9f5f1;color:#176b5c;border-radius:9px;padding:6px 9px;cursor:pointer;font-size:10px;font-weight:800}
 .metric b.muted{font-size:14px;color:#7f8d89}
 @media(max-width:700px){.brain-form{grid-template-columns:1fr}.brain-form .btn{width:100%}}
+
+.print-agent-panel{border-color:#d8d6ef;background:linear-gradient(180deg,#fff,#fcfbff)}
+.print-audit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.print-audit-actions .btn{font-size:11px}
+.print-audit-result{display:grid;gap:10px}
+#printAuditFrameHost{position:fixed;left:-12000px;top:0;width:1280px;height:1100px;overflow:hidden;visibility:hidden;pointer-events:none;z-index:-1}
+#printAuditFrameHost iframe{display:block;width:1200px;height:1000px;border:0;background:#fff}
