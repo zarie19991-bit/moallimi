@@ -19,6 +19,9 @@ e-player-demo-fix.js
 teacher-access.js
 teacher-preboot.js
 teacher.html
+maintenance-agent.html
+maintenance-agent.css
+maintenance-agent.js
 student-demo.html
 demo-exam.html
 demo-exam.js
