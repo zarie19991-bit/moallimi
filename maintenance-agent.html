@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f6b63">
 <title>وكيل صيانة المنصة | معلّمي</title>
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
-<link rel="stylesheet" href="maintenance-agent.css?v=20261002-brain1">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261002-printagent1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -55,6 +55,21 @@
       </section>
     </div>
 
+    <section class="panel print-agent-panel">
+      <div class="panel-head">
+        <div><span class="kicker">وكيل الطباعة المرئي</span><h2>افحص تصميم الورق كما يظهر فعليًا</h2></div>
+        <span id="printAuditBadge" class="status-pill info">جاهز للفحص</span>
+      </div>
+      <p class="brain-intro">يفتح قالب الطباعة نفسه في الخلفية ويقيس A4 والعناصر داخل الصفحة: القص، الخروج عن الحدود، الصفحة الأخيرة الضعيفة، الفراغ الكبير، الخط الصغير، QR وOMR. لا يقرأ أسماء الطلاب ولا نصوص الأسئلة.</p>
+      <div class="print-audit-actions">
+        <button type="button" class="btn light" data-print-audit="question_papers">فحص أوراق الأسئلة</button>
+        <button type="button" class="btn light" data-print-audit="bubble_sheets">فحص أوراق التظليل</button>
+        <button type="button" class="btn light" data-print-audit="paper_report">فحص التقرير الورقي</button>
+      </div>
+      <div id="printAuditResult" class="print-audit-result"><div class="empty">اختر نوع الورقة ليبدأ الفحص المرئي الفعلي.</div></div>
+      <div id="printAuditFrameHost" aria-hidden="true"></div>
+    </section>
+
     <section class="panel brain-panel">
       <div class="panel-head"><div><span class="kicker">عقل منصة معلّمي</span><h2>اسأل الوكيل عن منصتك</h2></div><span id="brainBadge" class="status-pill info">جارٍ تحميل المعرفة…</span></div>
       <p class="brain-intro">يعتمد على خريطة موثقة للمنصة وقرارات المشروع والمسارات الحية في GitHub وSupabase. لا يرسل السؤال إلى ذكاء خارجي ولا يحفظ المحادثة.</p>
@@ -90,6 +105,6 @@
 </div>
 
 <script src="teacher-access.js?v=20260930-mainfix2"></script>
-<script src="maintenance-agent.js?v=20261002-brain1"></script>
+<script src="maintenance-agent.js?v=20261002-printagent1"></script>
 </body>
 </html>
