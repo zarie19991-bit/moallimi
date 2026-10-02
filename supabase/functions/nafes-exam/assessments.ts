@@ -115,19 +115,31 @@ function rebalanceQuestionOptions(qs:Row[],seed:string):Row[]{
     return {...q,options:next,correctIndex:target};
   });
 }
-function curatedQuestionEligible(q:Row){
+function stemFamilyKey(q:Row){
+  return stemKey(q)
+    .replace(/[0-9٠-٩]+(?:[.,٫][0-9٠-٩]+)?/g,'#')
+    .replace(/\b(طالب|طالبة|باحث|باحثة|معلم|معلمة)\b/g,'شخص')
+    .split(' ')
+    .slice(0,7)
+    .join(' ');
+}
+function curatedQuestionEligible(q:Row,subject:string){
   const text=String(q?.question??q?.question_text??'').trim();
   const options=Array.isArray(q?.options)?q.options.map((x:any)=>String(x).trim()):[];
   const ci=Number(q?.correctIndex??q?.correct_index);
   if(!text||options.length!==4||new Set(options).size!==4||options.some((x:string)=>!x))return false;
   if(!Number.isInteger(ci)||ci<0||ci>3)return false;
   if(/أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين|ما الإجابة التي تنقل مفهوم|لزم حل المهمة/.test(text))return false;
+  if(subject==='science'){
+    const weakScienceTemplate=/(في (?:مخطط لعلاقة بين متغيرين|مقارنة حالتين فيزيائيتين|مقارنة كائنين أو خليتين|تقويم إجراء صحي أو بيئي|تحليل تغير في نظام حيوي|اختيار إجراء مختبري|مقارنة عينتين ماديتين) بهدف|اختيرت الإجابة|لزم التحقق من|ظهرت المهمة)/;
+    if(weakScienceTemplate.test(text))return false;
+  }
   const needsVisual=/(أي رسم(?! سهمي)|الرسم الآتي|الشكل الآتي|المخطط الآتي|الصورة الآتية|أي نقطة في الشكل)/.test(text);
   if(needsVisual&&(!q?.image?.url||!q?.image?.alt))return false;
   return true;
 }
 function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
-  const mixed=shuffle(candidates.filter(curatedQuestionEligible),randomFrom(seed+'|curated'));
+  const mixed=shuffle(candidates.filter(q=>curatedQuestionEligible(q,subject)),randomFrom(seed+'|curated'));
   const unique:Row[]=[];
   const localStems=new Set<string>();
   for(const q of mixed){
@@ -135,21 +147,50 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
     if(!sk||usedContent.has(ck)||usedStems.has(sk)||localStems.has(sk))continue;
     localStems.add(sk);unique.push(q);
   }
-  if(unique.length<count)fail(`لا توجد أسئلة محكَّمة كافية لهذا المؤشر: المطلوب ${count} والمتاح ${unique.length}.`);
+  if(unique.length<count)fail(`لا توجد أسئلة محكَّمة ومتنوعة كافية لهذا المؤشر: المطلوب ${count} والمتاح بعد استبعاد الصياغات الضعيفة والمتكررة ${unique.length} فقط.`);
+
   const targets=levelTargets(subject,count),picked:Row[]=[];
   const pickedIds=new Set<string>();
-  for(const level of ['knowledge','application','reasoning']){
-    const desired=Number(targets[level]||0);
-    if(!desired)continue;
+  const familyCounts=new Map<string,number>();
+  const add=(q:Row)=>{
+    picked.push(q);
+    pickedIds.add(String(q.id));
+    const family=stemFamilyKey(q);
+    familyCounts.set(family,(familyCounts.get(family)||0)+1);
+  };
+  const takeLevel=(level:string,desired:number)=>{
+    if(!desired)return;
     const pool=shuffle(unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id))),randomFrom(seed+'|'+level));
-    const take=Math.min(desired,pool.length);
-    for(const q of pool.slice(0,take)){picked.push(q);pickedIds.add(String(q.id));}
+    let taken=0;
+    for(const cap of [1,2,3,99]){
+      for(const q of pool){
+        if(taken>=desired)break;
+        if(pickedIds.has(String(q.id)))continue;
+        const family=stemFamilyKey(q);
+        if((familyCounts.get(family)||0)>=cap)continue;
+        add(q);taken++;
+      }
+      if(taken>=desired)break;
+    }
+  };
+
+  for(const level of ['knowledge','application','reasoning']){
+    takeLevel(level,Number(targets[level]||0));
   }
   if(picked.length<count){
     const rest=shuffle(unique.filter(q=>!pickedIds.has(String(q.id))),randomFrom(seed+'|fallback'));
-    picked.push(...rest.slice(0,count-picked.length));
+    for(const cap of [1,2,3,99]){
+      for(const q of rest){
+        if(picked.length>=count)break;
+        if(pickedIds.has(String(q.id)))continue;
+        const family=stemFamilyKey(q);
+        if((familyCounts.get(family)||0)>=cap)continue;
+        add(q);
+      }
+      if(picked.length>=count)break;
+    }
   }
-  if(picked.length!==count)fail(`تعذر تكوين نموذج متوازن لهذا المؤشر: المطلوب ${count} والمتاح بعد التحكيم ${picked.length}.`);
+  if(picked.length!==count)fail(`تعذر تكوين نموذج متوازن ومتنوّع لهذا المؤشر: المطلوب ${count} والمتاح بعد التحكيم ${picked.length}.`);
   const arranged=arrangeObjectiveQuestions(picked,seed+'|arrange');
   const balanced=rebalanceQuestionOptions(arranged,seed);
   for(const q of balanced){usedContent.add(questionKey(q));usedStems.add(stemKey(q));}
@@ -1343,7 +1384,9 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   }
   if(old.image?.url){const visual=candidates.filter(q=>!!q.image?.url);if(visual.length)candidates=visual;}
   if(!candidates.length)fail('لا يوجد سؤال بديل مستقل بصياغة مختلفة متاح لهذا المؤشر في بنك الأسئلة المعتمد.');
-  const replacement=selectIndicatorQuestions(candidates,1,old.subject,token(8),usedContent,usedStems)[0];
+  const replacement=(old.subject==='math'||old.subject==='science')
+    ?selectCuratedIndicatorQuestions(candidates,1,old.subject,token(8),usedContent,usedStems)[0]
+    :selectIndicatorQuestions(candidates,1,old.subject,token(8),usedContent,usedStems)[0];
   for(const s of sections)s.questions=s.questions.map((q:Row)=>q.id===old.id?replacement:q);
   return preview(must(await db.from('nafes_assessments').update({rendered_sections:sections}).eq('id',t.id).eq('status','draft').select().single()));
  }
@@ -1353,7 +1396,19 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   if(t.kind==='simulation'||t.config?.bank_source==='simulation_bank')fail('تم إيقاف قسم الاختبارات المحاكية.',400);
   const seenStems=new Set<string>();
   for(const section of t.rendered_sections){
-    for(const q of section.questions||[]){const sk=stemKey(q);if(seenStems.has(sk))fail('توجد صياغة سؤال مكررة في المسودة؛ بدّل السؤال المكرر قبل النشر.',409);seenStems.add(sk);}
+    const familyCounts=new Map<string,number>();
+    for(const q of section.questions||[]){
+      const sk=stemKey(q);
+      if(seenStems.has(sk))fail('توجد صياغة سؤال مكررة في المسودة؛ بدّل السؤال المكرر قبل النشر.',409);
+      seenStems.add(sk);
+      if(section.subject==='math'||section.subject==='science'){
+        if(!curatedQuestionEligible(q,section.subject))fail('توجد أسئلة ضعيفة أو قالبية في المسودة؛ أعد تكوين الأسئلة قبل النشر.',409);
+        const family=`${q.indicator_key||indicatorOf(q)}|${stemFamilyKey(q)}`;
+        const n=(familyCounts.get(family)||0)+1;
+        familyCounts.set(family,n);
+        if(n>2)fail('توجد أسئلة متقاربة جدًا في الصياغة داخل المؤشر نفسه؛ أعد تكوين المسودة قبل النشر.',409);
+      }
+    }
     const qIds=section.questions.map((q:Row)=>q.id);
     const pool=isSim
       ?await simulationPool(db,section.subject,undefined,qIds)
