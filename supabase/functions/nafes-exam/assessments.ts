@@ -17,12 +17,21 @@ function studentFacingQuestion(subject:unknown,value:unknown,cognitiveLevel:unkn
   const text=String(value||'').trim();
   if(!text||!(subject==='math'||subject==='science'))return text;
   const level=String(cognitiveLevel||'');
-  if(level!=='knowledge'&&level!=='application')return text;
   if(!INTERNAL_STUDENT_STEM.test(text))return text;
-  const matches=[...text.matchAll(/«([^»]+)»/g)];
-  const task=matches.length?String(matches[matches.length-1][1]||'').trim():'';
-  if(task.length<4)return text;
-  return /[؟?!.]$/.test(task)?task:task+'؟';
+  const matches=[...text.matchAll(/«([^»]+)»/g)].map(m=>String(m[1]||'').trim()).filter(Boolean);
+  if(level==='knowledge'||level==='application'){
+    const task=matches.length?matches[matches.length-1]:'';
+    if(task.length<4)return text;
+    return /[؟?!.]$/.test(task)?task:task+'؟';
+  }
+  if(level==='reasoning'&&matches.length>=2){
+    const result=matches[0],task=matches[matches.length-1];
+    if(/أي تحليل يكشف الخطأ ويبرر البديل/.test(text))return 'في السؤال «'+task+'»، اختار طالب «'+result+'». أي تحليل يوضح الخطأ ويبرر البديل الصحيح؟';
+    if(/أي تصحيح يجمع النتيجة السليمة ودليلها/.test(text))return 'في السؤال «'+task+'»، كانت الإجابة «'+result+'». أي خيار يصحح الإجابة ويذكر دليلًا مناسبًا؟';
+    if(/أي تفسير يطابق النتيجة الصحيحة/.test(text))return 'في السؤال «'+task+'»، كانت الإجابة المقترحة «'+result+'». أي تفسير يدعم الإجابة الصحيحة؟';
+    if(/أي حكم مدعوم/.test(text))return 'في السؤال «'+task+'»، قورنت المعطيات بالإجابة «'+result+'». أي حكم تدعمه المعطيات؟';
+  }
+  return text;
 }
 
 function must(result:Row) {if(result.error)throw result.error;return result.data;}
