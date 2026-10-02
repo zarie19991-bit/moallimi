@@ -48,7 +48,7 @@ async function callSemanticAudit(action,body={}){
  }catch(e){if(e.name==='AbortError')throw new Error('استغرق التحكيم التربوي أكثر من 90 ثانية في هذه الدفعة. أعد المحاولة للمتابعة.');throw e;}
  finally{clearTimeout(timer);}
 }
-function semanticJudgmentLabel(v){return ({pass:'سليم تربويًا',review:'يحتاج مراجعة',reject:'مرفوض تربويًا'})[v]||v||'—';}
+function semanticJudgmentLabel(v,provider){if(v==='pass')return provider==='openai'?'سليم دلاليًا':'اجتاز الفحص القاعدي';return ({review:'يحتاج مراجعة',reject:'مشكلة مؤكدة'})[v]||v||'—';}
 function semanticJobStatusLabel(v){return ({queued:'في الانتظار',running:'جارٍ التحكيم',completed:'اكتمل التحكيم الدلالي',partial:'مكتمل جزئيًا',provider_required:'اكتمل الفحص القاعدي — الذكاء الدلالي غير موصول',failed:'تعذر التحكيم'})[v]||v||'—';}
 function renderSemanticProvider(provider){
  const badge=$('semanticJudgeBadge'),note=$('semanticProviderNote');
@@ -88,18 +88,20 @@ function renderSemanticReport(data){
  }
  host.innerHTML='<div class="semantic-report-head">'+
    metric('راجع المحكّم',ar(job.reviewed_count||0))+
-   metric('سليم',ar(job.pass_count||0))+
+   metric(job.provider==='openai'?'سليم دلاليًا':'اجتاز القواعد',ar(job.pass_count||0))+
    metric('يحتاج مراجعة',ar(job.review_count||0))+
    metric('مرفوض',ar(job.reject_count||0))+
  '</div>'+
  rows.map(r=>{
    const reasons=(r.reasons||[]).map(x=>'<li>'+esc(x)+'</li>').join('');
    const suggestion=r.suggested_question?'<div class="semantic-suggestion"><b>صياغة مقترحة:</b> '+esc(r.suggested_question)+'</div>':'';
+   const optionRows=Array.isArray(r.options)?r.options.map((o,i)=>'<div class="semantic-option '+(Number(r.correct_index)===i?'correct':'')+'"><b>'+['أ','ب','ج','د'][i]+'.</b> '+esc(o)+(Number(r.correct_index)===i?' <span>الإجابة المعتمدة</span>':'')+'</div>').join(''):'';
+   const options=optionRows?'<details class="semantic-options"><summary>عرض البدائل والإجابة المعتمدة</summary>'+optionRows+'</details>':'';
    const level=r.detected_level&&r.detected_level!==r.registered_level?'<div class="semantic-level"><b>المستوى المسجل:</b> '+esc(r.registered_level||'—')+' <span>←</span> <b>المستوى المرجح:</b> '+esc(r.detected_level)+'</div>':'';
-   return '<article class="semantic-review '+esc(r.judgment)+'"><div class="proposal-head"><h3>'+esc(r.indicator_text||r.indicator_key||'سؤال مؤشر')+'</h3><span class="status-pill '+(r.judgment==='reject'?'critical':r.judgment==='review'?'warning':'ok')+'">'+esc(semanticJudgmentLabel(r.judgment))+'</span></div>'+
+   return '<article class="semantic-review '+esc(r.judgment)+'"><div class="proposal-head"><h3>'+esc(r.indicator_text||r.indicator_key||'سؤال مؤشر')+'</h3><span class="status-pill '+(r.judgment==='reject'?'critical':r.judgment==='review'?'warning':'ok')+'">'+esc(semanticJudgmentLabel(r.judgment,r.provider))+'</span></div>'+
      '<div class="semantic-question">'+esc(r.question_text||'')+'</div>'+
      level+'<div class="semantic-dims">'+semanticDimensionSummary(r)+'</div>'+
-     (reasons?'<ul class="semantic-reasons">'+reasons+'</ul>':'')+suggestion+
+     options+(reasons?'<ul class="semantic-reasons">'+reasons+'</ul>':'')+suggestion+
      '<div class="semantic-meta">الثقة: '+Math.round(Number(r.confidence||0)*100)+'% · '+esc(r.provider||'rules')+(r.model?' · '+esc(r.model):'')+'</div></article>';
  }).join('');
 }
