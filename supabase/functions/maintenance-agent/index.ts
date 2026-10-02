@@ -229,12 +229,21 @@ const AUDIT_INTERNAL_CONTEXT=/^(?:موقف تقويمي جديد|مراجعة ج
 const AUDIT_INTERNAL_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|وردت في مخطط المراجعة المهمة|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|لتمييز المعرفة المرتبطة|ضمن مقارنة النتيجة ببديل قريب|باستخدام مقارنة النتيجة ببديل قريب|باستخدام كشف الافتراض الذي أدى إلى الخطأ|بعد كشف الافتراض الذي أدى إلى الخطأ|عند كشف الافتراض الذي أدى إلى الخطأ|أي تصحيح يجمع النتيجة السليمة ودليلها|أي تحليل يكشف الخطأ ويبرر البديل|أي تفسير يطابق النتيجة الصحيحة|في (?:مخطط لعلاقة بين متغيرين|مقارنة حالتين فيزيائيتين|مقارنة كائنين أو خليتين|تقويم إجراء صحي أو بيئي|تحليل تغير في نظام حيوي|اختيار إجراء مختبري|مقارنة عينتين ماديتين|تقويم تصميم تقني|تقويم قرار بيئي|خريطة ميدانية|سجل رصد طويل المدى|مقارنة موقعين) بهدف|بعد أن (?:أجريت محاكاة رقمية|عُرضت بيانات نشاط|حُدد طول مسار|قورنت كتل مواد))/;
 function auditStudentQuestion(subject:string,text:string,level:string){
   if(!(subject==="math"||subject==="science"))return text;
-  if(level!=="knowledge"&&level!=="application")return text;
   if(!AUDIT_INTERNAL_STEM.test(text))return text;
-  const matches=[...text.matchAll(/«([^»]+)»/g)];
-  const task=matches.length?String(matches[matches.length-1][1]||"").trim():"";
-  if(task.length<4)return text;
-  return /[؟?!.]$/.test(task)?task:task+"؟";
+  const matches=[...text.matchAll(/«([^»]+)»/g)].map(m=>String(m[1]||"").trim()).filter(Boolean);
+  if(level==="knowledge"||level==="application"){
+    const task=matches.length?matches[matches.length-1]:"";
+    if(task.length<4)return text;
+    return /[؟?!.]$/.test(task)?task:task+"؟";
+  }
+  if(level==="reasoning"&&matches.length>=2){
+    const result=matches[0],task=matches[matches.length-1];
+    if(/أي تحليل يكشف الخطأ ويبرر البديل/.test(text))return "في السؤال «"+task+"»، اختار طالب «"+result+"». أي تحليل يوضح الخطأ ويبرر البديل الصحيح؟";
+    if(/أي تصحيح يجمع النتيجة السليمة ودليلها/.test(text))return "في السؤال «"+task+"»، كانت الإجابة «"+result+"». أي خيار يصحح الإجابة ويذكر دليلًا مناسبًا؟";
+    if(/أي تفسير يطابق النتيجة الصحيحة/.test(text))return "في السؤال «"+task+"»، كانت الإجابة المقترحة «"+result+"». أي تفسير يدعم الإجابة الصحيحة؟";
+    if(/أي حكم مدعوم/.test(text))return "في السؤال «"+task+"»، قورنت المعطيات بالإجابة «"+result+"». أي حكم تدعمه المعطيات؟";
+  }
+  return text;
 }
 function auditNorm(v:unknown){
   return String(v??"").normalize("NFKC").toLowerCase()
