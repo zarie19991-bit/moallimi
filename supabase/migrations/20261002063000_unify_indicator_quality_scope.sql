@@ -89,3 +89,25 @@ begin
   return new;
 end;
 $$;
+
+
+-- Re-run the status normalization after replacing the trigger, so historical
+-- "needs_replacement" labels from the previous cross-bank rule are removed.
+update public.nafes_simulation_question_bank s
+set quality_checks = coalesce(s.quality_checks,'{}'::jsonb) - 'bank_separation',
+    quality_status = case
+      when public.nafes_question_quality_hard_pass(
+        public.nafes_question_quality_checks(
+          s.subject_key,s.context_text,s.question_text,s.options,s.correct_index,
+          s.explanation,s.difficulty,s.cognitive_level,null
+        )
+      ) and s.review_status='approved' and s.is_active then 'approved'
+      when public.nafes_question_quality_hard_pass(
+        public.nafes_question_quality_checks(
+          s.subject_key,s.context_text,s.question_text,s.options,s.correct_index,
+          s.explanation,s.difficulty,s.cognitive_level,null
+        )
+      ) then 'ready'
+      else 'needs_review'
+    end,
+    quality_reviewed_at=now();
