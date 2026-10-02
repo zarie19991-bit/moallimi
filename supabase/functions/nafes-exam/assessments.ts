@@ -5,10 +5,19 @@ const BASE='https://zarie19991-bit.github.io/moallimi/';
 const BANK_COLUMNS='id,subject_key,outcome_code,indicator_index,indicator_text,model_no,question_no,measurement_focus,alignment_profile,alignment_verified,alignment_evidence,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level';
 const CURATED_COLUMNS='id,subject_key,outcome_code,indicator_index,indicator_key,indicator_text,model_no,question_no,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,quality_version,image';
 const isUUID=(s:unknown)=>/^[a-f0-9-]{36}$/i.test(String(s));
+const INTERNAL_STUDENT_CONTEXT=/^(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|مهمة تقويمية جديدة|مراجعة الحل)/;
+const INTERNAL_STUDENT_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|بعد أن (?:أجريت محاكاة رقمية|عُرضت بيانات نشاط|حُدد طول مسار|قورنت كتل مواد))/;
+function studentFacingContext(subject:unknown,value:unknown){
+  const ctx=String(value||'').trim();
+  if(!ctx)return null;
+  if((subject==='math'||subject==='science')&&INTERNAL_STUDENT_CONTEXT.test(ctx))return null;
+  return ctx;
+}
+
 function must(result:Row) {if(result.error)throw result.error;return result.data;}
-function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:row.context_text||null,question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
+function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:studentFacingContext(row.subject_key,row.context_text),question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
 function curatedVersion(subject:string){return subject==='science'?'science-curated-v4':subject==='math'?'math-curated-v4':'';}
-function renderedCurated(row:Row){return{id:row.id,bank_source:'indicator_curated_bank',quality_version:row.quality_version,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:row.indicator_key,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:row.context_text||null,question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:row.image&&row.image.url?{url:String(row.image.url),alt:String(row.image.alt||'')}:null};}
+function renderedCurated(row:Row){return{id:row.id,bank_source:'indicator_curated_bank',quality_version:row.quality_version,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:row.indicator_key,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:studentFacingContext(row.subject_key,row.context_text),question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:row.image&&row.image.url?{url:String(row.image.url),alt:String(row.image.alt||'')}:null};}
 async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
   const all:Row[]=[];
   const version=curatedVersion(subject);
@@ -130,6 +139,7 @@ function curatedQuestionEligible(q:Row,subject:string){
   if(!text||options.length!==4||new Set(options).size!==4||options.some((x:string)=>!x))return false;
   if(!Number.isInteger(ci)||ci<0||ci>3)return false;
   if(/أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين|ما الإجابة التي تنقل مفهوم|لزم حل المهمة/.test(text))return false;
+  if((subject==='math'||subject==='science')&&INTERNAL_STUDENT_STEM.test(text))return false;
   if(subject==='science'){
     const weakScienceTemplate=/(في (?:مخطط لعلاقة بين متغيرين|مقارنة حالتين فيزيائيتين|مقارنة كائنين أو خليتين|تقويم إجراء صحي أو بيئي|تحليل تغير في نظام حيوي|اختيار إجراء مختبري|مقارنة عينتين ماديتين) بهدف|اختيرت الإجابة|لزم التحقق من|ظهرت المهمة)/;
     if(weakScienceTemplate.test(text))return false;
@@ -272,7 +282,7 @@ function renderedSimQuestion(row:Row):Row {
     indicator:row.indicator_index,
     indicator_key:row.indicator_key,
     indicator_text:row.indicator_text,
-    context:row.context_text||null,
+    context:studentFacingContext(row.subject_key,row.context_text),
     question:row.question_text,
     options:row.options,
     correctIndex:row.correct_index,

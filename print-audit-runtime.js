@@ -23,6 +23,13 @@ async function settle(){
 }
 function issue(code,severity,page,detail,metric={}){return{code,severity,page:Number(page||0),detail:String(detail||''),metric};}
 function pageQuestionCount(page){return page.querySelectorAll('.question').length;}
+const INTERNAL_PROMPT_RE=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا)/;
+function internalPromptCount(page){
+  let count=0;
+  page.querySelectorAll('.passage,.stem').forEach(el=>{if(INTERNAL_PROMPT_RE.test(String(el.textContent||'')))count++;});
+  return count;
+}
+
 function auditQuestionPapers(){
   const pages=[...document.querySelectorAll('.paper-page')],issues=[],pageMetrics=[];
   if(!pages.length)return{source:'question_papers',status:'not_ready',summary:{pages:0,issues:1},issues:[issue('PRINT_NO_PAGES','warning',0,'لا توجد صفحات أسئلة جاهزة للفحص.')],pages:[]};
@@ -32,6 +39,7 @@ function auditQuestionPapers(){
     const overflowY=Math.max(0,flow.scrollHeight-flow.clientHeight),overflowX=Math.max(0,flow.scrollWidth-flow.clientWidth);
     const qCount=pageQuestionCount(page),subject=String(page.dataset.subject||''),ratio=flow.clientHeight?Math.min(2,flow.scrollHeight/flow.clientHeight):0;
     const brokenChoices=[...page.querySelectorAll('.question')].filter(q=>q.querySelectorAll('.choice').length!==4).length;
+    const promptLeaks=internalPromptCount(page);
     const brokenImages=[...page.querySelectorAll('img')].filter(img=>img.complete&&img.naturalWidth===0).length;
     let clipped=0;
     const fr=flow.getBoundingClientRect();
@@ -40,11 +48,12 @@ function auditQuestionPapers(){
       if(r.bottom>fr.bottom+2||r.left<fr.left-2||r.right>fr.right+2)clipped++;
     });
     const stems=[...page.querySelectorAll('.stem')],minStemPx=stems.length?Math.min(...stems.map(x=>parseFloat(getComputedStyle(x).fontSize)||99)):null;
-    pageMetrics.push({page:no,subject,questions:qCount,fill_ratio:round(ratio),overflow_y_px:round(overflowY),overflow_x_px:round(overflowX),clipped_elements:clipped,broken_choices:brokenChoices,broken_images:brokenImages,min_stem_px:minStemPx===null?null:round(minStemPx)});
+    pageMetrics.push({page:no,subject,questions:qCount,fill_ratio:round(ratio),overflow_y_px:round(overflowY),overflow_x_px:round(overflowX),clipped_elements:clipped,broken_choices:brokenChoices,broken_images:brokenImages,internal_prompt_leaks:promptLeaks,min_stem_px:minStemPx===null?null:round(minStemPx)});
     if(overflowY>2||overflowX>2)issues.push(issue('PRINT_OVERFLOW','critical',no,'المحتوى يتجاوز مساحة A4 الفعلية.',{overflow_y_px:round(overflowY),overflow_x_px:round(overflowX)}));
     if(clipped>0)issues.push(issue('PRINT_CLIPPED_ELEMENTS','critical',no,'عناصر مطبوعة تخرج خارج مساحة المحتوى.',{count:clipped}));
     if(brokenChoices>0)issues.push(issue('PRINT_BROKEN_CHOICES','critical',no,'يوجد سؤال لا يعرض أربعة اختيارات كاملة.',{count:brokenChoices}));
     if(brokenImages>0)issues.push(issue('PRINT_BROKEN_IMAGES','warning',no,'توجد صورة مرتبطة بالسؤال لم تُحمّل بنجاح.',{count:brokenImages}));
+    if(promptLeaks>0)issues.push(issue('PRINT_INTERNAL_PROMPT_LEAK','critical',no,'ظهرت عبارات تصميم أو مراجعة داخل ورقة الطالب.',{count:promptLeaks}));
     if(qCount===0&&!page.classList.contains('error-page'))issues.push(issue('PRINT_BLANK_PAGE','warning',no,'صفحة فارغة بلا أسئلة.'));
     if(subject!=='reading'&&ratio<0.58&&qCount>0)issues.push(issue('PRINT_UNDERFILLED_PAGE','warning',no,'الصفحة تترك مساحة كبيرة غير مستغلة في A4.',{fill_ratio:round(ratio),questions:qCount}));
     if(minStemPx!==null&&minStemPx<12)issues.push(issue('PRINT_TEXT_TOO_SMALL','warning',no,'حجم خط السؤال منخفض للطباعة الواضحة.',{min_stem_px:round(minStemPx)}));
@@ -99,6 +108,6 @@ function detect(){
   return{source:'unknown',status:'not_ready',summary:{pages:0,issues:1},issues:[issue('PRINT_SURFACE_UNKNOWN','warning',0,'تعذر تحديد نوع صفحة الطباعة.')],pages:[]};
 }
 async function run(){await settle();const result=detect();result.audited_at=new Date().toISOString();result.privacy={contains_student_names:false,contains_student_ids:false,contains_teacher_keys:false,raw_text_collected:false};return result;}
-window.NafesPrintAudit={run,settle,detect,version:'visual-print-audit-v2'};
+window.NafesPrintAudit={run,settle,detect,version:'visual-print-audit-v3'};
 dispatchEvent(new CustomEvent('nafes:print-audit-ready'));
 })();

@@ -10,6 +10,14 @@ function getDraft(){if(activeDraft)return activeDraft;try{return JSON.parse(loca
 function subjectLabel(s){return({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||s||'—';}
 function copiesFor(d,model){return(d.assignments||[]).filter(a=>a.model===model).length;}
 function norm(s){return String(s||'').normalize('NFKC').replace(/[\u064B-\u0652\u0670\u0640]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ة/g,'ه').replace(/[ىي]/g,'ي').replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim().toLowerCase();}
+
+const INTERNAL_STUDENT_CONTEXT=/^(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|مهمة تقويمية جديدة|مراجعة الحل)/;
+function studentFacingContext(subject,value){
+ const ctx=String(value||'').trim();
+ if(!ctx)return '';
+ if((subject==='math'||subject==='science')&&INTERNAL_STUDENT_CONTEXT.test(ctx))return '';
+ return ctx;
+}
 function similarity(a,b){
  const A=norm(a),B=norm(b);if(!A||!B)return 0;if(A===B)return 1;
  const min=Math.min(A.length,B.length),max=Math.max(A.length,B.length);
@@ -22,7 +30,7 @@ function groupsFromQuestions(questions,startNo=DEFAULT_QUESTION_START){
  const groups=[],byKey=new Map();let lastSubject='';
  questions.forEach((q,i)=>{
    const subject=String(q.subject||String(q.indicator||'').split(':')[0]||'').trim()||'reading';
-   const ctx=String(q.context||'').trim();
+   const ctx=studentFacingContext(subject,q.context);
    const key=subject+'|'+(ctx?norm(ctx):'__NO_CONTEXT__:'+i);
    let group=byKey.get(key);
    if(!group){
