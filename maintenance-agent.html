@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f6b63">
+<title>وكيل صيانة المنصة | معلّمي</title>
+<link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261002-1">
+<script src="teacher-preboot.js?v=20260919-scope2"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <a class="brand" href="teacher.html"><img src="moallimi-logo-ui.png?v=20260920-png1" alt="معلّمي"><span>وكيل صيانة المنصة</span></a>
+    <div class="top-actions"><a class="btn ghost" href="teacher.html">حساب المعلم</a><button class="btn danger" type="button" data-teacher-logout data-logout-target="teacher.html">تسجيل الخروج</button></div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <span class="eyebrow">الحساب الرئيسي فقط</span>
+      <h1>وكيل الصيانة الآمن</h1>
+      <p>يفحص المنصة ويقترح خطط إصلاح دون حذف بيانات الطلاب أو تعديل قاعدة البيانات أو الشفرة تلقائيًا.</p>
+    </div>
+    <div class="hero-actions">
+      <button id="runScan" class="btn primary" type="button">تشغيل فحص شامل</button>
+      <button id="refreshHistory" class="btn light" type="button">تحديث السجل</button>
+    </div>
+  </section>
+
+  <section class="safe-banner">
+    <div class="safe-icon">🛡️</div>
+    <div><b>الوضع الآمن مفعّل</b><span>الإصدار الأول تشخيصي فقط. مفاتيح Supabase وGitHub لا تظهر في الصفحة، ولا يرسل الوكيل أسماء الطلاب أو أرقامهم ضمن تقرير التشخيص.</span></div>
+  </section>
+
+  <div id="state" class="state">جارٍ التحقق من صلاحية الحساب…</div>
+
+  <main id="mainContent" hidden>
+    <section id="metrics" class="metrics"></section>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-head"><div><span class="kicker">الفحص الحالي</span><h2>المشكلات المكتشفة</h2></div><span id="runSeverity" class="status-pill ok">—</span></div>
+        <div id="findings" class="findings"><div class="empty">شغّل الفحص الشامل لبدء التشخيص.</div></div>
+        <div class="panel-actions"><button id="preparePlan" class="btn primary" type="button" disabled>إنشاء خطة إصلاح آمنة</button></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><div><span class="kicker">الخصوصية</span><h2>ما الذي يراه الوكيل؟</h2></div></div>
+        <div class="privacy-list">
+          <div><b>✓ مسموح</b><span>حالة RLS، أعداد الأسئلة، حالات الجودة، التكرارات، عدد المراجعات الورقية.</span></div>
+          <div><b>✕ غير مسموح</b><span>أسماء الطلاب، أرقامهم، مفاتيح المعلمين، كلمات المرور، ملفات تعريف شخصية.</span></div>
+          <div><b>✕ لا ينفذ تلقائيًا</b><span>حذف نتائج، حذف أسئلة تاريخية، تعديل main، أو تغيير سياسات قاعدة البيانات.</span></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head"><div><span class="kicker">خطط تحتاج قرارك</span><h2>اقتراحات الإصلاح</h2></div><span class="subtle">الاعتماد هنا لا يعني التنفيذ؛ يحفظ قرارك فقط.</span></div>
+      <div id="proposals" class="proposal-list"><div class="empty">لا توجد خطط بعد.</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><span class="kicker">سجل التدقيق</span><h2>آخر عمليات الفحص</h2></div></div>
+      <div id="history" class="history"><div class="empty">لا يوجد سجل حتى الآن.</div></div>
+    </section>
+  </main>
+
+  <section id="denied" class="denied" hidden>
+    <h2>هذا القسم للحساب الرئيسي فقط</h2>
+    <p>حسابات معلمي القراءة أو الرياضيات أو العلوم لا تملك صلاحية تشغيل وكيل صيانة المنصة.</p>
+    <a class="btn primary" href="teacher.html">العودة إلى حساب المعلم</a>
+  </section>
+</div>
+
+<script src="teacher-access.js?v=20260930-mainfix2"></script>
+<script src="maintenance-agent.js?v=20261002-1"></script>
+</body>
+</html>
