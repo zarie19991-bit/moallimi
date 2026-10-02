@@ -90,9 +90,63 @@ function proposalFor(f:Finding,runId:string,ownerId:string){
   if(f.code==="QUESTION_EXACT_DUPLICATES")return {...base,area:"question_quality",title:"منع التكرار الحرفي في الاختبارات الجديدة",risk_level:"medium",proposal:{mode:"selection_filter",delete_rows:false,preserve_history:true,requires_manual_review:true,auto_apply:false,source_finding:f.code}};
   if(f.code==="RLS_DISABLED_PUBLIC")return {...base,area:"database_security",title:"خطة تقوية RLS بعد فحص الاستخدام",risk_level:"high",proposal:{mode:"policy_design_first",apply_rls_immediately:false,requires_usage_audit:true,requires_manual_approval:true,auto_apply:false,source_finding:f.code}};
   if(f.code==="PAPER_RESULTS_EMPTY")return null;
+  if(f.code.startsWith("PRINT_")){
+    const files=Array.isArray((f as any).source_files)?(f as any).source_files:[];
+    const risk=f.severity==="critical"?"medium":"low";
+    return {...base,area:"printing",title:"إصلاح مشكلة الطباعة: "+f.title,risk_level:risk,proposal:{mode:"print_layout_repair",source_files:files,issue_code:f.code,preserve_content:true,no_data_changes:true,requires_visual_retest:true,auto_apply:false}};
+  }
   return {...base,area:"question_quality",title:"خطة مراجعة جودة مرحلية",risk_level:"low",proposal:{mode:"review_batch",auto_apply:false,source_finding:f.code}};
 }
 
+
+
+const PRINT_SOURCES:Record<string,{label:string,files:string[]}>={
+  question_papers:{label:"أوراق الأسئلة",files:["review-question-papers.html","review-question-papers.css","review-question-papers.js"]},
+  bubble_sheets:{label:"أوراق التظليل",files:["review-bubble-sheets.html","review-bubble-sheets.css","review-bubble-sheets.js","review-omr-template.js"]},
+  paper_report:{label:"التقرير الورقي",files:["review-report.html","review-report.js","review-results.css"]},
+  analysis_report:{label:"تقارير التحليل",files:["analysis.html","analysis-section-router.js","analysis-print.js","report-a4-flow-final.css","report-print-exact.css"]}
+};
+const PRINT_CODES:Record<string,{title:string,severity:"info"|"warning"|"critical";detail:string;safe_action:string}>={
+  PRINT_NO_PAGES:{title:"لا توجد صفحات جاهزة للفحص",severity:"warning",detail:"لم يجد الفاحص صفحات طباعة مكتملة في الواجهة المستهدفة.",safe_action:"التأكد من وجود مراجعة محفوظة أو بيانات تقرير ثم إعادة الفحص."},
+  PRINT_NO_REPORT:{title:"لا يوجد تقرير جاهز للفحص",severity:"warning",detail:"صفحة التقرير لم تنتج ورقة تقرير مرئية بعد.",safe_action:"اختيار الاختبار أو الفصل المطلوب ثم إعادة الفحص."},
+  PRINT_SURFACE_UNKNOWN:{title:"تعذر تحديد قالب الطباعة",severity:"warning",detail:"لم يتعرف الفاحص على نوع صفحة الطباعة الحالية.",safe_action:"مراجعة ربط أداة الفحص بصفحة الطباعة المستهدفة."},
+  PRINT_STRUCTURE_MISSING:{title:"بنية قالب الطباعة ناقصة",severity:"critical",detail:"حاوية أساسية يحتاجها قياس A4 غير موجودة.",safe_action:"مراجعة HTML وJavaScript للقالب قبل الطباعة."},
+  PRINT_OVERFLOW:{title:"محتوى يتجاوز حدود A4",severity:"critical",detail:"قياس المتصفح وجد محتوى أطول أو أعرض من المساحة المسموحة داخل الصفحة.",safe_action:"إعادة توزيع المحتوى أو ضبط أحجام الخط والمسافات ثم إعادة القياس الفعلي."},
+  PRINT_CLIPPED_ELEMENTS:{title:"عناصر تقع خارج مساحة الطباعة",severity:"critical",detail:"يوجد عنصر واحد أو أكثر يتجاوز حدود الحاوية المطبوعة.",safe_action:"إصلاح CSS أو منطق التقسيم ثم إعادة الفحص المرئي."},
+  PRINT_BROKEN_CHOICES:{title:"اختيارات سؤال غير مكتملة",severity:"critical",detail:"يوجد سؤال مطبوع لا يعرض أربعة اختيارات كاملة.",safe_action:"إيقاف طباعة السؤال المتأثر حتى تكتمل الاختيارات من المصدر."},
+  PRINT_BROKEN_IMAGES:{title:"صورة لم تُحمّل في ورقة الأسئلة",severity:"warning",detail:"الفاحص وجد صورة مرتبطة بالسؤال فشل تحميلها.",safe_action:"التحقق من رابط الصورة ثم إعادة الطباعة."},
+  PRINT_BLANK_PAGE:{title:"صفحة طباعة فارغة",severity:"warning",detail:"تم إنشاء صفحة A4 بلا أسئلة أو محتوى فعلي.",safe_action:"حذف الصفحة الفارغة من التدفق وإعادة ترقيم الصفحات."},
+  PRINT_UNDERFILLED_PAGE:{title:"صفحة غير مستغلة جيدًا",severity:"warning",detail:"المحتوى يشغل جزءًا صغيرًا من مساحة A4 رغم وجود صفحات أخرى.",safe_action:"إعادة موازنة المجموعات والأسئلة بين الصفحات مع منع القص."},
+  PRINT_ORPHAN_LAST_PAGE:{title:"صفحة أخيرة ضعيفة",severity:"warning",detail:"الصفحة الأخيرة تحتوي عددًا قليلًا جدًا من الأسئلة مقارنة بالصفحة السابقة.",safe_action:"نقل مجموعة مناسبة من الصفحة السابقة إذا أثبت القياس أنها تتسع."},
+  PRINT_TEXT_TOO_SMALL:{title:"خط صغير للطباعة",severity:"warning",detail:"يوجد نص أساسي بحجم منخفض قد يؤثر في وضوح النسخة الورقية.",safe_action:"رفع حجم الخط مع إعادة اختبار عدد الصفحات وعدم حدوث overflow."},
+  PRINT_QR_MISSING:{title:"QR مفقود في ورقة التظليل",severity:"critical",detail:"رمز QR لم يُرسم داخل ورقة التظليل.",safe_action:"منع الطباعة حتى ينجح توليد QR لأن الربط الآلي يعتمد عليه."},
+  PRINT_OMR_GRID_MISSING:{title:"شبكة OMR مفقودة",severity:"critical",detail:"منطقة تظليل الإجابات غير موجودة في الورقة.",safe_action:"منع الطباعة حتى يظهر قالب OMR الصحيح."},
+  PRINT_UNBREAKABLE_LARGE_SECTION:{title:"قسم كبير قد ينقسم بشكل سيئ",severity:"warning",detail:"يوجد قسم كبير مع قواعد تمنع الانقسام وقد ينتقل أو يترك فراغًا كبيرًا.",safe_action:"تخفيف break-inside على الحاوية الكبيرة مع إبقائه على الصفوف والعناصر الصغيرة."}
+};
+function sanitizedPrintAudit(raw:any){
+  const source=tidy(raw?.source,40);
+  if(!PRINT_SOURCES[source])throw Object.assign(new Error("نوع فحص الطباعة غير مدعوم."),{status:400});
+  const incoming=Array.isArray(raw?.issues)?raw.issues.slice(0,100):[];
+  const findings:Finding[]=[];
+  for(const x of incoming){
+    const code=tidy(x?.code,80),def=PRINT_CODES[code];
+    if(!def)continue;
+    const page=Math.max(0,Math.min(500,Math.trunc(num(x?.page))));
+    const metric=(x&&typeof x.metric==="object"&&x.metric)?x.metric:{};
+    const f:any={code,area:"printing",severity:def.severity,title:def.title+(page?" — صفحة "+page:""),detail:def.detail,safe_action:def.safe_action,auto_apply:false,source,source_files:PRINT_SOURCES[source].files,page,metric};
+    findings.push(f);
+  }
+  const summaryRaw=raw?.summary&&typeof raw.summary==="object"?raw.summary:{};
+  const metrics={
+    source,
+    source_label:PRINT_SOURCES[source].label,
+    page_count:Math.max(0,Math.min(5000,Math.trunc(num(summaryRaw.pages)))),
+    issue_count:findings.length,
+    audit_version:tidy(raw?.version||"visual-print-audit-v1",60),
+    privacy:{contains_student_names:false,contains_student_ids:false,contains_teacher_keys:false,raw_text_collected:false}
+  };
+  return{source,findings,metrics};
+}
 
 type KnowledgeRow={
   id:string;category:string;module:string;title:string;summary:string;details:any;
@@ -202,6 +256,20 @@ Deno.serve(async(req:Request)=>{
       if(question.length<2)return json({error:"اكتب سؤالك عن المنصة."},400);
       const [rows,snapshot]=await Promise.all([brainKnowledge(),safeSnapshot()]);
       return json({ok:true,version:"platform-brain-v1",...platformAnswer(question,rows,snapshot),privacy:{stored:false,external_ai:false,student_data_used:false}});
+    }
+
+    if(action==="print_audit_ingest"){
+      const audit=sanitizedPrintAudit(b.audit||{});
+      const severity=audit.findings.length?overall(audit.findings):"ok";
+      const summary=audit.findings.length
+        ?"فحص "+PRINT_SOURCES[audit.source].label+": "+audit.findings.length+" ملاحظة طباعة ("+audit.findings.filter(x=>x.severity==="critical").length+" حرجة)."
+        :"فحص "+PRINT_SOURCES[audit.source].label+": لم يكتشف الفاحص مشكلات تخطيط.";
+      const {data:run,error}=await db.from("maintenance_agent_runs").insert({
+        owner_id:owner.id,run_type:"printing",status:"completed",severity,summary,
+        findings:audit.findings,metrics:audit.metrics,contains_personal_data:false
+      }).select("id,run_type,status,severity,summary,findings,metrics,created_at").single();
+      if(error)throw error;
+      return json({ok:true,run,mode:"visual_print_audit"});
     }
 
     if(action==="diagnose"){
