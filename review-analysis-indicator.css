@@ -1,0 +1,14 @@
+.section-control-card{margin-top:18px}
+.analysis-scope-summary{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.analysis-scope-summary span{background:#f6faf8;border:1px solid var(--line);border-radius:999px;padding:7px 11px;font-size:11px;color:#526871}
+.analysis-scope-summary b{color:var(--brand)}
+#content{margin-top:16px}
+#studentsPanel .data-table{min-width:660px}
+#indicatorsPanel .rank-list,#cognitiveBars.rank-list{max-height:520px;overflow:auto;padding-left:3px}
+.rank-row b{font-size:12px;color:var(--brand);text-align:left}
+.absent-chips{display:flex;flex-wrap:wrap;gap:8px}
+.absent-chips span{display:inline-flex;padding:7px 10px;border-radius:999px;background:#f8fbfa;border:1px solid var(--line);font-size:11px;font-weight:800;color:#526871}
+.recommendations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.recommendation{border:1px solid var(--line);background:#f8fbfa;border-radius:12px;padding:12px 14px;line-height:1.8;font-size:12px}
+#subjectPerformanceCard .subject-card .sub{line-height:1.6}
+@media(max-width:900px){.recommendations{grid-template-columns:1fr}.analysis-scope-summary{display:grid;grid-template-columns:1fr 1fr}}
