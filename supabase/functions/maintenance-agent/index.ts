@@ -552,11 +552,20 @@ Deno.serve(async(req:Request)=>{
       const critical=audit.findings.filter((x:any)=>x.severity==="critical").length;
       const warning=audit.findings.filter((x:any)=>x.severity==="warning").length;
       const summary="فحص جميع اختبارات المؤشرات: "+audit.metrics.total_indicators+" مؤشرًا و"+audit.metrics.total_questions+" سؤالًا؛ "+critical+" أنواع أخطاء حرجة و"+warning+" أنواع تحذيرات.";
+      const {indicator_results,...compactMetrics}=audit.metrics as any;
       const {data:run,error}=await db.from("maintenance_agent_runs").insert({
         owner_id:owner.id,run_type:"questions",status:"completed",severity,summary,
-        findings:audit.findings,metrics:audit.metrics,contains_personal_data:false
+        findings:audit.findings,metrics:compactMetrics,contains_personal_data:false
       }).select("id,run_type,status,severity,summary,findings,metrics,created_at").single();
       if(error)throw error;
+      const details=(indicator_results||[]).map((x:any)=>({
+        run_id:run.id,owner_id:owner.id,subject:x.subject,indicator_key:x.key,indicator_text:x.indicator_text||"",
+        question_count:x.total,levels:x.levels||{},issues:x.issues||{},samples:x.samples||[],contains_personal_data:false
+      }));
+      for(let i=0;i<details.length;i+=100){
+        const {error:detailError}=await db.from("maintenance_agent_indicator_reports").insert(details.slice(i,i+100));
+        if(detailError)throw detailError;
+      }
       const handoff=await createHandoff(owner,run.id);
       return json({ok:true,run,handoff,mode:"deep_indicator_audit"});
     }
