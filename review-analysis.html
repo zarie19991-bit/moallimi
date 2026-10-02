@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#065f46">
 <title>تحليل الاختبار الآلي | معلّمي</title>
 <link rel="stylesheet" href="analysis.css?v=20260911-unified4">
-<link rel="stylesheet" href="review-analysis-indicator.css?v=20261002-indicator1">
+<link rel="stylesheet" href="review-analysis-indicator.css?v=20261002-indicator2">
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
@@ -24,19 +24,19 @@
   </nav>
 </header>
 
-<main class="shell no-print">
-  <section class="hero">
+<main class="shell">
+  <section class="hero no-print">
     <div>
       <span class="eyebrow">الصف الثالث المتوسط</span>
       <h1>تحليل الاختبار الآلي</h1>
       <p>بنفس أسلوب تحليل المؤشرات: قراءة أداء الطلاب والمؤشرات والأسئلة والمستويات المعرفية بصورة تشخيصية واضحة.</p>
     </div>
     <div class="hero-actions">
-      <a id="reportLink" class="btn ghost" href="review-report.html">فتح التقرير الرسمي</a>
+      <button id="printAnalysisBtn" class="btn ghost" type="button">طباعة التحليل</button>\n      <a id="reportLink" class="btn ghost" href="review-report.html">فتح التقرير الرسمي</a>
     </div>
   </section>
 
-  <section class="card section-control-card">
+  <section class="card section-control-card no-print">
     <div class="section-head">
       <div>
         <h2>نطاق التحليل</h2>
@@ -51,7 +51,7 @@
     <div id="assignmentSummary" class="analysis-scope-summary"></div>
   </section>
 
-  <div id="state" class="state">جارٍ تحميل النتائج…</div>
+  <div id="state" class="state no-print">جارٍ تحميل النتائج…</div>
 
   <section id="content" class="view-panel" hidden>
     <div id="metrics"></div>
@@ -144,6 +144,6 @@
 
 <script src="teacher-access.js?v=20260930-mainfix1"></script>
 <script src="review-results-core.js?v=20261002-multisubject1"></script>
-<script src="review-analysis.js?v=20261002-indicator1"></script>
+<script src="review-analysis.js?v=20261002-indicator2"></script>
 </body>
 </html>
