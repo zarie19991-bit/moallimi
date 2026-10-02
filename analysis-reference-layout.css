@@ -1,0 +1,444 @@
+/* Reference layout based on the teacher-provided one-page subject analysis sample. */
+.reference-analysis{
+  --ra-teal:#0f6f70;
+  --ra-green:#0ca27a;
+  --ra-line:#7ed0b7;
+  --ra-blue:#52a9d8;
+  --ra-ink:#202d33;
+  --ra-soft:#f7faf9;
+  direction:rtl!important;
+  background:#fff!important;
+  color:var(--ra-ink)!important;
+  max-width:780px!important;
+  min-height:1080px!important;
+  margin:0 auto 22px!important;
+  padding:22px 24px 18px!important;
+  border:1px solid #c7deda!important;
+  border-radius:24px!important;
+  box-shadow:0 8px 28px rgba(24,68,65,.10)!important;
+  position:relative!important;
+  overflow:hidden!important;
+}
+.reference-analysis:after{
+  content:"";
+  position:absolute;
+  right:0;left:0;bottom:0;
+  height:5px;
+  background:linear-gradient(90deg,#2b9ed3 0 35%,#0ca27a 70% 100%);
+}
+.reference-analysis .sar-head{
+  direction:ltr!important;
+  display:grid!important;
+  grid-template-columns:118px 150px 1fr!important;
+  grid-template-areas:"form logo admin"!important;
+  align-items:center!important;
+  gap:20px!important;
+  min-height:92px!important;
+  margin:0 0 24px!important;
+  padding:10px 16px!important;
+  background:linear-gradient(90deg,#164f5c 0%,#0e5960 53%,#0b6f69 100%)!important;
+  border-top:5px solid #2d9fd2!important;
+  border-radius:0!important;
+}
+.reference-analysis .sar-admin{
+  grid-area:admin!important;
+  direction:rtl!important;
+  text-align:right!important;
+  color:#fff!important;
+  font-weight:800!important;
+  line-height:1.55!important;
+  padding:0!important;
+}
+.reference-analysis .sar-admin b,
+.reference-analysis .sar-admin span{
+  color:#fff!important;
+  font-size:13px!important;
+  line-height:1.55!important;
+}
+.reference-analysis .sar-admin b{font-size:14px!important}
+.reference-analysis .sar-ministry{
+  grid-area:logo!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:72px!important;
+  background:#fff!important;
+  border-radius:12px!important;
+  padding:6px!important;
+}
+.reference-analysis .sar-ministry img{max-width:128px!important;max-height:64px!important;object-fit:contain!important}
+.reference-analysis .sar-logo-fallback{
+  border:0!important;
+  padding:12px 4px!important;
+  color:#0ca27a!important;
+  font-size:14px!important;
+  background:#fff!important;
+}
+.reference-analysis .sar-form-no{
+  grid-area:form!important;
+  justify-self:start!important;
+  min-width:105px!important;
+  padding:9px 12px!important;
+  border:1px solid #d5dedf!important;
+  border-radius:7px!important;
+  background:#fff!important;
+  color:#244148!important;
+  font-size:13px!important;
+  font-weight:900!important;
+  text-align:center!important;
+}
+.reference-analysis>h1{
+  width:78%!important;
+  max-width:none!important;
+  margin:0 auto 22px!important;
+  padding:9px 18px!important;
+  border:2px solid #71b8dd!important;
+  border-radius:0 0 12px 12px!important;
+  background:#fff!important;
+  color:#202d33!important;
+  font-size:20px!important;
+  line-height:1.35!important;
+  font-weight:900!important;
+  text-align:center!important;
+}
+.reference-analysis .sar-teacher-band{
+  display:flex!important;
+  justify-content:flex-start!important;
+  align-items:center!important;
+  gap:7px!important;
+  margin:0 0 16px!important;
+  padding:11px 18px!important;
+  border:1px solid #8db7bf!important;
+  border-radius:9px!important;
+  background:#fbfdfd!important;
+  color:#22373d!important;
+  font-size:14px!important;
+}
+.reference-analysis .sar-teacher-band span,
+.reference-analysis .sar-teacher-band b{font-size:14px!important;color:#22373d!important}
+.reference-analysis .sar-teacher-band b{font-weight:900!important}
+
+.reference-analysis .sar-meta{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:14px!important;
+  margin:0 0 20px!important;
+}
+.reference-analysis .sar-meta>div{
+  position:relative!important;
+  min-height:70px!important;
+  padding:16px 10px 10px!important;
+  border:1.5px solid var(--ra-line)!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  text-align:center!important;
+}
+.reference-analysis .sar-meta span{
+  position:absolute!important;
+  top:-10px!important;
+  right:12px!important;
+  background:#fff!important;
+  padding:0 6px!important;
+  color:var(--ra-green)!important;
+  font-size:11px!important;
+  line-height:1.4!important;
+  font-weight:900!important;
+}
+.reference-analysis .sar-meta b{
+  display:flex!important;
+  min-height:38px!important;
+  align-items:center!important;
+  justify-content:center!important;
+  color:#202d33!important;
+  font-size:16px!important;
+  line-height:1.5!important;
+  font-weight:900!important;
+}
+
+.reference-analysis .sar-analysis-grid{
+  display:grid!important;
+  grid-template-columns:1.05fr 1fr!important;
+  gap:17px!important;
+  margin:0 0 22px!important;
+  align-items:start!important;
+}
+.reference-analysis .sar-stats,
+.reference-analysis .sar-achievement{
+  border:0!important;
+  padding:0!important;
+  background:#fff!important;
+}
+.reference-analysis .sar-stats>h2,
+.reference-analysis .sar-achievement>h2{
+  display:block!important;
+  margin:0 0 8px!important;
+  color:var(--ra-green)!important;
+  font-size:15px!important;
+  line-height:1.4!important;
+  font-weight:900!important;
+  text-align:center!important;
+}
+.reference-analysis .sar-stat-list{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:6px!important;
+}
+.reference-analysis .sar-stat-list>div{
+  display:grid!important;
+  grid-template-columns:.85fr 1.15fr!important;
+  gap:7px!important;
+  border:0!important;
+  padding:0!important;
+  background:transparent!important;
+}
+.reference-analysis .sar-stat-list b,
+.reference-analysis .sar-stat-list span{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:34px!important;
+  border:1px solid #c9d2d4!important;
+  border-radius:6px!important;
+  padding:5px 7px!important;
+  background:#fff!important;
+  color:#26373d!important;
+  font-size:12px!important;
+  line-height:1.35!important;
+  font-weight:900!important;
+  text-align:center!important;
+}
+.reference-analysis .sar-stat-list span{
+  grid-column:2!important;
+  color:var(--ra-green)!important;
+  border-color:#79cbb1!important;
+}
+.reference-analysis .sar-stat-list b{grid-column:1!important}
+.reference-analysis .sar-achievement table{
+  width:100%!important;
+  border-collapse:separate!important;
+  border-spacing:5px 5px!important;
+  table-layout:auto!important;
+  font-size:12px!important;
+}
+.reference-analysis .sar-achievement th,
+.reference-analysis .sar-achievement td{
+  border:1px solid #cbd3d5!important;
+  border-radius:6px!important;
+  padding:6px 7px!important;
+  background:#fff!important;
+  color:#26373d!important;
+  text-align:center!important;
+  font-size:12px!important;
+  line-height:1.35!important;
+}
+.reference-analysis .sar-achievement th{
+  border:0!important;
+  padding:2px 4px!important;
+  background:transparent!important;
+  color:#4c5b60!important;
+  font-weight:800!important;
+}
+.reference-analysis .sar-level-tag{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  border-radius:5px!important;
+  padding:6px 5px!important;
+  color:#fff!important;
+  font-size:12px!important;
+  line-height:1.2!important;
+  font-weight:900!important;
+}
+.reference-analysis .sar-level-tag.excellent{background:#4caf50!important}
+.reference-analysis .sar-level-tag.verygood{background:#0aa08a!important}
+.reference-analysis .sar-level-tag.good{background:#2d9fe6!important}
+.reference-analysis .sar-level-tag.pass{background:#ff9800!important}
+.reference-analysis .sar-level-tag.fail{background:#f44336!important}
+
+.reference-analysis .sar-chart-card{
+  position:relative!important;
+  margin:0 0 20px!important;
+  padding:25px 18px 15px!important;
+  border:1.5px solid var(--ra-line)!important;
+  border-radius:9px!important;
+  background:#fff!important;
+  box-shadow:none!important;
+}
+.reference-analysis .sar-chart-card>h2{
+  position:absolute!important;
+  top:-11px!important;
+  right:50%!important;
+  transform:translateX(50%)!important;
+  margin:0!important;
+  padding:0 9px!important;
+  background:#fff!important;
+  color:var(--ra-green)!important;
+  font-size:14px!important;
+  line-height:1.4!important;
+  font-weight:900!important;
+  white-space:nowrap!important;
+}
+.reference-analysis .sar-rings{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:17px!important;
+  align-items:center!important;
+}
+.reference-analysis .sar-ring{
+  width:88px!important;
+  height:88px!important;
+  border-radius:50%!important;
+  margin:auto!important;
+  background:conic-gradient(var(--ring) calc(var(--p)*1%),#eceeed 0)!important;
+  position:relative!important;
+  display:grid!important;
+  place-items:center!important;
+}
+.reference-analysis .sar-ring:after{
+  content:""!important;
+  position:absolute!important;
+  inset:10px!important;
+  border-radius:50%!important;
+  background:#fff!important;
+}
+.reference-analysis .sar-ring>div{position:relative!important;z-index:1!important;text-align:center!important}
+.reference-analysis .sar-ring b,
+.reference-analysis .sar-ring strong{display:block!important;color:#242e32!important;font-size:11px!important;line-height:1.35!important}
+.reference-analysis .sar-ring.excellent{--ring:#4caf50}.reference-analysis .sar-ring.verygood{--ring:#0aa08a}.reference-analysis .sar-ring.good{--ring:#2d9fe6}.reference-analysis .sar-ring.pass{--ring:#ff9800}.reference-analysis .sar-ring.fail{--ring:#f44336}
+
+.reference-analysis .sar-bars{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:26px!important;
+  height:154px!important;
+  align-items:end!important;
+  padding:7px 24px 0!important;
+}
+.reference-analysis .sar-bar-track{
+  height:112px!important;
+  display:flex!important;
+  align-items:flex-end!important;
+  background:#e5e7e7!important;
+  border-radius:6px 6px 2px 2px!important;
+  overflow:visible!important;
+}
+.reference-analysis .sar-bar-track i{
+  width:100%!important;
+  height:var(--h)!important;
+  min-height:4px!important;
+  border-radius:6px 6px 2px 2px!important;
+  position:relative!important;
+}
+.reference-analysis .sar-bar-track i b{
+  position:absolute!important;
+  top:-21px!important;
+  right:0!important;
+  left:0!important;
+  color:#222d31!important;
+  font-size:11px!important;
+  font-style:normal!important;
+}
+.reference-analysis .sar-bar-track i.excellent{background:#4caf50!important}
+.reference-analysis .sar-bar-track i.verygood{background:#0aa08a!important}
+.reference-analysis .sar-bar-track i.good{background:#2d9fe6!important}
+.reference-analysis .sar-bar-track i.pass{background:#ff9800!important}
+.reference-analysis .sar-bar-track i.fail{background:#f44336!important}
+.reference-analysis .sar-bar-item span{display:block!important;margin-top:7px!important;color:#27363c!important;font-size:11px!important;font-weight:800!important}
+
+.reference-analysis .sar-signatures{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:78px!important;
+  margin:34px 70px 4px!important;
+  padding:0!important;
+}
+.reference-analysis .sar-signatures>div{
+  min-height:48px!important;
+  padding:9px 12px!important;
+  border:1px solid #dce4e5!important;
+  border-radius:9px!important;
+  background:#f9fbfb!important;
+  text-align:center!important;
+}
+.reference-analysis .sar-signatures b,
+.reference-analysis .sar-signatures span{
+  display:block!important;
+  border:0!important;
+  min-width:0!important;
+  color:#26373d!important;
+  font-size:12px!important;
+  line-height:1.45!important;
+  font-weight:900!important;
+}
+.reference-analysis .sar-signatures span{margin-top:3px!important}
+
+@media(max-width:900px){
+  .reference-analysis{max-width:100%!important;min-height:0!important;border-radius:16px!important;padding:14px!important}
+  .reference-analysis .sar-head{grid-template-columns:95px 120px 1fr!important;gap:10px!important}
+  .reference-analysis .sar-rings{gap:8px!important;overflow:auto!important}
+  .reference-analysis .sar-ring{width:72px!important;height:72px!important}
+  .reference-analysis .sar-bars{gap:10px!important;padding-inline:6px!important}
+  .reference-analysis .sar-signatures{margin-inline:10px!important;gap:12px!important}
+}
+
+@media print{
+  @page{size:A4 portrait;margin:7mm}
+  html body #printRoot .reference-analysis{
+    width:196mm!important;
+    max-width:196mm!important;
+    min-height:281mm!important;
+    height:auto!important;
+    margin:0 auto!important;
+    padding:6mm 6mm 4mm!important;
+    border:.35mm solid #c7deda!important;
+    border-radius:5mm!important;
+    box-shadow:none!important;
+    overflow:hidden!important;
+    break-after:auto!important;
+    page-break-after:auto!important;
+    print-color-adjust:exact!important;
+    -webkit-print-color-adjust:exact!important;
+  }
+  html body #printRoot .reference-analysis .sar-head{
+    grid-template-columns:27mm 34mm 1fr!important;
+    gap:4mm!important;
+    min-height:23mm!important;
+    margin-bottom:5mm!important;
+    padding:2.4mm 4mm!important;
+    border-top-width:1.3mm!important;
+  }
+  html body #printRoot .reference-analysis .sar-admin b,
+  html body #printRoot .reference-analysis .sar-admin span{font-size:9.5pt!important;line-height:1.42!important}
+  html body #printRoot .reference-analysis>h1{width:76%!important;margin-bottom:5mm!important;padding:2mm 3mm!important;font-size:15pt!important}
+  html body #printRoot .reference-analysis .sar-teacher-band{margin-bottom:4mm!important;padding:2.4mm 4mm!important}
+  html body #printRoot .reference-analysis .sar-teacher-band span,
+  html body #printRoot .reference-analysis .sar-teacher-band b{font-size:10.5pt!important}
+  html body #printRoot .reference-analysis .sar-meta{gap:3mm!important;margin-bottom:5mm!important}
+  html body #printRoot .reference-analysis .sar-meta>div{min-height:17mm!important;padding:4mm 2mm 2mm!important}
+  html body #printRoot .reference-analysis .sar-meta span{font-size:9pt!important;top:-2.2mm!important}
+  html body #printRoot .reference-analysis .sar-meta b{font-size:12.5pt!important}
+  html body #printRoot .reference-analysis .sar-analysis-grid{gap:4mm!important;margin-bottom:5mm!important}
+  html body #printRoot .reference-analysis .sar-stats>h2,
+  html body #printRoot .reference-analysis .sar-achievement>h2{font-size:11pt!important;margin-bottom:1.5mm!important}
+  html body #printRoot .reference-analysis .sar-stat-list{gap:1.3mm!important}
+  html body #printRoot .reference-analysis .sar-stat-list b,
+  html body #printRoot .reference-analysis .sar-stat-list span{min-height:7.2mm!important;padding:1mm!important;font-size:9.5pt!important}
+  html body #printRoot .reference-analysis .sar-achievement table{border-spacing:1mm 1mm!important}
+  html body #printRoot .reference-analysis .sar-achievement th,
+  html body #printRoot .reference-analysis .sar-achievement td{padding:1.2mm!important;font-size:9pt!important}
+  html body #printRoot .reference-analysis .sar-level-tag{font-size:9.2pt!important;padding:1.1mm!important;color:#fff!important}
+  html body #printRoot .reference-analysis .sar-chart-card{padding:5mm 4mm 3mm!important;margin-bottom:4mm!important}
+  html body #printRoot .reference-analysis .sar-chart-card>h2{font-size:10.5pt!important;top:-2.7mm!important}
+  html body #printRoot .reference-analysis .sar-ring{width:20mm!important;height:20mm!important}
+  html body #printRoot .reference-analysis .sar-ring:after{inset:2.2mm!important}
+  html body #printRoot .reference-analysis .sar-ring b,
+  html body #printRoot .reference-analysis .sar-ring strong{font-size:8.5pt!important}
+  html body #printRoot .reference-analysis .sar-bars{height:34mm!important;gap:6mm!important;padding:1.5mm 5mm 0!important}
+  html body #printRoot .reference-analysis .sar-bar-track{height:24mm!important}
+  html body #printRoot .reference-analysis .sar-bar-track i b,
+  html body #printRoot .reference-analysis .sar-bar-item span{font-size:8.5pt!important}
+  html body #printRoot .reference-analysis .sar-signatures{margin:4mm 18mm 0!important;gap:18mm!important}
+  html body #printRoot .reference-analysis .sar-signatures>div{min-height:12mm!important;padding:2mm 3mm!important;border-top:.3mm solid #dce4e5!important}
+  html body #printRoot .reference-analysis .sar-signatures b,
+  html body #printRoot .reference-analysis .sar-signatures span{font-size:9pt!important}
+}
