@@ -46,7 +46,7 @@ function auditQuestionPapers(){
     if(brokenChoices>0)issues.push(issue('PRINT_BROKEN_CHOICES','critical',no,'يوجد سؤال لا يعرض أربعة اختيارات كاملة.',{count:brokenChoices}));
     if(brokenImages>0)issues.push(issue('PRINT_BROKEN_IMAGES','warning',no,'توجد صورة مرتبطة بالسؤال لم تُحمّل بنجاح.',{count:brokenImages}));
     if(qCount===0&&!page.classList.contains('error-page'))issues.push(issue('PRINT_BLANK_PAGE','warning',no,'صفحة فارغة بلا أسئلة.'));
-    if(subject!=='reading'&&ratio<0.42&&qCount>0)issues.push(issue('PRINT_UNDERFILLED_PAGE','warning',no,'الصفحة تستخدم جزءًا صغيرًا من مساحة A4.',{fill_ratio:round(ratio),questions:qCount}));
+    if(subject!=='reading'&&ratio<0.58&&qCount>0)issues.push(issue('PRINT_UNDERFILLED_PAGE','warning',no,'الصفحة تترك مساحة كبيرة غير مستغلة في A4.',{fill_ratio:round(ratio),questions:qCount}));
     if(minStemPx!==null&&minStemPx<12)issues.push(issue('PRINT_TEXT_TOO_SMALL','warning',no,'حجم خط السؤال منخفض للطباعة الواضحة.',{min_stem_px:round(minStemPx)}));
   });
   const booklets=[...document.querySelectorAll('.model-booklet')];
@@ -99,6 +99,6 @@ function detect(){
   return{source:'unknown',status:'not_ready',summary:{pages:0,issues:1},issues:[issue('PRINT_SURFACE_UNKNOWN','warning',0,'تعذر تحديد نوع صفحة الطباعة.')],pages:[]};
 }
 async function run(){await settle();const result=detect();result.audited_at=new Date().toISOString();result.privacy={contains_student_names:false,contains_student_ids:false,contains_teacher_keys:false,raw_text_collected:false};return result;}
-window.NafesPrintAudit={run,settle,detect,version:'visual-print-audit-v1'};
+window.NafesPrintAudit={run,settle,detect,version:'visual-print-audit-v2'};
 dispatchEvent(new CustomEvent('nafes:print-audit-ready'));
 })();

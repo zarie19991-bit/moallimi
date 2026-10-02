@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f6b63">
 <title>وكيل صيانة المنصة | معلّمي</title>
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
-<link rel="stylesheet" href="maintenance-agent.css?v=20261002-printagent1">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261002-handoff1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -67,7 +67,11 @@
         <button type="button" class="btn light" data-print-audit="paper_report">فحص التقرير الورقي</button>
       </div>
       <div id="printAuditResult" class="print-audit-result"><div class="empty">اختر نوع الورقة ليبدأ الفحص المرئي الفعلي.</div></div>
-      <div class="panel-actions"><button id="printPreparePlan" class="btn primary" type="button" disabled>إنشاء خطة إصلاح للطباعة</button></div>
+      <div class="panel-actions">
+        <button id="printPreparePlan" class="btn light" type="button" disabled>إنشاء خطة إصلاح للطباعة</button>
+        <button id="printHandoff" class="btn primary" type="button" disabled>تسليم الأخطاء للمساعد</button>
+      </div>
+      <div id="handoffState" class="handoff-state"><div class="empty">بعد الفحص يمكنك تسليم الأخطاء للمساعد، ثم سيعيد الوكيل التحقق بعد الإصلاح.</div></div>
       <div id="printAuditFrameHost" aria-hidden="true"></div>
     </section>
 
@@ -106,6 +110,6 @@
 </div>
 
 <script src="teacher-access.js?v=20260930-mainfix2"></script>
-<script src="maintenance-agent.js?v=20261002-printagent1"></script>
+<script src="maintenance-agent.js?v=20261002-handoff1"></script>
 </body>
 </html>

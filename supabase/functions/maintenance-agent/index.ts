@@ -148,6 +148,69 @@ function sanitizedPrintAudit(raw:any){
   return{source,findings,metrics};
 }
 
+
+type HandoffRow={
+  id:string;owner_id:string;run_id:string;area:string;source:string|null;status:string;
+  summary:string;findings:any[];source_files:string[];verification:any;fix:any;
+  created_at:string;updated_at:string;verified_at:string|null;
+};
+function handoffFiles(findings:any[]){
+  return [...new Set((findings||[]).flatMap((f:any)=>Array.isArray(f?.source_files)?f.source_files:[]).map((x:any)=>tidy(x,240)).filter(Boolean))].slice(0,30);
+}
+async function createHandoff(owner:any,runId:string){
+  const {data:run,error:runError}=await db.from("maintenance_agent_runs")
+    .select("id,run_type,summary,findings,metrics,created_at")
+    .eq("id",runId).eq("owner_id",owner.id).maybeSingle();
+  if(runError)throw runError;
+  if(!run)throw Object.assign(new Error("الفحص غير موجود."),{status:404});
+  const findings=Array.isArray(run.findings)?run.findings:[];
+  if(!findings.length)throw Object.assign(new Error("لا توجد أخطاء تحتاج تسليمًا للمساعد."),{status:400});
+  const source=tidy(run.metrics?.source||findings[0]?.source,50)||null;
+  const area=run.run_type==="printing"?"printing":tidy(findings[0]?.area,40)||"runtime";
+  const payload={
+    owner_id:owner.id,run_id:run.id,area,source,status:"needs_assistant",
+    summary:tidy(run.summary,500),findings,source_files:handoffFiles(findings),
+    verification:{before_run_id:run.id,before_issue_count:findings.length,before_critical_count:findings.filter((x:any)=>x?.severity==="critical").length},
+    fix:{},contains_personal_data:false,updated_at:new Date().toISOString()
+  };
+  const {data,error}=await db.from("maintenance_agent_handoffs").upsert(payload,{onConflict:"owner_id,run_id"})
+    .select("id,run_id,area,source,status,summary,findings,source_files,verification,fix,created_at,updated_at,verified_at").single();
+  if(error)throw error;
+  return data as HandoffRow;
+}
+async function listHandoffs(owner:any){
+  const {data,error}=await db.from("maintenance_agent_handoffs")
+    .select("id,run_id,area,source,status,summary,source_files,verification,fix,created_at,updated_at,verified_at")
+    .eq("owner_id",owner.id).order("updated_at",{ascending:false}).limit(30);
+  if(error)throw error;
+  return (data||[]) as HandoffRow[];
+}
+async function verifyHandoff(owner:any,handoffId:string,run:any){
+  if(!/^[0-9a-f-]{36}$/i.test(handoffId))throw Object.assign(new Error("معرّف التسليم غير صالح."),{status:400});
+  const {data:h,error}=await db.from("maintenance_agent_handoffs")
+    .select("id,run_id,area,source,status,summary,findings,source_files,verification,fix,created_at,updated_at,verified_at")
+    .eq("id",handoffId).eq("owner_id",owner.id).maybeSingle();
+  if(error)throw error;
+  if(!h)throw Object.assign(new Error("طلب التسليم غير موجود."),{status:404});
+  const findings=Array.isArray(run?.findings)?run.findings:[];
+  const critical=findings.filter((x:any)=>x?.severity==="critical").length;
+  const beforeCodes=new Set((Array.isArray(h.findings)?h.findings:[]).map((x:any)=>String(x?.code||"")));
+  const remainingTarget=findings.filter((x:any)=>beforeCodes.has(String(x?.code||"")));
+  const verified=critical===0&&remainingTarget.length===0;
+  const verification={
+    ...(h.verification||{}),after_run_id:run.id,after_issue_count:findings.length,
+    after_critical_count:critical,remaining_target_issue_count:remainingTarget.length,
+    checked_at:new Date().toISOString(),result:verified?"passed":"failed"
+  };
+  const status=verified?"verified":"verification_failed";
+  const {data:updated,error:updateError}=await db.from("maintenance_agent_handoffs")
+    .update({status,verification,verified_at:verified?new Date().toISOString():null,updated_at:new Date().toISOString()})
+    .eq("id",handoffId).eq("owner_id",owner.id)
+    .select("id,run_id,area,source,status,summary,source_files,verification,fix,created_at,updated_at,verified_at").single();
+  if(updateError)throw updateError;
+  return updated;
+}
+
 type KnowledgeRow={
   id:string;category:string;module:string;title:string;summary:string;details:any;
   keywords:string[];source_paths:string[];priority:number;active:boolean;
@@ -269,7 +332,23 @@ Deno.serve(async(req:Request)=>{
         findings:audit.findings,metrics:audit.metrics,contains_personal_data:false
       }).select("id,run_type,status,severity,summary,findings,metrics,created_at").single();
       if(error)throw error;
-      return json({ok:true,run,mode:"visual_print_audit"});
+      let handoff=null;
+      const handoffId=tidy(b.handoff_id,80);
+      if(handoffId)handoff=await verifyHandoff(owner,handoffId,run);
+      return json({ok:true,run,handoff,mode:"visual_print_audit"});
+    }
+
+
+    if(action==="create_handoff"){
+      const runId=tidy(b.run_id,80);
+      if(!/^[0-9a-f-]{36}$/i.test(runId))return json({error:"معرّف الفحص غير صالح."},400);
+      const handoff=await createHandoff(owner,runId);
+      return json({ok:true,handoff,message:"تم تجهيز تقرير التسليم للمساعد. لا يحتوي بيانات طلاب أو مفاتيح."});
+    }
+
+    if(action==="handoffs"){
+      const handoffs=await listHandoffs(owner);
+      return json({ok:true,handoffs});
     }
 
     if(action==="diagnose"){

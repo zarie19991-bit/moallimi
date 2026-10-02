@@ -21,3 +21,17 @@
 .print-audit-result{display:grid;gap:10px}
 #printAuditFrameHost{position:fixed;left:-12000px;top:0;width:1280px;height:1100px;overflow:hidden;visibility:hidden;pointer-events:none;z-index:-1}
 #printAuditFrameHost iframe{display:block;width:1200px;height:1000px;border:0;background:#fff}
+
+.handoff-state{display:grid;gap:10px;margin-top:12px}
+.handoff-card{border:1px solid #d9e3e0;background:#fff;border-radius:14px;padding:13px}
+.handoff-card h3{margin:0;font-size:13px}
+.handoff-card p{margin:7px 0 0;color:#60736f;font-size:11px;line-height:1.8}
+.handoff-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px;color:#788985;font-size:9.5px}
+.handoff-pill{display:inline-flex;border-radius:999px;padding:5px 8px;font-size:9.5px;font-weight:900}
+.handoff-pill.needs_assistant{background:#fff4d9;color:#8b6500}
+.handoff-pill.fix_in_progress{background:#e8f2fa;color:#2d6e9c}
+.handoff-pill.fix_ready{background:#eef0ff;color:#5043a8}
+.handoff-pill.verified{background:#e7f5ed;color:#176b49}
+.handoff-pill.verification_failed{background:#ffebe9;color:#a42e28}
+.handoff-pill.closed{background:#eef1f3;color:#5d6a70}
+.handoff-card>.btn{margin-top:10px;font-size:10.5px}
