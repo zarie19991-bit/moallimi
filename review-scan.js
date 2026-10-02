@@ -306,7 +306,8 @@ async function approve(){
  const btn=$('approveBtn');btn.disabled=true;btn.textContent='جارٍ حفظ النتائج في المنصة…';
  try{
    const saved=await NafesTeacher.api('teacher_paper_review_save',{
-     review_id:draft.review_id,title:draft.title,subject:draft.subject,class_name:draft.class_name,
+     review_id:draft.review_id,title:draft.title,subject:draft.subject,subjects:draft.subjects||[draft.subject],class_name:draft.class_name,
+     question_count:draft.question_count,model_count:draft.model_count,assignments:draft.assignments||[],
      indicator_counts:draft.indicator_counts||[],models:draft.models||[],answer_keys:draft.answer_keys||[],results:payload.results
    });
    payload.platform=saved;localStorage.setItem('nafes_review_scan_results_'+draft.review_id,JSON.stringify(payload));renderApproved(payload);
