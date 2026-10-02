@@ -1352,13 +1352,14 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     saved.push({id:row.id,student_id:student.id,student_name:student.full_name,model,score:graded.score,total:graded.total,percent:graded.percent});
   }
 
+  const existingReview=must(await db.from('nafes_paper_reviews').select('id,payload').eq('owner_id',owner.id).eq('review_id',reviewId).maybeSingle());
+  const baseReview=existingReview?.payload||{};
   const reviewPayload=validatePaperReviewPayload({
-    ...(b.review||{}),review_id:reviewId,title,subject,subjects,class_name:className,question_count:questionCount,
+    ...baseReview,review_id:reviewId,title,subject,subjects,class_name:className,question_count:questionCount,
     model_count:models.length,models,answer_keys:answerKeys,indicator_counts:indicators,
-    assignments:Array.isArray(b.assignments)?b.assignments:[]
+    assignments:Array.isArray(baseReview.assignments)?baseReview.assignments:(Array.isArray(b.assignments)?b.assignments:[])
   },owner);
   const reviewRow={owner_id:owner.id,review_id:reviewId,title,subject,subjects,class_name:className,payload:reviewPayload,updated_at:new Date().toISOString()};
-  const existingReview=must(await db.from('nafes_paper_reviews').select('id').eq('owner_id',owner.id).eq('review_id',reviewId).maybeSingle());
   if(existingReview)must(await db.from('nafes_paper_reviews').update(reviewRow).eq('id',existingReview.id));
   else must(await db.from('nafes_paper_reviews').insert(reviewRow));
 
