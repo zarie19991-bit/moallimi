@@ -6,7 +6,7 @@ const BANK_COLUMNS='id,subject_key,outcome_code,indicator_index,indicator_text,m
 const CURATED_COLUMNS='id,subject_key,outcome_code,indicator_index,indicator_key,indicator_text,model_no,question_no,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,quality_version,image';
 const isUUID=(s:unknown)=>/^[a-f0-9-]{36}$/i.test(String(s));
 const INTERNAL_STUDENT_CONTEXT=/^(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|مهمة تقويمية جديدة|مراجعة الحل)/;
-const INTERNAL_STUDENT_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|بعد أن (?:أجريت محاكاة رقمية|عُرضت بيانات نشاط|حُدد طول مسار|قورنت كتل مواد))/;
+const INTERNAL_STUDENT_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|وردت في مخطط المراجعة المهمة|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|لتمييز المعرفة المرتبطة|ضمن مقارنة النتيجة ببديل قريب|باستخدام مقارنة النتيجة ببديل قريب|باستخدام كشف الافتراض الذي أدى إلى الخطأ|بعد كشف الافتراض الذي أدى إلى الخطأ|عند كشف الافتراض الذي أدى إلى الخطأ|أي تصحيح يجمع النتيجة السليمة ودليلها|أي تحليل يكشف الخطأ ويبرر البديل|أي تفسير يطابق النتيجة الصحيحة|في (?:مخطط لعلاقة بين متغيرين|مقارنة حالتين فيزيائيتين|مقارنة كائنين أو خليتين|تقويم إجراء صحي أو بيئي|تحليل تغير في نظام حيوي|اختيار إجراء مختبري|مقارنة عينتين ماديتين|تقويم تصميم تقني|تقويم قرار بيئي|خريطة ميدانية|سجل رصد طويل المدى|مقارنة موقعين) بهدف|بعد أن (?:أجريت محاكاة رقمية|عُرضت بيانات نشاط|حُدد طول مسار|قورنت كتل مواد))/;
 function studentFacingContext(subject:unknown,value:unknown){
   const ctx=String(value||'').trim();
   if(!ctx)return null;
@@ -169,7 +169,7 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
     familyCounts.set(family,(familyCounts.get(family)||0)+1);
   };
   const takeLevel=(level:string,desired:number)=>{
-    if(!desired)return;
+    if(!desired)return 0;
     const pool=shuffle(unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id))),randomFrom(seed+'|'+level));
     let taken=0;
     for(const cap of [1,2,3,99]){
@@ -182,10 +182,12 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
       }
       if(taken>=desired)break;
     }
+    return taken;
   };
 
   for(const level of ['knowledge','application','reasoning']){
-    takeLevel(level,Number(targets[level]||0));
+    const desired=Number(targets[level]||0),taken=takeLevel(level,desired);
+    if(taken<desired)fail(`لا توجد أسئلة سليمة كافية في مستوى ${level} لهذا المؤشر: المطلوب ${desired} والمتاح ${taken}. لن يكتمل النموذج على حساب التوازن المعرفي.`);
   }
   if(picked.length<count){
     const rest=shuffle(unique.filter(q=>!pickedIds.has(String(q.id))),randomFrom(seed+'|fallback'));
@@ -1461,10 +1463,25 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   const seenStems=new Set<string>();
   for(const section of t.rendered_sections){
     const familyCounts=new Map<string,number>();
+    const indicatorLevels=new Map<string,{count:number;levels:Set<string>}>();
+    const readingContextCounts=new Map<string,number>();
+    const answerPositionCounts=[0,0,0,0];
     for(const q of section.questions||[]){
       const sk=stemKey(q);
       if(seenStems.has(sk))fail('توجد صياغة سؤال مكررة في المسودة؛ بدّل السؤال المكرر قبل النشر.',409);
       seenStems.add(sk);
+      const indicatorKey=String(q.indicator_key||indicatorOf(q));
+      const levelState=indicatorLevels.get(indicatorKey)||{count:0,levels:new Set<string>()};
+      levelState.count++;
+      if(q.cognitive_level)levelState.levels.add(String(q.cognitive_level));
+      indicatorLevels.set(indicatorKey,levelState);
+      const ci=Number(q.correctIndex);
+      if(Number.isInteger(ci)&&ci>=0&&ci<4)answerPositionCounts[ci]++;
+      if(section.subject==='reading'){
+        const ctx=String(q.context||'').trim();
+        if(!ctx)fail('يوجد سؤال قراءة بلا نص مرتبط؛ أعد تكوين المسودة قبل النشر.',409);
+        readingContextCounts.set(ctx,(readingContextCounts.get(ctx)||0)+1);
+      }
       if(section.subject==='math'||section.subject==='science'){
         if(!curatedQuestionEligible(q,section.subject))fail('توجد أسئلة ضعيفة أو قالبية في المسودة؛ أعد تكوين الأسئلة قبل النشر.',409);
         const family=`${q.indicator_key||indicatorOf(q)}|${stemFamilyKey(q)}`;
@@ -1472,6 +1489,18 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
         familyCounts.set(family,n);
         if(n>2)fail('توجد أسئلة متقاربة جدًا في الصياغة داخل المؤشر نفسه؛ أعد تكوين المسودة قبل النشر.',409);
       }
+    }
+    for(const [key,state] of indicatorLevels){
+      if(state.count>=3&&(!state.levels.has('knowledge')||!state.levels.has('application')||!state.levels.has('reasoning'))){
+        fail(`المؤشر ${key} لا يجمع المعرفة والتطبيق والاستدلال في المسودة؛ أعد تكوينها قبل النشر.`,409);
+      }
+    }
+    if(section.subject==='reading'){
+      for(const count of readingContextCounts.values())if(count!==5)fail('بنية القراءة يجب أن تكون: نص واحد ثم خمسة أسئلة مرتبطة به.',409);
+    }
+    if((section.questions||[]).length>=8){
+      const max=Math.max(...answerPositionCounts),min=Math.min(...answerPositionCounts);
+      if(min===0||max-min>Math.max(3,Math.ceil((section.questions||[]).length*0.25)))fail('توزيع مواقع الإجابات الصحيحة غير متوازن؛ أعد تكوين المسودة قبل النشر.',409);
     }
     const qIds=section.questions.map((q:Row)=>q.id);
     const pool=isSim

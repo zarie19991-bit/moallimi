@@ -226,7 +226,7 @@ type IndicatorAuditRow={
   low_alignment_rows:number;samples:any[];
 };
 const AUDIT_INTERNAL_CONTEXT=/^(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|مهمة تقويمية جديدة|مراجعة الحل)/;
-const AUDIT_INTERNAL_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|بعد أن (?:أجريت محاكاة رقمية|عُرضت بيانات نشاط|حُدد طول مسار|قورنت كتل مواد))/;
+const AUDIT_INTERNAL_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|وردت في مخطط المراجعة المهمة|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|لتمييز المعرفة المرتبطة|ضمن مقارنة النتيجة ببديل قريب|باستخدام مقارنة النتيجة ببديل قريب|باستخدام كشف الافتراض الذي أدى إلى الخطأ|بعد كشف الافتراض الذي أدى إلى الخطأ|عند كشف الافتراض الذي أدى إلى الخطأ|أي تصحيح يجمع النتيجة السليمة ودليلها|أي تحليل يكشف الخطأ ويبرر البديل|أي تفسير يطابق النتيجة الصحيحة|في (?:مخطط لعلاقة بين متغيرين|مقارنة حالتين فيزيائيتين|مقارنة كائنين أو خليتين|تقويم إجراء صحي أو بيئي|تحليل تغير في نظام حيوي|اختيار إجراء مختبري|مقارنة عينتين ماديتين|تقويم تصميم تقني|تقويم قرار بيئي|خريطة ميدانية|سجل رصد طويل المدى|مقارنة موقعين) بهدف|بعد أن (?:أجريت محاكاة رقمية|عُرضت بيانات نشاط|حُدد طول مسار|قورنت كتل مواد))/;
 function auditNorm(v:unknown){
   return String(v??"").normalize("NFKC").toLowerCase()
     .replace(/[\u064B-\u065F\u0670\u0640]/g,"")
@@ -301,7 +301,7 @@ async function deepIndicatorAudit(){
 
     const ctx=String(q.context_text||"").trim(),question=String(q.question_text||"").trim();
     if((subject==="math"||subject==="science")&&AUDIT_INTERNAL_CONTEXT.test(ctx)){
-      a.prompt_context++;promptContext++;subjectTotals[subject].critical_rows++;addAuditSample(a,q,"INTERNAL_CONTEXT");
+      a.prompt_context++;promptContext++;
     }
     if(AUDIT_INTERNAL_STEM.test(question)){
       a.prompt_stem++;promptStem++;subjectTotals[subject].critical_rows++;addAuditSample(a,q,"INTERNAL_STEM");
@@ -344,8 +344,8 @@ async function deepIndicatorAudit(){
     bySubject[subject]={
       questions:subjectTotals[subject].questions,
       indicators:relevant.length,
-      clean_indicators:relevant.filter(x=>x.prompt_context+x.prompt_stem+x.invalid_options+x.invalid_correct+x.missing_reading_context+x.exact_duplicate_groups+x.template_family_groups===0).length,
-      indicators_with_critical:relevant.filter(x=>x.prompt_context+x.prompt_stem+x.invalid_options+x.invalid_correct>0).length,
+      clean_indicators:relevant.filter(x=>x.prompt_stem+x.invalid_options+x.invalid_correct+x.missing_reading_context+x.exact_duplicate_groups+x.template_family_groups===0).length,
+      indicators_with_critical:relevant.filter(x=>x.prompt_stem+x.invalid_options+x.invalid_correct>0).length,
       indicators_with_warnings:relevant.filter(x=>x.missing_reading_context+x.exact_duplicate_groups+x.template_family_groups+x.low_alignment_rows>0).length
     };
   }
@@ -354,9 +354,12 @@ async function deepIndicatorAudit(){
   const add=(code:string,severity:"info"|"warning"|"critical",title:string,detail:string,safe_action:string,extra:any={})=>
     findings.push({code,area:"question_quality",severity,title,detail,safe_action,auto_apply:false,
       source:"indicator_audit",source_files:["supabase/functions/nafes-exam/assessments.ts"],...extra});
-  if(promptContext+promptStem>0)add("INDICATOR_INTERNAL_PROMPT_LEAK","critical","عبارات تصميم داخلية في أسئلة المؤشرات",
-    "اكتشف الفحص "+(promptContext+promptStem)+" موضعًا يحتوي لغة تصميم أو مراجعة لا ينبغي أن تظهر للطالب.",
-    "استبعاد هذه الصياغات من الاختبارات الجديدة وتنظيف العرض دون حذف السجلات التاريخية.",{count:promptContext+promptStem});
+  if(promptStem>0)add("INDICATOR_INTERNAL_PROMPT_LEAK","critical","عبارات تصميم داخلية في نص أسئلة المؤشرات",
+    "اكتشف الفحص "+promptStem+" سؤالًا يحتوي لغة تصميم أو مراجعة يمكن أن تظهر للطالب.",
+    "استبعاد هذه الصياغات من الاختبارات الجديدة مع إبقاء السجلات التاريخية.",{count:promptStem});
+  if(promptContext>0)add("INDICATOR_INTERNAL_CONTEXT_HIDDEN","info","سياقات داخلية قديمة مخفية عن الطالب",
+    "يوجد "+promptContext+" سياقًا داخليًا محفوظًا كبيانات تاريخية في الرياضيات والعلوم، وطبقة العرض الحالية تحجبه عن الطالب.",
+    "لا يلزم حذفها تاريخيًا؛ يستمر الفاحص في التأكد من أن العرض لا يكشفها.",{count:promptContext});
   if(invalidOptions+invalidCorrect>0)add("INDICATOR_INVALID_STRUCTURE","critical","أسئلة ببنية اختيار من متعدد غير صالحة",
     "اكتشف الفحص "+(invalidOptions+invalidCorrect)+" خللًا في عدد البدائل أو مؤشر الإجابة الصحيحة.",
     "منع السؤال المتأثر من الاختبارات الجديدة حتى اكتمال أربعة بدائل وإجابة صحيحة واحدة.",{count:invalidOptions+invalidCorrect});

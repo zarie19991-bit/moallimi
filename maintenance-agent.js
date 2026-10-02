@@ -87,7 +87,8 @@ function renderIndicatorAudit(run){
    '<div class="indicator-audit-kpis">'+
      metric('إجمالي المؤشرات',ar(m.total_indicators||0))+
      metric('إجمالي الأسئلة',ar(m.total_questions||0))+
-     metric('تسرب عبارات داخلية',ar(Number(tot.prompt_context||0)+Number(tot.prompt_stem||0)))+
+     metric('تسرب ظاهر داخل السؤال',ar(tot.prompt_stem||0))+
+     metric('سياقات داخلية مخفية',ar(tot.prompt_context||0))+
      metric('عائلات صياغة متكررة',ar(tot.template_family_groups||0))+
    '</div>'+
    '<div class="indicator-subjects">'+subjectCards+'</div>'+
