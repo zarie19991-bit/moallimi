@@ -11,21 +11,32 @@ function digitPanel(title,cols,klass=''){
  return '<section class="digit-panel '+klass+'"><h3>'+title+'</h3>'+boxes+rows+'</section>';
 }
 function makeSheet(item,index,d){
- const total=Number(d.question_count||20),startNo=Number(d.question_start||1),sheetNo=Number(item.sheet_no||index+1),nameMode=d.bubble_name_mode==='blank'?'blank':'printed';
+ const total=Number(d.question_count||20),sheetNo=Number(item.sheet_no||index+1),nameMode=d.bubble_name_mode==='blank'?'blank':'printed';
  const payload='MR4|'+String(d.review_id||'R')+'|'+String(sheetNo)+'|'+String(item.model||'');
  const name=nameMode==='printed'?esc(item.student_name||''):'';
- const school=esc(d.school_name||'مدرسة ابن سينا المتوسطة'),cls=esc(d.class_name||'');
- const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'},subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean),subjectText=subjects.map(x=>subjectNames[x]||x).join(' + ');
+ const school=esc(d.school_name||''),cls=esc(d.class_name||'');
  return '<section class="bubble-sheet" data-qr="'+esc(payload)+'">'+
- '<div class="sheet-title">ورقة التظليل</div>'+
- '<div class="brand-row"><div class="brand-block"><b>'+school+'</b><span>المراجعات والاختبارات الورقية</span></div><div class="qr" data-qr-box></div><div class="brand-block"><b>منصة معلّمي</b><span>التصحيح الآلي وتحليل مؤشرات نافس</span></div></div>'+
- '<div class="exam-pill">'+esc(d.title||'مراجعة مؤشرات نافس')+'<br>الصف الثالث متوسط'+(subjectText?'<br>'+esc(subjectText):'')+'</div>'+
+ '<div class="sheet-title"><span>ورقة التظليل</span></div>'+
+ '<div class="official-row">'+
+   '<div class="official-brand measure-brand"><b>المركز الوطني للقياس</b><small>National Center for Assessment</small></div>'+
+   '<div class="qr" data-qr-box aria-label="رمز الورقة"></div>'+
+   '<div class="official-brand etec-brand"><b>هيئة تقويم التعليم والتدريب</b><small>Education &amp; Training Evaluation Commission</small></div>'+
+ '</div>'+
+ '<div class="exam-pill"><b>الاختبارات الوطنية</b><span>الصف الثالث متوسط</span></div>'+
  '<div class="student-name"><b>الاسم الرباعي</b><span>'+name+'</span></div>'+
- '<div class="info-grid">'+digitPanel('رقم السجل المدني / رقم الإقامة',10,'identity-number')+digitPanel('رمز المدرسة',6,'school-code')+
- '<div class="info-stack"><div class="info-panel"><b>اسم المدرسة</b><span class="field-line">'+school+'</span></div><div class="info-panel"><b>الفصل</b><span class="field-line">'+cls+'</span></div><div class="info-panel grade-panel"><strong>الصف الثالث متوسط</strong><span class="field-line"></span><span class="model-badge">نموذج '+esc(item.model||'—')+'</span></div></div></div>'+
+ '<div class="info-grid">'+
+   digitPanel('رقم السجل المدني / رقم الإقامة',10,'identity-number')+
+   digitPanel('رمز المدرسة',6,'school-code')+
+   '<div class="info-stack">'+
+     '<div class="info-panel"><b>اسم المدرسة</b><span class="field-line">'+school+'</span></div>'+
+     '<div class="info-panel"><b>الصف</b><span class="field-line">'+cls+'</span></div>'+
+     '<div class="info-panel grade-panel"><span class="grade-line"></span><strong>الصف الثالث متوسط</strong></div>'+
+   '</div>'+
+ '</div>'+
  '<div class="answers-title">إجابات الأسئلة</div>'+
- '<div class="omr-wrap">'+NafesOmrTemplate.svg(startNo,total)+'</div>'+
- '<footer class="sheet-foot"><div><b>التعليمات:</b> ظلّل دائرة واحدة فقط لكل سؤال. الهوية فارغة ولا تُطبع مسبقًا.</div><div class="sheet-code">'+esc(payload)+'</div></footer></section>';
+ '<div class="omr-wrap">'+NafesOmrTemplate.svg(1,60,total)+'</div>'+
+ '<div class="sheet-meta" aria-hidden="true"><span class="model-hidden">نموذج '+esc(item.model||'—')+'</span><span class="sheet-code">'+esc(payload)+'</span></div>'+
+ '</section>';
 }
 function renderOmrQr(box,payload){
  const lib=window.qrcodegen;if(!lib?.QrCode)throw new Error('تعذر تحميل مولّد QR.');
