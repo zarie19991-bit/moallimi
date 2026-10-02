@@ -20,7 +20,7 @@ async function fetchTests(){
   for(let start=0;;start+=200){
     const {data,error}=await db.from("nafes_assessments")
       .select("id,title,status,rendered_sections,created_at")
-      .eq("kind","multi_indicator").order("created_at",{ascending:true}).range(start,start+199);
+      .eq("kind","multi_indicator").in("status",["draft","published"]).order("created_at",{ascending:true}).range(start,start+199);
     if(error)throw error;
     out.push(...(data||[]));
     if(!data||data.length<200)break;
