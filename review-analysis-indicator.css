@@ -12,3 +12,37 @@
 .recommendation{border:1px solid var(--line);background:#f8fbfa;border-radius:12px;padding:12px 14px;line-height:1.8;font-size:12px}
 #subjectPerformanceCard .subject-card .sub{line-height:1.6}
 @media(max-width:900px){.recommendations{grid-template-columns:1fr}.analysis-scope-summary{display:grid;grid-template-columns:1fr 1fr}}
+
+@media print{
+  @page{size:A4 portrait;margin:8mm}
+  html,body{background:#fff!important;color:#111!important}
+  body{margin:0!important}
+  .top,.no-print{display:none!important}
+  .shell{max-width:none!important;width:auto!important;margin:0!important;padding:0!important}
+  #content{display:grid!important;gap:5mm!important;margin:0!important}
+  #content[hidden]{display:none!important}
+  .metrics{grid-template-columns:repeat(3,1fr)!important;gap:2.5mm!important}
+  .metric{border:1px solid #cfd9d6!important;border-radius:3mm!important;padding:3mm!important;box-shadow:none!important;break-inside:avoid!important}
+  .metric span{font-size:8.5pt!important;margin-bottom:1mm!important}
+  .metric b{font-size:15pt!important;color:var(--brand)!important}
+  .section-card{border:1px solid #cfd9d6!important;border-radius:3mm!important;padding:4mm!important;box-shadow:none!important;margin:0!important;break-inside:avoid-page!important}
+  .section-head{margin-bottom:2.5mm!important}
+  .section-head h2{font-size:12pt!important}
+  .muted{font-size:8pt!important;line-height:1.5!important}
+  .two-col{grid-template-columns:1.15fr .85fr!important;gap:4mm!important}
+  .data-table{font-size:8.2pt!important}
+  .data-table th,.data-table td{padding:1.8mm 1.5mm!important}
+  .data-table th{position:static!important;background:#f4f8f6!important}
+  .rank-list{max-height:none!important;overflow:visible!important}
+  .rank-row{grid-template-columns:minmax(38mm,1fr) 15mm!important;gap:2mm!important}
+  .rank-row small{font-size:7.8pt!important}
+  .bar{height:2.2mm!important}
+  .subject-cards{grid-template-columns:repeat(3,1fr)!important;gap:3mm!important}
+  .subject-card{border-radius:3mm!important;padding:3mm!important;box-shadow:none!important}
+  .subject-card h3{font-size:10pt!important;margin-bottom:2mm!important}
+  .subject-card .big{font-size:16pt!important}
+  .subject-card .sub{font-size:8pt!important}
+  .recommendations{grid-template-columns:1fr 1fr!important;gap:2.5mm!important}
+  .recommendation{font-size:8.2pt!important;border-radius:2.5mm!important;padding:2.5mm!important}
+  .absent-chips span{font-size:8pt!important;padding:1.5mm 2mm!important}
+}
