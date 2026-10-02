@@ -227,6 +227,15 @@ type IndicatorAuditRow={
 };
 const AUDIT_INTERNAL_CONTEXT=/^(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|مهمة تقويمية جديدة|مراجعة الحل)/;
 const AUDIT_INTERNAL_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|وردت في مخطط المراجعة المهمة|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|لتمييز المعرفة المرتبطة|ضمن مقارنة النتيجة ببديل قريب|باستخدام مقارنة النتيجة ببديل قريب|باستخدام كشف الافتراض الذي أدى إلى الخطأ|بعد كشف الافتراض الذي أدى إلى الخطأ|عند كشف الافتراض الذي أدى إلى الخطأ|أي تصحيح يجمع النتيجة السليمة ودليلها|أي تحليل يكشف الخطأ ويبرر البديل|أي تفسير يطابق النتيجة الصحيحة|في (?:مخطط لعلاقة بين متغيرين|مقارنة حالتين فيزيائيتين|مقارنة كائنين أو خليتين|تقويم إجراء صحي أو بيئي|تحليل تغير في نظام حيوي|اختيار إجراء مختبري|مقارنة عينتين ماديتين|تقويم تصميم تقني|تقويم قرار بيئي|خريطة ميدانية|سجل رصد طويل المدى|مقارنة موقعين) بهدف|بعد أن (?:أجريت محاكاة رقمية|عُرضت بيانات نشاط|حُدد طول مسار|قورنت كتل مواد))/;
+function auditStudentQuestion(subject:string,text:string,level:string){
+  if(!(subject==="math"||subject==="science"))return text;
+  if(level!=="knowledge"&&level!=="application")return text;
+  if(!AUDIT_INTERNAL_STEM.test(text))return text;
+  const matches=[...text.matchAll(/«([^»]+)»/g)];
+  const task=matches.length?String(matches[matches.length-1][1]||"").trim():"";
+  if(task.length<4)return text;
+  return /[؟?!.]$/.test(task)?task:task+"؟";
+}
 function auditNorm(v:unknown){
   return String(v??"").normalize("NFKC").toLowerCase()
     .replace(/[\u064B-\u065F\u0670\u0640]/g,"")
@@ -299,12 +308,14 @@ async function deepIndicatorAudit(){
     if(level==="knowledge"||level==="application"||level==="reasoning")a.levels[level]++;
     else{a.levels.other++;unknownLevels++;addAuditSample(a,q,"UNKNOWN_COGNITIVE_LEVEL");}
 
-    const ctx=String(q.context_text||"").trim(),question=String(q.question_text||"").trim();
+    const ctx=String(q.context_text||"").trim(),rawQuestion=String(q.question_text||"").trim();
+    const question=auditStudentQuestion(subject,rawQuestion,level);
     if((subject==="math"||subject==="science")&&AUDIT_INTERNAL_CONTEXT.test(ctx)){
       a.prompt_context++;promptContext++;
     }
     if(AUDIT_INTERNAL_STEM.test(question)){
-      a.prompt_stem++;promptStem++;subjectTotals[subject].critical_rows++;addAuditSample(a,q,"INTERNAL_STEM");
+      a.prompt_stem++;promptStem++;subjectTotals[subject].critical_rows++;
+      addAuditSample(a,{...q,question_text:question},"INTERNAL_STEM");
     }
     const opts=Array.isArray(q.options)?q.options.map((x:any)=>String(x??"").trim()):[];
     if(opts.length!==4||opts.some((x:string)=>!x)||new Set(opts).size!==4){
