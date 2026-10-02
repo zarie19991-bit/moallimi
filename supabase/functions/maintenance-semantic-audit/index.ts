@@ -42,7 +42,7 @@ function providerInfo(){
   return{
     configured:enabled&&!!openaiKey,
     provider:enabled&&openaiKey?"openai":"rules",
-    model:enabled&&openaiKey?String(Deno.env.get("PEDAGOGICAL_AI_MODEL")||"gpt-6-luna"):"pedagogical-rules-v1"
+    model:enabled&&openaiKey?String(Deno.env.get("PEDAGOGICAL_AI_MODEL")||"gpt-6-luna"):"pedagogical-rules-v3"
   };
 }
 function normalized(v:unknown){
@@ -51,6 +51,16 @@ function normalized(v:unknown){
     .replace(/[إأآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
     .replace(/[؟?!.،,:؛;'"“”‘’()\[\]{}\-–—_/\\]+/g," ")
     .replace(/\s+/g," ").trim();
+}
+function normalizedOption(v:unknown){
+  return String(v??"").normalize("NFKC")
+    .replace(/[\u064B-\u065F\u0670\u0640]/g,"")
+    .replace(/[إأآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
+    .replace(/[–—−]/g,"-")
+    .replace(/÷/g,"/")
+    .replace(/×/g,"*")
+    .replace(/\s+/g,"")
+    .trim();
 }
 function optionArray(value:any){
   if(Array.isArray(value))return {options:value.map((x:any)=>tidy(x,500)),note:null};
@@ -66,7 +76,7 @@ function optionArray(value:any){
   return {options:[],note:"تعذر قراءة بنية البدائل من المصدر؛ تُصنّف الحالة «مراجعة» ولا تُرفض تربويًا تلقائيًا."};
 }
 const INTERNAL_STUDENT_CONTEXT=/^(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|مهمة تقويمية جديدة|مراجعة الحل)/;
-const INTERNAL_STUDENT_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|وردت في مخطط المراجعة المهمة|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|لتمييز المعرفة المرتبطة|ضمن مقارنة النتيجة ببديل قريب|باستخدام مقارنة النتيجة ببديل قريب|باستخدام كشف الافتراض الذي أدى إلى الخطأ|بعد كشف الافتراض الذي أدى إلى الخطأ|عند كشف الافتراض الذي أدى إلى الخطأ|أي تصحيح يجمع النتيجة السليمة ودليلها|أي تحليل يكشف الخطأ ويبرر البديل|أي تفسير يطابق النتيجة الصحيحة)/;
+const INTERNAL_STUDENT_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في (?:سجل الأمثلة المهمة|بطاقة المفاهيم المهمة)|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة|بطاقة المفاهيم|سجل الأمثلة)|وردت في مخطط المراجعة المهمة|ظهرت المهمة|أي خيار (?:يطبق المفهوم تطبيقًا صحيحًا|يجيب بدقة عن المهمة المسجلة)|لتمييز المعرفة المرتبطة|(?:ضمن|باستخدام|بعد|عند) مقارنة النتيجة ببديل قريب|(?:باستخدام|بعد|عند) كشف الافتراض الذي أدى إلى الخطأ|(?:باستخدام|بعد|عند) اختبار معقولية النتيجة|(?:ضمن|باستخدام|بعد|عند) التحقق من خطوات الاستدلال|أي تصحيح يجمع النتيجة السليمة ودليلها|أي تحليل يكشف الخطأ ويبرر البديل|أي تفسير يطابق النتيجة الصحيحة)/;
 function studentFacingContext(subject:string,value:unknown){
   const ctx=tidy(value,1800);
   if(!ctx)return "";
@@ -82,17 +92,24 @@ function studentFacingQuestion(subject:string,value:unknown,level:unknown){
     return task.length<4?text:(/[؟?!.]$/.test(task)?task:task+"؟");
   }
   if(lv==="reasoning"&&matches.length>=2){
-    const result=matches[0],task=matches[matches.length-1];
-    if(/أي تحليل يكشف الخطأ ويبرر البديل/.test(text))return "في السؤال «"+task+"»، اختار طالب «"+result+"». أي تحليل يوضح الخطأ ويبرر البديل الصحيح؟";
-    if(/أي تصحيح يجمع النتيجة السليمة ودليلها/.test(text))return "في السؤال «"+task+"»، كانت الإجابة «"+result+"». أي خيار يصحح الإجابة ويذكر دليلًا مناسبًا؟";
-    if(/أي تفسير يطابق النتيجة الصحيحة/.test(text))return "في السؤال «"+task+"»، كانت الإجابة المقترحة «"+result+"». أي تفسير يدعم الإجابة الصحيحة؟";
-    if(/أي حكم مدعوم/.test(text))return "في السؤال «"+task+"»، قورنت المعطيات بالإجابة «"+result+"». أي حكم تدعمه المعطيات؟";
+    const task=String(text.match(/(?:للمهمة|في المهمة|المهمة)\s*«([^»]+)»/)?.[1]||matches[0]||"").trim();
+    const result=String(
+      text.match(/(?:النتيجة|الاختيار)\s*«([^»]+)»/)?.[1]||
+      text.match(/اقترحت النتيجة\s*«([^»]+)»/)?.[1]||
+      matches.find(x=>x!==task)||""
+    ).trim();
+    if(task&&result){
+      if(/أي تحليل يكشف الخطأ ويبرر البديل/.test(text))return "في السؤال «"+task+"»، اختار طالب «"+result+"». أي تحليل يوضح الخطأ ويبرر البديل الصحيح؟";
+      if(/أي تصحيح يجمع النتيجة السليمة ودليلها/.test(text))return "في السؤال «"+task+"»، كانت الإجابة «"+result+"». أي خيار يصحح الإجابة ويذكر دليلًا مناسبًا؟";
+      if(/أي تفسير يطابق النتيجة الصحيحة/.test(text))return "في السؤال «"+task+"»، كانت الإجابة المقترحة «"+result+"». أي تفسير يدعم الإجابة الصحيحة؟";
+      if(/أي حكم مدعوم/.test(text))return "في السؤال «"+task+"»، قورنت المعطيات بالإجابة «"+result+"». أي حكم تدعمه المعطيات؟";
+    }
   }
   return text;
 }
 function dim(status:string,note:string){return{status,note};}
 function ruleReview(c:Candidate):Review{
-  const q=c.question_text,opts=c.options.map(normalized),reasons:string[]=[];
+  const q=c.question_text,opts=c.options.map(normalizedOption),reasons:string[]=[];
   const dimensions:any={
     indicator_alignment:dim("unknown","تحتاج فهمًا دلاليًا للمؤشر."),
     content_accuracy:dim("pass","لم يكتشف الفحص القاعدي تناقضًا معروفًا."),
@@ -173,7 +190,7 @@ function ruleReview(c:Candidate):Review{
     escalate("reject",.99,"الإجابة الصحيحة المعتمدة تشير إلى بديل فارغ.");
   }
   if(!reasons.length)reasons.push("اجتاز الفحص التربوي القاعدي فقط؛ لا يُعد ذلك اعتمادًا دلاليًا نهائيًا من دون نموذج لغوي.");
-  return{source_id:c.source_id,judgment,confidence,detected_level:detected,dimensions,reasons,suggested_question:suggested,provider:"rules",model:"pedagogical-rules-v2"};
+  return{source_id:c.source_id,judgment,confidence,detected_level:detected,dimensions,reasons,suggested_question:suggested,provider:"rules",model:"pedagogical-rules-v3"};
 }
 
 function outputText(data:any){
@@ -293,6 +310,10 @@ async function processJob(owner:any,jobId:string){
   const {data:job,error}=await db.from("maintenance_agent_semantic_jobs").select("*").eq("id",jobId).eq("owner_id",owner.id).single();
   if(error)throw error;if(!job)throw Object.assign(new Error("مهمة التحكيم غير موجودة."),{status:404});
   if(["completed","failed","provider_required"].includes(job.status))return job;
+  const currentProvider=providerInfo();
+  if(job.provider==="rules"&&job.model!==currentProvider.model){
+    throw Object.assign(new Error("هذه المهمة بدأت بإصدار قديم من المحكّم. ابدأ تحكيمًا جديدًا لضمان أن تكون جميع النتائج بالإصدار نفسه."),{status:409});
+  }
   const all=await candidates(job.scope,job.subject||null),p=providerInfo(),batchSize=p.configured?8:120,offset=num(job.current_offset),batch=all.slice(offset,offset+batchSize);
   if(!batch.length){
     const finalStatus=p.configured?"completed":"provider_required";
