@@ -2,6 +2,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-agent';
+const TEST_AUDIT_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-test-audit';
 let latestRun=null,latestPrintRun=null,allProposals=[],allHandoffs=[],lastBrainQuestion='';
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -19,6 +20,18 @@ async function call(action,body={}){
   if(!res.ok||data.error)throw new Error(data.error||'تعذر تنفيذ طلب وكيل الصيانة.');
   return data;
  }catch(e){if(e.name==='AbortError')throw new Error(action==='indicator_audit'?'استغرق فحص جميع المؤشرات أكثر من 90 ثانية. أعد المحاولة.':'استغرق الفحص أكثر من 30 ثانية. أعد المحاولة.');throw e;}
+ finally{clearTimeout(timer);}
+}
+async function callGeneratedTestAudit(){
+ const key=window.NafesTeacher?.getKey?.();
+ if(!key)throw new Error('يلزم دخول الحساب الرئيسي.');
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),90000);
+ try{
+  const res=await fetch(TEST_AUDIT_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','x-teacher-key':key},body:'{}',cache:'no-store',signal:ctrl.signal});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data.error)throw new Error(data.error||'تعذر فحص الاختبارات الفعلية للمؤشرات.');
+  return data;
+ }catch(e){if(e.name==='AbortError')throw new Error('استغرق فحص الاختبارات الفعلية أكثر من 90 ثانية. أعد المحاولة.');throw e;}
  finally{clearTimeout(timer);}
 }
 function metric(label,value,muted=false){return '<div class="metric"><span>'+esc(label)+'</span><b class="'+(muted?'muted':'')+'">'+esc(value)+'</b></div>'}
@@ -82,18 +95,41 @@ function renderIndicatorAudit(run){
    (findings||'<div class="empty">لم يكتشف الفحص الآلي أخطاء بنيوية.</div>')+
  '</div>';
 }
+function renderGeneratedTestAudit(run){
+ const host=$('indicatorAuditResult');if(!host)return;
+ const m=run?.metrics||{},tot=m.totals||{};
+ const findings=(run?.findings||[]).map(f=>'<article class="finding"><span class="dot '+esc(f.severity)+'"></span><div><div class="proposal-head"><h3>'+esc(f.title)+'</h3><span class="status-pill '+esc(f.severity)+'">'+esc(sevLabel[f.severity]||f.severity)+'</span></div><p>'+esc(f.detail)+'</p><p class="safe-action"><b>الإجراء المقترح:</b> '+esc(f.safe_action)+'</p></div></article>').join('');
+ host.insertAdjacentHTML('beforeend','<div class="indicator-audit-summary generated-tests-audit">'+
+   '<div class="panel-head"><div><span class="kicker">الاختبارات الفعلية المحفوظة</span><h2>مراجعة النماذج التي أنشأتها المنصة</h2></div><span class="status-pill '+esc(run?.severity||'ok')+'">'+esc(sevLabel[run?.severity]||run?.severity||'سليم')+'</span></div>'+
+   '<div class="indicator-audit-kpis">'+
+     metric('الاختبارات المحفوظة',ar(m.total_tests||0))+
+     metric('الأسئلة داخل الاختبارات',ar(m.total_rendered_questions||0))+
+     metric('فجوات المستويات الثلاثة',ar(tot.indicator_level_gaps||0))+
+     metric('اختبارات توزيع الإجابة غير متوازن',ar(tot.answer_position_imbalanced_tests||0))+
+   '</div>'+
+   '<div class="indicator-audit-note">هذا الجزء يراجع <b>الاختبارات التي أنشأتها المنصة نفسها</b>، وليس بنك الأسئلة فقط: توزيع الأسئلة داخل كل اختبار، المعرفة/التطبيق/الاستدلال، التكرار، البدائل، الإجابة الصحيحة، بنية القراءة والصور المفقودة.</div>'+
+   (findings||'<div class="empty">لم يكتشف الفحص أخطاء بنيوية في الاختبارات الفعلية.</div>')+
+ '</div>');
+}
 async function runIndicatorAudit(){
  const btn=$('runIndicatorAudit');if(!btn)return;
  btn.disabled=true;
  const badge=$('indicatorAuditBadge'),host=$('indicatorAuditResult');
  if(badge){badge.className='status-pill info';badge.textContent='جارٍ فحص جميع المؤشرات…';}
- host.innerHTML='<div class="empty">يجري الآن فحص القراءة والرياضيات والعلوم سؤالًا سؤالًا. قد يستغرق ذلك عدة ثوانٍ.</div>';
- setState('جارٍ فحص جميع اختبارات المؤشرات وإنشاء تقرير للمساعد…');
+ host.innerHTML='<div class="empty">يجري الآن أولًا فحص بنك المؤشرات، ثم فحص الاختبارات الفعلية المحفوظة التي أنشأتها المنصة.</div>';
+ setState('جارٍ فحص بنك المؤشرات والاختبارات الفعلية وإنشاء تقريرين للمساعد…');
  try{
    const d=await call('indicator_audit');
    renderIndicatorAudit(d.run);
+   if(badge){badge.className='status-pill info';badge.textContent='جارٍ فحص الاختبارات الفعلية…';}
+   setState('اكتمل فحص بنك المؤشرات. جارٍ الآن مراجعة الاختبارات التي أنشأتها المنصة فعليًا…');
+   const t=await callGeneratedTestAudit();
+   renderGeneratedTestAudit(t.run);
+   const ranks={ok:0,info:1,warning:2,critical:3};
+   const finalSev=(ranks[t.run?.severity||'ok']>ranks[d.run?.severity||'ok'])?(t.run?.severity||'ok'):(d.run?.severity||'ok');
+   if(badge){badge.className='status-pill '+finalSev;badge.textContent=sevLabel[finalSev]||finalSev;}
    await Promise.all([loadHistory(),loadHandoffs()]);
-   setState('اكتمل فحص جميع اختبارات المؤشرات وتم تسليم التقرير للمساعد.','ok');
+   setState('اكتمل فحص بنك المؤشرات والاختبارات الفعلية، وتم تسليم التقريرين للمساعد.','ok');
  }catch(e){
    if(badge){badge.className='status-pill critical';badge.textContent='تعذر الفحص';}
    host.innerHTML='<div class="empty">'+esc(e.message||String(e))+'</div>';
