@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f6b63">
 <title>وكيل صيانة المنصة | معلّمي</title>
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
-<link rel="stylesheet" href="maintenance-agent.css?v=20261002-indicatoraudit1">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261002-semantic1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -67,6 +67,23 @@
       <div id="indicatorAuditResult" class="indicator-audit-result"><div class="empty">لم يبدأ الفحص العميق بعد.</div></div>
     </section>
 
+    <section class="panel semantic-judge-panel">
+      <div class="panel-head">
+        <div><span class="kicker">المحكّم التربوي الدلالي</span><h2>يفهم السؤال والمؤشر والبدائل قبل الحكم</h2></div>
+        <span id="semanticJudgeBadge" class="status-pill info">جارٍ التحقق من المحكّم…</span>
+      </div>
+      <p class="brain-intro">هذه الطبقة لا تكتفي بعدّ البدائل أو قراءة الحقل المعرفي. تفحص مطابقة السؤال للمؤشر، صحة المحتوى، احتمال وجود أكثر من إجابة صحيحة، قوة المشتتات، المستوى الحقيقي معرفة/تطبيق/استدلال، وضوح الصياغة، والتكرار المعنوي. لا ترسل أسماء الطلاب أو محاولاتهم أو مفاتيح الحساب.</p>
+      <div id="semanticProviderNote" class="semantic-provider-note">جارٍ التحقق من توفر الذكاء الدلالي…</div>
+      <div class="semantic-actions">
+        <button class="btn primary" type="button" data-semantic-scope="active_tests">تحكيم الاختبارات الفعلية تربويًا</button>
+        <button class="btn light" type="button" data-semantic-scope="indicator_bank" data-semantic-subject="reading">تحكيم بنك القراءة</button>
+        <button class="btn light" type="button" data-semantic-scope="indicator_bank" data-semantic-subject="math">تحكيم بنك الرياضيات</button>
+        <button class="btn light" type="button" data-semantic-scope="indicator_bank" data-semantic-subject="science">تحكيم بنك العلوم</button>
+      </div>
+      <div id="semanticJudgeProgress" class="semantic-progress"></div>
+      <div id="semanticJudgeResult" class="semantic-result"><div class="empty">اختر نطاق التحكيم التربوي. الحالات التي تحتاج تعديلًا ستظهر مع السبب والمستوى الحقيقي والصياغة المقترحة عند توفرها.</div></div>
+    </section>
+
     <section class="panel print-agent-panel">
       <div class="panel-head">
         <div><span class="kicker">وكيل الطباعة المرئي</span><h2>افحص تصميم الورق كما يظهر فعليًا</h2></div>
@@ -122,6 +139,6 @@
 </div>
 
 <script src="teacher-access.js?v=20260930-mainfix2"></script>
-<script src="maintenance-agent.js?v=20261002-remediation1"></script>
+<script src="maintenance-agent.js?v=20261002-semantic1"></script>
 </body>
 </html>
