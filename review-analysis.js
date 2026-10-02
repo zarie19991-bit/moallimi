@@ -3,6 +3,7 @@
 const $=id=>document.getElementById(id),R=window.NafesPaperResults,T=window.NafesTeacher;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS_KEY='nafes_school_report_settings_v1';
+const SUBJECT_TEACHERS={reading:'زرعي شبير',math:'عبدالله العماري',science:'مليدان بالحارث'};
 const levels=[
  {key:'excellent',label:'ممتاز',range:'٩٠ – ١٠٠'},
  {key:'verygood',label:'جيد جدًا',range:'٨٠ – أقل من ٩٠'},
@@ -65,7 +66,8 @@ function buildOfficial(b){
  const rosterTotal=Number(s.assigned||0)||n;
  const testedTotal=Number(s.tested||n);
  const missingTotal=Number((b.absent||[]).length||Math.max(0,rosterTotal-testedTotal));
- const teacher=cfg.teacherName||'________________';
+ const oneSubject=(b.subjects||[]).length===1?String(b.subjects[0]||''):'';
+ const teacher=SUBJECT_TEACHERS[oneSubject]||'________________';
  const principal=cfg.principalName||'________________';
  return '<article class="subject-analysis-sheet official-analysis-sheet reference-analysis">'+
    '<header class="sar-head">'+
