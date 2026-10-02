@@ -318,7 +318,7 @@ function reorderModelQuestions(d,modelIndex,previous){
  }
  return d;
 }
-async async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
+async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  const reading=hasReading();
  const attempts=reading?24:($('avoidRepeats').checked?16:10);
  let best=null,bestScore=Infinity,bestOverlap=Infinity;
@@ -418,7 +418,7 @@ async function buildModels(){
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
-async async function buildAssignments(){
+async function buildAssignments(){
  const bad=models.flatMap((m,i)=>incompleteChoices(m).map((q,n)=>({model:letters[i],question:q.question||'',n:n+1})));
  if(bad.length){setStatus('تم إيقاف التجهيز لأن هناك '+bad.length+' سؤالًا ناقص الاختيارات. أعد إنشاء النماذج؛ لن تُطبع ورقة ناقصة.','error');return;}
  if(models.some(m=>!hasValidAnswerKey(m))){setStatus('تم إيقاف التجهيز لأن مفتاح إجابة أحد الأسئلة غير مكتمل. أعد إنشاء النماذج.','error');return;}
