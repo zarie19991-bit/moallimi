@@ -29,7 +29,7 @@ type Candidate={
   source_type:"active_test"|"indicator_bank"; source_id:string; assessment_id:string|null;
   subject:"reading"|"math"|"science"; indicator_key:string; indicator_text:string;
   registered_level:string; question_text:string; options:string[]; correct_index:number|null;
-  context:string;
+  context:string; option_parse_note:string|null;
 };
 type Review={
   source_id:string; judgment:"pass"|"review"|"reject"; confidence:number; detected_level:string|null;
@@ -52,6 +52,44 @@ function normalized(v:unknown){
     .replace(/[؟?!.،,:؛;'"“”‘’()\[\]{}\-–—_/\\]+/g," ")
     .replace(/\s+/g," ").trim();
 }
+function optionArray(value:any){
+  if(Array.isArray(value))return {options:value.map((x:any)=>tidy(x,500)),note:null};
+  if(value&&typeof value==="object"){
+    const preferred=["a","b","c","d"].map(k=>value[k]??value[k.toUpperCase()]).filter(v=>v!==undefined);
+    if(preferred.length===4)return {options:preferred.map((x:any)=>tidy(x,500)),note:"حوّل المحكّم البدائل من كائن A/B/C/D إلى مصفوفة."};
+    const alt=value.options||value.choices||value.answers;
+    if(Array.isArray(alt))return {options:alt.map((x:any)=>tidy(x,500)),note:"حوّل المحكّم حقل البدائل المتداخل إلى مصفوفة."};
+  }
+  if(typeof value==="string"){
+    try{const parsed=JSON.parse(value);return optionArray(parsed);}catch{}
+  }
+  return {options:[],note:"تعذر قراءة بنية البدائل من المصدر؛ تُصنّف الحالة «مراجعة» ولا تُرفض تربويًا تلقائيًا."};
+}
+const INTERNAL_STUDENT_CONTEXT=/^(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|مهمة تقويمية جديدة|مراجعة الحل)/;
+const INTERNAL_STUDENT_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|وردت في مخطط المراجعة المهمة|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|لتمييز المعرفة المرتبطة|ضمن مقارنة النتيجة ببديل قريب|باستخدام مقارنة النتيجة ببديل قريب|باستخدام كشف الافتراض الذي أدى إلى الخطأ|بعد كشف الافتراض الذي أدى إلى الخطأ|عند كشف الافتراض الذي أدى إلى الخطأ|أي تصحيح يجمع النتيجة السليمة ودليلها|أي تحليل يكشف الخطأ ويبرر البديل|أي تفسير يطابق النتيجة الصحيحة)/;
+function studentFacingContext(subject:string,value:unknown){
+  const ctx=tidy(value,1800);
+  if(!ctx)return "";
+  if((subject==="math"||subject==="science")&&INTERNAL_STUDENT_CONTEXT.test(ctx))return "";
+  return ctx;
+}
+function studentFacingQuestion(subject:string,value:unknown,level:unknown){
+  const text=tidy(value,1600),lv=String(level||"");
+  if(!text||!(subject==="math"||subject==="science")||!INTERNAL_STUDENT_STEM.test(text))return text;
+  const matches=[...text.matchAll(/«([^»]+)»/g)].map(m=>String(m[1]||"").trim()).filter(Boolean);
+  if(lv==="knowledge"||lv==="application"){
+    const task=matches.length?matches[matches.length-1]:"";
+    return task.length<4?text:(/[؟?!.]$/.test(task)?task:task+"؟");
+  }
+  if(lv==="reasoning"&&matches.length>=2){
+    const result=matches[0],task=matches[matches.length-1];
+    if(/أي تحليل يكشف الخطأ ويبرر البديل/.test(text))return "في السؤال «"+task+"»، اختار طالب «"+result+"». أي تحليل يوضح الخطأ ويبرر البديل الصحيح؟";
+    if(/أي تصحيح يجمع النتيجة السليمة ودليلها/.test(text))return "في السؤال «"+task+"»، كانت الإجابة «"+result+"». أي خيار يصحح الإجابة ويذكر دليلًا مناسبًا؟";
+    if(/أي تفسير يطابق النتيجة الصحيحة/.test(text))return "في السؤال «"+task+"»، كانت الإجابة المقترحة «"+result+"». أي تفسير يدعم الإجابة الصحيحة؟";
+    if(/أي حكم مدعوم/.test(text))return "في السؤال «"+task+"»، قورنت المعطيات بالإجابة «"+result+"». أي حكم تدعمه المعطيات؟";
+  }
+  return text;
+}
 function dim(status:string,note:string){return{status,note};}
 function ruleReview(c:Candidate):Review{
   const q=c.question_text,opts=c.options.map(normalized),reasons:string[]=[];
@@ -59,16 +97,21 @@ function ruleReview(c:Candidate):Review{
     indicator_alignment:dim("unknown","تحتاج فهمًا دلاليًا للمؤشر."),
     content_accuracy:dim("pass","لم يكتشف الفحص القاعدي تناقضًا معروفًا."),
     single_correct_answer:dim("pass","لا توجد علامة قاعدية قوية على تعدد الإجابات."),
-    distractors:dim("pass","البدائل مكتملة ومختلفة نصيًا."),
+    distractors:dim("pass","لم يكتشف الفحص البنيوي مشكلة مؤكدة في البدائل."),
     cognitive_level:dim("pass","لا توجد علامة قاعدية قوية على خطأ التصنيف."),
-    wording:dim("pass","لا توجد صياغة داخلية ظاهرة."),
+    wording:dim("pass","تُراجع الصياغة التي تصل للطالب، لا النص التاريخي الخام."),
     semantic_repetition:dim("unknown","يُحكم عليها على مستوى المجموعة.")
   };
-  let judgment:"pass"|"review"|"reject"="pass",confidence=.68,detected:string|null=c.registered_level||null,suggested:string|null=null;
+  let judgment:"pass"|"review"|"reject"="pass",confidence=.62,detected:string|null=c.registered_level||null,suggested:string|null=null;
   const escalate=(j:"review"|"reject",conf:number,reason:string)=>{
     if(j==="reject"||judgment==="pass")judgment=j;
     confidence=Math.max(confidence,conf);reasons.push(reason);
   };
+
+  if(c.option_parse_note){
+    dimensions.distractors=dim("review",c.option_parse_note);
+    escalate("review",.88,c.option_parse_note);
+  }
 
   if(c.subject==="science"){
     const meiosisContradiction=/(نحو|إلى)\s+(?:كل\s+)?قطب/.test(q)&&/(مصطف|تصطف|في\s+المنتصف|عند\s+خط\s+الاستواء)/.test(q);
@@ -108,18 +151,29 @@ function ruleReview(c:Candidate):Review{
     escalate("review",.91,"سؤال قراءة يعتمد على نص أو سياق غير موجود.");
   }
 
-  const duplicateOpts=new Set(opts.filter(Boolean));
-  if(c.options.length!==4||duplicateOpts.size!==4){
-    dimensions.distractors=dim("fail","البدائل ليست أربعة بدائل مستقلة.");
-    escalate("reject",.99,"بنية البدائل غير صالحة للتحكيم.");
+  const trimmed=c.options.map(x=>String(x??"").trim()),blankCount=trimmed.filter(x=>!x).length;
+  const exactCount=new Set(trimmed.filter(Boolean)).size;
+  const semanticCount=new Set(opts.filter(Boolean)).size;
+  if(c.options.length!==4||blankCount>0){
+    dimensions.distractors=dim("fail","عدد البدائل المقروءة: "+c.options.length+"، والبدائل الفارغة: "+blankCount+".");
+    escalate(c.option_parse_note?"review":"reject",c.option_parse_note?.length?0.90:0.99,"بنية البدائل غير مكتملة: المطلوب أربعة بدائل غير فارغة.");
+  }else if(exactCount<4){
+    dimensions.distractors=dim("fail","يوجد بديلان متطابقان نصيًا.");
+    escalate("reject",.99,"يوجد تكرار حرفي بين البدائل.");
+  }else if(semanticCount<4){
+    dimensions.distractors=dim("review","بعض البدائل تصبح متطابقة بعد إزالة الفروق الشكلية؛ تحتاج مراجعة بشرية.");
+    escalate("review",.92,"بدائل متقاربة شكليًا/لغويًا وقد لا تكون مشتتات مستقلة.");
   }
   const ci=Number(c.correct_index);
   if(!Number.isInteger(ci)||ci<0||ci>3){
-    dimensions.single_correct_answer=dim("fail","مؤشر الإجابة الصحيحة غير صالح.");
-    escalate("reject",.99,"لا توجد إجابة صحيحة معتمدة صالحة.");
+    dimensions.single_correct_answer=dim("fail","مؤشر الإجابة الصحيحة خارج النطاق 0–3 أو غير موجود.");
+    escalate("reject",.99,"مؤشر الإجابة الصحيحة غير صالح.");
+  }else if(c.options.length===4&&!String(c.options[ci]??"").trim()){
+    dimensions.single_correct_answer=dim("fail","الإجابة المعتمدة تشير إلى بديل فارغ.");
+    escalate("reject",.99,"الإجابة الصحيحة المعتمدة تشير إلى بديل فارغ.");
   }
-  if(!reasons.length)reasons.push("اجتاز الفحص التربوي القاعدي ولم تظهر علامة قوية؛ يحتاج الذكاء الدلالي للحكم النهائي.");
-  return{source_id:c.source_id,judgment,confidence,detected_level:detected,dimensions,reasons,suggested_question:suggested,provider:"rules",model:"pedagogical-rules-v1"};
+  if(!reasons.length)reasons.push("اجتاز الفحص التربوي القاعدي فقط؛ لا يُعد ذلك اعتمادًا دلاليًا نهائيًا من دون نموذج لغوي.");
+  return{source_id:c.source_id,judgment,confidence,detected_level:detected,dimensions,reasons,suggested_question:suggested,provider:"rules",model:"pedagogical-rules-v2"};
 }
 
 function outputText(data:any){
@@ -178,10 +232,11 @@ async function fetchActiveTestCandidates(subject:string|null):Promise<Candidate[
     const sj=tidy(sec?.subject,20) as any;if(subject&&sj!==subject)continue;
     for(const x of Array.isArray(sec?.questions)?sec.questions:[]){
       const sid=tidy(x?.id,100);if(!sid||seen.has(sid)||!["reading","math","science"].includes(sj))continue;seen.add(sid);
+      const parsed=optionArray(x?.options);
       out.push({source_type:"active_test",source_id:sid,assessment_id:String(a.id),subject:sj,indicator_key:tidy(x?.indicator_key,180),
         indicator_text:tidy(x?.indicator_text,700),registered_level:tidy(x?.cognitive_level,30),question_text:tidy(x?.question,1600),
-        options:Array.isArray(x?.options)?x.options.map((z:any)=>tidy(z,500)).slice(0,4):[],
-        correct_index:Number.isInteger(Number(x?.correctIndex))?Number(x.correctIndex):null,context:tidy(x?.context,1800)});
+        options:parsed.options.slice(0,4),option_parse_note:parsed.note,
+        correct_index:Number.isInteger(Number(x?.correctIndex))?Number(x.correctIndex):null,context:studentFacingContext(sj,x?.context)});
     }
   }
   return out.sort((a,b)=>a.subject.localeCompare(b.subject)||a.indicator_key.localeCompare(b.indicator_key)||a.source_id.localeCompare(b.source_id));
@@ -197,11 +252,11 @@ async function fetchBankCandidates(subject:string|null):Promise<Candidate[]>{
           .eq("grade_key","middle_3").eq("subject_key","reading").eq("is_active",true).eq("review_status","approved")
           .order("id").range(start,start+499);
         if(error)throw error;
-        for(const x of data||[])out.push({source_type:"indicator_bank",source_id:String(x.id),assessment_id:null,subject:"reading",
+        for(const x of data||[]){const parsed=optionArray(x.options);out.push({source_type:"indicator_bank",source_id:String(x.id),assessment_id:null,subject:"reading",
           indicator_key:"reading:"+String(x.outcome_code)+":i"+String(x.indicator_index),indicator_text:tidy(x.indicator_text,700),
           registered_level:tidy(x.cognitive_level,30),question_text:tidy(x.question_text,1600),
-          options:Array.isArray(x.options)?x.options.map((z:any)=>tidy(z,500)).slice(0,4):[],
-          correct_index:Number.isInteger(Number(x.correct_index))?Number(x.correct_index):null,context:tidy(x.context_text,1800)});
+          options:parsed.options.slice(0,4),option_parse_note:parsed.note,
+          correct_index:Number.isInteger(Number(x.correct_index))?Number(x.correct_index):null,context:studentFacingContext("reading",x.context_text)});}
         if(!data||data.length<500)break;
       }
     }else{
@@ -211,10 +266,10 @@ async function fetchBankCandidates(subject:string|null):Promise<Candidate[]>{
           .select("id,subject_key,indicator_key,indicator_text,context_text,question_text,options,correct_index,cognitive_level")
           .eq("subject_key",sj).eq("quality_version",version).order("indicator_key").order("id").range(start,start+499);
         if(error)throw error;
-        for(const x of data||[])out.push({source_type:"indicator_bank",source_id:String(x.id),assessment_id:null,subject:sj as any,
-          indicator_key:tidy(x.indicator_key,180),indicator_text:tidy(x.indicator_text,700),registered_level:tidy(x.cognitive_level,30),
-          question_text:tidy(x.question_text,1600),options:Array.isArray(x.options)?x.options.map((z:any)=>tidy(z,500)).slice(0,4):[],
-          correct_index:Number.isInteger(Number(x.correct_index))?Number(x.correct_index):null,context:tidy(x.context_text,1800)});
+        for(const x of data||[]){const parsed=optionArray(x.options),level=tidy(x.cognitive_level,30);out.push({source_type:"indicator_bank",source_id:String(x.id),assessment_id:null,subject:sj as any,
+          indicator_key:tidy(x.indicator_key,180),indicator_text:tidy(x.indicator_text,700),registered_level:level,
+          question_text:studentFacingQuestion(sj, x.question_text, level),options:parsed.options.slice(0,4),option_parse_note:parsed.note,
+          correct_index:Number.isInteger(Number(x.correct_index))?Number(x.correct_index):null,context:studentFacingContext(sj,x.context_text)});}
         if(!data||data.length<500)break;
       }
     }
