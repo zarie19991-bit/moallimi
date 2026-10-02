@@ -1,7 +1,12 @@
 -- Quarantine defective active indicator-test drafts while preserving history and attempts.
 -- Published tests are archived only when the visible question stem itself contains
 -- internal authoring language. No rows or attempts are deleted.
+-- The immutability trigger permits published -> archived only when no other
+-- published-test fields are changed, so published rows are updated separately.
 
+create temporary table tmp_indicator_quarantine_targets
+on commit drop
+as
 with questions as (
   select
     a.id as assessment_id,
@@ -85,6 +90,8 @@ targets as (
   union all
   select id,'published_visible_prompt_quarantine'::text from published_visible_bad
 )
+select * from targets;
+
 update public.nafes_assessments a
 set status='archived',
     config=coalesce(a.config,'{}'::jsonb) ||
@@ -97,5 +104,14 @@ set status='archived',
           'repair_version','indicator-quality-gate-v1'
         )
       )
-from targets t
-where a.id=t.id;
+from tmp_indicator_quarantine_targets t
+where a.id=t.id
+  and a.status='draft'
+  and t.reason='draft_quality_quarantine';
+
+update public.nafes_assessments a
+set status='archived'
+from tmp_indicator_quarantine_targets t
+where a.id=t.id
+  and a.status='published'
+  and t.reason='published_visible_prompt_quarantine';
