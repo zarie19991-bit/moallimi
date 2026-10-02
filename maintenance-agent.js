@@ -20,13 +20,17 @@ async function call(action,body={}){
  }catch(e){if(e.name==='AbortError')throw new Error('استغرق الفحص أكثر من 30 ثانية. أعد المحاولة.');throw e;}
  finally{clearTimeout(timer);}
 }
-function metric(label,value){return '<div class="metric"><span>'+esc(label)+'</span><b>'+esc(value)+'</b></div>'}
+function metric(label,value,muted=false){return '<div class="metric"><span>'+esc(label)+'</span><b class="'+(muted?'muted':'')+'">'+esc(value)+'</b></div>'}
+function metricValue(v){return v===null||v===undefined||v===''?{text:'لم يُفحص بعد',muted:true}:{text:ar(v),muted:false}}
 function renderMetrics(run){
  const m=run?.metrics||{},s=m.database_security||{},q=m.question_quality||{},p=m.paper_review||{};
+ const leak=metricValue(q.prompt_leak_rows);
+ const dupKnown=q.duplicate_groups_question_bank!==null&&q.duplicate_groups_question_bank!==undefined&&q.duplicate_groups_curated_bank!==null&&q.duplicate_groups_curated_bank!==undefined;
+ const dup=dupKnown?{text:ar(Number(q.duplicate_groups_question_bank||0)+Number(q.duplicate_groups_curated_bank||0)),muted:false}:{text:'لم يُفحص بعد',muted:true};
  $('metrics').innerHTML=[
   metric('جداول public بلا RLS',ar(s.rls_disabled_public_count)),
-  metric('صفوف بصياغات داخلية',ar(q.prompt_leak_rows)),
-  metric('مجموعات تكرار حرفي',ar(Number(q.duplicate_groups_question_bank||0)+Number(q.duplicate_groups_curated_bank||0))),
+  metric('صفوف بصياغات داخلية',leak.text,leak.muted),
+  metric('مجموعات تكرار حرفي',dup.text,dup.muted),
   metric('مراجعات ورقية محفوظة',ar(p.saved_reviews))
  ].join('');
 }
@@ -48,6 +52,43 @@ function renderProposals(rows){
    return '<article class="proposal"><div class="proposal-head"><h3>'+esc(p.title)+'</h3><span class="risk">المخاطر: '+esc(riskLabel[p.risk_level]||p.risk_level)+'</span></div><p>الوضع: '+esc(({pending:'بانتظار قرارك',approved:'معتمدة — دون تنفيذ',rejected:'مرفوضة',applied:'مطبقة'})[p.status]||p.status)+'</p>'+(pending?'<div class="proposal-actions"><button class="approve" data-approve="'+esc(p.id)+'">اعتماد الخطة دون تنفيذ</button><button class="reject" data-reject="'+esc(p.id)+'">رفض</button></div>':'')+'</article>';
  }).join(''):'<div class="empty">لا توجد خطط إصلاح حتى الآن.</div>';
 }
+
+const confidenceLabel={high:'ثقة عالية',medium:'ثقة متوسطة',low:'معرفة غير مكتملة'};
+function renderBrainAnswer(data){
+ const host=$('brainAnswer');if(!host)return;
+ const sources=Array.isArray(data?.sources)?data.sources:[];
+ const matched=Array.isArray(data?.matched)?data.matched:[];
+ const followups=Array.isArray(data?.followups)?data.followups:[];
+ host.innerHTML='<div class="brain-answer-card">'+
+   '<p>'+esc(data?.answer||'لا توجد إجابة موثقة بعد.')+'</p>'+
+   '<div class="brain-meta"><span>'+esc(confidenceLabel[data?.confidence]||data?.confidence||'—')+'</span><span>•</span><span>'+ar(matched.length)+' أجزاء معرفة مرتبطة</span><span>•</span><span>لا تُحفظ المحادثة</span></div>'+
+   (sources.length?'<div class="brain-sources"><b>المصادر داخل المشروع:</b><br>'+sources.map(esc).join(' · ')+'</div>':'')+
+   (followups.length?'<div class="brain-followups">'+followups.map(x=>'<button type="button" data-brain-followup="'+esc(x)+'">'+esc(x)+'</button>').join('')+'</div>':'')+
+   '</div>';
+}
+async function loadBrainOverview(){
+ try{
+  const d=await call('brain_overview');
+  const badge=$('brainBadge');
+  if(badge){badge.className='status-pill ok';badge.textContent='يعرف '+ar(d.knowledge_count||0)+' قاعدة عن المنصة';}
+ }catch(e){
+  const badge=$('brainBadge');
+  if(badge){badge.className='status-pill warning';badge.textContent='تعذر تحميل المعرفة';}
+ }
+}
+async function askBrain(question){
+ const q=String(question||'').trim();if(!q)return;
+ const btn=$('brainAsk');if(btn)btn.disabled=true;
+ $('brainQuestion').value=q;
+ $('brainAnswer').innerHTML='<div class="empty">جارٍ الرجوع إلى خريطة المنصة وقرارات المشروع…</div>';
+ try{
+  const d=await call('ask_platform',{question:q});
+  renderBrainAnswer(d);
+ }catch(e){
+  $('brainAnswer').innerHTML='<div class="empty">'+esc(e.message||String(e))+'</div>';
+ }finally{if(btn)btn.disabled=false;}
+}
+
 async function loadHistory(){
  const d=await call('history',{limit:12});
  renderHistory(d.runs||[]);renderProposals(d.proposals||[]);
@@ -60,9 +101,13 @@ async function init(){
   const p=await window.NafesTeacher.ensureProfile();
   if(p?.subject_scope!=='all'){$('denied').hidden=false;$('mainContent').hidden=true;setState('لا توجد صلاحية لهذا الحساب.','error');return;}
   $('mainContent').hidden=false;setState('الوضع الآمن جاهز. يمكنك تشغيل الفحص الشامل.','ok');
-  await loadHistory();
+  await Promise.all([loadHistory(),loadBrainOverview()]);
  }catch(e){setState(e.message||String(e),'error');}
 }
+$('brainForm')?.addEventListener('submit',e=>{e.preventDefault();askBrain($('brainQuestion').value);});
+document.querySelectorAll('[data-brain-q]').forEach(b=>b.addEventListener('click',()=>askBrain(b.dataset.brainQ||'')));
+$('brainAnswer')?.addEventListener('click',e=>{const b=e.target.closest('[data-brain-followup]');if(b)askBrain(b.dataset.brainFollowup||'');});
+
 $('runScan').onclick=async()=>{
  const btn=$('runScan');btn.disabled=true;setState('جارٍ فحص قاعدة البيانات وبنوك الأسئلة دون قراءة بيانات الطلاب الشخصية…');
  try{
