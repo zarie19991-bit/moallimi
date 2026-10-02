@@ -3,6 +3,7 @@
 const $=id=>document.getElementById(id);
 const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-agent';
 const TEST_AUDIT_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-test-audit';
+const SEMANTIC_AUDIT_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-semantic-audit';
 let latestRun=null,latestPrintRun=null,allProposals=[],allHandoffs=[],lastBrainQuestion='';
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -33,6 +34,119 @@ async function callGeneratedTestAudit(){
   return data;
  }catch(e){if(e.name==='AbortError')throw new Error('استغرق فحص الاختبارات الفعلية أكثر من 90 ثانية. أعد المحاولة.');throw e;}
  finally{clearTimeout(timer);}
+}
+
+async function callSemanticAudit(action,body={}){
+ const key=window.NafesTeacher?.getKey?.();
+ if(!key)throw new Error('يلزم دخول الحساب الرئيسي.');
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),90000);
+ try{
+  const res=await fetch(SEMANTIC_AUDIT_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','x-teacher-key':key},body:JSON.stringify({...body,action}),cache:'no-store',signal:ctrl.signal});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data.error)throw new Error(data.error||'تعذر تشغيل المحكّم التربوي.');
+  return data;
+ }catch(e){if(e.name==='AbortError')throw new Error('استغرق التحكيم التربوي أكثر من 90 ثانية في هذه الدفعة. أعد المحاولة للمتابعة.');throw e;}
+ finally{clearTimeout(timer);}
+}
+function semanticJudgmentLabel(v){return ({pass:'سليم تربويًا',review:'يحتاج مراجعة',reject:'مرفوض تربويًا'})[v]||v||'—';}
+function semanticJobStatusLabel(v){return ({queued:'في الانتظار',running:'جارٍ التحكيم',completed:'اكتمل التحكيم الدلالي',partial:'مكتمل جزئيًا',provider_required:'اكتمل الفحص القاعدي — الذكاء الدلالي غير موصول',failed:'تعذر التحكيم'})[v]||v||'—';}
+function renderSemanticProvider(provider){
+ const badge=$('semanticJudgeBadge'),note=$('semanticProviderNote');
+ if(!badge||!note)return;
+ if(provider?.configured){
+   badge.className='status-pill ok';badge.textContent='محكّم دلالي متصل';
+   note.className='semantic-provider-note ok';
+   note.innerHTML='التحكيم الدلالي مفعّل عبر نموذج ذكاء اصطناعي. تُرسل فقط بيانات السؤال التعليمية: المؤشر، السؤال، البدائل، الإجابة، والسياق عند الحاجة. <b>لا تُرسل بيانات الطلاب أو المحاولات.</b>';
+ }else{
+   badge.className='status-pill warning';badge.textContent='محكّم تربوي قاعدي فقط';
+   note.className='semantic-provider-note warning';
+   note.innerHTML='طبقة التحكيم التربوي القاعدية مفعّلة الآن، وتكشف التناقضات والقواعد التربوية المعروفة. <b>للفهم الدلالي العام لكل سؤال يلزم ربط مزود نموذج لغوي في وظيفة Supabase.</b>';
+ }
+}
+function renderSemanticProgress(job){
+ const host=$('semanticJudgeProgress');if(!host)return;
+ if(!job){host.innerHTML='';return;}
+ const total=Number(job.total_candidates||0),done=Number(job.reviewed_count||0),pct=total?Math.min(100,Math.round(done*100/total)):0;
+ host.innerHTML='<div class="semantic-progress-card"><div class="semantic-progress-top"><b>'+esc(semanticJobStatusLabel(job.status))+'</b><span>'+ar(done)+' / '+ar(total)+'</span></div><div class="semantic-progress-bar"><i style="width:'+pct+'%"></i></div><div class="semantic-progress-meta"><span>سليم: '+ar(job.pass_count||0)+'</span><span>مراجعة: '+ar(job.review_count||0)+'</span><span>مرفوض: '+ar(job.reject_count||0)+'</span></div></div>';
+}
+function semanticDimensionSummary(r){
+ const d=r?.dimensions||{},labels={indicator_alignment:'مطابقة المؤشر',content_accuracy:'صحة المحتوى',single_correct_answer:'وحدة الإجابة',distractors:'المشتتات',cognitive_level:'المستوى المعرفي',wording:'الصياغة',semantic_repetition:'التكرار المعنوي'};
+ return Object.entries(labels).map(([k,l])=>{
+   const x=d[k],v=typeof x==='string'?x:x?.status;
+   if(!v||v==='pass'||v==='unknown')return '';
+   return '<span class="semantic-dim '+esc(v)+'">'+esc(l)+': '+esc(v==='fail'?'مشكلة':'مراجعة')+'</span>';
+ }).filter(Boolean).join('');
+}
+function renderSemanticReport(data){
+ const host=$('semanticJudgeResult');if(!host)return;
+ const job=data?.job||{},rows=Array.isArray(data?.reviews)?data.reviews:[];
+ renderSemanticProvider(data?.provider||{});
+ renderSemanticProgress(job);
+ if(!rows.length){
+   host.innerHTML='<div class="empty">'+(job.status==='completed'?'لم تظهر حالات تحتاج مراجعة في هذا النطاق.':'لا توجد حالات محفوظة تحتاج مراجعة حتى الآن.')+'</div>';
+   return;
+ }
+ host.innerHTML='<div class="semantic-report-head">'+
+   metric('راجع المحكّم',ar(job.reviewed_count||0))+
+   metric('سليم',ar(job.pass_count||0))+
+   metric('يحتاج مراجعة',ar(job.review_count||0))+
+   metric('مرفوض',ar(job.reject_count||0))+
+ '</div>'+
+ rows.map(r=>{
+   const reasons=(r.reasons||[]).map(x=>'<li>'+esc(x)+'</li>').join('');
+   const suggestion=r.suggested_question?'<div class="semantic-suggestion"><b>صياغة مقترحة:</b> '+esc(r.suggested_question)+'</div>':'';
+   const level=r.detected_level&&r.detected_level!==r.registered_level?'<div class="semantic-level"><b>المستوى المسجل:</b> '+esc(r.registered_level||'—')+' <span>←</span> <b>المستوى المرجح:</b> '+esc(r.detected_level)+'</div>':'';
+   return '<article class="semantic-review '+esc(r.judgment)+'"><div class="proposal-head"><h3>'+esc(r.indicator_text||r.indicator_key||'سؤال مؤشر')+'</h3><span class="status-pill '+(r.judgment==='reject'?'critical':r.judgment==='review'?'warning':'ok')+'">'+esc(semanticJudgmentLabel(r.judgment))+'</span></div>'+
+     '<div class="semantic-question">'+esc(r.question_text||'')+'</div>'+
+     level+'<div class="semantic-dims">'+semanticDimensionSummary(r)+'</div>'+
+     (reasons?'<ul class="semantic-reasons">'+reasons+'</ul>':'')+suggestion+
+     '<div class="semantic-meta">الثقة: '+Math.round(Number(r.confidence||0)*100)+'% · '+esc(r.provider||'rules')+(r.model?' · '+esc(r.model):'')+'</div></article>';
+ }).join('');
+}
+async function loadSemanticStatus(){
+ try{
+   const d=await callSemanticAudit('status');
+   renderSemanticProvider(d.provider||{});
+   const job=d.jobs?.[0];if(job)renderSemanticProgress(job);
+ }catch(e){
+   const badge=$('semanticJudgeBadge');if(badge){badge.className='status-pill warning';badge.textContent='تعذر فحص المحكّم';}
+   const note=$('semanticProviderNote');if(note)note.textContent=e.message||String(e);
+ }
+}
+async function runSemanticAudit(scope,subject=''){
+ const buttons=[...document.querySelectorAll('[data-semantic-scope]')];
+ buttons.forEach(b=>b.disabled=true);
+ const host=$('semanticJudgeResult');
+ try{
+   if(host)host.innerHTML='<div class="empty">جارٍ تجهيز الأسئلة للتحكيم التربوي…</div>';
+   let d=await callSemanticAudit('start',{scope,...(subject?{subject}:{})}),job=d.job;
+   renderSemanticProvider(d.provider||{});renderSemanticProgress(job);
+   let rounds=0;
+   while(job?.status==='running'&&rounds<30){
+     d=await callSemanticAudit('process',{job_id:job.id});job=d.job;rounds++;
+     renderSemanticProvider(d.provider||{});renderSemanticProgress(job);
+     await new Promise(r=>setTimeout(r,80));
+   }
+   const report=await callSemanticAudit('report',{job_id:job.id});
+   renderSemanticReport(report);
+   if(job.status==='running'){
+     const more=document.createElement('button');more.type='button';more.className='btn primary';more.textContent='متابعة التحكيم من حيث توقف';
+     more.addEventListener('click',()=>resumeSemanticJob(job.id));$('semanticJudgeResult')?.prepend(more);
+   }
+   setState(job.status==='provider_required'?'اكتمل التحكيم القاعدي. المحكّم الدلالي العام يحتاج مزود ذكاء متصل.':'اكتمل التحكيم التربوي للنطاق المحدد.','ok');
+ }catch(e){
+   if(host)host.innerHTML='<div class="empty">'+esc(e.message||String(e))+'</div>';
+   setState(e.message||String(e),'error');
+ }finally{buttons.forEach(b=>b.disabled=false);}
+}
+async function resumeSemanticJob(jobId){
+ const buttons=[...document.querySelectorAll('[data-semantic-scope]')];buttons.forEach(b=>b.disabled=true);
+ try{
+  let job={id:jobId,status:'running'},rounds=0;
+  while(job.status==='running'&&rounds<30){const d=await callSemanticAudit('process',{job_id:jobId});job=d.job;renderSemanticProvider(d.provider||{});renderSemanticProgress(job);rounds++;await new Promise(r=>setTimeout(r,80));}
+  renderSemanticReport(await callSemanticAudit('report',{job_id:jobId}));
+ }catch(e){setState(e.message||String(e),'error');}
+ finally{buttons.forEach(b=>b.disabled=false);}
 }
 function metric(label,value,muted=false){return '<div class="metric"><span>'+esc(label)+'</span><b class="'+(muted?'muted':'')+'">'+esc(value)+'</b></div>'}
 function metricValue(v){return v===null||v===undefined||v===''?{text:'لم يُفحص بعد',muted:true}:{text:ar(v),muted:false}}
@@ -297,10 +411,11 @@ async function init(){
   const p=await window.NafesTeacher.ensureProfile();
   if(p?.subject_scope!=='all'){$('denied').hidden=false;$('mainContent').hidden=true;setState('لا توجد صلاحية لهذا الحساب.','error');return;}
   $('mainContent').hidden=false;setState('الوضع الآمن جاهز. يمكنك تشغيل الفحص الشامل.','ok');
-  await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs()]);
+  await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs(),loadSemanticStatus()]);
  }catch(e){setState(e.message||String(e),'error');}
 }
 $('runIndicatorAudit')?.addEventListener('click',runIndicatorAudit);
+document.querySelectorAll('[data-semantic-scope]').forEach(b=>b.addEventListener('click',()=>runSemanticAudit(b.dataset.semanticScope||'active_tests',b.dataset.semanticSubject||'')));
 $('brainForm')?.addEventListener('submit',e=>{e.preventDefault();askBrain($('brainQuestion').value);});
 document.querySelectorAll('[data-brain-q]').forEach(b=>b.addEventListener('click',()=>askBrain(b.dataset.brainQ||'')));
 $('brainAnswer')?.addEventListener('click',e=>{const b=e.target.closest('[data-brain-followup]');if(b)askBrain((lastBrainQuestion?lastBrainQuestion+' — ':'')+(b.dataset.brainFollowup||''));});
