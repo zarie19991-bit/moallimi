@@ -40,15 +40,64 @@ function questionUnits(q){
 function groupUnits(g){
  return (g.context?8+Math.ceil(String(g.context).length/180)*3.2:0)+g.questions.reduce((n,q)=>n+questionUnits(q),0);
 }
-function paginateGroups(groups){
- const valid=groups.filter(g=>g&&g.questions?.length),pages=[];let page=[],units=0;
- const LIMIT=52;
- for(const g of valid){
-   const gu=groupUnits(g);
-   if(page.length&&units+gu>LIMIT){pages.push(page);page=[];units=0;}
-   page.push(g);units+=gu;
+function paginateGroups(groups,subject){
+ const valid=groups.filter(g=>g&&g.questions?.length);
+ if(!valid.length)return[[]];
+
+ // القراءة تبقى محافظة على النص مع أسئلته كوحدة واحدة.
+ if(subject==='reading'){
+   const pages=[];let page=[],units=0;
+   const LIMIT=58;
+   for(const g of valid){
+     const gu=groupUnits(g);
+     if(page.length&&units+gu>LIMIT){pages.push(page);page=[];units=0;}
+     page.push(g);units+=gu;
+   }
+   if(page.length)pages.push(page);
+   return pages.length?pages:[[]];
+ }
+
+ // الرياضيات والعلوم: نملأ A4 فعليًا بدل إيقاف الصفحة مبكرًا.
+ // نحسب عدد الصفحات أولًا ثم نوازن الحمل بينها حتى لا تبقى صفحة
+ // فيها سؤالان أو ثلاثة بينما الصفحة السابقة ما زالت تتسع.
+ const SOFT_LIMIT=118;
+ const HARD_LIMIT=134;
+ const weighted=valid.map(g=>({g,u:groupUnits(g)}));
+ const total=weighted.reduce((n,x)=>n+x.u,0);
+ let desiredPages=Math.max(1,Math.ceil(total/SOFT_LIMIT));
+ desiredPages=Math.min(desiredPages,valid.length);
+
+ const pages=[];let page=[],pageUnits=0,remainingUnits=total,remainingPages=desiredPages;
+ for(let i=0;i<weighted.length;i++){
+   const {g,u}=weighted[i];
+   const groupsLeft=weighted.length-i;
+   const target=remainingPages>0?remainingUnits/remainingPages:SOFT_LIMIT;
+   const mustLeave=remainingPages-1;
+   const canBreak=page.length>0&&(groupsLeft>mustLeave);
+   const balancedBreak=canBreak&&pageUnits+u>target;
+   const hardBreak=canBreak&&pageUnits+u>HARD_LIMIT;
+
+   if(balancedBreak||hardBreak){
+     pages.push(page);
+     remainingUnits-=pageUnits;
+     remainingPages=Math.max(1,remainingPages-1);
+     page=[];pageUnits=0;
+   }
+   page.push(g);pageUnits+=u;
  }
  if(page.length)pages.push(page);
+
+ // معالجة أخيرة: لا نترك الصفحة الأخيرة ضعيفة إذا أمكن نقل سؤال
+ // من الصفحة السابقة دون تجاوز الحد الصلب.
+ if(pages.length>1){
+   const unitsOf=p=>p.reduce((n,g)=>n+groupUnits(g),0);
+   let last=pages[pages.length-1],prev=pages[pages.length-2];
+   while(prev.length>1&&unitsOf(last)<unitsOf(prev)*0.72){
+     const candidate=prev[prev.length-1];
+     if(unitsOf(last)+groupUnits(candidate)>HARD_LIMIT)break;
+     last.unshift(prev.pop());
+   }
+ }
  return pages.length?pages:[[]];
 }
 function cleanStem(question,context){
@@ -104,7 +153,7 @@ function modelBooklet(model,d){
      groups.map((g,i)=>onePage(model,d,[g],i+1,4,questions.length)).join('')+
      '</div>';
  }
- const pages=paginateGroups(groups);
+ const pages=paginateGroups(groups,d.subject);
  return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+
    pages.map((page,i)=>onePage(model,d,page,i+1,pages.length,questions.length)).join('')+
    '</div>';
@@ -127,7 +176,7 @@ function renderPages(){
  }
  $('pages').innerHTML=html;
  const copies=models.reduce((n,m)=>n+(mode==='students'?Math.max(1,copiesFor(d,m.model)):1),0);
- $('screenMeta').textContent=ar(models.length)+' نماذج · الصفحات تتكيف تلقائيًا حتى لا تختفي أي إجابة · '+ar(copies)+' نسخة';
+ $('screenMeta').textContent=ar(models.length)+' نماذج · الصفحات تُملأ وتُوازن تلقائيًا مع الحفاظ على وضوح الأسئلة وعدم قص الإجابات · '+ar(copies)+' نسخة';
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
