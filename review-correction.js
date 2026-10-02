@@ -7,7 +7,19 @@ const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const labels={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
 const MAX_CROSS_MODEL_REPEATS=10;
-function repeatLimit(){return selectedSubject()==='reading'?MAX_CROSS_MODEL_REPEATS:0;}
+function minimumRequiredRepeats(){
+ if(selectedSubject()==='reading'||!catalog)return 0;
+ const modelCount=Number($('modelCount')?.value||5);
+ const byKey=new Map(subjectIndicators().map(i=>[String(i.key),Number(i.available||0)]));
+ return getSelectedIndicators().reduce((sum,x)=>{
+   const available=Number(byKey.get(String(x.key))||0);
+   return sum+Math.max(0,modelCount*Number(x.count||0)-available);
+ },0);
+}
+function repeatLimit(){
+ if(selectedSubject()==='reading')return MAX_CROSS_MODEL_REPEATS;
+ return minimumRequiredRepeats()+MAX_CROSS_MODEL_REPEATS;
+}
 let catalog=null,students=[],models=[],activeModel=0,assignments=[];
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
@@ -71,7 +83,7 @@ function cognitiveOf(q){
  return'unknown';
 }
 function updateLevelSummary(){
- const k=Number($('knowledge').value||0),a=Number($('application').value||0),r=Number($('reasoning').value||0),sum=k+a+r,q=Number($('questionCount').value||20);
+ const k=Number($('knowledge').value||0),a=Number($('application').value||0),r=Number($('reasoning').value||0),sum=k+a+r,q=Number($('questionCount').value||15);
  const counts=[Math.round(q*k/100),Math.round(q*a/100),Math.max(0,q-Math.round(q*k/100)-Math.round(q*a/100))];
  $('levelSummary').textContent=(sum===100?'الهدف: ':'تنبيه: المجموع '+sum+'% — يجب أن يساوي 100%. ')+'معرفة '+counts[0]+' · تطبيق '+counts[1]+' · استدلال '+counts[2]+' من '+q+' سؤالًا.';
  $('buildModels').disabled=sum!==100;
@@ -108,7 +120,7 @@ function renderIndicators(){
 function distributeIndicatorCounts(){
  const rows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
  if(!rows.length)return;
- const total=Number($('questionCount').value||20);
+ const total=Number($('questionCount').value||15);
  if(selectedSubject()==='reading'){
    const blocks=Math.floor(total/5);
    if(blocks<rows.length){
@@ -128,7 +140,7 @@ function updateIndicatorSummary(){
  rows.forEach(r=>r.classList.toggle('selected',r.querySelector('.indicator-check')?.checked));
  sel.forEach(r=>r.querySelector('.indicator-count').disabled=false);
  rows.filter(r=>!r.querySelector('.indicator-check')?.checked).forEach(r=>r.querySelector('.indicator-count').disabled=true);
- const total=sel.reduce((n,r)=>n+Number(r.querySelector('.indicator-count').value||0),0),target=Number($('questionCount').value||20);
+ const total=sel.reduce((n,r)=>n+Number(r.querySelector('.indicator-count').value||0),0),target=Number($('questionCount').value||15);
  const readingNote=selectedSubject()==='reading'?' · بناء القراءة: كل نص يتبعه ٥ أسئلة':'';
  $('indicatorSummary').textContent='المحدد: '+ar(sel.length)+' مؤشر · مجموع الأسئلة: '+ar(total)+' من '+ar(target)+readingNote+(sel.length&&total!==target?' — اختر عدد أسئلة يكفي ٥ أسئلة لكل مؤشر أو عدّل التوزيع.':'');
 }
@@ -262,7 +274,15 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  for(let n=0;n<attempts;n++){
    const body={config:configForModel(letter),regenerate:n>0};
    if(!reading&&used.size)body.exclude_question_ids=[...used];
-   let d=await NafesTeacher.api('teacher_preview',body);
+   let d;
+   try{
+     d=await NafesTeacher.api('teacher_preview',body);
+   }catch(e){
+     if(reading||!used.size)throw e;
+     // إذا استُهلكت الأسئلة الفريدة، نعيد المحاولة من البنك كاملًا
+     // ونختار أقل نموذج تكرارًا بدل إيقاف الرياضيات/العلوم بالكامل.
+     d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:true});
+   }
    if(incompleteChoices(d).length||!hasValidAnswerKey(d))continue;
    d=reorderModelQuestions(d,modelIndex,previous);
    const overlap=overlapCount(d,used);
@@ -293,13 +313,9 @@ function validate(){
      const available=Number(byKey.get(String(x.key))||0);
      if(x.count>available)throw new Error('المؤشر المحدد يحتوي '+available+' سؤالًا محكّمًا فقط، بينما طلبت '+x.count+'. خفّض عدد أسئلته أو اختر مؤشرات إضافية.');
    }
-   const modelCount=Number($('modelCount').value||5);
-   const insufficient=inds.find(x=>modelCount*x.count>Number(byKey.get(String(x.key))||0));
-   if(insufficient){
-     const available=Number(byKey.get(String(insufficient.key))||0);
-     const need=modelCount*insufficient.count;
-     throw new Error('لإنتاج '+modelCount+' نماذج بلا تكرار، هذا المؤشر يحتاج '+need+' سؤالًا مختلفًا بينما المتاح '+available+' فقط. اختر مؤشرات أكثر، أو خفّض عدد النماذج أو عدد الأسئلة لكل مؤشر.');
-   }
+   // لا نشترط أن تكون جميع أسئلة كل النماذج مختلفة 100%.
+   // المطلوب: تقليل التكرار قدر الإمكان مع اختلاف الترتيب، لأن بعض المؤشرات
+   // لديها 30 سؤالًا محكّمًا فقط بينما قد نحتاج 5-10 نماذج.
  }
  if(!stu.length)throw new Error('اختر طالبًا واحدًا على الأقل لتجهيز التوزيع.');
  const levels=Number($('knowledge').value)+Number($('application').value)+Number($('reasoning').value);
@@ -335,10 +351,11 @@ async function buildModels(){
  try{validate();}catch(e){setStatus(e.message,'error');return;}
  const btn=$('buildModels');btn.disabled=true;models=[];assignments=[];$('previewSection').classList.add('hidden');$('assignmentSection').classList.add('hidden');
  const count=Number($('modelCount').value||5),used=new Set();let repeatTotal=0,maxRepeats=repeatLimit();
+ const requiredRepeats=minimumRequiredRepeats();
  try{
    for(let i=0;i<count;i++){
      const remaining=Math.max(0,maxRepeats-repeatTotal);
-     setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' — التكرار المسموح المتبقي '+remaining+' فقط…');
+     setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' — نقلل التكرار قدر الإمكان'+(requiredRepeats?' (يوجد '+requiredRepeats+' تكرارًا ضروريًا بسبب حجم البنك)':'')+'…');
      const previous=models[i-1]||null;
      const d=await bestCandidate(letters[i],used,remaining,i,previous);
      const overlap=overlapCount(d,used);
@@ -349,7 +366,7 @@ async function buildModels(){
    if(models.length>1&&samePositionCount(models[0],models[1])>0){
      throw new Error('لم يتحقق اختلاف ترتيب النموذجين الأول والثاني بالكامل. أعد الإنشاء.');
    }
-   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});setStatus('تم إنشاء '+count+' نماذج. إجمالي التكرار '+repeatTotal+' من حد أقصى '+maxRepeats+'، وترتيب النموذجين أ وب مختلف بالكامل.','ok');
+   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});setStatus('تم إنشاء '+count+' نماذج. إجمالي التكرار '+repeatTotal+'، والحد المحسوب '+maxRepeats+' (منه '+requiredRepeats+' تكرارًا قد يكون ضروريًا بحسب حجم البنك)، وترتيب النموذجين أ وب مختلف بالكامل.','ok');
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
