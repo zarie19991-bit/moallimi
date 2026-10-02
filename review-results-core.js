@@ -6,10 +6,10 @@ const clean=v=>String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ');
 const normName=v=>clean(v).replace(/[إأآٱ]/g,'ا').replace(/ة/g,'ه').replace(/[ىي]/g,'ي').replace(/[\u064B-\u0652\u0670\u0640]/g,'').toLowerCase();
 const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const ar=n=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:1}).format(Number(n||0));
-const pct=n=>Number.isFinite(Number(n))?ar(n)+'٪':'—';
+const pct=n=>(n===null||n===undefined||n===''||!Number.isFinite(Number(n)))?'—':ar(n)+'٪';
 function level(p){
+ if(p===null||p===undefined||p===''||!Number.isFinite(Number(p)))return{key:'unmeasured',label:'غير مقاس'};
  const n=Number(p);
- if(!Number.isFinite(n))return{key:'unmeasured',label:'غير مقاس'};
  if(n>=80)return{key:'mastered',label:'متقن'};
  if(n>=70)return{key:'near',label:'قريب من الإتقان'};
  if(n>=50)return{key:'support',label:'بحاجة إلى دعم'};
@@ -29,6 +29,7 @@ async function allAttempts(){
  return out;
 }
 async function listReviews(){const d=await T.api('teacher_paper_review_list',{});return d.reviews||[];}
+async function roster(){try{const d=await T.api('teacher_students_list',{include_archived:false});return d.students||[];}catch(_){return[];}}
 async function getReview(reviewId){const d=await T.api('teacher_paper_review_get',reviewId?{review_id:reviewId}:{});return d.review||null;}
 function latestByStudent(rows){
  const map=new Map();
@@ -55,13 +56,18 @@ function scopedAttempts(attempts,rid,className=''){
  const rows=latestByStudent(attempts.filter(a=>paperEvent(a,rid)));
  return className?rows.filter(a=>clean(a.class_name)===clean(className)):rows;
 }
-function assignmentsFor(payload,className=''){
- const rows=payload?.assignments||[];
+function assignmentsFor(payload,className='',rosterRows=[]){
+ const byId=new Map(rosterRows.map(s=>[String(s.id||''),s]));
+ const byName=new Map(rosterRows.map(s=>[normName(s.full_name||s.student_name),s]));
+ const rows=(payload?.assignments||[]).map(a=>{
+   const st=byId.get(String(a.student_id||''))||byName.get(normName(a.student_name))||{};
+   return {...a,class_name:a.class_name||st.class_name||''};
+ });
  if(!className)return rows;
  return rows.filter(a=>clean(a.class_name||'')===clean(className));
 }
-function absentStudents(payload,attempts,className=''){
- const assigned=assignmentsFor(payload,className);
+function absentStudents(payload,attempts,className='',rosterRows=[]){
+ const assigned=assignmentsFor(payload,className,rosterRows);
  const ids=new Set(attempts.map(a=>String(a.student_id||'')));
  const names=new Set(attempts.map(a=>normName(a.student_name)));
  return assigned.filter(a=>{
@@ -129,7 +135,7 @@ function recommendations(bundle){
  return out;
 }
 async function load(reviewId,className=''){
- const [reviews,attempts]=await Promise.all([listReviews(),allAttempts()]);
+ const [reviews,attempts,rosterRows]=await Promise.all([listReviews(),allAttempts(),roster()]);
  let chosen=reviewId?reviews.find(r=>String(r.review_id)===String(reviewId)):reviews[0];
  if(!chosen&&reviewId)chosen={review_id:reviewId};
  if(!chosen)return{reviews,review:null,payload:null,attempts:[],students:[],indicators:[],questions:[],cognitive:[],absent:[],summary:summary([],0),recommendations:[]};
@@ -137,7 +143,7 @@ async function load(reviewId,className=''){
  const payload=review?.payload||{};
  const scoped=scopedAttempts(attempts,chosen.review_id,className);
  const students=studentRows(scoped),meta=metadata(payload),indicators=indicatorRows(scoped,meta),questions=questionRows(scoped,meta),cognitive=cognitiveRows(scoped,meta);
- const assigned=assignmentsFor(payload,className),absent=absentStudents(payload,scoped,className),sum=summary(students,assigned.length||students.length);
+ const assigned=assignmentsFor(payload,className,rosterRows),absent=absentStudents(payload,scoped,className,rosterRows),sum=summary(students,assigned.length||students.length);
  const bundle={reviews,review,payload,attempts:scoped,students,indicators,questions,cognitive,absent,summary:sum,subjectName:subjectNames[review?.subject]||review?.subject||'—',recommendations:[]};
  bundle.recommendations=recommendations(bundle);
  return bundle;
