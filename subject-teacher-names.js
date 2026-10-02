@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
 const TEACHERS={reading:'زرعي شبير',math:'عبدالله العماري',science:'مليدان بالحارث'};
+window.NafesSubjectTeachers=Object.freeze({...TEACHERS});
 const LABELS={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const KEYS=['reading','math','science'];
 const REPORT_SCOPE_IDS=['subjectOfficialReport','overviewOfficialPreview','subjectOfficialPreview','reportPreview','printRoot'];
@@ -21,9 +22,7 @@ function subjectFromNode(root){
   return keys.length===1?keys[0]:'';
 }
 function uniqueSubject(root){return subjectFromNode(root)}
-function allTeachersText(){
-  return `القراءة: ${TEACHERS.reading} | الرياضيات: ${TEACHERS.math} | العلوم: ${TEACHERS.science}`;
-}
+function allTeachersText(){return''}
 function badgeStyle(){
   return 'margin-top:8px;padding:8px 12px;border:1px solid #d8e5e6;border-radius:10px;background:#f7fbfb;color:#294d52;font-weight:900;line-height:1.65';
 }
@@ -38,14 +37,17 @@ function toggleClass(node,name,on){
 function ensureBanner(host,keyOrAll,className){
   if(!host)return;
   let line=host.querySelector(`:scope > .${className}`);
+  if(keyOrAll==='all'){
+    if(line)line.remove();
+    return;
+  }
   if(!line){
     line=document.createElement('div');
     line.className=className;
     line.style.cssText=badgeStyle();
     host.appendChild(line);
   }
-  const value=keyOrAll==='all'?`معلمو المواد: ${allTeachersText()}`:`معلم المادة: ${TEACHERS[keyOrAll]}`;
-  setTextIfChanged(line,value);
+  setTextIfChanged(line,`معلم المادة: ${TEACHERS[keyOrAll]}`);
 }
 function reportScopes(){
   return REPORT_SCOPE_IDS.map(id=>document.getElementById(id)).filter(Boolean);
@@ -180,7 +182,9 @@ function applyWeeklySignatures(root){
   root.querySelectorAll?.('.weekly-report .wr-signatures').forEach(sig=>{
     const target=sig.querySelector(':scope>div:first-child b');
     if(!target)return;
-    setTextIfChanged(target,`معلمو المواد: ${allTeachersText()}`);
+    const key=uniqueSubject(sig.closest('.weekly-report')||sig);
+    if(key&&TEACHERS[key])setTextIfChanged(target,`معلم المادة: ${TEACHERS[key]}`);
+    else setTextIfChanged(target,'معلم المادة');
     target.style.whiteSpace='normal';
     target.style.lineHeight='1.55';
     target.style.removeProperty('font-size');
@@ -192,12 +196,8 @@ function hideGenericTeacherInputs(){
     const label=wr.closest('label');
     if(label&&label.style.display!=='none')label.style.display='none';
     const grid=wr.closest('.wr-settings-grid');
-    if(grid&&!grid.querySelector('.fixed-subject-teachers')){
-      const note=document.createElement('div');
-      note.className='fixed-subject-teachers';
-      note.style.cssText='grid-column:1/-1;padding:10px 12px;border:1px solid #d9e6e7;border-radius:10px;background:#f7fbfb;font-weight:800;line-height:1.7';
-      note.textContent=`معلمو المواد: ${allTeachersText()}`;
-      grid.insertBefore(note,grid.firstChild);
+    if(grid){
+      grid.querySelector('.fixed-subject-teachers')?.remove();
     }
   }
   const modal=document.getElementById('teacherNameInput');
@@ -205,12 +205,8 @@ function hideGenericTeacherInputs(){
     const label=modal.closest('label');
     if(label&&label.style.display!=='none')label.style.display='none';
     const grid=modal.closest('.settings-grid');
-    if(grid&&!grid.querySelector('.fixed-subject-teachers')){
-      const note=document.createElement('div');
-      note.className='fixed-subject-teachers';
-      note.style.cssText='grid-column:1/-1;padding:10px 12px;border:1px solid #d9e6e7;border-radius:10px;background:#f7fbfb;font-weight:800;line-height:1.7';
-      note.textContent=`معلمو المواد: ${allTeachersText()}`;
-      grid.insertBefore(note,grid.firstChild);
+    if(grid){
+      grid.querySelector('.fixed-subject-teachers')?.remove();
     }
   }
 }
