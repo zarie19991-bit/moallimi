@@ -319,22 +319,34 @@ function reorderModelQuestions(d,modelIndex,previous){
  return d;
 }
 function modelSignature(d){return questionIds(d).slice().sort().join('|');}
+function candidateAttemptCount(modelIndex){
+ const indicatorCount=getSelectedIndicators().length;
+ const subjectCount=selectedSubjects().length;
+ const questionCount=Number($('questionCount').value||15);
+ if(modelIndex===0)return 1;
+ if(indicatorCount>=20||questionCount>=50)return 3;
+ if(indicatorCount>=12||subjectCount===3||questionCount>=35)return 4;
+ if(indicatorCount>=7||questionCount>=25)return 6;
+ return hasReading()?8:($('avoidRepeats').checked?8:6);
+}
 async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  const reading=hasReading();
- const attempts=reading?28:($('avoidRepeats').checked?22:14);
+ const attempts=candidateAttemptCount(modelIndex);
  let best=null,bestScore=Infinity,bestOverlap=Infinity;
  const previousSignatures=new Set(models.map(modelSignature));
+ let exclusionUsable=used.size>0;
  for(let n=0;n<attempts;n++){
-   const body={config:configForModel(letter),regenerate:n>0};
-   if(used.size)body.exclude_question_ids=[...used];
+   const body={config:configForModel(letter),regenerate:n>0,ephemeral:true};
+   if(exclusionUsable)body.exclude_question_ids=[...used];
    let d;
    try{
      d=await NafesTeacher.api('teacher_preview',body);
    }catch(e){
-     if(!used.size)throw e;
-     // إذا نفدت الأسئلة الفريدة بسبب صغر بنك أحد المؤشرات، لا نوقف الاختبار.
-     // نعود للبنك الكامل ثم نختار النموذج الأقل تكرارًا والأكثر اختلافًا.
-     d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:true});
+     if(!exclusionUsable)throw e;
+     // إذا نفدت الأسئلة الفريدة لا نعيد طلبًا فاشلًا في كل محاولة.
+     // نتحول مرة واحدة إلى البنك الكامل ثم نواصل اختيار أقل تكرار.
+     exclusionUsable=false;
+     d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:true,ephemeral:true});
    }
    if(incompleteChoices(d).length||!hasValidAnswerKey(d))continue;
    d=reorderModelQuestions(d,modelIndex,previous);
@@ -349,10 +361,9 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
    if(overlap===0&&!duplicateSetPenalty&&(!previous||samePositionCount(previous,d)===0))break;
  }
  if(!best)throw new Error('تعذر تكوين نموذج مكتمل من بنك الأسئلة المعتمد.');
- // repeatBudget أصبح هدفًا إرشاديًا لا حاجزًا يمنع بناء الاختبار؛
- // بعض المؤشرات يملك أسئلة أقل بعد تطبيق فلاتر الجودة من العدد الخام المعروض.
  best._repeat_overlap=bestOverlap;
  best._repeat_budget=repeatBudget;
+ best._candidate_attempts=attempts;
  return best;
 }
 function validate(){
@@ -412,7 +423,7 @@ async function buildModels(){
  try{
    for(let i=0;i<count;i++){
      const remaining=Math.max(0,maxRepeats-repeatTotal);
-     setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' — نبحث عن أقل تكرار ممكن مع الحفاظ على جودة الأسئلة وتنظيم المواد…');
+     setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' — تم تحسين السرعة للاختبارات الكبيرة، ونختار أقل تكرار ممكن دون عشرات المحاولات الزائدة…');
      const previous=models[i-1]||null;
      const d=await bestCandidate(letters[i],used,remaining,i,previous);
      const overlap=overlapCount(d,used);
