@@ -144,7 +144,7 @@ async function load(reviewId,className=''){
  const scoped=scopedAttempts(attempts,chosen.review_id,className);
  const students=studentRows(scoped),meta=metadata(payload),indicators=indicatorRows(scoped,meta),questions=questionRows(scoped,meta),cognitive=cognitiveRows(scoped,meta);
  const assigned=assignmentsFor(payload,className,rosterRows),absent=absentStudents(payload,scoped,className,rosterRows),sum=summary(students,assigned.length||students.length);
- const bundle={reviews,review,payload,attempts:scoped,students,indicators,questions,cognitive,absent,summary:sum,subjectName:subjectNames[review?.subject]||review?.subject||'—',recommendations:[]};
+ const bundle={reviews,review,payload,attempts:scoped,assigned,students,indicators,questions,cognitive,absent,summary:sum,subjectName:subjectNames[review?.subject]||review?.subject||'—',recommendations:[]};
  bundle.recommendations=recommendations(bundle);
  return bundle;
 }
