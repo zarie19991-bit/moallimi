@@ -405,6 +405,185 @@ async function deepIndicatorAudit(){
   };
 }
 
+
+type GeneratedAssessment={
+  id:string;title:string|null;status:string|null;short_code:string|null;
+  rendered_sections:any;created_at:string|null;published_at:string|null;
+};
+type GeneratedAssessmentReport={
+  assessment_id:string;title:string;status:string;subject:string;question_count:number;indicator_count:number;
+  levels:{knowledge:number;application:number;reasoning:number;other:number};
+  answer_positions:{a:number;b:number;c:number;d:number};
+  issues:Record<string,number>;samples:any[];question_ids:string[];
+};
+function testSample(report:GeneratedAssessmentReport,code:string,q:any){
+  if(report.samples.length>=12)return;
+  report.samples.push({code,id:tidy(q?.id,80),indicator_key:tidy(q?.indicator_key,160),question:tidy(q?.question,180)});
+}
+async function fetchGeneratedIndicatorTests(){
+  const out:GeneratedAssessment[]=[];
+  for(let start=0;;start+=200){
+    const {data,error}=await db.from("nafes_assessments")
+      .select("id,title,status,short_code,rendered_sections,created_at,published_at")
+      .eq("kind","multi_indicator")
+      .order("created_at",{ascending:true})
+      .range(start,start+199);
+    if(error)throw error;
+    out.push(...((data||[]) as GeneratedAssessment[]));
+    if(!data||data.length<200)break;
+  }
+  return out;
+}
+function assessmentSubject(sections:any[]){
+  const subjects=[...new Set(sections.map(s=>tidy(s?.subject,20)).filter(Boolean))];
+  return subjects.length===1?subjects[0]:subjects.length>1?"mixed":"";
+}
+function auditGeneratedAssessment(row:GeneratedAssessment):GeneratedAssessmentReport{
+  const sections=Array.isArray(row.rendered_sections)?row.rendered_sections:[];
+  const report:GeneratedAssessmentReport={
+    assessment_id:tidy(row.id,80),title:tidy(row.title,240),status:tidy(row.status,30),
+    subject:assessmentSubject(sections),question_count:0,indicator_count:0,
+    levels:{knowledge:0,application:0,reasoning:0,other:0},answer_positions:{a:0,b:0,c:0,d:0},
+    issues:{empty_test:0,internal_prompt_leaks:0,invalid_options:0,invalid_correct:0,duplicate_ids:0,duplicate_texts:0,
+      missing_cognitive_level:0,indicators_missing_three_levels:0,answer_position_imbalance:0,
+      reading_group_errors:0,missing_required_image:0},samples:[],question_ids:[]
+  };
+  if(!sections.length){report.issues.empty_test=1;return report;}
+  const questions:any[]=[];
+  for(const sec of sections){
+    const subject=tidy(sec?.subject,20);
+    const qs=Array.isArray(sec?.questions)?sec.questions:[];
+    for(const q of qs)questions.push({...q,__subject:tidy(q?.subject,20)||subject});
+  }
+  report.question_count=questions.length;
+  if(!questions.length){report.issues.empty_test=1;return report;}
+
+  const idCounts=new Map<string,number>(),textCounts=new Map<string,number>();
+  const indicatorLevels=new Map<string,{count:number;levels:Set<string>}>();
+  const readingContexts=new Map<string,number>();
+  let readingNoContext=0;
+  for(const q of questions){
+    const subject=tidy(q.__subject,20),qid=tidy(q.id,80),text=String(q.question||"").trim(),ctx=String(q.context||"").trim();
+    if(qid){report.question_ids.push(qid);idCounts.set(qid,(idCounts.get(qid)||0)+1);}
+    const nt=auditNorm(text);if(nt)textCounts.set(nt,(textCounts.get(nt)||0)+1);
+    const ik=tidy(q.indicator_key,160)||[subject,tidy(q.outcome,80),"i"+Math.trunc(num(q.indicator))].join(":");
+    const il=indicatorLevels.get(ik)||{count:0,levels:new Set<string>()};il.count++;
+    const level=tidy(q.cognitive_level,30);
+    if(level==="knowledge"||level==="application"||level==="reasoning"){report.levels[level]++;il.levels.add(level);}
+    else{report.levels.other++;report.issues.missing_cognitive_level++;testSample(report,"MISSING_COGNITIVE_LEVEL",q);}
+    indicatorLevels.set(ik,il);
+
+    if(((subject==="math"||subject==="science")&&AUDIT_INTERNAL_CONTEXT.test(ctx))||AUDIT_INTERNAL_STEM.test(text)){
+      report.issues.internal_prompt_leaks++;testSample(report,"INTERNAL_PROMPT_LEAK",q);
+    }
+    const opts=Array.isArray(q.options)?q.options.map((x:any)=>String(x??"").trim()):[];
+    if(opts.length!==4||opts.some((x:string)=>!x)||new Set(opts).size!==4){
+      report.issues.invalid_options++;testSample(report,"INVALID_OPTIONS",q);
+    }
+    const ci=Number(q.correctIndex);
+    if(!Number.isInteger(ci)||ci<0||ci>3){
+      report.issues.invalid_correct++;testSample(report,"INVALID_CORRECT_INDEX",q);
+    }else{
+      (["a","b","c","d"] as const).forEach((k,i)=>{if(ci===i)report.answer_positions[k]++;});
+    }
+    if(subject==="reading"){
+      if(ctx)readingContexts.set(ctx,(readingContexts.get(ctx)||0)+1);
+      else readingNoContext++;
+    }
+    const needsVisual=/(أي رسم(?! سهمي)|الرسم الآتي|الشكل الآتي|المخطط الآتي|الصورة الآتية|أي نقطة في الشكل)/.test(text);
+    if(needsVisual&&!q?.image?.url){
+      report.issues.missing_required_image++;testSample(report,"MISSING_REQUIRED_IMAGE",q);
+    }
+  }
+  report.indicator_count=indicatorLevels.size;
+  report.issues.duplicate_ids=[...idCounts.values()].filter(n=>n>1).length;
+  report.issues.duplicate_texts=[...textCounts.values()].filter(n=>n>1).length;
+  if(report.issues.duplicate_ids)testSample(report,"DUPLICATE_QUESTION_ID",questions.find(q=>(idCounts.get(tidy(q.id,80))||0)>1)||{});
+  if(report.issues.duplicate_texts)testSample(report,"DUPLICATE_QUESTION_TEXT",questions.find(q=>(textCounts.get(auditNorm(q.question))||0)>1)||{});
+  for(const v of indicatorLevels.values()){
+    if(v.count>=3&&(!v.levels.has("knowledge")||!v.levels.has("application")||!v.levels.has("reasoning")))report.issues.indicators_missing_three_levels++;
+  }
+  const pos=Object.values(report.answer_positions),max=Math.max(...pos),min=Math.min(...pos);
+  if(report.question_count>=8&&(min===0||max-min>Math.max(3,Math.ceil(report.question_count*.25))))report.issues.answer_position_imbalance=1;
+  if(report.subject==="reading"){
+    report.issues.reading_group_errors=readingNoContext+[...readingContexts.values()].filter(n=>n!==5).length;
+  }
+  return report;
+}
+function testBatchBase(title:string){
+  return auditNorm(title).replace(/نموذج\s+[ابتثجحخدذرزسشصضطظعغفقكلمنهويى]+\s*$/,"").trim();
+}
+async function deepGeneratedTestsAudit(){
+  const tests=await fetchGeneratedIndicatorTests();
+  const reports=tests.map(auditGeneratedAssessment);
+  const byStatus={draft:0,published:0,other:0},bySubject:any={reading:0,math:0,science:0,mixed:0,other:0};
+  let empty=0,promptLeaks=0,invalidStructure=0,duplicates=0,missingLevels=0,answerImbalance=0,readingGroups=0,missingImages=0;
+  for(const r of reports){
+    if(r.status==="draft")byStatus.draft++;else if(r.status==="published")byStatus.published++;else byStatus.other++;
+    if(["reading","math","science","mixed"].includes(r.subject))bySubject[r.subject]++;else bySubject.other++;
+    empty+=r.issues.empty_test;
+    promptLeaks+=r.issues.internal_prompt_leaks;
+    invalidStructure+=r.issues.invalid_options+r.issues.invalid_correct;
+    duplicates+=r.issues.duplicate_ids+r.issues.duplicate_texts;
+    missingLevels+=r.issues.indicators_missing_three_levels;
+    answerImbalance+=r.issues.answer_position_imbalance;
+    readingGroups+=r.issues.reading_group_errors;
+    missingImages+=r.issues.missing_required_image;
+  }
+
+  const batches=new Map<string,GeneratedAssessmentReport[]>();
+  for(let i=0;i<tests.length;i++){
+    const t=tests[i],r=reports[i],ts=new Date(t.created_at||0).getTime();
+    if(!Number.isFinite(ts)||!r.question_ids.length)continue;
+    const bucket=Math.floor(ts/120000);
+    const key=testBatchBase(r.title)+"|"+bucket;
+    const list=batches.get(key)||[];list.push(r);batches.set(key,list);
+  }
+  let highOverlapPairs=0;
+  const overlapSamples:any[]=[];
+  for(const list of batches.values()){
+    if(list.length<2)continue;
+    for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
+      const a=new Set(list[i].question_ids),b=new Set(list[j].question_ids);
+      if(!a.size||!b.size)continue;
+      let same=0;for(const id of a)if(b.has(id))same++;
+      const ratio=same/Math.min(a.size,b.size);
+      if(ratio>.5){
+        highOverlapPairs++;
+        if(overlapSamples.length<12)overlapSamples.push({a:list[i].title,b:list[j].title,overlap_percent:Math.round(ratio*100),shared_questions:same});
+      }
+    }
+  }
+
+  const findings:any[]=[];
+  const add=(code:string,severity:"info"|"warning"|"critical",title:string,detail:string,safe_action:string,extra:any={})=>
+    findings.push({code,area:"question_quality",severity,title,detail,safe_action,auto_apply:false,
+      source:"generated_indicator_tests",source_files:["supabase/functions/nafes-exam/assessments.ts"],...extra});
+  if(empty)add("TEST_EMPTY_RENDER","critical","اختبارات مؤشرات بلا أسئلة مرسومة","اكتشف الفحص "+empty+" اختبارًا محفوظًا دون أسئلة فعلية في rendered_sections.","مراجعة سبب الحفظ الفارغ ومنع نشر أي اختبار بلا أسئلة.",{count:empty});
+  if(promptLeaks)add("TEST_INTERNAL_PROMPT_LEAK","critical","عبارات داخلية داخل اختبارات المؤشرات الفعلية","ظهر تسرب لغة تصميم أو مراجعة في "+promptLeaks+" سؤالًا داخل الاختبارات المحفوظة نفسها.","إعادة توليد الاختبارات المتأثرة بعد بوابة الجودة وعدم نشرها بصيغتها الحالية.",{count:promptLeaks});
+  if(invalidStructure)add("TEST_INVALID_STRUCTURE","critical","بنية أسئلة غير صالحة داخل اختبارات فعلية","وجد الفحص "+invalidStructure+" خللًا في البدائل أو الإجابة الصحيحة داخل الاختبارات المحفوظة.","منع النشر وإعادة بناء النموذج من أسئلة سليمة.",{count:invalidStructure});
+  if(duplicates)add("TEST_DUPLICATE_QUESTIONS","warning","تكرار داخل الاختبار نفسه","وجد الفحص "+duplicates+" حالة تكرار بمعرف السؤال أو نصه داخل الاختبار نفسه.","إعادة اختيار الأسئلة مع منع التكرار داخل النموذج.",{count:duplicates});
+  if(missingLevels)add("TEST_COGNITIVE_LEVEL_GAPS","warning","مؤشرات داخل الاختبارات لا تغطي المستويات الثلاثة","وجد الفحص "+missingLevels+" حالة داخل اختبار يحتوي فيها المؤشر على ثلاثة أسئلة أو أكثر دون اجتماع المعرفة والتطبيق والاستدلال.","تعديل موزع الأسئلة بحيث يضمن المستويات الثلاثة عندما يكون للمؤشر ثلاثة أسئلة فأكثر.",{count:missingLevels});
+  if(answerImbalance)add("TEST_ANSWER_POSITION_IMBALANCE","warning","توزيع مواضع الإجابة غير متوازن","وجد الفحص "+answerImbalance+" اختبارًا بتوزيع واضح غير متوازن لمواضع الإجابة الصحيحة.","إعادة موازنة A/B/C/D بعد اختيار الأسئلة وقبل الحفظ.",{count:answerImbalance});
+  if(readingGroups)add("TEST_READING_GROUP_STRUCTURE","warning","بنية نصوص القراءة داخل الاختبارات تحتاج مراجعة","وجد الفحص "+readingGroups+" خللًا في بنية «نص ثم خمسة أسئلة» داخل اختبارات القراءة.","إعادة بناء مجموعات القراءة بحيث يرتبط كل نص بخمسة أسئلة متتابعة.",{count:readingGroups});
+  if(missingImages)add("TEST_REQUIRED_IMAGE_MISSING","critical","أسئلة تشير إلى رسم أو صورة غير موجودة","وجد الفحص "+missingImages+" سؤالًا فعليًا يشير إلى رسم أو صورة بينما لا يحمل أصلًا بصريًا.","استبعاد السؤال من النشر حتى تتوافر الصورة الصحيحة.",{count:missingImages});
+  if(highOverlapPairs)add("TEST_MODEL_OVERLAP","warning","تشابه مرتفع بين نماذج الاختبار","اكتشف الفحص "+highOverlapPairs+" زوجًا من النماذج المتولدة في الدفعة نفسها يتشاركان أكثر من 50% من الأسئلة.","زيادة اختلاف اختيار الأسئلة بين النماذج مع الحفاظ على المؤشرات والمستويات نفسها.",{count:highOverlapPairs,samples:overlapSamples});
+  add("TEST_SEMANTIC_REVIEW_REQUIRED","info","الاختبارات الفعلية تحتاج مراجعة دلالية من المساعد","راجع الوكيل البنية والتوزيع والتكرار لكل اختبار محفوظ، ويحتاج المساعد لمراجعة مطابقة عينات الأسئلة للمؤشرات وجودة الصياغة.","تسليم تقارير الاختبارات ذات المشكلات للمساعد وربطها بتقرير بنك المؤشرات.");
+
+  return{
+    findings,
+    metrics:{
+      source:"generated_indicator_tests",audit_version:"generated-indicator-tests-v1",generated_at:new Date().toISOString(),
+      total_tests:reports.length,total_rendered_questions:reports.reduce((n,r)=>n+r.question_count,0),
+      status:byStatus,subjects:bySubject,totals:{empty_tests:empty,prompt_leaks:promptLeaks,invalid_structure:invalidStructure,
+        duplicate_cases:duplicates,indicator_level_gaps:missingLevels,answer_position_imbalanced_tests:answerImbalance,
+        reading_group_errors:readingGroups,missing_required_images:missingImages,high_overlap_model_pairs:highOverlapPairs},
+      overlap_samples:overlapSamples,reports,
+      privacy:{contains_student_names:false,contains_student_ids:false,contains_teacher_keys:false,student_attempts_read:false,roster_read:false}
+    }
+  };
+}
+
 type KnowledgeRow={
   id:string;category:string;module:string;title:string;summary:string;details:any;
   keywords:string[];source_paths:string[];priority:number;active:boolean;
