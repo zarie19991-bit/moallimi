@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f6b63">
 <title>وكيل صيانة المنصة | معلّمي</title>
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
-<link rel="stylesheet" href="maintenance-agent.css?v=20261002-handoff1">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261002-indicatoraudit1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -54,6 +54,18 @@
         </div>
       </section>
     </div>
+
+    <section class="panel indicator-audit-panel">
+      <div class="panel-head">
+        <div><span class="kicker">مراجعة جميع اختبارات المؤشرات</span><h2>فحص القراءة والرياضيات والعلوم كاملة</h2></div>
+        <span id="indicatorAuditBadge" class="status-pill info">جاهز للفحص</span>
+      </div>
+      <p class="brain-intro">يفحص الوكيل كل الأسئلة المستخدمة فعليًا في اختبارات المؤشرات، مؤشرًا مؤشرًا، ويبحث عن العبارات الداخلية، التكرار، القوالب المتشابهة، نقص البدائل، خلل الإجابة الصحيحة، تغطية المعرفة والتطبيق والاستدلال، ومشكلات نصوص القراءة. ثم يحفظ تقريرًا تفصيليًا ويسلمه للمساعد للمراجعة الدلالية.</p>
+      <div class="panel-actions">
+        <button id="runIndicatorAudit" class="btn primary" type="button">فحص جميع اختبارات المؤشرات</button>
+      </div>
+      <div id="indicatorAuditResult" class="indicator-audit-result"><div class="empty">لم يبدأ الفحص العميق بعد.</div></div>
+    </section>
 
     <section class="panel print-agent-panel">
       <div class="panel-head">
@@ -110,6 +122,6 @@
 </div>
 
 <script src="teacher-access.js?v=20260930-mainfix2"></script>
-<script src="maintenance-agent.js?v=20261002-handoff1"></script>
+<script src="maintenance-agent.js?v=20261002-indicatoraudit1"></script>
 </body>
 </html>
