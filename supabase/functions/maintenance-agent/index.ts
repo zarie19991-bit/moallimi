@@ -165,9 +165,9 @@ async function createHandoff(owner:any,runId:string){
   if(runError)throw runError;
   if(!run)throw Object.assign(new Error("الفحص غير موجود."),{status:404});
   const findings=Array.isArray(run.findings)?run.findings:[];
-  if(!findings.length)throw Object.assign(new Error("لا توجد أخطاء تحتاج تسليمًا للمساعد."),{status:400});
+  if(!findings.length&&run.run_type!=="questions")throw Object.assign(new Error("لا توجد أخطاء تحتاج تسليمًا للمساعد."),{status:400});
   const source=tidy(run.metrics?.source||findings[0]?.source,50)||null;
-  const area=run.run_type==="printing"?"printing":tidy(findings[0]?.area,40)||"runtime";
+  const area=run.run_type==="printing"?"printing":run.run_type==="questions"?"question_quality":tidy(findings[0]?.area,40)||"runtime";
   const payload={
     owner_id:owner.id,run_id:run.id,area,source,status:"needs_assistant",
     summary:tidy(run.summary,500),findings,source_files:handoffFiles(findings),
@@ -210,6 +210,199 @@ async function verifyHandoff(owner:any,handoffId:string,run:any){
     .select("id,run_id,area,source,status,summary,source_files,verification,fix,created_at,updated_at,verified_at").single();
   if(updateError)throw updateError;
   return updated;
+}
+
+
+type AuditQuestion={
+  id:string;subject_key:string;outcome_code?:string;indicator_index?:number;indicator_key?:string;indicator_text?:string;
+  context_text?:string|null;question_text?:string|null;options?:any;correct_index?:number;cognitive_level?:string|null;
+  quality_status?:string|null;quality_version?:string|null;review_status?:string|null;alignment_verified?:boolean|null;image?:any;
+};
+type IndicatorAuditRow={
+  key:string;subject:string;indicator_text:string;total:number;
+  levels:{knowledge:number;application:number;reasoning:number;other:number};
+  prompt_context:number;prompt_stem:number;invalid_options:number;invalid_correct:number;
+  missing_reading_context:number;exact_duplicate_groups:number;template_family_groups:number;
+  low_alignment_rows:number;samples:any[];
+};
+const AUDIT_INTERNAL_CONTEXT=/^(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|مهمة تقويمية جديدة|مراجعة الحل)/;
+const AUDIT_INTERNAL_STEM=/(?:موقف تقويمي جديد|مراجعة جماعية للحل|تطبيق رياضي في موقف جديد|تطبيق علمي جديد|وردت في سجل الأمثلة المهمة|المهمة المسجلة في (?:ملخص القواعد|مخطط المراجعة)|ظهرت المهمة|أي خيار يطبق المفهوم تطبيقًا صحيحًا|بعد أن (?:أجريت محاكاة رقمية|عُرضت بيانات نشاط|حُدد طول مسار|قورنت كتل مواد))/;
+function auditNorm(v:unknown){
+  return String(v??"").normalize("NFKC").toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g,"")
+    .replace(/[إأآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
+    .replace(/[؟?!.،,:؛;'"“”‘’()\[\]{}\-–—_/\\]+/g," ")
+    .replace(/\s+/g," ").trim();
+}
+function auditFamily(v:unknown){
+  return auditNorm(v).replace(/[0-9٠-٩]+(?:[.,٫][0-9٠-٩]+)?/g,"#")
+    .replace(/\b(طالب|طالبة|باحث|باحثة|معلم|معلمة)\b/g,"شخص")
+    .split(" ").slice(0,9).join(" ");
+}
+function auditIndicatorKey(q:AuditQuestion){
+  return tidy(q.indicator_key,160)||[tidy(q.subject_key,20),tidy(q.outcome_code,80),"i"+Math.trunc(num(q.indicator_index))].join(":");
+}
+function newIndicatorAudit(q:AuditQuestion,key:string):IndicatorAuditRow{
+  return{key,subject:tidy(q.subject_key,20),indicator_text:tidy(q.indicator_text,500),total:0,
+    levels:{knowledge:0,application:0,reasoning:0,other:0},
+    prompt_context:0,prompt_stem:0,invalid_options:0,invalid_correct:0,missing_reading_context:0,
+    exact_duplicate_groups:0,template_family_groups:0,low_alignment_rows:0,samples:[]};
+}
+function addAuditSample(row:IndicatorAuditRow,q:AuditQuestion,code:string){
+  if(row.samples.length>=12)return;
+  row.samples.push({id:tidy(q.id,80),code,question:tidy(q.question_text,170),context:tidy(q.context_text,120)});
+}
+async function fetchAuditRows(){
+  const out:AuditQuestion[]=[];
+  for(let start=0;;start+=1000){
+    const {data,error}=await db.from("nafes_question_bank")
+      .select("id,subject_key,outcome_code,indicator_index,indicator_text,context_text,question_text,options,correct_index,cognitive_level,review_status,alignment_verified")
+      .eq("grade_key","middle_3").eq("subject_key","reading").eq("is_active",true).eq("review_status","approved")
+      .order("id",{ascending:true}).range(start,start+999);
+    if(error)throw error;
+    out.push(...((data||[]) as AuditQuestion[]));
+    if(!data||data.length<1000)break;
+  }
+  for(const subject of ["math","science"]){
+    const version=subject==="math"?"math-curated-v4":"science-curated-v4";
+    for(let start=0;;start+=1000){
+      const {data,error}=await db.from("nafes_indicator_curated_bank")
+        .select("id,subject_key,outcome_code,indicator_index,indicator_key,indicator_text,context_text,question_text,options,correct_index,cognitive_level,quality_status,quality_version,image")
+        .eq("subject_key",subject).eq("quality_version",version)
+        .order("indicator_key",{ascending:true}).order("model_no",{ascending:true}).order("question_no",{ascending:true})
+        .range(start,start+999);
+      if(error)throw error;
+      out.push(...((data||[]) as AuditQuestion[]));
+      if(!data||data.length<1000)break;
+    }
+  }
+  return out;
+}
+async function deepIndicatorAudit(){
+  const rows=await fetchAuditRows();
+  const indicators=new Map<string,IndicatorAuditRow>();
+  const exactByIndicator=new Map<string,Map<string,number>>();
+  const familyByIndicator=new Map<string,Map<string,number>>();
+  const crossSubject=new Map<string,{count:number,indicators:Set<string>,subject:string}>();
+  let promptContext=0,promptStem=0,invalidOptions=0,invalidCorrect=0,missingReadingContext=0,unknownLevels=0,lowAlignment=0;
+  const subjectTotals:Record<string,{questions:number;indicators:Set<string>;critical_rows:number;warning_rows:number}>={
+    reading:{questions:0,indicators:new Set(),critical_rows:0,warning_rows:0},
+    math:{questions:0,indicators:new Set(),critical_rows:0,warning_rows:0},
+    science:{questions:0,indicators:new Set(),critical_rows:0,warning_rows:0}
+  };
+
+  for(const q of rows){
+    const key=auditIndicatorKey(q),subject=tidy(q.subject_key,20);
+    let a=indicators.get(key);if(!a){a=newIndicatorAudit(q,key);indicators.set(key,a);}
+    a.total++;subjectTotals[subject]?.indicators.add(key);if(subjectTotals[subject])subjectTotals[subject].questions++;
+    const level=tidy(q.cognitive_level,30);
+    if(level==="knowledge"||level==="application"||level==="reasoning")a.levels[level]++;
+    else{a.levels.other++;unknownLevels++;addAuditSample(a,q,"UNKNOWN_COGNITIVE_LEVEL");}
+
+    const ctx=String(q.context_text||"").trim(),question=String(q.question_text||"").trim();
+    if((subject==="math"||subject==="science")&&AUDIT_INTERNAL_CONTEXT.test(ctx)){
+      a.prompt_context++;promptContext++;subjectTotals[subject].critical_rows++;addAuditSample(a,q,"INTERNAL_CONTEXT");
+    }
+    if(AUDIT_INTERNAL_STEM.test(question)){
+      a.prompt_stem++;promptStem++;subjectTotals[subject].critical_rows++;addAuditSample(a,q,"INTERNAL_STEM");
+    }
+    const opts=Array.isArray(q.options)?q.options.map((x:any)=>String(x??"").trim()):[];
+    if(opts.length!==4||opts.some((x:string)=>!x)||new Set(opts).size!==4){
+      a.invalid_options++;invalidOptions++;subjectTotals[subject].critical_rows++;addAuditSample(a,q,"INVALID_OPTIONS");
+    }
+    const ci=Number(q.correct_index);
+    if(!Number.isInteger(ci)||ci<0||ci>3){
+      a.invalid_correct++;invalidCorrect++;subjectTotals[subject].critical_rows++;addAuditSample(a,q,"INVALID_CORRECT_INDEX");
+    }
+    if(subject==="reading"&&!ctx){
+      a.missing_reading_context++;missingReadingContext++;subjectTotals[subject].warning_rows++;addAuditSample(a,q,"READING_CONTEXT_MISSING");
+    }
+    if(subject==="reading"&&q.alignment_verified===false){
+      a.low_alignment_rows++;lowAlignment++;subjectTotals[subject].warning_rows++;addAuditSample(a,q,"ALIGNMENT_NOT_VERIFIED");
+    }
+    const n=auditNorm(question);
+    if(n){
+      const em=exactByIndicator.get(key)||new Map<string,number>();em.set(n,(em.get(n)||0)+1);exactByIndicator.set(key,em);
+      const fam=auditFamily(question);const fm=familyByIndicator.get(key)||new Map<string,number>();fm.set(fam,(fm.get(fam)||0)+1);familyByIndicator.set(key,fm);
+      const crossKey=subject+"|"+n;const c=crossSubject.get(crossKey)||{count:0,indicators:new Set<string>(),subject};c.count++;c.indicators.add(key);crossSubject.set(crossKey,c);
+    }
+  }
+
+  let exactGroups=0,familyGroups=0,crossIndicatorDuplicates=0,coverageIssues=0,cognitiveCoverageIssues=0;
+  for(const [key,a] of indicators){
+    const exact=[...(exactByIndicator.get(key)||new Map()).values()].filter(n=>n>1).length;
+    const families=[...(familyByIndicator.get(key)||new Map()).values()].filter(n=>n>2).length;
+    a.exact_duplicate_groups=exact;a.template_family_groups=families;exactGroups+=exact;familyGroups+=families;
+    if(a.total<30)coverageIssues++;
+    if(a.levels.knowledge===0||a.levels.application===0||a.levels.reasoning===0)cognitiveCoverageIssues++;
+  }
+  for(const c of crossSubject.values())if(c.count>1&&c.indicators.size>1)crossIndicatorDuplicates++;
+
+  const bySubject:any={};
+  for(const subject of ["reading","math","science"]){
+    const relevant=[...indicators.values()].filter(x=>x.subject===subject);
+    bySubject[subject]={
+      questions:subjectTotals[subject].questions,
+      indicators:relevant.length,
+      clean_indicators:relevant.filter(x=>x.prompt_context+x.prompt_stem+x.invalid_options+x.invalid_correct+x.missing_reading_context+x.exact_duplicate_groups+x.template_family_groups===0).length,
+      indicators_with_critical:relevant.filter(x=>x.prompt_context+x.prompt_stem+x.invalid_options+x.invalid_correct>0).length,
+      indicators_with_warnings:relevant.filter(x=>x.missing_reading_context+x.exact_duplicate_groups+x.template_family_groups+x.low_alignment_rows>0).length
+    };
+  }
+
+  const findings:any[]=[];
+  const add=(code:string,severity:"info"|"warning"|"critical",title:string,detail:string,safe_action:string,extra:any={})=>
+    findings.push({code,area:"question_quality",severity,title,detail,safe_action,auto_apply:false,
+      source:"indicator_audit",source_files:["supabase/functions/nafes-exam/assessments.ts"],...extra});
+  if(promptContext+promptStem>0)add("INDICATOR_INTERNAL_PROMPT_LEAK","critical","عبارات تصميم داخلية في أسئلة المؤشرات",
+    "اكتشف الفحص "+(promptContext+promptStem)+" موضعًا يحتوي لغة تصميم أو مراجعة لا ينبغي أن تظهر للطالب.",
+    "استبعاد هذه الصياغات من الاختبارات الجديدة وتنظيف العرض دون حذف السجلات التاريخية.",{count:promptContext+promptStem});
+  if(invalidOptions+invalidCorrect>0)add("INDICATOR_INVALID_STRUCTURE","critical","أسئلة ببنية اختيار من متعدد غير صالحة",
+    "اكتشف الفحص "+(invalidOptions+invalidCorrect)+" خللًا في عدد البدائل أو مؤشر الإجابة الصحيحة.",
+    "منع السؤال المتأثر من الاختبارات الجديدة حتى اكتمال أربعة بدائل وإجابة صحيحة واحدة.",{count:invalidOptions+invalidCorrect});
+  if(exactGroups>0||crossIndicatorDuplicates>0)add("INDICATOR_DUPLICATES","warning","تكرار حرفي في أسئلة المؤشرات",
+    "اكتشف الفحص "+exactGroups+" مجموعة تكرار داخل المؤشر و"+crossIndicatorDuplicates+" تكرارًا يمتد بين مؤشرات مختلفة.",
+    "الإبقاء على السجل التاريخي مع منع النسخ المتكررة من التحديد في النماذج الجديدة.",{within_indicator:exactGroups,cross_indicator:crossIndicatorDuplicates});
+  if(familyGroups>0)add("INDICATOR_TEMPLATE_REPETITION","warning","عائلات صياغية متكررة",
+    "اكتشف الفحص "+familyGroups+" عائلة صياغية تكررت أكثر من ثلاث مرات داخل المؤشر.",
+    "مراجعة العينات دلاليًا وتنويع المواقف والمطلوب دون تغيير مستوى القياس.",{count:familyGroups});
+  if(missingReadingContext>0)add("INDICATOR_READING_CONTEXT_MISSING","warning","أسئلة قراءة بلا نص مرتبط",
+    "اكتشف الفحص "+missingReadingContext+" سؤال قراءة معتمدًا بلا سياق نصي.",
+    "مراجعة هذه الأسئلة قبل استخدامها في نمط «نص ثم خمسة أسئلة».",{count:missingReadingContext});
+  if(coverageIssues>0)add("INDICATOR_BANK_COVERAGE","warning","مؤشرات بأقل من 30 سؤالًا",
+    "يوجد "+coverageIssues+" مؤشرًا بعدد أقل من 30 سؤالًا في البنك المستخدم حاليًا.",
+    "استكمال البنك قبل الاعتماد على تنويع النماذج.",{count:coverageIssues});
+  if(cognitiveCoverageIssues>0||unknownLevels>0)add("INDICATOR_COGNITIVE_COVERAGE","warning","تغطية المستويات المعرفية تحتاج مراجعة",
+    "يوجد "+cognitiveCoverageIssues+" مؤشرًا لا يظهر فيه أحد مستويات المعرفة/التطبيق/الاستدلال، و"+unknownLevels+" سؤالًا بمستوى غير معروف.",
+    "إعادة تحكيم التصنيف المعرفي للأسئلة المتأثرة.",{indicators:cognitiveCoverageIssues,unknown_rows:unknownLevels});
+  if(lowAlignment>0)add("INDICATOR_ALIGNMENT_NOT_VERIFIED","warning","أسئلة قراءة بلا توثيق محاذاة مكتمل",
+    "يوجد "+lowAlignment+" سؤال قراءة معتمدًا لكن علامة alignment_verified ليست صحيحة.",
+    "مراجعة مطابقة السؤال للمؤشر قبل الاستمرار في استخدامه.",{count:lowAlignment});
+  add("INDICATOR_SEMANTIC_REVIEW_REQUIRED","info","التقرير يحتاج مراجعة دلالية من المساعد",
+    "الفحص الآلي راجع جميع الصفوف المستخدمة فعليًا، لكنه لا يدّعي أن المطابقة الدلالية للمؤشر يمكن إثباتها بالأنماط وحدها.",
+    "يُسلَّم التقرير والعينات للمساعد لمراجعة الصياغة والمطابقة للمؤشر في الحالات الأعلى خطورة.");
+
+  const indicatorResults=[...indicators.values()].sort((a,b)=>a.subject.localeCompare(b.subject)||a.key.localeCompare(b.key)).map(a=>({
+    key:a.key,subject:a.subject,indicator_text:a.indicator_text,total:a.total,levels:a.levels,
+    issues:{prompt_context:a.prompt_context,prompt_stem:a.prompt_stem,invalid_options:a.invalid_options,
+      invalid_correct:a.invalid_correct,missing_reading_context:a.missing_reading_context,
+      exact_duplicate_groups:a.exact_duplicate_groups,template_family_groups:a.template_family_groups,
+      alignment_not_verified:a.low_alignment_rows},
+    samples:a.samples
+  }));
+  return{
+    findings,
+    metrics:{
+      source:"indicator_audit",audit_version:"indicator-audit-v1",generated_at:new Date().toISOString(),
+      total_questions:rows.length,total_indicators:indicators.size,subjects:bySubject,
+      totals:{prompt_context:promptContext,prompt_stem:promptStem,invalid_options:invalidOptions,invalid_correct:invalidCorrect,
+        exact_duplicate_groups:exactGroups,cross_indicator_duplicates:crossIndicatorDuplicates,template_family_groups:familyGroups,
+        missing_reading_context:missingReadingContext,unknown_cognitive_rows:unknownLevels,alignment_not_verified:lowAlignment,
+        indicators_below_30:coverageIssues,indicators_missing_cognitive_level:cognitiveCoverageIssues},
+      indicator_results:indicatorResults,
+      privacy:{contains_student_names:false,contains_student_ids:false,contains_teacher_keys:false,student_attempts_read:false}
+    }
+  };
 }
 
 type KnowledgeRow={
@@ -350,6 +543,31 @@ Deno.serve(async(req:Request)=>{
     if(action==="handoffs"){
       const handoffs=await listHandoffs(owner);
       return json({ok:true,handoffs});
+    }
+
+
+    if(action==="indicator_audit"){
+      const audit=await deepIndicatorAudit();
+      const severity=audit.findings.length?overall(audit.findings as Finding[]):"ok";
+      const critical=audit.findings.filter((x:any)=>x.severity==="critical").length;
+      const warning=audit.findings.filter((x:any)=>x.severity==="warning").length;
+      const summary="فحص جميع اختبارات المؤشرات: "+audit.metrics.total_indicators+" مؤشرًا و"+audit.metrics.total_questions+" سؤالًا؛ "+critical+" أنواع أخطاء حرجة و"+warning+" أنواع تحذيرات.";
+      const {indicator_results,...compactMetrics}=audit.metrics as any;
+      const {data:run,error}=await db.from("maintenance_agent_runs").insert({
+        owner_id:owner.id,run_type:"questions",status:"completed",severity,summary,
+        findings:audit.findings,metrics:compactMetrics,contains_personal_data:false
+      }).select("id,run_type,status,severity,summary,findings,metrics,created_at").single();
+      if(error)throw error;
+      const details=(indicator_results||[]).map((x:any)=>({
+        run_id:run.id,owner_id:owner.id,subject:x.subject,indicator_key:x.key,indicator_text:x.indicator_text||"",
+        question_count:x.total,levels:x.levels||{},issues:x.issues||{},samples:x.samples||[],contains_personal_data:false
+      }));
+      for(let i=0;i<details.length;i+=100){
+        const {error:detailError}=await db.from("maintenance_agent_indicator_reports").insert(details.slice(i,i+100));
+        if(detailError)throw detailError;
+      }
+      const handoff=await createHandoff(owner,run.id);
+      return json({ok:true,run,handoff,mode:"deep_indicator_audit"});
     }
 
     if(action==="diagnose"){
