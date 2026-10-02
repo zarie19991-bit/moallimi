@@ -4,79 +4,146 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#065f46">
-<title>تحليل الاختبارات الورقية | معلّمي</title>
+<title>تحليل الاختبار الآلي | معلّمي</title>
 <link rel="stylesheet" href="analysis.css?v=20260911-unified4">
-<link rel="stylesheet" href="review-results.css?v=20261002-1">
+<link rel="stylesheet" href="review-analysis-indicator.css?v=20261002-indicator1">
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
-<body>
+<body class="page-analysis">
 <header class="top no-print">
-  <a href="review-correction.html">← المراجعة والتصحيح الآلي</a>
+  <a class="brand" href="./" data-master-home>
+    <img class="moallimi-logo-full" src="moallimi-logo-ui.png?v=20260920-png1" alt="شعار منصة معلّمي">
+    <div><small>تحليل الاختبار الآلي</small></div>
+  </a>
   <nav>
-    <a class="active" href="review-analysis.html">تحليل الاختبار الورقي</a>
+    <a href="review-correction.html">التصحيح الآلي</a>
+    <a class="active" href="review-analysis.html">تحليل الاختبار الآلي</a>
     <a href="review-report.html">التقرير الرسمي</a>
-    <a href="analysis.html">تحليل معلّمي العام</a>
+    <a href="analysis.html">تحليل المؤشرات</a>
   </nav>
 </header>
 
-<main class="page no-print">
+<main class="shell no-print">
   <section class="hero">
-    <div><span class="eyebrow">قسم مستقل للمراجعة والتصحيح الآلي</span><h1>تحليل الاختبارات الورقية</h1><p>تحليل نتائج الأوراق المصححة آليًا بصورة مستقلة عن اختبارات الطلاب الإلكترونية، مع قراءة أداء الطلاب والمؤشرات والأسئلة.</p></div>
-    <div class="hero-actions"><a id="reportLink" class="btn primary" href="review-report.html">فتح التقرير الرسمي</a></div>
+    <div>
+      <span class="eyebrow">الصف الثالث المتوسط</span>
+      <h1>تحليل الاختبار الآلي</h1>
+      <p>بنفس أسلوب تحليل المؤشرات: قراءة أداء الطلاب والمؤشرات والأسئلة والمستويات المعرفية بصورة تشخيصية واضحة.</p>
+    </div>
+    <div class="hero-actions">
+      <a id="reportLink" class="btn ghost" href="review-report.html">فتح التقرير الرسمي</a>
+    </div>
   </section>
 
-  <section class="card controls">
-    <label><span>الاختبار الورقي</span><select id="reviewSelect"><option value="">جارٍ التحميل…</option></select></label>
-    <label><span>الفصل</span><select id="classSelect"><option value="">جميع الفصول</option></select></label>
-    <button id="refreshBtn" class="btn secondary" type="button">تحديث التحليل</button>
+  <section class="card section-control-card">
+    <div class="section-head">
+      <div>
+        <h2>نطاق التحليل</h2>
+        <p class="muted">اختر الاختبار والفصل، ثم يعرض التحليل النتائج المعتمدة فقط.</p>
+      </div>
+    </div>
+    <div class="toolbar">
+      <label class="wide"><span>الاختبار الآلي</span><select id="reviewSelect"><option value="">جارٍ التحميل…</option></select></label>
+      <label><span>الفصل</span><select id="classSelect"><option value="">جميع الفصول</option></select></label>
+      <button id="refreshBtn" class="btn primary" type="button">تحديث التحليل</button>
+    </div>
+    <div id="assignmentSummary" class="analysis-scope-summary"></div>
   </section>
+
   <div id="state" class="state">جارٍ تحميل النتائج…</div>
 
-  <section id="content" hidden>
-    <div id="metrics" class="metrics"></div>
+  <section id="content" class="view-panel" hidden>
+    <div id="metrics"></div>
 
-    <section id="subjectPerformanceCard" class="card">
-      <div class="section-title"><div><h2>أداء المواد داخل الاختبار</h2><p>يظهر عند جمع أكثر من مادة، ويبين نتيجة كل مادة بصورة مستقلة.</p></div></div>
-      <div id="subjectBars"></div>
+    <section id="subjectPerformanceCard" class="section-card" hidden>
+      <div class="section-head">
+        <div>
+          <h2>أداء المواد داخل الاختبار</h2>
+          <p class="muted">يظهر عند احتواء الاختبار على أكثر من مادة.</p>
+        </div>
+      </div>
+      <div id="subjectCards" class="subject-cards"></div>
     </section>
 
-    <section class="card">
-      <div class="section-title"><div><h2>أداء الطلاب</h2><p>الترتيب يبدأ بالطلاب الأكثر حاجة للدعم.</p></div></div>
-      <div class="table-wrap"><table class="data-table"><thead><tr><th>الطالب</th><th>الفصل</th><th>النموذج</th><th>الدرجة</th><th>النسبة</th><th>المستوى</th></tr></thead><tbody id="studentsBody"></tbody></table></div>
-    </section>
-
-    <div class="grid-two">
-      <section class="card">
-        <div class="section-title"><div><h2>تحليل المؤشرات</h2><p>نسبة الصواب الفعلية لكل مؤشر في هذا الاختبار فقط.</p></div></div>
-        <div id="indicatorBars"></div>
+    <div class="two-col">
+      <section id="studentsPanel" class="section-card">
+        <div class="section-head">
+          <div>
+            <h2>الطلاب</h2>
+            <p class="muted">الطلاب الأكثر حاجة للدعم أولًا.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>الطالب</th><th>الفصل</th><th>النموذج</th><th>الصحيح</th><th>النسبة</th><th>المستوى</th></tr></thead>
+            <tbody id="studentsBody"></tbody>
+          </table>
+        </div>
       </section>
-      <section class="card">
-        <div class="section-title"><div><h2>المستويات المعرفية</h2><p>معرفة، تطبيق، استدلال بحسب وسم أسئلة النماذج.</p></div></div>
-        <div id="cognitiveBars"></div>
+
+      <section id="indicatorsPanel" class="section-card">
+        <div class="section-head">
+          <div>
+            <h2>المؤشرات</h2>
+            <p class="muted">جميع المؤشرات، الأضعف أولًا.</p>
+          </div>
+        </div>
+        <div id="indicatorBars" class="rank-list"></div>
       </section>
     </div>
 
-    <section class="card">
-      <div class="section-title"><div><h2>الأسئلة الأعلى تعثرًا</h2><p>تساعدك على معرفة السؤال أو الفكرة التي تحتاج مراجعة صفية.</p></div></div>
-      <div class="table-wrap"><table class="data-table"><thead><tr><th>المادة</th><th>السؤال</th><th>المؤشر</th><th>أخطاء الطلاب</th><th>نسبة التعثر</th></tr></thead><tbody id="questionsBody"></tbody></table></div>
+    <section class="section-card">
+      <div class="section-head">
+        <div>
+          <h2>تحليل الأسئلة</h2>
+          <p class="muted">الأسئلة مرتبة من الأعلى في نسبة الخطأ.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>المادة</th><th>السؤال</th><th>المؤشر</th><th>عدد المقاسين</th><th>الإجابات الخاطئة</th><th>نسبة الخطأ</th></tr></thead>
+          <tbody id="questionsBody"></tbody>
+        </table>
+      </div>
     </section>
 
-    <div class="grid-two">
-      <section class="card">
-        <div class="section-title"><div><h2>الطلاب غير المختبرين</h2><p>بحسب الطلاب الذين وُزعت عليهم أوراق هذا الاختبار.</p></div></div>
+    <div class="two-col">
+      <section class="section-card">
+        <div class="section-head">
+          <div>
+            <h2>المستويات المعرفية</h2>
+            <p class="muted">معرفة، تطبيق، استدلال بحسب أسئلة الاختبار.</p>
+          </div>
+        </div>
+        <div id="cognitiveBars" class="rank-list"></div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-head">
+          <div>
+            <h2>الطلاب غير المختبرين</h2>
+            <p class="muted">بحسب الطلاب الذين وُزعت عليهم أوراق الاختبار.</p>
+          </div>
+        </div>
         <div id="absentList"></div>
       </section>
-      <section class="card">
-        <div class="section-title"><div><h2>إجراءات مقترحة من النتيجة</h2><p>تتغير تلقائيًا بحسب المؤشرات والطلاب في الاختبار المحدد.</p></div></div>
-        <div id="recommendations" class="recommendations"></div>
-      </section>
     </div>
+
+    <section class="section-card">
+      <div class="section-head">
+        <div>
+          <h2>الإجراءات المقترحة</h2>
+          <p class="muted">إجراءات مبنية على نتائج الاختبار المحدد.</p>
+        </div>
+      </div>
+      <div id="recommendations" class="recommendations"></div>
+    </section>
   </section>
 </main>
 
 <script src="teacher-access.js?v=20260930-mainfix1"></script>
 <script src="review-results-core.js?v=20261002-multisubject1"></script>
-<script src="review-analysis.js?v=20261002-multisubject1"></script>
+<script src="review-analysis.js?v=20261002-indicator1"></script>
 </body>
 </html>
