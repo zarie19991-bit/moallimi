@@ -162,3 +162,5 @@ review-report.html
 review-report.js
 review-results.css
 review-results-core.js
+analysis-reference-layout.css
+analysis-reference-transform.js
