@@ -318,10 +318,12 @@ function reorderModelQuestions(d,modelIndex,previous){
  }
  return d;
 }
+function modelSignature(d){return questionIds(d).slice().sort().join('|');}
 async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  const reading=hasReading();
- const attempts=reading?24:($('avoidRepeats').checked?16:10);
+ const attempts=reading?28:($('avoidRepeats').checked?22:14);
  let best=null,bestScore=Infinity,bestOverlap=Infinity;
+ const previousSignatures=new Set(models.map(modelSignature));
  for(let n=0;n<attempts;n++){
    const body={config:configForModel(letter),regenerate:n>0};
    if(used.size)body.exclude_question_ids=[...used];
@@ -330,20 +332,27 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
      d=await NafesTeacher.api('teacher_preview',body);
    }catch(e){
      if(!used.size)throw e;
+     // إذا نفدت الأسئلة الفريدة بسبب صغر بنك أحد المؤشرات، لا نوقف الاختبار.
+     // نعود للبنك الكامل ثم نختار النموذج الأقل تكرارًا والأكثر اختلافًا.
      d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:true});
    }
    if(incompleteChoices(d).length||!hasValidAnswerKey(d))continue;
    d=reorderModelQuestions(d,modelIndex,previous);
    const overlap=overlapCount(d,used);
+   const duplicateSetPenalty=previousSignatures.has(modelSignature(d))?5000000:0;
    const repeatPenalty=overlap*1000000;
    const positionPenalty=previous?samePositionCount(previous,d)*10000:0;
    const cognitivePenalty=cognitiveScore(d)*2;
    const printPenalty=reading?layoutScore(d):0;
-   const score=repeatPenalty+positionPenalty+cognitivePenalty+printPenalty;
+   const score=duplicateSetPenalty+repeatPenalty+positionPenalty+cognitivePenalty+printPenalty;
    if(score<bestScore){best=d;bestScore=score;bestOverlap=overlap;}
-   if(overlap===0&&(!previous||samePositionCount(previous,d)===0))break;
+   if(overlap===0&&!duplicateSetPenalty&&(!previous||samePositionCount(previous,d)===0))break;
  }
- if(!best||bestOverlap>repeatBudget)throw new Error('تعذر بناء نموذج مكتمل ضمن حد التكرار المتبقي ('+repeatBudget+'). خفّض عدد النماذج أو أضف مؤشرات أخرى.');
+ if(!best)throw new Error('تعذر تكوين نموذج مكتمل من بنك الأسئلة المعتمد.');
+ // repeatBudget أصبح هدفًا إرشاديًا لا حاجزًا يمنع بناء الاختبار؛
+ // بعض المؤشرات يملك أسئلة أقل بعد تطبيق فلاتر الجودة من العدد الخام المعروض.
+ best._repeat_overlap=bestOverlap;
+ best._repeat_budget=repeatBudget;
  return best;
 }
 function validate(){
@@ -403,16 +412,20 @@ async function buildModels(){
  try{
    for(let i=0;i<count;i++){
      const remaining=Math.max(0,maxRepeats-repeatTotal);
-     setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' — نقلل التكرار قدر الإمكان'+(requiredRepeats?' (يوجد '+requiredRepeats+' تكرارًا ضروريًا بسبب حجم البنك)':'')+'…');
+     setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' — نبحث عن أقل تكرار ممكن مع الحفاظ على جودة الأسئلة وتنظيم المواد…');
      const previous=models[i-1]||null;
      const d=await bestCandidate(letters[i],used,remaining,i,previous);
      const overlap=overlapCount(d,used);
      repeatTotal+=overlap;
-     if(repeatTotal>maxRepeats)throw new Error('تجاوزت النماذج حد التكرار الأقصى وهو '+maxRepeats+'.');
      models.push(d);questionIds(d).forEach(id=>used.add(id));
    }
    const sameAB=models.length>1?samePositionCount(models[0],models[1]):0;
-   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});setStatus('تم إنشاء '+count+' نماذج منظمة حسب المواد. إجمالي التكرار '+repeatTotal+'، والحد المحسوب '+maxRepeats+' (منه '+requiredRepeats+' تكرارًا قد يكون ضروريًا بحسب حجم البنك). اختلاف مواضع أ/ب: '+ar(Math.max(0,modelQuestions(models[0]).length-sameAB))+' من '+ar(modelQuestions(models[0]).length)+'.','ok');
+   const signatures=models.map(modelSignature),distinctSets=new Set(signatures).size;
+   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});
+   const repeatNote=repeatTotal>maxRepeats
+     ?'استخدم النظام '+ar(repeatTotal)+' تكرارًا بين النماذج لأن بنك المؤشرات بعد فلاتر الجودة لا يسمح بالحد التقديري '+ar(maxRepeats)+'، مع اختيار أقل تكرار متاح.'
+     :'إجمالي التكرار بين النماذج '+ar(repeatTotal)+' ضمن الحد التقديري '+ar(maxRepeats)+'.';
+   setStatus('تم إنشاء '+count+' نماذج منظمة حسب المواد. '+repeatNote+' مجموعات الأسئلة المختلفة: '+ar(distinctSets)+' من '+ar(count)+'. اختلاف مواضع أ/ب: '+ar(Math.max(0,modelQuestions(models[0]).length-sameAB))+' من '+ar(modelQuestions(models[0]).length)+'.','ok');
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
