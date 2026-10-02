@@ -59,7 +59,7 @@ async function loadArchive(){
    state.textContent=rows.length?'محفوظ '+ar(rows.length)+' اختبار/مراجعة ورقية.':'ابدأ بإنشاء أول مراجعة وسيتم حفظها هنا.';
  }catch(e){
    const local=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
-   host.innerHTML=local?.review_id?archiveItem({review_id:local.review_id,title:local.title,subject:local.subject,class_name:local.class_name,updated_at:local.saved_at}):'<div class="archive-empty">تعذر تحميل الأرشيف الدائم الآن.</div>';
+   host.innerHTML=local?.review_id?archiveItem({review_id:local.review_id,title:local.title,subject:local.subject,subjects:local.subjects,class_name:local.class_name,updated_at:local.saved_at}):'<div class="archive-empty">تعذر تحميل الأرشيف الدائم الآن.</div>';
    state.textContent='تعذر تحميل الأرشيف من قاعدة البيانات: '+(e.message||e);
  }
 }
@@ -411,10 +411,8 @@ async function buildModels(){
      if(repeatTotal>maxRepeats)throw new Error('تجاوزت النماذج حد التكرار الأقصى وهو '+maxRepeats+'.');
      models.push(d);questionIds(d).forEach(id=>used.add(id));
    }
-   if(models.length>1&&samePositionCount(models[0],models[1])>0){
-     throw new Error('لم يتحقق اختلاف ترتيب النموذجين الأول والثاني بالكامل. أعد الإنشاء.');
-   }
-   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});setStatus('تم إنشاء '+count+' نماذج. إجمالي التكرار '+repeatTotal+'، والحد المحسوب '+maxRepeats+' (منه '+requiredRepeats+' تكرارًا قد يكون ضروريًا بحسب حجم البنك)، وترتيب النموذجين أ وب مختلف بالكامل.','ok');
+   const sameAB=models.length>1?samePositionCount(models[0],models[1]):0;
+   activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});setStatus('تم إنشاء '+count+' نماذج منظمة حسب المواد. إجمالي التكرار '+repeatTotal+'، والحد المحسوب '+maxRepeats+' (منه '+requiredRepeats+' تكرارًا قد يكون ضروريًا بحسب حجم البنك). اختلاف مواضع أ/ب: '+ar(Math.max(0,modelQuestions(models[0]).length-sameAB))+' من '+ar(modelQuestions(models[0]).length)+'.','ok');
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
