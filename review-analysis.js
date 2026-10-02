@@ -10,7 +10,7 @@ function fillSelect(reviews,selected){
  $('reviewSelect').innerHTML=reviews.length?reviews.map(r=>'<option value="'+esc(r.review_id)+'" '+(String(r.review_id)===String(selected)?'selected':'')+'>'+esc(r.title||'مراجعة ورقية')+' · '+esc(R.subjectNames[r.subject]||r.subject||'')+'</option>').join(''):'<option value="">لا توجد مراجعات محفوظة</option>';
 }
 function fillClasses(b){
- const classes=[...new Set((b.attempts||[]).map(a=>String(a.class_name||'').trim()).filter(Boolean))].sort();
+ const classes=[...new Set([...(b.attempts||[]).map(a=>String(a.class_name||'').trim()),...(b.assigned||[]).map(a=>String(a.class_name||'').trim())].filter(Boolean))].sort();
  const keep=$('classSelect').value;
  $('classSelect').innerHTML='<option value="">جميع الفصول</option>'+classes.map(c=>'<option '+(c===keep?'selected':'')+'>'+esc(c)+'</option>').join('');
 }
