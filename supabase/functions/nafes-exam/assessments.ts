@@ -1416,6 +1416,9 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   const config=normalizeConfig(b.config);
   assertIndicatorBuilderConfig(owner,config);
   const sections=await draftSections(db,config,b.regenerate===true,Array.isArray(b.exclude_question_ids)?b.exclude_question_ids:[]);
+  if(b.ephemeral===true){
+    return preview({id:null,owner_id:owner.id,kind:config.kind,title:config.title,config,rendered_sections:sections});
+  }
   const draft=must(await db.from('nafes_assessments').insert({owner_id:owner.id,kind:config.kind,title:config.title,config,rendered_sections:sections}).select().single());
   return preview(draft);
  }
