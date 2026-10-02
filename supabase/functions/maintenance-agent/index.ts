@@ -11,6 +11,17 @@ const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVI
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 const tidy=(v:unknown,n=200)=>String(v??"").normalize("NFKC").trim().slice(0,n);
 const num=(v:unknown)=>Number.isFinite(Number(v))?Number(v):0;
+const hasNumber=(v:unknown)=>v!==null&&v!==undefined&&v!==""&&Number.isFinite(Number(v));
+function normAr(v:unknown){
+  return tidy(v,1200).toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g,"")
+    .replace(/[إأآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
+    .replace(/[^\u0621-\u063A\u0641-\u064A0-9a-z_\- ]/gi," ")
+    .replace(/\s+/g," ").trim();
+}
+function tokens(v:unknown){
+  return [...new Set(normAr(v).split(" ").filter(x=>x.length>=3))].slice(0,80);
+}
 async function sha256(value:string){
   const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
   return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("");
@@ -35,20 +46,20 @@ function inspect(snapshot:any):Finding[]{
     detail:"يوجد "+num(sec.rls_disabled_public_count)+" جدولًا في public دون RLS. لا ينفذ الوكيل أي تغيير تلقائي لأن تفعيل RLS بلا تصميم سياسات قد يعطل المنصة.",
     safe_action:"مراجعة استخدام كل جدول ثم إعداد سياسة وصول محددة قبل أي تفعيل.",auto_apply:false
   });
-  if(num(q.prompt_leak_rows)>0)out.push({
+  if(hasNumber(q.prompt_leak_rows)&&num(q.prompt_leak_rows)>0)out.push({
     code:"QUESTION_PROMPT_LEAK",area:"question_quality",severity:"critical",
     title:"صياغات داخلية ظهرت داخل بنك الأسئلة",
     detail:"اكتشف الفحص "+num(q.prompt_leak_rows)+" صفًا يحتوي عبارات تصميم داخلية أو قوالب لا ينبغي أن تظهر للطالب.",
     safe_action:"عزل الأسئلة المتأثرة عن الاختبارات الجديدة ثم مراجعتها دلاليًا قبل الإرجاع.",auto_apply:false
   });
-  const dup=num(q.duplicate_groups_question_bank)+num(q.duplicate_groups_curated_bank);
-  if(dup>0)out.push({
+  const dup=(hasNumber(q.duplicate_groups_question_bank)?num(q.duplicate_groups_question_bank):0)+(hasNumber(q.duplicate_groups_curated_bank)?num(q.duplicate_groups_curated_bank):0);
+  if((hasNumber(q.duplicate_groups_question_bank)||hasNumber(q.duplicate_groups_curated_bank))&&dup>0)out.push({
     code:"QUESTION_EXACT_DUPLICATES",area:"question_quality",severity:"warning",
     title:"مجموعات أسئلة متطابقة",
     detail:"اكتشف الفحص "+dup+" مجموعة تكرار حرفي داخل البنوك المستخدمة.",
     safe_action:"إبقاء السجلات التاريخية وعدم حذفها، مع منع النسخ المكررة من دخول الاختبارات الجديدة.",auto_apply:false
   });
-  if(num(q.question_bank_needs_quality_review)>0)out.push({
+  if(hasNumber(q.question_bank_needs_quality_review)&&num(q.question_bank_needs_quality_review)>0)out.push({
     code:"QUESTION_REVIEW_BACKLOG",area:"question_quality",severity:"info",
     title:"أسئلة ما زالت تحتاج مراجعة جودة",
     detail:"يوجد "+num(q.question_bank_needs_quality_review)+" صفًا غير مصنف كمعتمد أو جاهز وفق بوابة الجودة.",
@@ -56,9 +67,9 @@ function inspect(snapshot:any):Finding[]{
   });
   if(num(paper.saved_reviews)>0&&num(paper.approved_attempts)===0)out.push({
     code:"PAPER_RESULTS_EMPTY",area:"printing",severity:"info",
-    title:"اختبارات ورقية محفوظة بلا نتائج معتمدة",
-    detail:"يوجد "+num(paper.saved_reviews)+" اختبارًا ورقيًا محفوظًا، ولم يسجل الفحص نتائج OMR معتمدة حتى الآن.",
-    safe_action:"فحص مسار الرفع والاعتماد عند أول دفعة أوراق قبل ربطه بالتقارير النهائية.",auto_apply:false
+    title:"OMR جاهز ولم تُعتمد نتائج بعد",
+    detail:"يوجد "+num(paper.saved_reviews)+" اختبارًا ورقيًا محفوظًا، ولا توجد نتائج OMR معتمدة حتى الآن. هذه حالة طبيعية ما لم تكن قد ضغطت «اعتماد النتائج» بعد رفع الأوراق.",
+    safe_action:"لا يلزم إصلاح. عند أول اعتماد فعلي للنتائج يتحقق الوكيل من إنشاء سجلات paper_scan وربطها بالتحليل.",auto_apply:false
   });
   return out;
 }
@@ -78,8 +89,94 @@ function proposalFor(f:Finding,runId:string,ownerId:string){
   if(f.code==="QUESTION_PROMPT_LEAK")return {...base,area:"question_quality",title:"عزل صياغات الأسئلة الداخلية",risk_level:"medium",proposal:{mode:"quarantine_only",scope:"new_tests_only",preserve_history:true,requires_manual_review:true,auto_apply:false,source_finding:f.code}};
   if(f.code==="QUESTION_EXACT_DUPLICATES")return {...base,area:"question_quality",title:"منع التكرار الحرفي في الاختبارات الجديدة",risk_level:"medium",proposal:{mode:"selection_filter",delete_rows:false,preserve_history:true,requires_manual_review:true,auto_apply:false,source_finding:f.code}};
   if(f.code==="RLS_DISABLED_PUBLIC")return {...base,area:"database_security",title:"خطة تقوية RLS بعد فحص الاستخدام",risk_level:"high",proposal:{mode:"policy_design_first",apply_rls_immediately:false,requires_usage_audit:true,requires_manual_approval:true,auto_apply:false,source_finding:f.code}};
-  if(f.code==="PAPER_RESULTS_EMPTY")return {...base,area:"printing",title:"فحص مسار اعتماد نتائج OMR",risk_level:"low",proposal:{mode:"read_only_trace",change_student_results:false,auto_apply:false,source_finding:f.code}};
+  if(f.code==="PAPER_RESULTS_EMPTY")return null;
   return {...base,area:"question_quality",title:"خطة مراجعة جودة مرحلية",risk_level:"low",proposal:{mode:"review_batch",auto_apply:false,source_finding:f.code}};
+}
+
+
+type KnowledgeRow={
+  id:string;category:string;module:string;title:string;summary:string;details:any;
+  keywords:string[];source_paths:string[];priority:number;active:boolean;
+};
+function knowledgeScore(row:KnowledgeRow,q:string,qTokens:string[]){
+  const hay=normAr([row.title,row.summary,row.module,row.category,...(row.keywords||[])].join(" "));
+  let score=Math.max(0,Number(row.priority||50)/100);
+  for(const t of qTokens){
+    if(hay.includes(t))score+=3;
+    if(normAr(row.title).includes(t))score+=2;
+    if((row.keywords||[]).some(k=>normAr(k).includes(t)||t.includes(normAr(k))))score+=2;
+  }
+  const aliases:Record<string,string[]>={
+    question_quality:["سؤال","اسئله","صياغه","مؤشر","تكرار","مشتت","استدلال","معرفه","تطبيق"],
+    omr:["omr","تظليل","تصحيح","ورق","رفع","مسح","اعتماد"],
+    printing:["طباعه","a4","صفحه","فراغ"],
+    database:["rls","قاعده","supabase","جداول","امان"],
+    deployment:["github","فرع","main","نشر","دمج"],
+    accounts:["حساب","معلم","صلاحيات","مفتاح","دخول"],
+    tests:["اختبار","مؤشر","نموذج","انشاء"],
+    analysis:["تحليل","تقرير","نتائج"]
+  };
+  for(const [module,words] of Object.entries(aliases)){
+    if(row.module===module&&words.some(w=>q.includes(normAr(w))))score+=4;
+  }
+  return score;
+}
+function platformAnswer(question:string,rows:KnowledgeRow[],snapshot:any){
+  const q=normAr(question),qt=tokens(question);
+  const ranked=rows.map(row=>({row,score:knowledgeScore(row,q,qt)})).sort((a,b)=>b.score-a.score);
+  const matched=ranked.filter(x=>x.score>=3.5).slice(0,6).map(x=>x.row);
+  const fallback=ranked.slice(0,4).map(x=>x.row);
+  const picked=matched.length?matched:fallback;
+  const sec=snapshot?.database_security||{},paper=snapshot?.paper_review||{};
+  const parts:string[]=[];
+  const asksCurrent=/الان|حاليا|الحالي|اخطر|مشكله|حاله/.test(q);
+  const asksHow=/كيف|مسار|يعمل|طريقه/.test(q);
+  const asksWhy=/لماذا|سبب|ليش/.test(q);
+
+  if(asksCurrent&&hasNumber(sec.rls_disabled_public_count)&&num(sec.rls_disabled_public_count)>0){
+    parts.push("الحالة الحالية التي تحتاج انتباهًا هي أمان قاعدة البيانات: يوجد "+num(sec.rls_disabled_public_count)+" جداول عامة بلا RLS. الوكيل لا يفعّل الحماية تلقائيًا لأن ذلك قد يعطل المسارات الحية قبل فحص الاستخدام.");
+  }
+  if(/omr|تظليل|تصحيح ورقي|ورقي/.test(q)&&num(paper.saved_reviews)>0&&num(paper.approved_attempts)===0){
+    parts.push("في OMR لديك مراجعة ورقية محفوظة، ولا توجد نتائج معتمدة بعد. هذا طبيعي ما لم تكن قد ضغطت «اعتماد النتائج» بعد رفع الأوراق.");
+  }
+  if(picked.length){
+    if(asksHow)parts.push("المسار الموثق في المنصة هو: "+picked.map(x=>x.summary).join(" ثم "));
+    else if(asksWhy)parts.push(picked.map(x=>x.summary).join(" "));
+    else parts.push(picked.map(x=>x.summary).join(" "));
+  }else{
+    parts.push("لا أملك معلومة موثقة كافية عن هذا الجزء بعد. أستطيع الإجابة بثقة أعلى عن الاختبارات، بنوك الأسئلة، جودة الصياغة، OMR، التحليل، الطباعة، الحسابات، GitHub وSupabase.");
+  }
+  const unique=[...new Set(parts)].join("\n\n");
+  const sources=[...new Set(picked.flatMap(x=>x.source_paths||[]))].slice(0,10);
+  const confidence=matched.length>=3?"high":matched.length?"medium":"low";
+  return{
+    answer:unique,
+    confidence,
+    matched: picked.map(x=>({id:x.id,module:x.module,title:x.title,summary:x.summary})),
+    sources,
+    current_state:{
+      rls_disabled_public_count:hasNumber(sec.rls_disabled_public_count)?num(sec.rls_disabled_public_count):null,
+      saved_paper_reviews:num(paper.saved_reviews),
+      approved_paper_attempts:num(paper.approved_attempts)
+    },
+    followups:[
+      "اشرح لي مسار هذا الجزء خطوة بخطوة",
+      "ما الملفات والجداول المرتبطة به؟",
+      "ما المخاطر قبل أن نعدله؟"
+    ]
+  };
+}
+async function brainKnowledge(){
+  const {data,error}=await db.from("maintenance_agent_knowledge")
+    .select("id,category,module,title,summary,details,keywords,source_paths,priority,active")
+    .eq("active",true).order("priority",{ascending:false});
+  if(error)throw error;
+  return (data||[]) as KnowledgeRow[];
+}
+async function safeSnapshot(){
+  const {data,error}=await db.rpc("maintenance_agent_snapshot");
+  if(error)throw error;
+  return data||{};
 }
 
 Deno.serve(async(req:Request)=>{
@@ -90,9 +187,25 @@ Deno.serve(async(req:Request)=>{
     const b=await req.json().catch(()=>({}));
     const action=tidy(b.action,50)||"diagnose";
 
+    if(action==="brain_overview"){
+      const rows=await brainKnowledge();
+      const modules=new Map<string,{module:string,count:number,titles:string[]}>();
+      for(const row of rows){
+        const x=modules.get(row.module)||{module:row.module,count:0,titles:[]};
+        x.count++;x.titles.push(row.title);modules.set(row.module,x);
+      }
+      return json({ok:true,version:"platform-brain-v1",knowledge_count:rows.length,modules:[...modules.values()],privacy:{stores_chat:false,contains_personal_data:false,external_ai:false}});
+    }
+
+    if(action==="ask_platform"){
+      const question=tidy(b.question,700);
+      if(question.length<2)return json({error:"اكتب سؤالك عن المنصة."},400);
+      const [rows,snapshot]=await Promise.all([brainKnowledge(),safeSnapshot()]);
+      return json({ok:true,version:"platform-brain-v1",...platformAnswer(question,rows,snapshot),privacy:{stored:false,external_ai:false,student_data_used:false}});
+    }
+
     if(action==="diagnose"){
-      const {data:snapshot,error}=await db.rpc("maintenance_agent_snapshot");
-      if(error)throw error;
+      const snapshot=await safeSnapshot();
       const findings=inspect(snapshot||{});
       const severity=overall(findings);
       const summary=summaryFor(findings);
@@ -129,7 +242,7 @@ Deno.serve(async(req:Request)=>{
         .eq("run_id",runId).eq("owner_id",owner.id);
       if(existingError)throw existingError;
       if(existing?.length)return json({ok:true,proposals:existing,mode:"approval_only"});
-      const rows=(Array.isArray(run.findings)?run.findings:[]).map((f:Finding)=>proposalFor(f,runId,owner.id));
+      const rows=(Array.isArray(run.findings)?run.findings:[]).map((f:Finding)=>proposalFor(f,runId,owner.id)).filter(Boolean);
       if(!rows.length)return json({ok:true,proposals:[],mode:"approval_only"});
       const {data:created,error:createError}=await db.from("maintenance_agent_proposals").insert(rows)
         .select("id,run_id,area,title,risk_level,status,proposal,created_at,decided_at");
