@@ -2,7 +2,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-agent';
-let latestRun=null,allProposals=[];
+let latestRun=null,allProposals=[],lastBrainQuestion='';
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sevLabel={ok:'سليم',info:'معلومة',warning:'تحذير',critical:'حرج'};
@@ -78,6 +78,7 @@ async function loadBrainOverview(){
 }
 async function askBrain(question){
  const q=String(question||'').trim();if(!q)return;
+ lastBrainQuestion=q;
  const btn=$('brainAsk');if(btn)btn.disabled=true;
  $('brainQuestion').value=q;
  $('brainAnswer').innerHTML='<div class="empty">جارٍ الرجوع إلى خريطة المنصة وقرارات المشروع…</div>';
@@ -106,7 +107,7 @@ async function init(){
 }
 $('brainForm')?.addEventListener('submit',e=>{e.preventDefault();askBrain($('brainQuestion').value);});
 document.querySelectorAll('[data-brain-q]').forEach(b=>b.addEventListener('click',()=>askBrain(b.dataset.brainQ||'')));
-$('brainAnswer')?.addEventListener('click',e=>{const b=e.target.closest('[data-brain-followup]');if(b)askBrain(b.dataset.brainFollowup||'');});
+$('brainAnswer')?.addEventListener('click',e=>{const b=e.target.closest('[data-brain-followup]');if(b)askBrain((lastBrainQuestion?lastBrainQuestion+' — ':'')+(b.dataset.brainFollowup||''));});
 
 $('runScan').onclick=async()=>{
  const btn=$('runScan');btn.disabled=true;setState('جارٍ فحص قاعدة البيانات وبنوك الأسئلة دون قراءة بيانات الطلاب الشخصية…');
