@@ -29,9 +29,11 @@ function render(){
    metric('يحتاجون دعمًا',R.ar(s.support))
  ].join('');
  $('studentsBody').innerHTML=b.students.length?b.students.map(x=>'<tr><td><b>'+esc(x.name)+'</b></td><td>'+esc(x.className)+'</td><td>'+esc(x.model)+'</td><td>'+R.ar(x.score)+' / '+R.ar(x.total)+'</td><td>'+R.pct(x.percent)+'</td><td>'+badge(x.level)+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">لا توجد نتائج معتمدة لهذا الاختبار حتى الآن.</td></tr>';
- $('indicatorBars').innerHTML=bars(b.indicators,'لا توجد نتائج مؤشرات بعد.');
+ $('subjectBars').innerHTML=bars((b.subjectSummary||[]).map(x=>({...x,text:x.label})),'لا توجد نتائج مواد بعد.');
+ $('subjectPerformanceCard').hidden=(b.subjects||[]).length<2;
+ $('indicatorBars').innerHTML=bars(b.indicators.map(x=>({...x,text:(R.subjectNames[x.subject]?R.subjectNames[x.subject]+' — ':'')+x.text})),'لا توجد نتائج مؤشرات بعد.');
  $('cognitiveBars').innerHTML=bars(b.cognitive.filter(x=>x.total>0),'لا توجد وسوم مستويات معرفية متاحة في النماذج.');
- $('questionsBody').innerHTML=b.questions.length?b.questions.slice(0,15).map(q=>'<tr><td>'+esc(q.question)+'</td><td>'+esc(q.indicator)+'</td><td>'+R.ar(q.wrong)+' من '+R.ar(q.total)+'</td><td>'+R.pct(q.failure)+'</td></tr>').join(''):'<tr><td colspan="4" class="muted">لا توجد نتائج أسئلة بعد.</td></tr>';
+ $('questionsBody').innerHTML=b.questions.length?b.questions.slice(0,15).map(q=>'<tr><td>'+esc(R.subjectNames[q.subject]||q.subject||'—')+'</td><td>'+esc(q.question)+'</td><td>'+esc(q.indicator)+'</td><td>'+R.ar(q.wrong)+' من '+R.ar(q.total)+'</td><td>'+R.pct(q.failure)+'</td></tr>').join(''):'<tr><td colspan="5" class="muted">لا توجد نتائج أسئلة بعد.</td></tr>';
  $('absentList').innerHTML=b.absent.length?'<div class="recommendations">'+b.absent.map(a=>'<div class="recommendation">'+esc(a.student_name||a.full_name||'طالب')+'</div>').join('')+'</div>':'<div class="empty">لا يوجد طلاب غير مختبرين ضمن التوزيع الحالي.</div>';
  $('recommendations').innerHTML=b.recommendations.map(x=>'<div class="recommendation">'+esc(x)+'</div>').join('');
  $('content').hidden=false;

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#065f46">
 <title>المراجعة والتصحيح الآلي | معلّمي</title>
-<link rel="stylesheet" href="review-correction.css?v=20261002-report1">
+<link rel="stylesheet" href="review-correction.css?v=20261002-multisubject1">
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
@@ -68,9 +68,9 @@
       <header class="card-head"><span class="step-no">١</span><div><h2>بيانات المراجعة</h2><p>اضبط المراجعة مرة واحدة، والمنصة تبني النماذج المتكافئة.</p></div></header>
       <div class="fields">
         <label class="field wide"><span>اسم المراجعة</span><input id="reviewTitle" value="مراجعة مؤشرات نافس" maxlength="160"></label>
-        <label class="field"><span>المادة</span><select id="subject"></select></label>
+        <div class="field wide"><span>المواد داخل الاختبار</span><div id="subjectChoices" class="subject-choices"></div><select id="subject" hidden></select><small class="field-help">يمكن دمج القراءة والرياضيات والعلوم في اختبار واحد. ستظهر كل مادة في قسم مستقل ومنظم داخل الورقة.</small></div>
         <label class="field"><span>الفصل</span><select id="className"><option value="">جميع الفصول</option></select></label>
-        <label class="field"><span>عدد الأسئلة</span><select id="questionCount"><option selected>15</option><option>20</option><option>30</option><option>60</option></select></label>
+        <label class="field"><span>عدد الأسئلة الكلي</span><select id="questionCount"><option>10</option><option selected>15</option><option>20</option><option>25</option><option>30</option><option>40</option><option>45</option><option>50</option><option>60</option></select></label>
         <label class="field"><span>عدد النماذج</span><select id="modelCount"><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label class="field"><span>اسم الطالب في ورقة التظليل</span><select id="bubbleNameMode"><option value="printed" selected>مطبوع</option><option value="blank">فارغ</option></select></label>
       </div>
       <div class="switches">
@@ -92,7 +92,7 @@
   </section>
 
   <section class="card">
-    <header class="card-head"><span class="step-no">٣</span><div><h2>اختيار المؤشرات</h2><p>اختر المؤشرات التي سبق تدريسها. يوزع النظام عدد الأسئلة عليها بالتساوي ويمكنك تعديل العدد لكل مؤشر.</p></div></header>
+    <header class="card-head"><span class="step-no">٣</span><div><h2>اختيار المؤشرات من أكثر من مادة</h2><p>تظهر المؤشرات مجمعة حسب المادة. اختر أكثر من مؤشر ومن أكثر من مادة، وحدد عدد الأسئلة لكل مؤشر؛ ويبقى ترتيب المواد واضحًا في النماذج المطبوعة.</p></div></header>
     <div class="indicator-tools">
       <input id="indicatorSearch" type="search" placeholder="ابحث في المؤشرات…">
       <button id="selectAllIndicators" type="button" class="secondary">اختيار الظاهر</button>
@@ -145,6 +145,6 @@
 <script src="nafes-math.js?v=20260909-final"></script>
 <script src="nafes-science.js?v=20260909-final"></script>
 <script src="teacher-access.js?v=20260930-mainfix1"></script>
-<script src="review-correction.js?v=20261002-report1"></script>
+<script src="review-correction.js?v=20261002-multisubject1"></script>
 </body>
 </html>

@@ -1139,9 +1139,11 @@ function validatePaperReviewPayload(raw:unknown,owner:Row):Row {
   const p=raw as Row;
   const reviewId=tidy(p.review_id,80);
   if(!/^R[A-Z0-9_-]{4,79}$/i.test(reviewId))fail('معرّف المراجعة الورقية غير صالح.');
-  const subject=tidy(p.subject,20);
-  if(!SUBJECTS.includes(subject))fail('مادة المراجعة غير صحيحة.');
-  assertSubjectScope(owner,subject);
+  const requested=Array.isArray(p.subjects)?p.subjects:[p.subject];
+  const subjects=[...new Set(requested.map((x:unknown)=>tidy(x,20)).filter((x:string)=>SUBJECTS.includes(x)))];
+  if(!subjects.length)fail('اختر مادة واحدة على الأقل للمراجعة.');
+  for(const subject of subjects)assertSubjectScope(owner,subject);
+  const subject=subjects[0];
   const models=Array.isArray(p.models)?p.models:[];
   const keys=Array.isArray(p.answer_keys)?p.answer_keys:[];
   const assignments=Array.isArray(p.assignments)?p.assignments:[];
@@ -1152,7 +1154,7 @@ function validatePaperReviewPayload(raw:unknown,owner:Row):Row {
     ...p,
     review_id:reviewId,
     title:tidy(p.title,160)||'مراجعة ورقية',
-    subject,
+    subject,subjects,
     class_name:tidy(p.class_name,80),
     question_count:Number(p.question_count||0),
     question_start:Number(p.question_start||1),
@@ -1162,6 +1164,13 @@ function validatePaperReviewPayload(raw:unknown,owner:Row):Row {
     saved_at:tidy(p.saved_at,80)||new Date().toISOString()
   };
   if(!Number.isInteger(compact.question_count)||compact.question_count<1||compact.question_count>60)fail('عدد أسئلة المراجعة غير صالح.');
+  for(const model of models){
+    for(const q of Array.isArray(model?.questions)?model.questions:[]){
+      const indicator=tidy(q?.indicator,160);
+      const entry=FRAMEWORK.find(x=>x.key===indicator);
+      if(entry&&!subjects.includes(entry.subject))fail('يوجد سؤال من مادة غير محددة ضمن الاختبار.');
+    }
+  }
   const bytes=new TextEncoder().encode(JSON.stringify(compact)).byteLength;
   if(bytes>2500000)fail('حجم بيانات المراجعة أكبر من الحد المسموح.');
   return compact;
@@ -1169,42 +1178,43 @@ function validatePaperReviewPayload(raw:unknown,owner:Row):Row {
 async function teacherPaperReviewUpsert(db:any,b:Row,owner:Row){
   const payload=validatePaperReviewPayload(b.review||b.payload,owner);
   const row={
-    owner_id:owner.id,review_id:payload.review_id,title:payload.title,subject:payload.subject,
+    owner_id:owner.id,review_id:payload.review_id,title:payload.title,subject:payload.subject,subjects:payload.subjects,
     class_name:payload.class_name||'',payload,updated_at:new Date().toISOString()
   };
   const existing=must(await db.from('nafes_paper_reviews').select('id').eq('owner_id',owner.id).eq('review_id',payload.review_id).maybeSingle());
   const saved=existing
-    ?must(await db.from('nafes_paper_reviews').update(row).eq('id',existing.id).select('id,review_id,title,subject,class_name,updated_at').single())
-    :must(await db.from('nafes_paper_reviews').insert(row).select('id,review_id,title,subject,class_name,updated_at').single());
+    ?must(await db.from('nafes_paper_reviews').update(row).eq('id',existing.id).select('id,review_id,title,subject,subjects,class_name,updated_at').single())
+    :must(await db.from('nafes_paper_reviews').insert(row).select('id,review_id,title,subject,subjects,class_name,updated_at').single());
   return{ok:true,review:saved};
 }
 async function teacherPaperReviewGet(db:any,b:Row,owner:Row){
-  let q=db.from('nafes_paper_reviews').select('id,review_id,title,subject,class_name,payload,created_at,updated_at');
+  let q=db.from('nafes_paper_reviews').select('id,review_id,title,subject,subjects,class_name,payload,created_at,updated_at');
   if(teacherScope(owner)!=='all')q=q.eq('owner_id',owner.id);
   const reviewId=tidy(b.review_id,80);
   if(reviewId)q=q.eq('review_id',reviewId);
   else q=q.order('updated_at',{ascending:false}).limit(1);
   const row=must(await q.maybeSingle());
   if(!row)return{ok:true,review:null};
-  assertSubjectScope(owner,row.subject);
-  return{ok:true,review:{...row,payload:row.payload}};
+  const subjects=(Array.isArray(row.subjects)&&row.subjects.length?row.subjects:[row.subject]).filter((x:string)=>SUBJECTS.includes(x));
+  for(const subject of subjects)assertSubjectScope(owner,subject);
+  return{ok:true,review:{...row,subjects,payload:{...row.payload,subjects}}};
 }
 async function teacherPaperReviewList(db:any,owner:Row){
-  let q=db.from('nafes_paper_reviews').select('id,review_id,title,subject,class_name,created_at,updated_at,owner_id').order('updated_at',{ascending:false}).limit(200);
+  let q=db.from('nafes_paper_reviews').select('id,review_id,title,subject,subjects,class_name,created_at,updated_at,owner_id').order('updated_at',{ascending:false}).limit(200);
   const scope=teacherScope(owner);
-  if(scope!=='all')q=q.eq('owner_id',owner.id).eq('subject',scope);
+  if(scope!=='all')q=q.eq('owner_id',owner.id);
   const rows=must(await q);
-  return{ok:true,reviews:rows||[]};
+  const visible=(rows||[]).filter((row:Row)=>{
+    const subjects=(Array.isArray(row.subjects)&&row.subjects.length?row.subjects:[row.subject]).filter((x:string)=>SUBJECTS.includes(x));
+    return scope==='all'||(subjects.length===1&&subjects[0]===scope);
+  });
+  return{ok:true,reviews:visible};
 }
 
 async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
   const reviewId=tidy(b.review_id,80);
   if(!/^R[A-Z0-9_-]{4,79}$/i.test(reviewId))fail('معرّف المراجعة الورقية غير صالح.');
   const title=tidy(b.title,160)||'مراجعة ورقية';
-  const subject=tidy(b.subject,20);
-  if(!SUBJECTS.includes(subject))fail('مادة المراجعة غير صحيحة.');
-  assertSubjectScope(owner,subject);
-  const className=tidy(b.class_name,80);
   const models=Array.isArray(b.models)?b.models:[];
   const answerKeys=Array.isArray(b.answer_keys)?b.answer_keys:[];
   const results=Array.isArray(b.results)?b.results:[];
@@ -1212,12 +1222,23 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
   if(!results.length)fail('لا توجد نتائج لاعتمادها.');
   if(results.length>300)fail('عدد النتائج في الدفعة أكبر من الحد المسموح.');
 
+  const subjectCandidates:unknown[]=[
+    ...(Array.isArray(b.subjects)?b.subjects:[]),b.subject,
+    ...models.flatMap((m:Row)=>Array.isArray(m?.questions)?m.questions.flatMap((q:Row)=>[q?.subject,String(q?.indicator||'').split(':')[0]]):[]),
+    ...(Array.isArray(b.indicator_counts)?b.indicator_counts.flatMap((x:Row)=>[x?.subject,String(x?.key||'').split(':')[0]]):[])
+  ];
+  const subjects=[...new Set(subjectCandidates.map(x=>tidy(x,20)).filter(x=>SUBJECTS.includes(x)))];
+  if(!subjects.length)fail('مواد المراجعة غير صحيحة.');
+  for(const subject of subjects)assertSubjectScope(owner,subject);
+  const subject=subjects[0],className=tidy(b.class_name,80);
+
   const keyMap=new Map<string,Row>();
   for(const row of answerKeys){
     const model=tidy(row?.model,12),answers=Array.isArray(row?.answers)?row.answers:[];
     if(!model||!answers.length)continue;
     keyMap.set(model,{model,answers});
   }
+
   const modelMap=new Map<string,Row>();
   for(const row of models){
     const model=tidy(row?.model,12),questions=Array.isArray(row?.questions)?row.questions:[];
@@ -1236,8 +1257,10 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
       const indicatorKey=tidy(k?.indicator||q.indicator,160);
       const entry=FRAMEWORK.find(x=>x.key===indicatorKey);
       if(!entry)fail('ارتباط سؤال بمؤشر غير صالح في نموذج '+model+'.');
+      const questionSubject=tidy(q.subject||k?.subject,20)||entry.subject;
+      if(questionSubject!==entry.subject||!subjects.includes(questionSubject))fail('مادة السؤال لا تطابق المؤشر في نموذج '+model+'.');
       return{
-        id,subject,context:tidy(q.context,8000)||null,question:tidy(q.question,2400),options,
+        id,subject:questionSubject,context:tidy(q.context,8000)||null,question:tidy(q.question,2400),options,
         correctIndex,indicator_key:entry.key,indicator_text:entry.text,
         cognitive_level:tidy(q.cognitive_level,40)||null,difficulty:tidy(q.difficulty,40)||null,
         image:q.image_url?{url:tidy(q.image_url,800),alt:tidy(q.image_alt,300)}:null,
@@ -1248,31 +1271,49 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
   }
   if(!modelMap.size)fail('لم يتم العثور على نماذج صالحة للمراجعة.');
 
-  const indicatorCounts=Array.isArray(b.indicator_counts)?b.indicator_counts:[];
-  const indicators=indicatorCounts.map((x:Row)=>({key:tidy(x.key,160),count:Number(x.count||0)})).filter((x:Row)=>FRAMEWORK.some(f=>f.key===x.key&&f.subject===subject)&&Number.isInteger(x.count)&&x.count>0);
-  const questionCount=Math.max(...[...modelMap.values()].map((m:Row)=>m.questions.length));
+  const firstModel=[...modelMap.values()][0];
+  const indicatorRaw=Array.isArray(b.indicator_counts)?b.indicator_counts:[];
+  const inferred=new Map<string,number>();
+  for(const q of firstModel.questions)inferred.set(q.indicator_key,(inferred.get(q.indicator_key)||0)+1);
+  const indicators=(indicatorRaw.length?indicatorRaw:[...inferred].map(([key,count])=>({key,count})))
+    .map((x:Row)=>{
+      const key=tidy(x.key,160),entry=FRAMEWORK.find(f=>f.key===key);
+      return entry?{key,count:Number(x.count||0),subject:entry.subject}:null;
+    })
+    .filter((x:Row|null)=>!!x&&subjects.includes(x.subject)&&Number.isInteger(x.count)&&x.count>0) as Row[];
+
+  const sectionForQuestions=(questions:Row[])=>subjects.map(sectionSubject=>{
+    const sectionQuestions=questions.filter(q=>q.subject===sectionSubject);
+    return{subject:sectionSubject,question_count:sectionQuestions.length,duration_minutes:5,calculator:sectionSubject==='math',questions:sectionQuestions};
+  }).filter(sec=>sec.questions.length);
+
+  const configSections=subjects.map(sectionSubject=>{
+    const question_count=firstModel.questions.filter((q:Row)=>q.subject===sectionSubject).length;
+    const sectionIndicators=indicators.filter((x:Row)=>x.subject===sectionSubject).map((x:Row)=>({key:x.key,count:x.count}));
+    return{subject:sectionSubject,question_count,duration_minutes:5,calculator:sectionSubject==='math',model_no:1,indicators:sectionIndicators};
+  }).filter(sec=>sec.question_count>0);
+
+  const questionCount=firstModel.questions.length;
   const config={
-    paper_review:true,paper_review_id:reviewId,kind:'multi_indicator',grade_key:'middle_3',title,class_name:className,
+    paper_review:true,paper_review_id:reviewId,paper_subjects:subjects,kind:'multi_indicator',grade_key:'middle_3',title,class_name:className,
     term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'مدرسة ابن سينا المتوسطة',
     teacher_name:'',principal_name:'',identity_mode:'list',roster:results.map((r:Row)=>tidy(r.student_name,120)).filter(Boolean),
-    sections:[{subject,question_count:questionCount,duration_minutes:5,calculator:false,model_no:1,indicators}],
-    count_mode:'per_indicator',
+    sections:configSections,count_mode:'per_indicator',
     settings:{show_result:false,show_answers:false,show_indicator_result:true,show_correct_count:true,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:true,disable_print:true,disable_shortcuts:true,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,opens_at:null,closes_at:null,attempts:1,break_minutes:0,manual_closed:true}
   };
 
   let assessment=must(await db.from('nafes_assessments').select('*').eq('owner_id',owner.id).contains('config',{paper_review_id:reviewId}).maybeSingle());
-  const firstModel=[...modelMap.values()][0];
-  const assessmentSections=[{subject,question_count:firstModel.questions.length,duration_minutes:5,calculator:false,questions:firstModel.questions}];
+  const assessmentSections=sectionForQuestions(firstModel.questions);
   if(!assessment){
     assessment=must(await db.from('nafes_assessments').insert({owner_id:owner.id,status:'draft',kind:'multi_indicator',title,config,rendered_sections:assessmentSections}).select().single());
-  } else {
+  }else{
     assessment=must(await db.from('nafes_assessments').update({title,config,rendered_sections:assessmentSections}).eq('id',assessment.id).select().single());
   }
 
   const students=must(await db.from('nafes_students').select('id,full_name,name_normalized,class_name,national_id_last3,is_demo,is_active').eq('is_demo',false));
-  const studentById=new Map((students||[]).map((s:Row)=>[String(s.id),s]));
+  const studentById=new Map((students||[]).map((st:Row)=>[String(st.id),st]));
   const byName=new Map<string,Row[]>();
-  for(const s of students||[]){const k=normalizeArabicName(s.full_name);const list=byName.get(k)||[];list.push(s);byName.set(k,list);}
+  for(const st of students||[]){const k=normalizeArabicName(st.full_name);const list=byName.get(k)||[];list.push(st);byName.set(k,list);}
   const now=new Date(),submittedAt=now.toISOString(),expiresAt=new Date(now.getTime()+5*60000).toISOString();
   const saved:Row[]=[];
 
@@ -1282,10 +1323,10 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     let student=isUUID(result.student_id)?studentById.get(String(result.student_id)):null;
     if(!student){
       const matches=byName.get(normalizeArabicName(tidy(result.student_name,120)))||[];
-      student=matches.find((s:Row)=>!className||String(s.class_name||'')===className)||matches[0]||null;
+      student=matches.find((st:Row)=>!className||String(st.class_name||'')===className)||matches[0]||null;
     }
     if(!student)fail('تعذر ربط نتيجة الطالب «'+tidy(result.student_name,120)+'» بسجل الطلاب.');
-    const sections=[{subject,question_count:m.questions.length,duration_minutes:5,calculator:false,questions:m.questions}];
+    const sections=sectionForQuestions(m.questions);
     const answers:Row={};
     const rawAnswers=Array.isArray(result.answers)?result.answers:[];
     for(let i=0;i<m.questions.length;i++){
@@ -1294,22 +1335,35 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     }
     const graded=gradeSections(sections,answers);
     const attemptConfig={...config,paper_model:model};
-    const event={type:'paper_scan',at:submittedAt,review_id:reviewId,model,method:'omr'};
+    const event={type:'paper_scan',at:submittedAt,review_id:reviewId,model,method:'omr',subjects};
     const existing=must(await db.from('nafes_assessment_attempts').select('*').eq('assessment_id',assessment.id).eq('student_id',student.id).order('attempt_no',{ascending:false}).limit(1).maybeSingle());
+    const lastSection=sections[sections.length-1];
     const payload={
       assessment_id:assessment.id,student_id:student.id,student_name:student.full_name,student_no:student.national_id_last3,
       student_key:student.id,class_name:student.class_name||className,attempt_no:existing?.attempt_no||1,config:attemptConfig,
-      rendered_sections:sections,answers,events:[event],cursor:m.questions.length-1,section_index:0,section_started_at:submittedAt,
+      rendered_sections:sections,answers,events:[event],cursor:Math.max(0,(lastSection?.questions?.length||1)-1),section_index:Math.max(0,sections.length-1),section_started_at:submittedAt,
       session_id:'paper:'+reviewId+':'+student.id,access_hash:await hash('paper:'+reviewId+':'+student.id),
       lease_until:submittedAt,started_at:existing?.started_at||submittedAt,expires_at:expiresAt,submitted_at:submittedAt,
       score:graded.score,total:graded.total,percent:graded.percent,section_scores:graded.section_scores,is_demo:false
     };
     let row;
-    if(existing) row=must(await db.from('nafes_assessment_attempts').update({...payload,version:Number(existing.version||1)+1}).eq('id',existing.id).select().single());
+    if(existing)row=must(await db.from('nafes_assessment_attempts').update({...payload,version:Number(existing.version||1)+1}).eq('id',existing.id).select().single());
     else row=must(await db.from('nafes_assessment_attempts').insert(payload).select().single());
     saved.push({id:row.id,student_id:student.id,student_name:student.full_name,model,score:graded.score,total:graded.total,percent:graded.percent});
   }
-  return{ok:true,review_id:reviewId,assessment_id:assessment.id,saved_count:saved.length,results:saved};
+
+  const existingReview=must(await db.from('nafes_paper_reviews').select('id,payload').eq('owner_id',owner.id).eq('review_id',reviewId).maybeSingle());
+  const baseReview=existingReview?.payload||{};
+  const reviewPayload=validatePaperReviewPayload({
+    ...baseReview,review_id:reviewId,title,subject,subjects,class_name:className,question_count:questionCount,
+    model_count:models.length,models,answer_keys:answerKeys,indicator_counts:indicators,
+    assignments:Array.isArray(baseReview.assignments)?baseReview.assignments:(Array.isArray(b.assignments)?b.assignments:[])
+  },owner);
+  const reviewRow={owner_id:owner.id,review_id:reviewId,title,subject,subjects,class_name:className,payload:reviewPayload,updated_at:new Date().toISOString()};
+  if(existingReview)must(await db.from('nafes_paper_reviews').update(reviewRow).eq('id',existingReview.id));
+  else must(await db.from('nafes_paper_reviews').insert(reviewRow));
+
+  return{ok:true,review_id:reviewId,assessment_id:assessment.id,subjects,saved_count:saved.length,results:saved};
 }
 
 export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {

@@ -19,17 +19,17 @@ function similarity(a,b){
  for(const w of wa)if(wb.has(w))inter++;const union=wa.size+wb.size-inter;return union?inter/union:0;
 }
 function groupsFromQuestions(questions,startNo=DEFAULT_QUESTION_START){
- const groups=[],byKey=new Map();
+ const groups=[],byKey=new Map();let lastSubject='';
  questions.forEach((q,i)=>{
+   const subject=String(q.subject||String(q.indicator||'').split(':')[0]||'').trim()||'reading';
    const ctx=String(q.context||'').trim();
-   const key=ctx?norm(ctx):'__NO_CONTEXT__:'+i;
+   const key=subject+'|'+(ctx?norm(ctx):'__NO_CONTEXT__:'+i);
    let group=byKey.get(key);
    if(!group){
-     group={context:ctx,questions:[]};
-     groups.push(group);
-     byKey.set(key,group);
+     group={subject,subjectStart:subject!==lastSubject,context:ctx,questions:[]};
+     groups.push(group);byKey.set(key,group);lastSubject=subject;
    }
-   group.questions.push({...q,_no:startNo+i});
+   group.questions.push({...q,subject,_no:startNo+i});
  });
  return groups;
 }
@@ -38,7 +38,7 @@ function questionUnits(q){
  return 7+Math.ceil(stem/85)*1.5+Math.ceil(opts/130)*1.4+(q.image_url?10:0);
 }
 function groupUnits(g){
- return (g.context?8+Math.ceil(String(g.context).length/180)*3.2:0)+g.questions.reduce((n,q)=>n+questionUnits(q),0);
+ return (g.subjectStart?5:0)+(g.context?8+Math.ceil(String(g.context).length/180)*3.2:0)+g.questions.reduce((n,q)=>n+questionUnits(q),0);
 }
 function paginateGroups(groups,subject){
  const valid=groups.filter(g=>g&&g.questions?.length);
@@ -114,49 +114,50 @@ function renderQuestion(q,context){
  opts.map((o,j)=>'<div class="choice"><b>'+letters[j]+')</b><span>'+esc(o)+'</span></div>').join('')+
  '</div></article>';
 }
-function renderGroup(g,subject){
- let out='<section class="passage-group">';
+function renderGroup(g){
+ let out='<section class="passage-group" data-subject="'+esc(g.subject||'')+'">';
+ if(g.subjectStart)out+='<div class="subject-divider"><b>'+esc(subjectLabel(g.subject))+'</b><span>قسم '+esc(subjectLabel(g.subject))+'</span></div>';
  if(g.context)out+='<div class="passage">'+esc(g.context)+'</div>';
  if(g.continued)out+='<div class="continued">تابع أسئلة النص السابق</div>';
  const first=g.questions[0]?._no||1,last=g.questions.at(-1)?._no||first;
- if(subject==='reading'&&g.context)out+='<div class="after-passage">بعد قراءتك للنص أعلاه، أجب عن الأسئلة من '+ar(first)+' - '+ar(last)+'</div>';
+ if(g.subject==='reading'&&g.context)out+='<div class="after-passage">بعد قراءتك للنص أعلاه، أجب عن الأسئلة من '+ar(first)+' - '+ar(last)+'</div>';
  const seenImages=new Set();
  for(const q of g.questions){const src=String(q.image_url||'').trim();if(src&&!seenImages.has(src)){seenImages.add(src);out+='<img class="q-image" src="'+esc(src)+'" alt="'+esc(q.image_alt||'صورة مرتبطة بالأسئلة')+'">';}}
  out+='<div class="passage-questions">'+g.questions.map(q=>renderQuestion(q,g.context)).join('')+'</div></section>';
  return out;
 }
 function pageHeader(model,d,pageNo,totalPages,totalQuestions){
+ const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean);
+ const subjectText=subjects.map(subjectLabel).join(' + ');
  return '<div class="exam-frame-head">'+
  '<div class="official"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><b>إدارة تعليم نجران</b><b>مدرسة ابن سينا المتوسطة</b></div>'+
  '<div class="exam-brand">مراجعة نافس</div>'+
  '<div class="grade-box"><b>ثالث متوسط</b><span>نموذج '+esc(model.model)+'</span></div>'+
  '</div>'+
- '<div class="title-strip">'+esc(d.title||'مراجعة مؤشرات نافس')+'</div>'+
+ '<div class="title-strip">'+esc(d.title||'مراجعة مؤشرات نافس')+(subjectText?'<small>'+esc(subjectText)+'</small>':'')+'</div>'+
  '<div class="student-line"><b>الاسم:</b><span></span></div>'+
  '<div class="page-number">الصفحة '+ar(pageNo)+' من '+ar(totalPages)+' · عدد الأسئلة '+ar(totalQuestions)+'</div>';
 }
 function onePage(model,d,groups,pageNo,totalPages,totalQuestions){
- return '<section class="paper-page" data-model="'+esc(model.model)+'" data-subject="'+esc(d.subject||'')+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
+ const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean);
+ const mode=subjects.length>1?'mixed':(subjects[0]||d.subject||'');
+ return '<section class="paper-page" data-model="'+esc(model.model)+'" data-subject="'+esc(mode)+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
  pageHeader(model,d,pageNo,totalPages,totalQuestions)+
- '<div class="questions-flow">'+groups.map(g=>renderGroup(g,d.subject)).join('')+'</div>'+
+ '<div class="questions-flow">'+groups.map(g=>renderGroup(g)).join('')+'</div>'+
  '<footer class="footer"><span>منصة معلّمي — مراجعة مؤشرات نافس</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/'+ar(totalPages)+'</span></footer>'+
  '</div></div></section>';
 }
 function modelBooklet(model,d){
  const questions=model.questions||[],startNo=Number(d.question_start||DEFAULT_QUESTION_START),groups=groupsFromQuestions(questions,startNo);
- if(d.subject==='reading'&&questions.length===20){
+ const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean);
+ if(subjects.length===1&&subjects[0]==='reading'&&questions.length===20){
    const bad=groups.length!==4||groups.some(g=>!g.context||g.questions.length!==5);
-   if(bad){
-     return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>يجب أن يتكون من ٤ نصوص، وتحت كل نص ٥ أسئلة. أعد إنشاء النماذج من قسم المراجعة والتصحيح الآلي.</p></div></div></section>';
-   }
-   return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+
-     groups.map((g,i)=>onePage(model,d,[g],i+1,4,questions.length)).join('')+
-     '</div>';
+   if(bad)return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>يجب أن يتكون من ٤ نصوص، وتحت كل نص ٥ أسئلة. أعد إنشاء النماذج من قسم المراجعة والتصحيح الآلي.</p></div></div></section>';
+   return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+groups.map((g,i)=>onePage(model,d,[g],i+1,4,questions.length)).join('')+'</div>';
  }
- const pages=paginateGroups(groups,d.subject);
- return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+
-   pages.map((page,i)=>onePage(model,d,page,i+1,pages.length,questions.length)).join('')+
-   '</div>';
+ const mode=subjects.length>1?'mixed':(subjects[0]||d.subject);
+ const pages=paginateGroups(groups,mode);
+ return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+pages.map((page,i)=>onePage(model,d,page,i+1,pages.length,questions.length)).join('')+'</div>';
 }
 function pageFits(page){
  const flow=page?.querySelector('.questions-flow');

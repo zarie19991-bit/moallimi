@@ -15,10 +15,11 @@ function makeSheet(item,index,d){
  const payload='MR4|'+String(d.review_id||'R')+'|'+String(sheetNo)+'|'+String(item.model||'');
  const name=nameMode==='printed'?esc(item.student_name||''):'';
  const school=esc(d.school_name||'مدرسة ابن سينا المتوسطة'),cls=esc(d.class_name||'');
+ const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'},subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean),subjectText=subjects.map(x=>subjectNames[x]||x).join(' + ');
  return '<section class="bubble-sheet" data-qr="'+esc(payload)+'">'+
  '<div class="sheet-title">ورقة التظليل</div>'+
  '<div class="brand-row"><div class="brand-block"><b>'+school+'</b><span>المراجعات والاختبارات الورقية</span></div><div class="qr" data-qr-box></div><div class="brand-block"><b>منصة معلّمي</b><span>التصحيح الآلي وتحليل مؤشرات نافس</span></div></div>'+
- '<div class="exam-pill">'+esc(d.title||'مراجعة مؤشرات نافس')+'<br>الصف الثالث متوسط</div>'+
+ '<div class="exam-pill">'+esc(d.title||'مراجعة مؤشرات نافس')+'<br>الصف الثالث متوسط'+(subjectText?'<br>'+esc(subjectText):'')+'</div>'+
  '<div class="student-name"><b>الاسم الرباعي</b><span>'+name+'</span></div>'+
  '<div class="info-grid">'+digitPanel('رقم السجل المدني / رقم الإقامة',10,'identity-number')+digitPanel('رمز المدرسة',6,'school-code')+
  '<div class="info-stack"><div class="info-panel"><b>اسم المدرسة</b><span class="field-line">'+school+'</span></div><div class="info-panel"><b>الفصل</b><span class="field-line">'+cls+'</span></div><div class="info-panel grade-panel"><strong>الصف الثالث متوسط</strong><span class="field-line"></span><span class="model-badge">نموذج '+esc(item.model||'—')+'</span></div></div></div>'+
@@ -39,7 +40,7 @@ async function render(){
  activeDraft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(draft()));
  const d=draft();
  if(!d||!Array.isArray(d.assignments)||!d.assignments.length){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">لا توجد مراجعة مجهزة للطباعة.</div>';return;}
- if(![20,30,60].includes(Number(d.question_count||0))){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">ورقة التظليل تدعم ٢٠ أو ٣٠ أو ٦٠ سؤالًا.</div>';return;}
+ if(Number(d.question_count||0)<1||Number(d.question_count||0)>60){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">ورقة التظليل تدعم من سؤال واحد حتى ٦٠ سؤالًا.</div>';return;}
  $('screenTitle').textContent=d.title||'أوراق التظليل';
  $('screenMeta').textContent=ar(d.assignments.length)+' طالب · '+ar(d.question_count)+' سؤال · '+(d.bubble_name_mode==='blank'?'الاسم فارغ':'الاسم مطبوع');
  const rid=d.review_id||new URLSearchParams(location.search).get('rid')||'';

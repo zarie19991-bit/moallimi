@@ -45,6 +45,7 @@ function metadata(payload){
  for(const m of payload?.models||[])for(const q of m.questions||[]){
    map.set(String(q.id||q.question_id||''),{
      indicator:q.indicator||q.indicator_key||'',
+     subject:q.subject||String(q.indicator||q.indicator_key||'').split(':')[0]||'',
      cognitive:String(q.cognitive_level||'').toLowerCase(),
      difficulty:q.difficulty||'',
      question:q.question||''
@@ -89,7 +90,7 @@ function indicatorRows(attempts,meta){
    const m=meta.get(String(q.id||''))||{};
    const key=q.indicator_key||m.indicator||'';
    if(!key||typeof q.correct!=='boolean')continue;
-   if(!map.has(key))map.set(key,{key,text:q.indicator_text||key,correct:0,total:0,students:new Set()});
+   if(!map.has(key))map.set(key,{key,subject:q.subject||m.subject||String(key).split(':')[0]||'',text:q.indicator_text||key,correct:0,total:0,students:new Set()});
    const g=map.get(key);g.total++;if(q.correct)g.correct++;g.students.add(String(a.student_id||a.student_name||a.id));
  }
  return [...map.values()].map(g=>({...g,students:g.students.size,percent:g.total?g.correct*100/g.total:null,level:level(g.total?g.correct*100/g.total:null)})).sort((a,b)=>(a.percent??999)-(b.percent??999));
@@ -99,7 +100,7 @@ function questionRows(attempts,meta){
  for(const a of attempts)for(const q of a.questions||[]){
    if(typeof q.correct!=='boolean')continue;
    const id=String(q.id||q.question_fingerprint||q.question||'');
-   if(!map.has(id))map.set(id,{id,question:q.question||meta.get(String(q.id||''))?.question||'—',indicator:q.indicator_text||q.indicator_key||'—',wrong:0,total:0});
+   if(!map.has(id))map.set(id,{id,subject:q.subject||meta.get(String(q.id||''))?.subject||String(q.indicator_key||'').split(':')[0]||'',question:q.question||meta.get(String(q.id||''))?.question||'—',indicator:q.indicator_text||q.indicator_key||'—',wrong:0,total:0});
    const g=map.get(id);g.total++;if(!q.correct)g.wrong++;
  }
  return [...map.values()].map(g=>({...g,failure:g.total?g.wrong*100/g.total:null})).sort((a,b)=>(b.failure??-1)-(a.failure??-1)||b.total-a.total);
@@ -114,6 +115,17 @@ function cognitiveRows(attempts,meta){
    const g=map.get(c)||{key:c,label:labels[c],correct:0,total:0};g.total++;if(q.correct)g.correct++;map.set(c,g);
  }
  return ['knowledge','application','reasoning'].map(k=>map.get(k)||{key:k,label:labels[k],correct:0,total:0}).map(g=>({...g,percent:g.total?g.correct*100/g.total:null}));
+}
+function subjectRows(attempts,subjects=[]){
+ const map=new Map(subjects.map(subject=>[subject,{key:subject,label:subjectNames[subject]||subject,correct:0,total:0,students:new Set()}]));
+ for(const a of attempts)for(const q of a.questions||[]){
+   if(typeof q.correct!=='boolean')continue;
+   const subject=q.subject||String(q.indicator_key||'').split(':')[0]||'';
+   if(!subject)continue;
+   const g=map.get(subject)||{key:subject,label:subjectNames[subject]||subject,correct:0,total:0,students:new Set()};
+   g.total++;if(q.correct)g.correct++;g.students.add(String(a.student_id||a.student_name||a.id));map.set(subject,g);
+ }
+ return [...map.values()].filter(g=>g.total>0).map(g=>({...g,students:g.students.size,percent:g.total?g.correct*100/g.total:null,level:level(g.total?g.correct*100/g.total:null)}));
 }
 function summary(students,assignedCount){
  const values=students.map(x=>x.percent).filter(Number.isFinite),avg=mean(values),med=median(values);
@@ -142,9 +154,10 @@ async function load(reviewId,className=''){
  const review=await getReview(chosen.review_id);
  const payload=review?.payload||{};
  const scoped=scopedAttempts(attempts,chosen.review_id,className);
- const students=studentRows(scoped),meta=metadata(payload),indicators=indicatorRows(scoped,meta),questions=questionRows(scoped,meta),cognitive=cognitiveRows(scoped,meta);
+ const subjects=(Array.isArray(payload.subjects)&&payload.subjects.length?payload.subjects:(Array.isArray(review?.subjects)&&review.subjects.length?review.subjects:[review?.subject])).filter(Boolean);
+ const students=studentRows(scoped),meta=metadata(payload),indicators=indicatorRows(scoped,meta),questions=questionRows(scoped,meta),cognitive=cognitiveRows(scoped,meta),subjectSummary=subjectRows(scoped,subjects);
  const assigned=assignmentsFor(payload,className,rosterRows),absent=absentStudents(payload,scoped,className,rosterRows),sum=summary(students,assigned.length||students.length);
- const bundle={reviews,review,payload,attempts:scoped,assigned,students,indicators,questions,cognitive,absent,summary:sum,subjectName:subjectNames[review?.subject]||review?.subject||'—',recommendations:[]};
+ const bundle={reviews,review,payload,subjects,subjectSummary,attempts:scoped,assigned,students,indicators,questions,cognitive,absent,summary:sum,subjectName:subjects.map(x=>subjectNames[x]||x).join(' + ')||'—',recommendations:[]};
  bundle.recommendations=recommendations(bundle);
  return bundle;
 }

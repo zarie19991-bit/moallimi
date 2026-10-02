@@ -306,7 +306,8 @@ async function approve(){
  const btn=$('approveBtn');btn.disabled=true;btn.textContent='جارٍ حفظ النتائج في المنصة…';
  try{
    const saved=await NafesTeacher.api('teacher_paper_review_save',{
-     review_id:draft.review_id,title:draft.title,subject:draft.subject,class_name:draft.class_name,
+     review_id:draft.review_id,title:draft.title,subject:draft.subject,subjects:draft.subjects||[draft.subject],class_name:draft.class_name,
+     question_count:draft.question_count,model_count:draft.model_count,assignments:draft.assignments||[],
      indicator_counts:draft.indicator_counts||[],models:draft.models||[],answer_keys:draft.answer_keys||[],results:payload.results
    });
    payload.platform=saved;localStorage.setItem('nafes_review_scan_results_'+draft.review_id,JSON.stringify(payload));renderApproved(payload);
@@ -324,7 +325,7 @@ function exportCsv(){
  const saved=JSON.parse(localStorage.getItem('nafes_review_scan_results_'+draft.review_id)||'null');if(!saved)return;const rows=[['اسم الطالب','النموذج','الدرجة','المجموع']];saved.results.forEach(r=>rows.push([r.student_name,r.model,r.score,r.total]));const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(draft.title||'نتائج المراجعة')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 async function init(){
- draft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(null));if(!draft){$('noDraft').classList.remove('hidden');$('processBtn').disabled=true;return;}$('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+(draft.assignments?.length||0)+' طالب';
+ draft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(null));if(!draft){$('noDraft').classList.remove('hidden');$('processBtn').disabled=true;return;}const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'},subs=(Array.isArray(draft.subjects)&&draft.subjects.length?draft.subjects:[draft.subject]).filter(Boolean);$('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+subs.map(x=>subjectNames[x]||x).join(' + ')+' · '+(draft.assignments?.length||0)+' طالب';
  if(!NafesTeacher?.getKey())NafesTeacher.requireKey('أدخل مفتاح المعلم لرفع أوراق الطلاب وتصحيحها.');
  try{const stu=await NafesTeacher.api('teacher_students_list',{include_archived:false});studentRoster=stu.students||[];}catch(_){studentRoster=[];}
  const saved=JSON.parse(localStorage.getItem('nafes_review_scan_results_'+draft.review_id)||'null');if(saved)renderApproved(saved);
