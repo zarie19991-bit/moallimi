@@ -798,6 +798,68 @@ async function buildEvaluationReport(owner:any,sourceType:string,sourceId:string
   return report;
 }
 
+
+async function allQuestionAuditRows(){
+  const rows:any[]=[];
+  for(let start=0;;start+=1000){
+    const {data,error}=await db.from("maintenance_agent_question_quality_audit")
+      .select("question_id,subject_key,indicator_key,cognitive_level,difficulty,semantic_fresh,semantic_judgment,semantic_confidence,detected_level,cognitive_level_match,distractor_score,distractor_flags,structure_score,structure_flags,measurement_status,audited_at")
+      .order("subject_key",{ascending:true}).order("indicator_key",{ascending:true}).range(start,start+999);
+    if(error)throw error;
+    rows.push(...(data||[]));
+    if(!data||data.length<1000)break;
+  }
+  return rows;
+}
+async function bankQualitySummary(){
+  const rows=await allQuestionAuditRows();
+  const subjects:any={};
+  const levels:any={};
+  const flags:any={distractor:{},structure:{}};
+  let auditedAt:string|null=null;
+  for(const r of rows){
+    auditedAt=!auditedAt||String(r.audited_at||"")>auditedAt?String(r.audited_at||""):auditedAt;
+    const s=String(r.subject_key||"unknown");
+    const x=subjects[s]||(subjects[s]={total:0,pass:0,review:0,fail:0,distractor_sum:0,structure_sum:0,semantic_fresh:0,semantic_stale:0,cognitive_mismatch:0});
+    x.total++;x[String(r.measurement_status||"review")]++;
+    x.distractor_sum+=Number(r.distractor_score||0);x.structure_sum+=Number(r.structure_score||0);
+    if(r.semantic_fresh)x.semantic_fresh++;else x.semantic_stale++;
+    if(r.cognitive_level_match===false)x.cognitive_mismatch++;
+    const lk=s+"|"+String(r.cognitive_level||"unknown");
+    levels[lk]=(levels[lk]||0)+1;
+    for(const f of Array.isArray(r.distractor_flags)?r.distractor_flags:[]){const k=s+"|"+f;flags.distractor[k]=(flags.distractor[k]||0)+1;}
+    for(const f of Array.isArray(r.structure_flags)?r.structure_flags:[]){const k=s+"|"+f;flags.structure[k]=(flags.structure[k]||0)+1;}
+  }
+  for(const x of Object.values(subjects) as any[]){
+    x.avg_distractor_score=x.total?Number((x.distractor_sum/x.total).toFixed(1)):0;
+    x.avg_structure_score=x.total?Number((x.structure_sum/x.total).toFixed(1)):0;
+    delete x.distractor_sum;delete x.structure_sum;
+  }
+  return{
+    version:"bank-quality-audit-v1",
+    total:rows.length,audited_at:auditedAt,subjects,levels,flags,
+    methodology:{
+      cognitive_levels:["knowledge","application","reasoning"],
+      empirical_note:"لا يمكن الحكم على فاعلية المشتت فعليًا دون استجابات طلاب كافية؛ درجة المشتت الحالية بنيوية وتشخيصية.",
+      semantic_note:"أي مراجعة دلالية لا تطابق نص السؤال الحالي تُعد قديمة ولا تدخل في الاعتماد.",
+      nafs_public_benchmark:"المقارنة تعتمد على ما تنشره نافس علنًا: ارتباط السؤال بناتج تعلم واختيار من متعدد؛ مع معايير سيكومترية عامة للمشتتات، لا على سلم داخلي غير منشور."
+    }
+  };
+}
+async function bankQualityPage(b:any){
+  const limit=Math.max(1,Math.min(250,Math.trunc(Number(b.limit)||100)));
+  const offset=Math.max(0,Math.trunc(Number(b.offset)||0));
+  let q=db.from("maintenance_agent_question_quality_audit")
+    .select("question_id,subject_key,indicator_key,indicator_text,cognitive_level,difficulty,question_text,options,correct_index,semantic_fresh,semantic_judgment,semantic_confidence,detected_level,cognitive_level_match,distractor_score,distractor_flags,structure_score,structure_flags,measurement_status,audited_at",{count:"exact"})
+    .order("subject_key",{ascending:true}).order("indicator_key",{ascending:true}).order("question_id",{ascending:true})
+    .range(offset,offset+limit-1);
+  const subject=tidy(b.subject,20),status=tidy(b.status,20);
+  if(["math","science"].includes(subject))q=q.eq("subject_key",subject);
+  if(["pass","review","fail"].includes(status))q=q.eq("measurement_status",status);
+  const {data,error,count}=await q;if(error)throw error;
+  return{rows:data||[],count:count||0,offset,limit};
+}
+
 const CORRECTION_MODES=new Set(["arabic","instruction","javascript","css","sql","html"]);
 function correctionText(v:unknown,n=20000){
   const s=String(v??"").normalize("NFKC");
@@ -831,6 +893,17 @@ Deno.serve(async(req:Request)=>{
     const b=await req.json().catch(()=>({}));
     const action=tidy(b.action,50)||"diagnose";
 
+
+
+    if(action==="bank_quality_summary"){
+      const summary=await bankQualitySummary();
+      return json({ok:true,summary});
+    }
+
+    if(action==="bank_quality_page"){
+      const page=await bankQualityPage(b);
+      return json({ok:true,...page});
+    }
 
     if(action==="evaluation_sources"){
       const sources=await evaluationSources(owner);
