@@ -16,6 +16,20 @@ function paperOrderedQuestions(questions){
 let activeDraft=null;
 function getDraft(){if(activeDraft)return activeDraft;try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
 function subjectLabel(s){return({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||s||'—';}
+function questionSubject(q){return String(q?.subject||String(q?.indicator||'').split(':')[0]||'').trim()||'reading';}
+function indicatorLabels(model,subject='reading'){
+ const seen=new Set(),out=[];
+ for(const q of model?.questions||[]){
+   if(questionSubject(q)!==subject)continue;
+   const raw=String(q.indicator_text||q.indicator_label||q.indicator_name||q.indicator||'').trim();
+   if(!raw)continue;
+   const label=raw.replace(/^reading\s*[:|\-]\s*/i,'').trim()||raw;
+   const key=norm(label);
+   if(!key||seen.has(key))continue;
+   seen.add(key);out.push(label);
+ }
+ return out;
+}
 function copiesFor(d,model){return(d.assignments||[]).filter(a=>a.model===model).length;}
 function norm(s){return String(s||'').normalize('NFKC').replace(/[\u064B-\u0652\u0670\u0640]/g,'').replace(/[إأآٱ]/g,'ا').replace(/ة/g,'ه').replace(/[ىي]/g,'ي').replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim().toLowerCase();}
 
@@ -121,12 +135,20 @@ function pageHeader(model,d,pageNo,totalPages,totalQuestions){
  const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean).sort((a,b)=>paperSubjectRank(a)-paperSubjectRank(b));
  const subjectText=subjects.map(subjectLabel).join(' + ')||'—';
  const title=String(d.title||'اختبار نافس').trim();
+ const readingOnly=subjects.length===1&&subjects[0]==='reading';
+ const indicators=readingOnly?indicatorLabels(model,'reading'):[];
+ const brand=readingOnly?'مراجعة مؤشرات نافس':'اختبار '+subjectText;
+ const strip=readingOnly
+   ?'<div class="title-strip indicator-review-strip"><b>مؤشرات نافس - القراءة</b><small class="indicator-list">'+
+      esc(indicators.length?indicators.join(' • '):'المؤشرات المستهدفة في هذا النموذج')+
+     '</small></div>'
+   :'<div class="title-strip"><b>'+esc(title)+'</b><small>المادة: '+esc(subjectText)+'</small></div>';
  return '<div class="exam-frame-head">'+
  '<div class="official"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><b>إدارة تعليم نجران</b><b>مدرسة ابن سينا المتوسطة</b></div>'+
- '<div class="exam-brand">اختبار '+esc(subjectText)+'</div>'+
+ '<div class="exam-brand">'+esc(brand)+'</div>'+
  '<div class="grade-box"><b>ثالث متوسط</b><span>نموذج '+esc(model.model)+'</span></div>'+
  '</div>'+
- '<div class="title-strip"><b>'+esc(title)+'</b><small>المادة: '+esc(subjectText)+'</small></div>'+
+ strip+
  '<div class="student-line"><b>الاسم:</b><span></span></div>'+
  '<div class="page-number">الصفحة '+ar(pageNo)+' من '+ar(totalPages)+' · عدد الأسئلة '+ar(totalQuestions)+'</div>';
 }
@@ -435,7 +457,11 @@ function collectPrintMetrics(){
    const flow=page.querySelector('.questions-flow');
    const overflowY=flow?Math.max(0,flow.scrollHeight-flow.clientHeight):0;
    const overflowX=flow?Math.max(0,flow.scrollWidth-flow.clientWidth):0;
-   return{page:index+1,overflow_y_px:overflowY,overflow_x_px:overflowX,unresolved:page.dataset.layoutUnresolved==='1'};
+   const hiddenText=[...page.querySelectorAll('.passage,.stem,.choice span')].filter(el=>{
+     const st=getComputedStyle(el);
+     return /(hidden|clip)/.test(st.overflow+st.overflowY+st.overflowX)&&(el.scrollHeight>el.clientHeight+1||el.scrollWidth>el.clientWidth+1);
+   }).length;
+   return{page:index+1,overflow_y_px:overflowY,overflow_x_px:overflowX,hidden_text_nodes:hiddenText,unresolved:page.dataset.layoutUnresolved==='1'};
  });
  const maxOverflow=Math.max(0,...details.map(x=>Math.max(x.overflow_y_px,x.overflow_x_px)));
  return{at:new Date().toISOString(),pages:pages.length,max_overflow_px:maxOverflow,details};
@@ -449,7 +475,7 @@ function prepareExactPrint(){
  const metrics=collectPrintMetrics();
  metrics.layout_ms=Math.round(performance.now()-started);
  localStorage.setItem('nafes_question_paper_last_print_metrics',JSON.stringify(metrics));
- const bad=metrics.details.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2);
+ const bad=metrics.details.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2||x.hidden_text_nodes>0);
  if(bad.length){
    document.documentElement.classList.remove('print-preparing');
    $('screenMeta').textContent='تعذر فتح الطباعة لأن '+ar(bad.length)+' صفحة لم تستقر داخل A4. تم إيقاف الطباعة لحماية المحتوى من القص.';
