@@ -20,7 +20,7 @@ function repeatLimit(){
  return minimumRequiredRepeats()+MAX_CROSS_MODEL_REPEATS;
 }
 let catalog=null,students=[],models=[],activeModel=0,assignments=[];const indicatorState=new Map();
-let buildPerf={started_at:0,total_ms:0,api_calls:0,candidates:0,pool_groups:0,server_ms:0,client_api_ms:0};
+let buildPerf={started_at:0,total_ms:0,api_calls:0,candidates:0,pool_groups:0,server_ms:0,client_api_ms:0,model_ms:[]};
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
  const q=reviewId?'?rid='+encodeURIComponent(reviewId):'';
@@ -399,8 +399,12 @@ function reorderModelQuestions(d,modelIndex,previous){
 function modelSignature(d){return questionIds(d).slice().sort().join('|');}
 async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  const reading=hasReading();
- const candidateCount=reading?10:($('avoidRepeats').checked?8:6);
- let best=null,bestScore=Infinity,bestOverlap=Infinity;
+ // توليد تكيفي: نبدأ بدفعة أصغر، ثم نطلب تحسينًا إضافيًا فقط إذا لم نجد
+ // مرشحًا يحقق عدم التكرار واختلاف المواضع. هذا يقلل العمل المعتاد 40–50%.
+ const initialCandidateCount=reading?5:($('avoidRepeats').checked?4:3);
+ const refineCandidateCount=reading?3:2;
+ const fallbackCandidateCount=reading?4:3;
+ let best=null,bestScore=Infinity,bestOverlap=Infinity,idealFound=false;
  const previousSignatures=new Set(models.map(modelSignature));
  const config=configForModel(letter);
 
@@ -415,10 +419,12 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
    const printPenalty=reading?layoutScore(d):0;
    const score=duplicateSetPenalty+repeatPenalty+positionPenalty+cognitivePenalty+printPenalty;
    if(score<bestScore){best=d;bestScore=score;bestOverlap=overlap;}
-   return overlap===0&&!duplicateSetPenalty&&(!previous||samePositionCount(previous,d)===0);
+   const ideal=overlap===0&&!duplicateSetPenalty&&(!previous||samePositionCount(previous,d)===0);
+   if(ideal)idealFound=true;
+   return ideal;
  };
 
- const fetchBatch=async(useExclusions)=>{
+ const fetchBatch=async(useExclusions,candidateCount)=>{
    const body={config,candidate_count:candidateCount};
    if(useExclusions&&used.size)body.exclude_question_ids=[...used];
    const t0=performance.now();
@@ -432,21 +438,33 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
    return rows;
  };
 
- let rows=[];
+ let usedExclusions=true,rows=[];
  try{
-   rows=await fetchBatch(true);
+   rows=await fetchBatch(true,initialCandidateCount);
  }catch(e){
    if(!used.size)throw e;
-   // إذا كان الاستبعاد يجعل أحد المؤشرات غير قادر على توفير العدد المطلوب،
-   // نطلب دفعة ثانية من البنك الكامل ثم نختار الأقل تكرارًا.
-   rows=await fetchBatch(false);
+   // إذا كان الاستبعاد لا يسمح ببناء نموذج كامل، ننتقل إلى البنك الكامل.
+   usedExclusions=false;
+   rows=await fetchBatch(false,initialCandidateCount);
  }
- for(const d of rows)if(evaluate(d))break;
+ for(const d of rows){if(evaluate(d))break;}
 
- // بعض البنوك الصغيرة قد تعيد مرشحين صالحين فقط عند السماح بالتكرار.
+ // لا نولّد عشرات المرشحين مسبقًا. إذا لم نجد مرشحًا مثاليًا في الدفعة
+ // الأولى فقط عندها نطلب دفعة تحسين صغيرة.
+ if(!idealFound){
+   try{
+     const refine=await fetchBatch(usedExclusions,refineCandidateCount);
+     for(const d of refine){if(evaluate(d))break;}
+   }catch(_){
+     // يبقى أفضل مرشح من الدفعة الأولى صالحًا؛ لا نضاعف التأخير بسبب تحسين اختياري.
+   }
+ }
+
+ // بعض البنوك الصغيرة قد تحتاج السماح بالتكرار. هذا المسار لا يُستدعى
+ // إلا إذا لم يتوفر أي نموذج صالح حتى بعد التحسين.
  if(!best&&used.size){
-   const fallback=await fetchBatch(false);
-   for(const d of fallback)if(evaluate(d))break;
+   const fallback=await fetchBatch(false,fallbackCandidateCount);
+   for(const d of fallback){if(evaluate(d))break;}
  }
  if(!best)throw new Error('تعذر تكوين نموذج مكتمل من بنك الأسئلة المعتمد.');
 
@@ -520,7 +538,7 @@ function renderModel(i){
 async function buildModels(){
  try{validate();}catch(e){setStatus(e.message,'error');return;}
  const btn=$('buildModels');btn.disabled=true;models=[];assignments=[];$('previewSection').classList.add('hidden');$('assignmentSection').classList.add('hidden');
- buildPerf={started_at:performance.now(),total_ms:0,api_calls:0,candidates:0,pool_groups:0,server_ms:0,client_api_ms:0};
+ buildPerf={started_at:performance.now(),total_ms:0,api_calls:0,candidates:0,pool_groups:0,server_ms:0,client_api_ms:0,model_ms:[]};
  const count=Number($('modelCount').value||5),used=new Set();let repeatTotal=0,maxRepeats=repeatLimit();
  const requiredRepeats=minimumRequiredRepeats();
  try{
@@ -528,7 +546,9 @@ async function buildModels(){
      const remaining=Math.max(0,maxRepeats-repeatTotal);
      setStatus('جارٍ بناء نموذج '+letters[i]+' من '+count+' — نبحث عن أقل تكرار ممكن مع الحفاظ على جودة الأسئلة وتنظيم المواد…');
      const previous=models[i-1]||null;
+     const modelStarted=performance.now();
      const d=await bestCandidate(letters[i],used,remaining,i,previous);
+     buildPerf.model_ms.push(Math.round(performance.now()-modelStarted));
      const overlap=overlapCount(d,used);
      repeatTotal+=overlap;
      models.push(d);questionIds(d).forEach(id=>used.add(id));
@@ -550,7 +570,8 @@ async function buildModels(){
      client_api_ms:Math.round(buildPerf.client_api_ms),
      models:count,
      questions_per_model:Number($('questionCount').value||0),
-     subjects:selectedSubjects()
+     subjects:selectedSubjects(),
+     model_ms:buildPerf.model_ms
    };
    localStorage.setItem('nafes_paper_builder_last_metrics',JSON.stringify(metrics));
    const perfNote=' زمن البناء '+(metrics.total_ms/1000).toFixed(1)+' ث · '+ar(metrics.api_calls)+' طلبات خادم · '+ar(metrics.candidates)+' مرشحًا.';
