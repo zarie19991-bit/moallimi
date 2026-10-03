@@ -38,6 +38,27 @@ function must(result:Row) {if(result.error)throw result.error;return result.data
 function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:studentFacingContext(row.subject_key,row.context_text),question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
 function curatedVersion(subject:string){return subject==='science'?'science-curated-v4':subject==='math'?'math-curated-v4':'';}
 function renderedCurated(row:Row){return{id:row.id,bank_source:'indicator_curated_bank',quality_version:row.quality_version,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:row.indicator_key,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:studentFacingContext(row.subject_key,row.context_text),question:studentFacingQuestion(row.subject_key,row.question_text,row.cognitive_level),options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:row.image&&row.image.url?{url:String(row.image.url),alt:String(row.image.alt||'')}:null};}
+const PREVIEW_POOL_CACHE_TTL_MS=45_000;
+const previewPoolMemoryCache=new Map<string,{at:number;rows:Row[]}>();
+function previewPoolCacheKey(subject:string,keys?:string[],ids?:string[]){
+  if(ids?.length)return '';
+  return subject+'|'+(keys||[]).map(String).sort().join(',');
+}
+function previewPoolCacheGet(key:string):Row[]|null{
+  if(!key)return null;
+  const hit=previewPoolMemoryCache.get(key);
+  if(!hit||Date.now()-hit.at>PREVIEW_POOL_CACHE_TTL_MS){if(hit)previewPoolMemoryCache.delete(key);return null;}
+  return hit.rows;
+}
+function previewPoolCacheSet(key:string,rows:Row[]){
+  if(!key)return;
+  previewPoolMemoryCache.set(key,{at:Date.now(),rows});
+  if(previewPoolMemoryCache.size>24){
+    const oldest=[...previewPoolMemoryCache.entries()].sort((a,b)=>a[1].at-b[1].at).slice(0,previewPoolMemoryCache.size-24);
+    for(const [k] of oldest)previewPoolMemoryCache.delete(k);
+  }
+}
+
 async function attachQualityAudit(db:any,rows:Row[]):Promise<Row[]>{
   if(!rows.length)return rows;
   const ids=rows.map(q=>String(q.id||'')).filter(isUUID),audit=new Map<string,any>();
@@ -56,6 +77,8 @@ async function attachQualityAudit(db:any,rows:Row[]):Promise<Row[]>{
   });
 }
 async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
+  const cacheKey=previewPoolCacheKey(subject,keys,ids),cached=previewPoolCacheGet(cacheKey);
+  if(cached)return cached;
   const all:Row[]=[];
   const version=curatedVersion(subject);
   if(version){
@@ -69,7 +92,9 @@ async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
       for(const q of page||[])all.push(renderedCurated(q));
       if(!page||page.length<500)break;
     }
-    return attachQualityAudit(db,all);
+    const audited=await attachQualityAudit(db,all);
+    previewPoolCacheSet(cacheKey,audited);
+    return audited;
   }
   const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];
   for(let start=0;;start+=500){
@@ -82,6 +107,7 @@ async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
     for(const q of page||[])if(hasCurrentReview(q))all.push(rendered(q));
     if(!page||page.length<500)break;
   }
+  previewPoolCacheSet(cacheKey,all);
   return all;
 }
 
