@@ -16,7 +16,7 @@ const batch=server.slice(server.indexOf("if(b.action==='teacher_preview_batch')"
 assert.doesNotMatch(batch,/nafes_assessments'\)\.insert/,'batch candidates must not create draft rows');
 
 assert.match(css,/@page\{size:A4 portrait;margin:6mm\}/,'print must use explicit A4 with safe physical margins');
-assert.match(css,/\.paper-page\{width:100%!important[\s\S]*height:285mm!important/,'printed content must use the browser A4 printable width');
+assert.match(css,/\.paper-page\{width:198mm!important[\s\S]*height:285mm!important/,'printed content must fit exactly inside A4 minus 6mm margins');
 assert.match(css,/\.stem\{font-size:14pt!important/,'printed question stems must stay readable');
 assert.match(css,/\.choices\{font-size:12\.5pt!important/,'printed choices must stay readable');
 
