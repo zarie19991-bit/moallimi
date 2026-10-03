@@ -250,7 +250,7 @@ function repairOverflow(booklet){
    if(pageFits(page))page.removeAttribute('data-layout-unresolved');
  }
 }
-function renumberBookletfunction renumberBooklet(booklet){
+function renumberBooklet(booklet){
  const pages=[...booklet.querySelectorAll(':scope > .paper-page')];
  const total=pages.length;
  pages.forEach((page,i)=>{
@@ -393,7 +393,7 @@ function fitBooklet(booklet){
  }
  renumberBooklet(booklet);
 }
-function fitAllRenderedPagesfunction fitAllRenderedPages(){
+function fitAllRenderedPages(){
  document.querySelectorAll('.model-booklet').forEach(fitBooklet);
 }
 function scheduleRealPageFit(){
@@ -489,5 +489,5 @@ addEventListener('beforeprint',()=>{
  if(!printInProgress)prepareExactPrint();
 });
 addEventListener('afterprint',releasePrintState);
-render();render();
+render();
 })();
