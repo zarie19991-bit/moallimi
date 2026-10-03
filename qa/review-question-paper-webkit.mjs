@@ -69,9 +69,9 @@ try{
   if(!near(audit.page_height_mm,285,1))throw new Error('WebKit A4 height '+audit.page_height_mm);
   if(audit.overflow!==0)throw new Error('WebKit overflow '+audit.overflow);
   if(audit.unresolved!==0)throw new Error('WebKit unresolved '+audit.unresolved);
-  if(audit.stem_px<18||audit.choice_px<16)throw new Error('WebKit print font too small '+JSON.stringify(audit));
+  if(Math.abs(audit.stem_px-14.6667)>0.8||Math.abs(audit.choice_px-14.6667)>0.8)throw new Error('WebKit text/questions must be 11pt '+JSON.stringify(audit));
   if(audit.max_tail_gap_px>150)throw new Error('WebKit excessive tail gap '+audit.max_tail_gap_px);
-  if(audit.page_count<2||audit.page_count>3)throw new Error('WebKit unexpected pagination '+audit.page_count);
+  if(audit.page_count<1||audit.page_count>3)throw new Error('WebKit unexpected pagination '+audit.page_count);
 
   fs.mkdirSync('qa-output/webkit',{recursive:true});
   await page.screenshot({path:'qa-output/webkit/webkit-layout.png',fullPage:true});
