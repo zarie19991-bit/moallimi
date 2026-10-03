@@ -3,20 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#065f46">
+<meta name="theme-color" content="#0b6f63">
+<meta name="color-scheme" content="light">
 <meta name="description" content="معلّمي — قسم نافس للصف الثالث المتوسط: القراءة والرياضيات والعلوم بجميع نواتج التعلم والمؤشرات واختبارات المؤشرات.">
 <title>معلّمي | نافس — الثالث المتوسط</title>
+<link rel="preload" as="image" href="moallimi-logo-ui.png?v=20261003-glass1" fetchpriority="high">
+<link rel="icon" href="moallimi-brand-icon-v2.webp" type="image/webp">
 <link rel="stylesheet" href="styles.css?v=20260909-final">
 <link rel="stylesheet" href="tests.css?v=20260909-final">
 <link rel="stylesheet" href="students.css?v=20260909-final">
 <link rel="stylesheet" href="stitch-platform-theme.css?v=20260915-1">
 <link rel="stylesheet" href="homepage.css?v=20260915-1">
+<link rel="stylesheet" href="homepage-glass.css?v=20261003-glass1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script><link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
 </head>
 <body class="page-dashboard">
+<div class="glass-atmosphere" aria-hidden="true"><span class="glass-wave wave-a"></span><span class="glass-wave wave-b"></span><span class="glass-wave wave-c"></span></div>
 <div class="shell">
 <aside class="side" id="teacherSidebar">
- <div class="brand"><img class="moallimi-logo-full" src="moallimi-logo-ui.png?v=20260920-png1" alt="شعار منصة معلّمي"></div>
+ <a class="brand dashboard-brand" href="index.html" aria-label="الصفحة الرئيسية لمنصة معلّمي"><img class="moallimi-logo-full" src="moallimi-logo-ui.png?v=20261003-glass1" width="360" height="120" alt="شعار منصة معلّمي" decoding="async" fetchpriority="high"><span class="brand-fallback" aria-hidden="true">معلّمي</span></a>
  <nav class="nav">
   <p class="nav-title">الأقسام</p>
   <a class="nav-item active" href="index.html"><span class="nav-icon">🎯</span><div><b>اختبارات نافس</b></div></a>
@@ -31,7 +36,7 @@
  </nav>
 </aside>
 <main class="main">
- <header class="topbar"><div class="topbar-right"><button class="menu-toggle" id="menuToggleBtn" type="button" aria-label="القائمة">☰</button><div><span class="eyebrow">القسم الحالي</span><h1>نافس — الصف الثالث المتوسط</h1></div></div><div class="topbar-actions"><button type="button" class="btn-quick-manage" onclick="openStudentsModal()">👥 إدارة الطلاب</button><div class="source-pill">270 مؤشرًا</div></div></header>
+ <header class="topbar"><div class="topbar-right"><button class="menu-toggle" id="menuToggleBtn" type="button" aria-label="فتح القائمة" aria-controls="teacherSidebar" aria-expanded="false">☰</button><a class="topbar-brand-mobile" href="index.html" aria-label="منصة معلّمي"><img src="moallimi-logo-ui.png?v=20261003-glass1" width="360" height="120" alt="شعار منصة معلّمي" decoding="async"></a><div><span class="eyebrow">القسم الحالي</span><h1>نافس — الصف الثالث المتوسط</h1></div></div><div class="topbar-actions"><button type="button" class="btn-quick-manage" onclick="openStudentsModal()">👥 إدارة الطلاب</button><div class="source-pill">270 مؤشرًا</div></div></header>
  <section class="hero">
   <span class="tag">اختبارات نافس</span>
   <h2>اختبارات المؤشرات</h2>
@@ -43,7 +48,7 @@
 </main></div>
 <script src="nafes-reading.js?v=20260909-final"></script><script src="nafes-math.js?v=20260909-final"></script><script src="nafes-science.js?v=20260909-final"></script>
 <script src="teacher-access.js?v=20260930-mainfix2"></script><script src="qr.js?v=20260909-final"></script><script src="tests.js?v=20260920-unified1"></script><script src="published-tests-drawer.js?v=20260920-unified1"></script><script src="xlsx-vendor.js?v=20260909-final"></script><script src="excel-engine.js?v=20260909-final"></script><script src="students.js?v=20260909-final"></script><script src="app.js?v=20260920-unified1"></script>
-<script>document.getElementById('menuToggleBtn')?.addEventListener('click',()=>{document.getElementById('teacherSidebar')?.classList.toggle('open');});</script>
+<script>document.getElementById('menuToggleBtn')?.addEventListener('click',e=>{const side=document.getElementById('teacherSidebar');const open=side?.classList.toggle('open');e.currentTarget.setAttribute('aria-expanded',open?'true':'false');});</script>
 <script src="platform-auto-correct.js?v=20261003-corrector1"></script>
 </body></html>
 
