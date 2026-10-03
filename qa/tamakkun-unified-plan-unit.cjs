@@ -21,6 +21,7 @@ assert.match(source,/diagnostic_percent:weighted/);
 assert.match(source,/teacher_unified_overview/);
 assert.match(source,/teacher_unified_sources/);
 assert.match(source,/assessmentPlanSources/);
+assert.match(source,/latestAssessmentPlanPerfs/);
 assert.match(source,/source_key/);
 assert.match(source,/planQuestionGroups/);
 assert.match(source,/kind","multi_indicator"/);
