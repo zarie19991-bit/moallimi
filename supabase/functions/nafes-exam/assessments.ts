@@ -231,8 +231,8 @@ function curatedQuestionEligible(q:Row,subject:string){
   const ci=Number(q?.correctIndex??q?.correct_index);
   if(!text||options.length!==4||new Set(options).size!==4||options.some((x:string)=>!x))return false;
   if(!Number.isInteger(ci)||ci<0||ci>3)return false;
-  const audit=q?.quality_audit,flags=auditFlagCodes(q);
-  if(String(audit?.alignment_band||'')==='weak'||flags.has('weak_distractors'))return false;
+  const audit=q?.quality_audit;
+  if(String(audit?.alignment_band||'')==='weak')return false;
   if(/أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين|ما الإجابة التي تنقل مفهوم|لزم حل المهمة/.test(text))return false;
   if((subject==='math'||subject==='science')&&INTERNAL_STUDENT_STEM.test(text))return false;
   if(subject==='science'){
