@@ -44,7 +44,7 @@ async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
   if(version){
     for(let start=0;;start+=500){
       let query=db.from('nafes_indicator_curated_bank').select(CURATED_COLUMNS)
-        .eq('subject_key',subject).eq('quality_version',version)
+        .eq('subject_key',subject).eq('quality_version',version).eq('quality_status','approved')
         .order('indicator_key',{ascending:true}).order('model_no',{ascending:true}).order('question_no',{ascending:true});
       if(keys?.length)query=query.in('indicator_key',keys);
       if(ids?.length)query=query.in('id',ids);
