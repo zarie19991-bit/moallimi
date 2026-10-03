@@ -888,7 +888,7 @@ async function teacherManagementReport(req:Request,body:any,access:Access){
   const rawIds=Array.isArray(body?.teacher_ids)?body.teacher_ids.map((x:any)=>tidy(x)).filter(Boolean).slice(0,250):[];
   const status=["all","assigned","in_progress","completed"].includes(tidy(body?.status))?tidy(body.status):"all";
   const subject=["all","reading","math","science"].includes(tidy(body?.subject))?tidy(body.subject):"all";
-  const from=tidy(body?.from)||null,to=tidy(body?.to)||null;
+  const from=tidy(body?.from)||null,to=tidy(body?.to)||null,studentId=tidy(body?.student_id)||null;
   const limit=Math.max(1,Math.min(1000,Number(body?.limit||500)));
   const {data,error}=await db.rpc("lugati_teacher_management_report",{
     p_requester:access.teacher_access_id!,
@@ -898,6 +898,7 @@ async function teacherManagementReport(req:Request,body:any,access:Access){
     p_subject:subject,
     p_from:from,
     p_to:to,
+    p_student_id:studentId,
     p_limit:limit
   });
   if(error)throw error;
