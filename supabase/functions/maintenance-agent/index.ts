@@ -513,6 +513,31 @@ async function safeSnapshot(){
   return data||{};
 }
 
+const CORRECTION_MODES=new Set(["arabic","instruction","javascript","css","sql","html"]);
+function correctionText(v:unknown,n=20000){
+  const s=String(v??"").normalize("NFKC");
+  if(s.length>n)throw Object.assign(new Error("النص أطول من الحد المسموح ("+n+" حرفًا)."),{status:400});
+  return s;
+}
+function correctionIssues(value:unknown){
+  const rows=Array.isArray(value)?value.slice(0,100):[];
+  return rows.map((x:any)=>({
+    severity:["info","warning","critical"].includes(String(x?.severity))?String(x.severity):"warning",
+    kind:tidy(x?.kind,60)||"review",
+    message:tidy(x?.message,700)||"ملاحظة تحتاج مراجعة.",
+    applied:x?.applied===true
+  }));
+}
+function rejectSensitiveCorrection(mode:string,...texts:string[]){
+  const joined=texts.join("\n");
+  if(/[a-f0-9]{48,96}/i.test(joined)||/SUPABASE_SERVICE_ROLE_KEY|service[_-]?role\s*[:=]/i.test(joined)){
+    throw Object.assign(new Error("أزل المفاتيح أو الأسرار من النص قبل حفظ التصحيح."),{status:400});
+  }
+  if((mode==="arabic"||mode==="instruction")&&/\b\d{10}\b/.test(joined)){
+    throw Object.assign(new Error("يبدو أن النص يحتوي رقم هوية/إقامة من 10 أرقام. أزله قبل الحفظ حفاظًا على الخصوصية."),{status:400});
+  }
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
   if(req.method!=="POST")return json({error:"method_not_allowed"},405);
@@ -520,6 +545,39 @@ Deno.serve(async(req:Request)=>{
     const owner=await master(req);
     const b=await req.json().catch(()=>({}));
     const action=tidy(b.action,50)||"diagnose";
+
+    if(action==="corrections"){
+      const limit=Math.max(1,Math.min(50,num(b.limit)||20));
+      const {data,error}=await db.from("maintenance_agent_corrections")
+        .select("id,mode,source_label,original_text,corrected_text,issues,auto_fix_count,review_count,status,created_at,applied_at")
+        .eq("owner_id",owner.id).order("created_at",{ascending:false}).limit(limit);
+      if(error)throw error;
+      return json({ok:true,corrections:data||[],privacy:{external_ai:false,project_storage_only:true,student_data_allowed:false}});
+    }
+
+    if(action==="correction_save"){
+      const mode=tidy(b.mode,30);
+      if(!CORRECTION_MODES.has(mode))return json({error:"نوع التصحيح غير مدعوم."},400);
+      const original=correctionText(b.original_text),corrected=correctionText(b.corrected_text);
+      if(!original.trim())return json({error:"لا يوجد نص لحفظ التصحيح."},400);
+      rejectSensitiveCorrection(mode,original,corrected);
+      const issues=correctionIssues(b.issues);
+      const autoFix=Math.max(0,Math.min(1000,Math.trunc(num(b.auto_fix_count))));
+      const reviewCount=Math.max(0,Math.min(1000,Math.trunc(num(b.review_count))));
+      const status=["analyzed","applied"].includes(String(b.status))?String(b.status):"analyzed";
+      const payload={
+        owner_id:owner.id,mode,source_label:tidy(b.source_label,120),original_text:original,corrected_text:corrected,
+        issues,auto_fix_count:autoFix,review_count:reviewCount,status,contains_personal_data:false,
+        applied_at:status==="applied"?new Date().toISOString():null
+      };
+      const {data,error}=await db.from("maintenance_agent_corrections").insert(payload)
+        .select("id,mode,source_label,original_text,corrected_text,issues,auto_fix_count,review_count,status,created_at,applied_at").single();
+      if(error)throw error;
+      return json({ok:true,correction:data,notification:{
+        title:"اكتمل التصحيح الداخلي",
+        message:autoFix+" تصحيحًا تلقائيًا و"+reviewCount+" ملاحظة تحتاج مراجعة."
+      },privacy:{external_ai:false,project_storage_only:true,student_data_allowed:false}});
+    }
 
     if(action==="brain_overview"){
       const rows=await brainKnowledge();
