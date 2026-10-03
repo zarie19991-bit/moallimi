@@ -42,7 +42,7 @@ function providerInfo(){
   return{
     configured:enabled&&!!openaiKey,
     provider:enabled&&openaiKey?"openai":"rules",
-    model:enabled&&openaiKey?String(Deno.env.get("PEDAGOGICAL_AI_MODEL")||"gpt-6-luna"):"pedagogical-rules-v4"
+    model:enabled&&openaiKey?String(Deno.env.get("PEDAGOGICAL_AI_MODEL")||"gpt-6-luna"): "pedagogical-rules-v5"
   };
 }
 function normalized(v:unknown){
