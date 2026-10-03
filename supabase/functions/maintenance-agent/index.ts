@@ -513,6 +513,273 @@ async function safeSnapshot(){
   return data||{};
 }
 
+
+const EVAL_MIN_ITEM_SAMPLE=10;
+const OMR_TARGET_ACCURACY=.95;
+const OMR_AUTO_ACCEPT_CONFIDENCE=.95;
+function clamp01(v:number){return Math.max(0,Math.min(1,Number.isFinite(v)?v:0));}
+function avgNum(xs:number[]){return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:0;}
+function variance(xs:number[]){
+  if(xs.length<2)return 0;
+  const m=avgNum(xs);return xs.reduce((s,x)=>s+(x-m)*(x-m),0)/(xs.length-1);
+}
+function pearson(xs:number[],ys:number[]){
+  if(xs.length<3||xs.length!==ys.length)return null;
+  const mx=avgNum(xs),my=avgNum(ys);
+  let n=0,dx=0,dy=0;
+  for(let i=0;i<xs.length;i++){const a=xs[i]-mx,b=ys[i]-my;n+=a*b;dx+=a*a;dy+=b*b;}
+  const d=Math.sqrt(dx*dy);return d?Math.max(-1,Math.min(1,n/d)):null;
+}
+function questionStaticStrength(q:any,semantic?:any){
+  let s=60;
+  const text=String(q?.question??q?.question_text??"").trim();
+  const opts=Array.isArray(q?.options)?q.options.map((x:any)=>String(x).trim()):[];
+  const ci=Number(q?.correctIndex??q?.correct_index);
+  if(text.length>=18&&text.length<=260)s+=7;else s-=6;
+  if(opts.length===4&&opts.every(Boolean)&&new Set(opts).size===4)s+=10;else s-=22;
+  if(Number.isInteger(ci)&&ci>=0&&ci<4)s+=6;else s-=18;
+  if(["knowledge","application","reasoning"].includes(String(q?.cognitive_level||"")))s+=5;
+  if(["easy","medium","hard"].includes(String(q?.difficulty||"")))s+=4;
+  if(String(q?.explanation||"").trim().length>=8)s+=4;
+  if(String(q?.indicator_key||"").trim())s+=4;
+  const lens=opts.map((x:string)=>x.length).filter(Boolean);
+  if(lens.length===4){
+    const mn=Math.min(...lens),mx=Math.max(...lens);
+    if(mn>0&&mx/Math.max(1,mn)<=2.8)s+=3;else s-=4;
+  }
+  const judgment=String(semantic?.judgment||"");
+  if(judgment==="pass")s+=8;
+  if(judgment==="review")s-=12;
+  if(judgment==="reject")s-=32;
+  const conf=Number(semantic?.confidence);
+  if(judgment==="pass"&&Number.isFinite(conf))s+=Math.round(4*clamp01(conf));
+  return Math.max(0,Math.min(100,Math.round(s)));
+}
+function difficultyQuality(p:number){
+  if(!Number.isFinite(p))return 0;
+  return Math.round(100*clamp01(1-Math.abs(p-.65)/.65));
+}
+function discriminationQuality(d:number|null){
+  if(d===null||!Number.isFinite(d))return null;
+  return Math.round(100*clamp01((d+.10)/.50));
+}
+function questionStrengthClass(score:number){
+  if(score>=85)return"excellent";
+  if(score>=70)return"strong";
+  if(score>=55)return"acceptable";
+  return"weak";
+}
+function safeSections(value:any){return Array.isArray(value)?value:[];}
+function flattenSectionQuestions(sections:any[]){
+  const out:any[]=[];
+  for(const sec of safeSections(sections)){
+    for(const q of safeSections(sec?.questions))out.push({...q,subject:q?.subject||sec?.subject||""});
+  }
+  return out;
+}
+function modelOfAttempt(a:any){return String(a?.config?.paper_model||a?.config?.model||"default");}
+function kr20ForAttempts(attempts:any[]){
+  if(attempts.length<10)return null;
+  const first=attempts[0],qs=flattenSectionQuestions(first?.rendered_sections||[]);
+  const ids=qs.map(q=>String(q.id||"")).filter(Boolean);
+  if(ids.length<5)return null;
+  const totals=attempts.map(a=>Number(a.score||0));
+  const totalVar=variance(totals);
+  if(totalVar<=0)return null;
+  let pq=0,usable=0;
+  for(const id of ids){
+    const vals:number[]=[];
+    for(const a of attempts){
+      const q=flattenSectionQuestions(a?.rendered_sections||[]).find(x=>String(x.id)===id);
+      if(!q)continue;
+      const ci=Number(q.correctIndex??q.correct_index),ans=Number(a?.answers?.[id]);
+      if(!Number.isInteger(ci)||ci<0||ci>3||!Number.isInteger(ans))continue;
+      vals.push(ans===ci?1:0);
+    }
+    if(vals.length<attempts.length*.8)continue;
+    const p=avgNum(vals);pq+=p*(1-p);usable++;
+  }
+  if(usable<5)return null;
+  return Math.max(-1,Math.min(1,(usable/(usable-1))*(1-pq/totalVar)));
+}
+async function semanticForQuestionIds(ids:string[]){
+  const map=new Map<string,any>();
+  const clean=[...new Set(ids.filter(x=>/^[0-9a-f-]{36}$/i.test(x)))];
+  for(let i=0;i<clean.length;i+=150){
+    const {data,error}=await db.from("maintenance_agent_semantic_reviews")
+      .select("source_id,judgment,confidence,dimensions,created_at")
+      .in("source_id",clean.slice(i,i+150)).order("created_at",{ascending:false});
+    if(error)throw error;
+    for(const row of data||[])if(!map.has(String(row.source_id)))map.set(String(row.source_id),row);
+  }
+  return map;
+}
+async function evaluationSources(owner:any){
+  const [{data:assessments,error:aErr},{data:papers,error:pErr}]=await Promise.all([
+    db.from("nafes_assessments").select("id,title,status,kind,config,created_at,published_at")
+      .eq("owner_id",owner.id).neq("kind","simulation").order("created_at",{ascending:false}).limit(80),
+    db.from("nafes_paper_reviews").select("review_id,title,subject,subjects,class_name,created_at,updated_at")
+      .eq("owner_id",owner.id).order("updated_at",{ascending:false}).limit(50)
+  ]);
+  if(aErr)throw aErr;if(pErr)throw pErr;
+  const ids=(assessments||[]).map((x:any)=>x.id);
+  const counts=new Map<string,number>();
+  for(let i=0;i<ids.length;i+=120){
+    const {data,error}=await db.from("nafes_assessment_attempts").select("assessment_id,submitted_at,is_demo").in("assessment_id",ids.slice(i,i+120)).eq("is_demo",false);
+    if(error)throw error;
+    for(const a of data||[])if(a.submitted_at)counts.set(String(a.assessment_id),(counts.get(String(a.assessment_id))||0)+1);
+  }
+  const aRows=(assessments||[]).map((x:any)=>({
+    source_type:"assessment",source_id:x.id,title:x.title||"اختبار",
+    class_name:String(x.config?.class_name||""),attempt_count:counts.get(String(x.id))||0,
+    paper_review_id:String(x.config?.paper_review_id||""),created_at:x.created_at,status:x.status
+  }));
+  const linked=new Set(aRows.map((x:any)=>x.paper_review_id).filter(Boolean));
+  const pRows=(papers||[]).filter((x:any)=>!linked.has(String(x.review_id))).map((x:any)=>({
+    source_type:"paper_review",source_id:x.review_id,title:x.title||"اختبار ورقي",
+    class_name:x.class_name||"",attempt_count:0,created_at:x.updated_at||x.created_at,status:"paper_draft"
+  }));
+  return [...aRows,...pRows].sort((x:any,y:any)=>String(y.created_at||"").localeCompare(String(x.created_at||"")));
+}
+async function buildEvaluationReport(owner:any,sourceType:string,sourceId:string){
+  let assessment:any=null,paper:any=null,questions:any[]=[];
+  if(sourceType==="assessment"){
+    const {data,error}=await db.from("nafes_assessments").select("id,owner_id,title,status,kind,config,rendered_sections,created_at,published_at")
+      .eq("owner_id",owner.id).eq("id",sourceId).maybeSingle();
+    if(error)throw error;if(!data)throw Object.assign(new Error("الاختبار غير موجود أو لا يخص هذا الحساب."),{status:404});
+    assessment=data;
+    const reviewId=String(data.config?.paper_review_id||"");
+    if(reviewId){
+      const {data:pr}=await db.from("nafes_paper_reviews").select("review_id,payload").eq("owner_id",owner.id).eq("review_id",reviewId).maybeSingle();
+      paper=pr||null;
+    }
+    if(paper?.payload?.models?.length){
+      const seen=new Set<string>();
+      for(const m of paper.payload.models)for(const q of safeSections(m?.questions)){
+        const id=String(q?.id||"");if(id&&!seen.has(id)){seen.add(id);questions.push(q);}
+      }
+    }else questions=flattenSectionQuestions(data.rendered_sections||[]);
+  }else if(sourceType==="paper_review"){
+    const {data,error}=await db.from("nafes_paper_reviews").select("review_id,title,subject,subjects,class_name,payload,created_at,updated_at")
+      .eq("owner_id",owner.id).eq("review_id",sourceId).maybeSingle();
+    if(error)throw error;if(!data)throw Object.assign(new Error("الاختبار الورقي غير موجود أو لا يخص هذا الحساب."),{status:404});
+    paper=data;
+    const seen=new Set<string>();
+    for(const m of safeSections(data.payload?.models))for(const q of safeSections(m?.questions)){
+      const id=String(q?.id||"");if(id&&!seen.has(id)){seen.add(id);questions.push(q);}
+    }
+    const {data:a}=await db.from("nafes_assessments").select("id,owner_id,title,status,kind,config,rendered_sections,created_at,published_at")
+      .eq("owner_id",owner.id).contains("config",{paper_review_id:sourceId}).maybeSingle();
+    assessment=a||null;
+  }else throw Object.assign(new Error("نوع مصدر التحليل غير مدعوم."),{status:400});
+
+  let attempts:any[]=[];
+  if(assessment?.id){
+    const {data,error}=await db.from("nafes_assessment_attempts")
+      .select("id,assessment_id,config,rendered_sections,answers,events,score,total,percent,submitted_at,is_demo")
+      .eq("assessment_id",assessment.id).eq("is_demo",false).not("submitted_at","is",null);
+    if(error)throw error;attempts=data||[];
+  }
+  if(!questions.length&&attempts.length)questions=flattenSectionQuestions(attempts[0].rendered_sections||[]);
+  const qIds=questions.map(q=>String(q.id||"")).filter(Boolean);
+  const semantic=await semanticForQuestionIds(qIds);
+
+  const itemMap=new Map<string,any>();
+  for(const q of questions){
+    const id=String(q.id||"");if(!id)continue;
+    if(!itemMap.has(id))itemMap.set(id,{id,question:String(q.question||q.question_text||""),subject:String(q.subject||""),indicator_key:String(q.indicator_key||""),indicator_text:String(q.indicator_text||""),difficulty:String(q.difficulty||""),cognitive_level:String(q.cognitive_level||""),correct_index:Number(q.correctIndex??q.correct_index),explanation:String(q.explanation||""),options:Array.isArray(q.options)?q.options:[],observations:[]});
+  }
+  for(const a of attempts){
+    for(const q of flattenSectionQuestions(a.rendered_sections||[])){
+      const id=String(q.id||"");if(!id)continue;
+      if(!itemMap.has(id))itemMap.set(id,{id,question:String(q.question||""),subject:String(q.subject||""),indicator_key:String(q.indicator_key||""),indicator_text:String(q.indicator_text||""),difficulty:String(q.difficulty||""),cognitive_level:String(q.cognitive_level||""),correct_index:Number(q.correctIndex??q.correct_index),explanation:String(q.explanation||""),options:Array.isArray(q.options)?q.options:[],observations:[]});
+      const ci=Number(q.correctIndex??q.correct_index),ans=Number(a?.answers?.[id]);
+      if(Number.isInteger(ci)&&ci>=0&&ci<4&&Number.isInteger(ans)&&ans>=0&&ans<4){
+        const correct=ans===ci?1:0;
+        itemMap.get(id).observations.push({correct,adjusted:Number(a.score||0)-correct});
+      }
+    }
+  }
+
+  const items=[...itemMap.values()].map((x:any)=>{
+    const obs=x.observations||[],n=obs.length;
+    const p=n?avgNum(obs.map((o:any)=>o.correct)):null;
+    const disc=n>=EVAL_MIN_ITEM_SAMPLE?pearson(obs.map((o:any)=>o.correct),obs.map((o:any)=>o.adjusted)):null;
+    const sem=semantic.get(x.id);
+    const staticScore=questionStaticStrength(x,sem);
+    const dq=p===null?null:difficultyQuality(p),disq=discriminationQuality(disc);
+    const empirical=(dq!==null&&disq!==null)?Math.round(dq*.42+disq*.58):null;
+    const strength=empirical===null?staticScore:Math.round(staticScore*.42+empirical*.58);
+    return{
+      id:x.id,question:x.question,subject:x.subject,indicator_key:x.indicator_key,indicator_text:x.indicator_text,
+      registered_difficulty:x.difficulty,cognitive_level:x.cognitive_level,sample_size:n,
+      facility:p===null?null:Number(p.toFixed(3)),discrimination:disc===null?null:Number(disc.toFixed(3)),
+      static_score:staticScore,empirical_score:empirical,strength_score:strength,strength_class:questionStrengthClass(strength),
+      semantic_judgment:sem?.judgment||null,semantic_confidence:sem?.confidence===undefined?null:Number(sem.confidence)
+    };
+  }).sort((a:any,b:any)=>a.strength_score-b.strength_score);
+
+  const submitted=attempts.length,meanPercent=submitted?avgNum(attempts.map(a=>Number(a.percent||0))):null;
+  const models=new Map<string,any[]>();
+  for(const a of attempts){const k=modelOfAttempt(a),list=models.get(k)||[];list.push(a);models.set(k,list);}
+  const reliability=[...models].map(([model,rows])=>({model,n:rows.length,kr20:kr20ForAttempts(rows)}));
+
+  const omrEvents:any[]=[];
+  for(const a of attempts)for(const ev of safeSections(a.events))if(ev?.type==="paper_scan"&&ev?.omr)omrEvents.push(ev.omr);
+  const omrConf=omrEvents.map(x=>Number(x.confidence)).filter(Number.isFinite);
+  const markerConf=omrEvents.map(x=>Number(x.marker_confidence)).filter(Number.isFinite);
+  const manualAnswers=omrEvents.reduce((s,x)=>s+Math.max(0,Number(x.manual_answers||0)),0);
+  const lowConfidence=omrEvents.reduce((s,x)=>s+Math.max(0,Number(x.low_confidence_answers||0)),0);
+  const answerCells=omrEvents.reduce((s,x)=>s+Math.max(0,Number(x.answer_count||0)),0);
+  const autoAccepted=omrEvents.filter(x=>x.auto_accept===true).length;
+
+  const semanticCounts={pass:0,review:0,reject:0,unknown:0};
+  for(const it of items){const k=String(it.semantic_judgment||"unknown") as keyof typeof semanticCounts;if(k in semanticCounts)semanticCounts[k]++;}
+  const empiricalItems=items.filter((x:any)=>x.sample_size>=EVAL_MIN_ITEM_SAMPLE);
+  const weakItems=items.filter((x:any)=>x.strength_score<55);
+  const strongItems=items.filter((x:any)=>x.strength_score>=70);
+  const avgStrength=items.length?avgNum(items.map((x:any)=>x.strength_score)):0;
+  const cohort=meanPercent===null?"unknown":meanPercent<60?"needs_support":meanPercent<80?"developing":"advanced";
+  const difficultyBlueprint=cohort==="needs_support"?{easy:35,medium:50,hard:15}:cohort==="developing"?{easy:25,medium:50,hard:25}:{easy:15,medium:45,hard:40};
+  const cognitiveBlueprint=cohort==="needs_support"?{knowledge:25,application:50,reasoning:25}:cohort==="developing"?{knowledge:20,application:50,reasoning:30}:{knowledge:15,application:45,reasoning:40};
+  const recommendations:any[]=[];
+  if(submitted<EVAL_MIN_ITEM_SAMPLE)recommendations.push({priority:"high",title:"لا تعتمد معامل التمييز بعد",detail:"عدد المحاولات المعتمدة "+submitted+" فقط. يلزم "+EVAL_MIN_ITEM_SAMPLE+" محاولات على الأقل قبل استخدام معامل التمييز في الحكم على السؤال."});
+  if(weakItems.length)recommendations.push({priority:"high",title:"راجع الأسئلة الأضعف أولًا",detail:"يوجد "+weakItems.length+" سؤالًا بقوة أقل من 55/100. افحص مطابقة المؤشر والمشتتات وصحة المفتاح قبل إعادة استخدامها."});
+  if(semanticCounts.reject)recommendations.push({priority:"high",title:"استبعد الحالات الدلالية المرفوضة",detail:"يوجد "+semanticCounts.reject+" سؤالًا ظهر له حكم دلالي مرفوض في سجل المحكّم."});
+  if(omrEvents.length&&lowConfidence)recommendations.push({priority:"high",title:"راجع خلايا OMR منخفضة الثقة",detail:"رُصدت "+lowConfidence+" إجابة منخفضة الثقة؛ لا ينبغي اعتمادها آليًا دون مراجعة."});
+  if(!omrEvents.length)recommendations.push({priority:"medium",title:"بيانات معايرة OMR غير متاحة",detail:"لا توجد تشخيصات ثقة محفوظة من أوراق التظليل لهذا الاختبار بعد. ستظهر تلقائيًا بعد اعتماد مسح جديد بالإصدار المطور."});
+  recommendations.push({priority:"medium",title:"مخطط اختيار الأسئلة المقترح",detail:"للمجموعة الحالية: سهل "+difficultyBlueprint.easy+"٪، متوسط "+difficultyBlueprint.medium+"٪، صعب "+difficultyBlueprint.hard+"٪؛ مع معرفة "+cognitiveBlueprint.knowledge+"٪، تطبيق "+cognitiveBlueprint.application+"٪، استدلال "+cognitiveBlueprint.reasoning+"٪."});
+
+  const report={
+    version:"evaluation-intelligence-v1",
+    source:{type:sourceType,id:sourceId,title:assessment?.title||paper?.title||"اختبار",assessment_id:assessment?.id||null,review_id:paper?.review_id||assessment?.config?.paper_review_id||null},
+    generated_at:new Date().toISOString(),
+    summary:{
+      attempts:submitted,question_count:items.length,mean_percent:meanPercent===null?null:Number(meanPercent.toFixed(1)),
+      average_strength:Number(avgStrength.toFixed(1)),strong_items:strongItems.length,weak_items:weakItems.length,
+      empirical_items:empiricalItems.length,semantic:semanticCounts
+    },
+    reliability:{minimum_sample:EVAL_MIN_ITEM_SAMPLE,by_model:reliability},
+    omr:{
+      scanned_sheets:omrEvents.length,mean_confidence:omrConf.length?Number(avgNum(omrConf).toFixed(3)):null,
+      mean_marker_confidence:markerConf.length?Number(avgNum(markerConf).toFixed(3)):null,
+      manual_answers:manualAnswers,low_confidence_answers:lowConfidence,answer_cells:answerCells,auto_accepted_sheets:autoAccepted,
+      target_accuracy:OMR_TARGET_ACCURACY,auto_accept_confidence:OMR_AUTO_ACCEPT_CONFIDENCE,
+      measured_accuracy:null,validation_status:"requires_labeled_calibration_sample",
+      note:"حد 95٪ هو بوابة قبول مستهدفة، وليس ادعاء دقة مقاسة. يلزم عينة مرجعية موسومة لقياس الدقة الفعلية."
+    },
+    selection:{cohort_level:cohort,difficulty_blueprint:difficultyBlueprint,cognitive_blueprint:cognitiveBlueprint,method:"quality_first_seeded_diversity"},
+    items:items.slice(0,160),
+    recommendations,
+    privacy:{contains_student_names:false,contains_student_ids:false,contains_personal_data:false}
+  };
+  const {error:saveErr}=await db.from("maintenance_agent_evaluation_reports").insert({
+    owner_id:owner.id,source_type:sourceType,source_id:sourceId,title:report.source.title,report,contains_personal_data:false
+  });
+  if(saveErr)throw saveErr;
+  return report;
+}
+
 const CORRECTION_MODES=new Set(["arabic","instruction","javascript","css","sql","html"]);
 function correctionText(v:unknown,n=20000){
   const s=String(v??"").normalize("NFKC");
@@ -545,6 +812,20 @@ Deno.serve(async(req:Request)=>{
     const owner=await master(req);
     const b=await req.json().catch(()=>({}));
     const action=tidy(b.action,50)||"diagnose";
+
+
+    if(action==="evaluation_sources"){
+      const sources=await evaluationSources(owner);
+      return json({ok:true,sources,version:"evaluation-intelligence-v1"});
+    }
+
+    if(action==="evaluation_report"){
+      const sourceType=tidy(b.source_type,30)||"assessment";
+      const sourceId=tidy(b.source_id,120);
+      if(!sourceId)return json({error:"اختر اختبارًا لتحليله."},400);
+      const report=await buildEvaluationReport(owner,sourceType,sourceId);
+      return json({ok:true,report});
+    }
 
     if(action==="corrections"){
       const limit=Math.max(1,Math.min(50,num(b.limit)||20));
