@@ -33,6 +33,7 @@ jobs:
           node --check qa/core-browser-smoke.mjs
           node --check qa/student-resume-smoke.mjs
           node --check qa/student-paper-smoke.mjs
+          node --check qa/paper-builder-regression.cjs
       - name: Core policy regression checks
         run: |
           node <<'NODE'
@@ -74,6 +75,8 @@ jobs:
         run: |
           node qa/tamakkun-unified-plan-unit.cjs
           node qa/competition-unit.cjs
+      - name: Paper builder performance and print regression
+        run: node qa/paper-builder-regression.cjs
       - name: Student identity privacy and class guards
         run: |
           ! grep -q "localStorage.setItem(identityKey" e.js
