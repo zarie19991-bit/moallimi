@@ -79,7 +79,7 @@ function stemKey(q:Row){
     .toLowerCase();
 }
 function selectIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
-  const mixed=shuffle(candidates,randomFrom(seed));
+  const mixed=rankQuestionCandidates(candidates,seed+'|quality');
   const unique:Row[]=[];
   const localStems=new Set<string>();
   for(const q of mixed){
@@ -95,21 +95,21 @@ function selectIndicatorQuestions(candidates:Row[],count:number,subject:string,s
   }
   const picked:Row[]=[];
   if(visualTarget){
-    const visual=unique.filter(q=>!!q.image?.url);
-    picked.push(...selectUnique(visual,visualTarget,seed+'|visual'));
+    const visual=rankQuestionCandidates(unique.filter(q=>!!q.image?.url),seed+'|visual-quality');
+    picked.push(...visual.slice(0,visualTarget));
   }
   const pickedIds=new Set(picked.map(q=>q.id));
   const pickedContent=new Set([...usedContent,...picked.map(questionKey)]);
   const need=count-picked.length;
   if(need>0){
-    const nonVisual=unique.filter(q=>!pickedIds.has(q.id)&&!q.image?.url);
-    if(nonVisual.length>=need)picked.push(...selectUnique(nonVisual,need,seed+'|rest-nonvisual',new Map(),pickedContent));
+    const nonVisual=rankQuestionCandidates(unique.filter(q=>!pickedIds.has(q.id)&&!q.image?.url),seed+'|rest-nonvisual-quality');
+    if(nonVisual.length>=need)picked.push(...nonVisual.slice(0,need));
     else{
-      if(nonVisual.length)picked.push(...selectUnique(nonVisual,nonVisual.length,seed+'|rest-nonvisual',new Map(),pickedContent));
+      if(nonVisual.length)picked.push(...nonVisual);
       const nowPicked=new Set(picked.map(q=>q.id));
-      const fallback=unique.filter(q=>!nowPicked.has(q.id));
+      const fallback=rankQuestionCandidates(unique.filter(q=>!nowPicked.has(q.id)),seed+'|rest-fallback-quality');
       const remaining=count-picked.length;
-      if(remaining)picked.push(...selectUnique(fallback,remaining,seed+'|rest-fallback',new Map(),new Set([...usedContent,...picked.map(questionKey)])));
+      if(remaining)picked.push(...fallback.slice(0,remaining));
     }
   }
   for(const q of picked){usedContent.add(questionKey(q));usedStems.add(stemKey(q));}
@@ -152,6 +152,33 @@ function stemFamilyKey(q:Row){
     .slice(0,7)
     .join(' ');
 }
+function structuralQuestionStrength(q:Row):number{
+  let score=58;
+  const text=String(q?.question??q?.question_text??'').trim();
+  const options=Array.isArray(q?.options)?q.options.map((x:any)=>String(x).trim()):[];
+  const ci=Number(q?.correctIndex??q?.correct_index);
+  if(text.length>=18&&text.length<=250)score+=9;else score-=6;
+  if(options.length===4&&options.every(Boolean)&&new Set(options).size===4)score+=12;else score-=24;
+  if(Number.isInteger(ci)&&ci>=0&&ci<4)score+=7;else score-=18;
+  if(['knowledge','application','reasoning'].includes(String(q?.cognitive_level||'')))score+=6;
+  if(['easy','medium','hard'].includes(String(q?.difficulty||'')))score+=4;
+  if(String(q?.explanation||'').trim().length>=8)score+=5;
+  if(String(q?.indicator_key||'').trim())score+=5;
+  if(String(q?.quality_version||'').trim())score+=7;
+  if(q?.image?.url&&q?.image?.alt)score+=3;
+  const lens=options.map((x:string)=>x.length).filter(Boolean);
+  if(lens.length===4){
+    const mn=Math.min(...lens),mx=Math.max(...lens);
+    if(mn>0&&mx/Math.max(1,mn)<=2.8)score+=4;else score-=4;
+  }
+  if(/كل ما سبق|جميع ما سبق|لا شيء مما سبق/.test(options.join(' ')))score-=5;
+  return Math.max(0,Math.min(100,Math.round(score)));
+}
+function rankQuestionCandidates(rows:Row[],seed:string):Row[]{
+  return rows.map(q=>({q,score:structuralQuestionStrength(q),tie:randomFrom(seed+'|'+String(q.id||stemKey(q)))()}))
+    .sort((a,b)=>b.score-a.score||b.tie-a.tie).map(x=>x.q);
+}
+
 function curatedQuestionEligible(q:Row,subject:string){
   const text=String(q?.question??q?.question_text??'').trim();
   const options=Array.isArray(q?.options)?q.options.map((x:any)=>String(x).trim()):[];
@@ -169,7 +196,7 @@ function curatedQuestionEligible(q:Row,subject:string){
   return true;
 }
 function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
-  const mixed=shuffle(candidates.filter(q=>curatedQuestionEligible(q,subject)),randomFrom(seed+'|curated'));
+  const mixed=rankQuestionCandidates(candidates.filter(q=>curatedQuestionEligible(q,subject)),seed+'|curated-quality');
   const unique:Row[]=[];
   const localStems=new Set<string>();
   for(const q of mixed){
@@ -190,7 +217,7 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
   };
   const takeLevel=(level:string,desired:number)=>{
     if(!desired)return 0;
-    const pool=shuffle(unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id))),randomFrom(seed+'|'+level));
+    const pool=rankQuestionCandidates(unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id))),seed+'|'+level+'|quality');
     let taken=0;
     for(const cap of [1,2,3,99]){
       for(const q of pool){
@@ -210,7 +237,7 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
     if(taken<desired)fail(`لا توجد أسئلة سليمة كافية في مستوى ${level} لهذا المؤشر: المطلوب ${desired} والمتاح ${taken}. لن يكتمل النموذج على حساب التوازن المعرفي.`);
   }
   if(picked.length<count){
-    const rest=shuffle(unique.filter(q=>!pickedIds.has(String(q.id))),randomFrom(seed+'|fallback'));
+    const rest=rankQuestionCandidates(unique.filter(q=>!pickedIds.has(String(q.id))),seed+'|fallback-quality');
     for(const cap of [1,2,3,99]){
       for(const q of rest){
         if(picked.length>=count)break;
@@ -261,8 +288,11 @@ function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string
   // Keep passage choice genuinely varied across review models.
   // Print compactness is scored on the client after generation; sorting here by
   // passage length forced the same short texts to recur across models.
-  const randomized=shuffle([...groups.entries()],randomFrom(seed))
-    .map(([context,rows])=>({context,rows}));
+  const randomized=[...groups.entries()].map(([context,rows])=>({
+    context,rows,
+    quality:rows.length?rows.reduce((s,q)=>s+structuralQuestionStrength(q),0)/rows.length:0,
+    tie:randomFrom(seed+'|passage|'+context.slice(0,80))()
+  })).sort((a,b)=>b.quality-a.quality||b.tie-a.tie);
   const neededGroups=count/5;
   const picked:Row[]=[];
   let chosenGroups=0;
