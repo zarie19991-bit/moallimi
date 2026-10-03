@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f6b63">
 <title>وكيل صيانة المنصة | معلّمي</title>
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
-<link rel="stylesheet" href="maintenance-agent.css?v=20261003-eval-intelligence1">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261003-item-audit1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -98,6 +98,34 @@
       </div>
       <div id="evaluationState" class="evaluation-state">اختر اختبارًا لتحليل جودة الأسئلة وبيانات التظليل والقياس.</div>
       <div id="evaluationReport" class="evaluation-report"><div class="empty">لم يتم إنشاء تقرير ذكاء تقييم بعد.</div></div>
+
+      <div class="item-audit-block">
+        <div class="item-audit-head">
+          <div><b>التدقيق الشامل لبنك العلوم والرياضيات</b><span>جدول تفصيلي لجميع الأسئلة مع المستوى المعرفي وقوة المشتتات وحالة التحكيم.</span></div>
+          <button id="loadItemQualityAudit" class="btn primary" type="button">تحميل التدقيق الشامل</button>
+        </div>
+        <div id="itemQualitySummary" class="item-quality-summary"><div class="empty">لم يتم تحميل تقرير البنك الشامل بعد.</div></div>
+        <div class="item-quality-filters">
+          <select id="itemQualitySubject"><option value="">كل المواد</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select>
+          <select id="itemQualityLevel"><option value="">كل المستويات</option><option value="knowledge">المعرفة</option><option value="application">التطبيق</option><option value="reasoning">الاستدلال</option></select>
+          <select id="itemQualityBand"><option value="">كل الحالات</option><option value="strong">قوي</option><option value="acceptable">مقبول</option><option value="review">يحتاج مراجعة</option><option value="weak">ضعيف</option></select>
+          <select id="itemQualitySemantic"><option value="">كل حالات التحكيم</option><option value="current">تحكيم محدث</option><option value="stale">يحتاج تحكيمًا محدثًا</option></select>
+          <input id="itemQualitySearch" type="search" placeholder="ابحث في السؤال أو المؤشر">
+          <button id="applyItemQualityFilters" class="btn light" type="button">تطبيق</button>
+          <button id="exportItemQualityCsv" class="btn light" type="button" disabled>تصدير CSV كامل</button>
+        </div>
+        <div class="item-quality-table-wrap">
+          <table class="item-quality-table">
+            <thead><tr><th>المادة</th><th>المؤشر</th><th>السؤال</th><th>المستوى</th><th>المشتتات</th><th>الجودة</th><th>التحكيم</th><th>ملاحظات</th></tr></thead>
+            <tbody id="itemQualityBody"><tr><td colspan="8">حمّل التدقيق الشامل لعرض الأسئلة.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="item-quality-pager">
+          <button id="itemQualityPrev" class="btn light" type="button" disabled>السابق</button>
+          <span id="itemQualityPageState">—</span>
+          <button id="itemQualityNext" class="btn light" type="button" disabled>التالي</button>
+        </div>
+      </div>
     </section>
 
     <section class="panel print-agent-panel">
@@ -188,6 +216,6 @@
 
 <script src="teacher-access.js?v=20260930-mainfix2"></script>
 <script src="platform-auto-correct.js?v=20261003-corrector1"></script>
-<script src="maintenance-agent.js?v=20261003-eval-intelligence1"></script>
+<script src="maintenance-agent.js?v=20261003-item-audit1"></script>
 </body>
 </html>
