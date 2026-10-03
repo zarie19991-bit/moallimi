@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { chromium } from 'playwright-core';
 
 const SITE=process.env.QA_LOCAL_SITE||'http://127.0.0.1:4173/';
@@ -80,5 +81,8 @@ if(audit.overflow_pages!==0)throw new Error('overflow pages '+audit.overflow_pag
 if(audit.unresolved_pages!==0)throw new Error('unresolved pages '+audit.unresolved_pages);
 if(audit.page_count<2)throw new Error('large-font pagination did not add pages');
 
+fs.mkdirSync('qa-output',{recursive:true});
+await page.screenshot({path:'qa-output/question-paper-print.png',fullPage:true});
+fs.writeFileSync('qa-output/question-paper-audit.json',JSON.stringify(audit,null,2));
 console.log('PASS question paper A4 browser QA',JSON.stringify(audit));
 await browser.close();
