@@ -108,6 +108,10 @@ async function openArchivedReview(reviewId){
    document.querySelector('.builder-grid')?.scrollIntoView({behavior:'smooth'});
  }catch(e){setStatus('تعذر فتح المراجعة: '+(e.message||e),'error');}
 }
+function paperOrderedSubjects(subjects){
+ const order=['science','math','reading'];
+ return [...(subjects||[])].sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+}
 function selectedSubject(){return selectedSubjects()[0]||'reading';}
 function allowedSubjects(){
  const scope=window.NafesTeacher?.getScope?.()||'all';
@@ -262,7 +266,7 @@ function selectedStudents(){
  return visibleStudents().filter(s=>ids.has(String(s.id)));
 }
 function configForModel(letter){
- const inds=getSelectedIndicators(),subjects=selectedSubjects();
+ const inds=getSelectedIndicators(),subjects=paperOrderedSubjects(selectedSubjects());
  const sections=subjects.map(subject=>{
    const items=inds.filter(x=>x.subject===subject);
    return {subject,question_count:items.reduce((n,x)=>n+x.count,0),duration_minutes:45,calculator:subject==='math',model_no:1,indicators:items.map(x=>({key:x.key,count:x.count}))};
@@ -509,7 +513,7 @@ async function buildAssignments(){
  const bad=models.flatMap((m,i)=>incompleteChoices(m).map((q,n)=>({model:letters[i],question:q.question||'',n:n+1})));
  if(bad.length){setStatus('تم إيقاف التجهيز لأن هناك '+bad.length+' سؤالًا ناقص الاختيارات. أعد إنشاء النماذج؛ لن تُطبع ورقة ناقصة.','error');return;}
  if(models.some(m=>!hasValidAnswerKey(m))){setStatus('تم إيقاف التجهيز لأن مفتاح إجابة أحد الأسئلة غير مكتمل. أعد إنشاء النماذج.','error');return;}
- const list=selectedStudents(),count=models.length,subjects=selectedSubjects();
+ const list=selectedStudents(),count=models.length,subjects=paperOrderedSubjects(selectedSubjects());
  assignments=list.map((st,i)=>({student:st,model:i%count,letter:letters[i%count]}));
  const counts=Array.from({length:count},(_,i)=>assignments.filter(a=>a.model===i).length);
  $('assignmentStats').innerHTML=counts.map((n,i)=>'<div class="quality-card ok"><span>نموذج '+letters[i]+'</span><b>'+ar(n)+' طلاب</b></div>').join('');
