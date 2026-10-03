@@ -1416,7 +1416,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_test_archive')return await teacherTestArchive(db,b,owner);
  if(b.action==='teacher_question_create')return await teacherQuestionCreate(db,b,owner);
  if(b.action==='teacher_test_clear_results'){assertMainAccount(owner);return await teacherTestClearResults(db,b,owner);}
- if(b.action==='teacher_test_delete'){assertMainAccount(owner);return await teacherTestDelete(db,b,owner);}
+ if(b.action==='teacher_test_delete')return await teacherTestDelete(db,b,owner);
  if(b.action==='teacher_tests_bulk_clear'){assertMainAccount(owner);return await teacherTestsBulkClear(db,b,owner);}
  if(b.action==='teacher_data')return await scopedTeacherData(db,b,owner);
  if(b.action==='teacher_paper_review_upsert')return await teacherPaperReviewUpsert(db,b,owner);
@@ -1440,7 +1440,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   const published=must(await db.from('nafes_assessments').select('id,owner_id,title,kind,config,short_code,created_at,published_at,legacy_target').eq('status','published'));
   const tests=(published||[]).filter((t:Row)=>t.kind!=='simulation').map(testInfo).filter((t:Row)=>scope==='all'||(t.subjects||[]).includes(scope)).map((t:Row)=>{
     const creator=dir.get(String(t.owner_id||''));
-    return {...t,created_by_label:creator?.label||'النظام',created_by_scope:creator?.subject_scope||null,can_manage:scope==='all'||String(t.owner_id||'')===String(owner.id)};
+    return {...t,created_by_label:creator?.label||'النظام',created_by_scope:creator?.subject_scope||null,is_owner:String(t.owner_id||'')===String(owner.id),can_manage:scope==='all'||String(t.owner_id||'')===String(owner.id)};
   });
   return {...base,indicators:(base.indicators||[]).filter((i:Row)=>scope==='all'||i.subject===scope),simulation_indicators:[],simulation_summary:{reading:0,math:0,science:0},forms:[],tests};
  }
