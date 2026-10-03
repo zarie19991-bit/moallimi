@@ -12,6 +12,11 @@ on:
       - 'lugati-student-adaptive.js'
       - 'qa/student-activity-sections-unit.cjs'
       - 'lugati-complete.html'
+      - 'lugati-complete.js'
+      - 'tamakkun-teacher-workspace.js'
+      - 'tamakkun-teacher-workspace.css'
+      - 'supabase/migrations/20261003222000_teacher_management_workspace.sql'
+      - 'qa/teacher-management-workspace-unit.cjs'
       - 'supabase/functions/lugati-adaptive-plan/**'
       - 'qa/tamakkun-unified-plan-unit.cjs'
       - 'qa/competition-unit.cjs'
@@ -33,6 +38,8 @@ jobs:
           node --check lugati-dashboard.js
           node --check lugati-competition.js
           node --check lugati-student-adaptive.js
+          node --check tamakkun-teacher-workspace.js
+          node --check lugati-complete.js
       - name: Production manifest and page packaging
         run: node question-bank/scripts/prepare-pages.mjs
       - name: Unified plan contract
@@ -41,3 +48,5 @@ jobs:
         run: node qa/competition-unit.cjs
       - name: Student activity sections
         run: node qa/student-activity-sections-unit.cjs
+      - name: Teacher management workspace
+        run: node qa/teacher-management-workspace-unit.cjs

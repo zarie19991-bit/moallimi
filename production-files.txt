@@ -60,6 +60,8 @@ tamakkun-design-system.css
 tamakkun-unified-plan.css
 tamakkun-unified-plan.js
 tamakkun-competition-polish.css
+tamakkun-teacher-workspace.css
+tamakkun-teacher-workspace.js
 lugati-complete.js
 lugati-encouragement.js
 lugati-competition.js
