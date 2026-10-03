@@ -216,11 +216,8 @@ function repairOverflow(booklet){
    let page=pages[i],flow=page.querySelector('.questions-flow');
    let guard=0;
    while(!pageFits(page)&&guard++<80){
-     // احتفظ بالمحتوى الواضح أولاً: ضغط خفيف ومدروس لا يهبط بخط السؤال
-     // إلى حجم غير مناسب للطباعة.
-     if(compactUntilFits(page))break;
-
-     // إذا كانت الصفحة تحتوي أكثر من مجموعة، انقل آخر مجموعة كاملة.
+     // أولوية الطباعة: وضوح الخط قبل تقليل عدد الصفحات.
+     // إذا كانت الصفحة تحتوي أكثر من مجموعة، انقل آخر مجموعة كاملة أولاً.
      if(flow?.children.length>1){
        const next=ensureNextPage(booklet,page),nextFlow=next.querySelector('.questions-flow');
        nextFlow.prepend(flow.lastElementChild);
@@ -228,16 +225,18 @@ function repairOverflow(booklet){
        continue;
      }
 
-     // النص الطويل مع عدة أسئلة قد لا يتسع حتى بعد الضغط. عندها فقط
-     // قسّم أسئلة المجموعة مع إشارة واضحة «تابع أسئلة النص السابق».
+     // إذا كانت مجموعة واحدة كبيرة (خصوصًا نص القراءة وأسئلته)،
+     // قسّم الأسئلة على صفحة تالية قبل التفكير في ضغط الخط.
      const next=ensureNextPage(booklet,page);
      if(splitOversizeGroup(page,next)){
        pages=[...booklet.querySelectorAll(':scope > .paper-page')];
        break;
      }
 
-     // لا نقص سؤالًا منفردًا. نترك الصفحة بعلامة واضحة للفحص بدل
-     // إخفاء الجزء المتجاوز بصريًا.
+     // الضغط الآن حل أخير فقط، وبحدود مقروءة يفرضها CSS.
+     if(compactUntilFits(page))break;
+
+     // لا نقص سؤالًا منفردًا ولا نصغره إلى خط غير مقروء.
      page.dataset.layoutUnresolved='1';
      break;
    }
