@@ -52,24 +52,12 @@ function paginateGroups(groups,subject){
  const valid=groups.filter(g=>g&&g.questions?.length);
  if(!valid.length)return[[]];
 
- // القراءة تبقى محافظة على النص مع أسئلته كوحدة واحدة.
- if(subject==='reading'){
-   const pages=[];let page=[],units=0;
-   const LIMIT=58;
-   for(const g of valid){
-     const gu=groupUnits(g);
-     if(page.length&&units+gu>LIMIT){pages.push(page);page=[];units=0;}
-     page.push(g);units+=gu;
-   }
-   if(page.length)pages.push(page);
-   return pages.length?pages:[[]];
- }
-
- // الرياضيات والعلوم: نملأ A4 فعليًا بدل إيقاف الصفحة مبكرًا.
- // نحسب عدد الصفحات أولًا ثم نوازن الحمل بينها حتى لا تبقى صفحة
- // فيها سؤالان أو ثلاثة بينما الصفحة السابقة ما زالت تتسع.
- const SOFT_LIMIT=118;
- const HARD_LIMIT=134;
+ // هذه مجرد قسمة أولية سريعة. القياس الحقيقي داخل المتصفح
+ // سيعيد تعبئة الصفحات لاحقًا حسب الارتفاع الفعلي على A4.
+ // القراءة لا تُجبر على صفحة مستقلة لكل نص.
+ const reading=subject==='reading';
+ const SOFT_LIMIT=reading?92:118;
+ const HARD_LIMIT=reading?108:134;
  const weighted=valid.map(g=>({g,u:groupUnits(g)}));
  const total=weighted.reduce((n,x)=>n+x.u,0);
  let desiredPages=Math.max(1,Math.ceil(total/SOFT_LIMIT));
@@ -82,10 +70,9 @@ function paginateGroups(groups,subject){
    const target=remainingPages>0?remainingUnits/remainingPages:SOFT_LIMIT;
    const mustLeave=remainingPages-1;
    const canBreak=page.length>0&&(groupsLeft>mustLeave);
-   const balancedBreak=canBreak&&pageUnits+u>target;
    const hardBreak=canBreak&&pageUnits+u>HARD_LIMIT;
-
-   if(balancedBreak||hardBreak){
+   const balancedBreak=canBreak&&pageUnits>=target*.9&&pageUnits+u>target*1.12;
+   if(hardBreak||balancedBreak){
      pages.push(page);
      remainingUnits-=pageUnits;
      remainingPages=Math.max(1,remainingPages-1);
@@ -94,18 +81,6 @@ function paginateGroups(groups,subject){
    page.push(g);pageUnits+=u;
  }
  if(page.length)pages.push(page);
-
- // معالجة أخيرة: لا نترك الصفحة الأخيرة ضعيفة إذا أمكن نقل سؤال
- // من الصفحة السابقة دون تجاوز الحد الصلب.
- if(pages.length>1){
-   const unitsOf=p=>p.reduce((n,g)=>n+groupUnits(g),0);
-   let last=pages[pages.length-1],prev=pages[pages.length-2];
-   while(prev.length>1&&unitsOf(last)<unitsOf(prev)*0.72){
-     const candidate=prev[prev.length-1];
-     if(unitsOf(last)+groupUnits(candidate)>HARD_LIMIT)break;
-     last.unshift(prev.pop());
-   }
- }
  return pages.length?pages:[[]];
 }
 function cleanStem(question,context){
@@ -161,7 +136,6 @@ function modelBooklet(model,d){
  if(subjects.length===1&&subjects[0]==='reading'&&questions.length===20){
    const bad=groups.length!==4||groups.some(g=>!g.context||g.questions.length!==5);
    if(bad)return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>يجب أن يتكون من ٤ نصوص، وتحت كل نص ٥ أسئلة. أعد إنشاء النماذج من قسم المراجعة والتصحيح الآلي.</p></div></div></section>';
-   return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+groups.map((g,i)=>onePage(model,d,[g],i+1,4,questions.length)).join('')+'</div>';
  }
  const mode=subjects.length>1?'mixed':(subjects[0]||d.subject);
  const pages=paginateGroups(groups,mode);
@@ -298,23 +272,16 @@ function fillAvailableSpace(booklet){
 function fitBooklet(booklet){
  const first=booklet.querySelector(':scope > .paper-page');
  if(!first)return;
- const readingOnly=first.dataset.subject==='reading';
 
- // 1) أصلح أي تجاوز بالقياس الحقيقي من المتصفح، بما في ذلك صفحات القراءة.
+ // أصلح أي تجاوز أولًا، ثم اسحب المجموعات التالية إلى المساحة
+ // المتبقية فعليًا. هذا يطبق على القراءة والرياضيات والعلوم معًا.
  repairOverflow(booklet);
  removeEmptyPages(booklet);
-
- // 2) القراءة الخالصة تحافظ على النص ومجموعته؛ لا نملأ الفراغ بسحب نص تالٍ.
- // الرياضيات والعلوم والاختبارات المختلطة تستفيد من المساحة المتبقية.
- if(!readingOnly){
-   fillAvailableSpace(booklet);
-   repairOverflow(booklet);
-   removeEmptyPages(booklet);
+ for(let pass=0;pass<3;pass++){
    fillAvailableSpace(booklet);
    repairOverflow(booklet);
    removeEmptyPages(booklet);
  }
-
  renumberBooklet(booklet);
 }
 function fitAllRenderedPages(){
@@ -353,6 +320,9 @@ function renderPages(){
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
-$('printBtn').onclick=()=>window.print();
+$('printBtn').onclick=()=>{
+ fitAllRenderedPages();
+ requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
+};
 render();
 })();
