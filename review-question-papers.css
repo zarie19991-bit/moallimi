@@ -27,7 +27,7 @@
    Prevent the browser from inventing an earlier break that leaves white gaps. */
 @media print{
  .paper-page{break-inside:avoid-page!important;page-break-inside:avoid!important}
- .page-inner,.page-flow,.questions-flow{break-inside:avoid!important;page-break-inside:avoid!important}
+ .page-inner,.page-flow,.questions-flow{break-inside:auto!important;page-break-inside:auto!important}
  .passage-group,.question{break-inside:auto!important;page-break-inside:auto!important}
 }
 
