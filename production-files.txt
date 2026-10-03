@@ -22,6 +22,7 @@ teacher.html
 maintenance-agent.html
 maintenance-agent.css
 maintenance-agent.js
+platform-auto-correct.js
 student-demo.html
 demo-exam.html
 demo-exam.js
