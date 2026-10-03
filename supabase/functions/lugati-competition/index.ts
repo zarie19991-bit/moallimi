@@ -222,6 +222,36 @@ async function roundLeaderboards(id:string){
  if(x.error)throw x.error;if(y.error)throw y.error;return{students:x.data||[],classes:y.data||[]};
 }
 
+async function teacherLiveAttempts(r:any){
+ const {data,error}=await db.from("lugati_competition_attempts")
+  .select("id,student_id,status,started_at,submitted_at,last_activity_at,current_position,correct_questions,wrong_attempts,duration_ms,points,max_streak,student:nafes_students(full_name,class_name,is_demo)")
+  .eq("round_id",r.id).order("started_at",{ascending:true});
+ if(error)throw error;
+ const ats=(data||[]).filter((x:any)=>x.student?.is_demo!==true),completed=new Map<string,number>();
+ for(let i=0;i<ats.length;i+=100){
+   const ids=ats.slice(i,i+100).map((x:any)=>x.id);if(!ids.length)continue;
+   const z=await db.from("lugati_competition_attempt_answers").select("attempt_id,completed").in("attempt_id",ids).eq("completed",true);if(z.error)throw z.error;
+   for(const x of z.data||[])completed.set(String(x.attempt_id),(completed.get(String(x.attempt_id))||0)+1);
+ }
+ const live=ats.map((x:any)=>({
+   attempt_id:x.id,student_id:x.student_id,full_name:x.student?.full_name||"",class_name:x.student?.class_name||"",
+   status:x.status,started_at:x.started_at,submitted_at:x.submitted_at,last_activity_at:x.last_activity_at,
+   completed_questions:Number(completed.get(String(x.id))||0),question_count:Number(r.question_count||0),
+   correct_questions:Number(x.correct_questions||0),wrong_attempts:Number(x.wrong_attempts||0),points:Number(x.points||0),
+   duration_ms:x.duration_ms==null?null:Number(x.duration_ms),max_streak:Number(x.max_streak||0),
+   finished:x.status!=="in_progress"
+ }));
+ live.sort((a:any,b:any)=>Number(a.finished)-Number(b.finished)||String(b.last_activity_at||"").localeCompare(String(a.last_activity_at||""))||String(a.full_name).localeCompare(String(b.full_name),"ar"));
+ return{
+   live_students:live,
+   live_summary:{
+     started:live.length,
+     in_progress:live.filter((x:any)=>x.status==="in_progress").length,
+     finished:live.filter((x:any)=>x.finished).length
+   }
+ };
+}
+
 async function teacherIndicatorReport(r:any){
  const [questions,attempts]=await Promise.all([
  db.from("lugati_competition_round_questions").select("id,outcome_code,indicator_index,indicator_text").eq("round_id",r.id),
@@ -239,7 +269,7 @@ async function teacherIndicatorReport(r:any){
 
 async function roundResults(req:Request,b:any,a:Access){
  const r=await getRound(tidy(b?.round_id));if(a.role==="teacher")requireTeacherSubject(a,r.subject_key);if(a.role==="student"&&r.status!=="closed")return json(req,{error:"تظهر النتائج بعد إغلاق الجولة من المعلم."},409);
- const boards=await roundLeaderboards(r.id);if(a.role==="teacher")return json(req,{ok:true,round:safeRound(r),...boards,...(await teacherIndicatorReport(r))});
+ const boards=await roundLeaderboards(r.id);if(a.role==="teacher"){const [live,report]=await Promise.all([teacherLiveAttempts(r),teacherIndicatorReport(r)]);return json(req,{ok:true,round:safeRound(r),...boards,...live,...report})}
  const me=(boards.students||[]).find((x:any)=>String(x.student_id)===String(a.student_id))||null;
  const {data:at,error}=await db.from("lugati_competition_attempts").select("*").eq("round_id",r.id).eq("student_id",a.student_id).maybeSingle();if(error)throw error;
  let analysis:any[]=[];
