@@ -100,13 +100,13 @@ if(!near(audit.page_width_mm,198,0.8))throw new Error('print page width '+audit.
 if(!near(audit.page_height_mm,285,0.8))throw new Error('print page height '+audit.page_height_mm);
 if(!near(audit.inner_width_mm,198,0.8))throw new Error('inner width '+audit.inner_width_mm);
 if(!near(audit.inner_height_mm,285,0.8))throw new Error('inner height '+audit.inner_height_mm);
-if(audit.stem_font_px<18)throw new Error('question font too small '+audit.stem_font_px);
-if(audit.choices_font_px<16)throw new Error('choice font too small '+audit.choices_font_px);
+if(Math.abs(audit.stem_font_px-14.6667)>0.8)throw new Error('question font must be 11pt '+audit.stem_font_px);
+if(Math.abs(audit.choices_font_px-14.6667)>0.8)throw new Error('choice font must be 11pt '+audit.choices_font_px);
 if(audit.overflow_pages!==0)throw new Error('overflow pages '+audit.overflow_pages);
 if(audit.unresolved_pages!==0)throw new Error('unresolved pages '+audit.unresolved_pages);
 const maxTailGap=Math.max(0,...audit.tail_gaps_px);
 if(maxTailGap>150)throw new Error('excessive blank tail space '+maxTailGap+'px');
-if(audit.page_count<2)throw new Error('large-font pagination did not add pages');
+if(audit.page_count<1||audit.page_count>3)throw new Error('unexpected 11pt pagination '+audit.page_count);
 
 fs.mkdirSync('qa-output',{recursive:true});
 await page.screenshot({path:'qa-output/question-paper-print.png',fullPage:true});
