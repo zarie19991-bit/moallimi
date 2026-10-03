@@ -116,13 +116,13 @@ async function loadSemanticStatus(){
    const note=$('semanticProviderNote');if(note)note.textContent=e.message||String(e);
  }
 }
-async function runSemanticAudit(scope,subject=''){
+async function runSemanticAudit(scope,subject='',staleOnly=false){
  const buttons=[...document.querySelectorAll('[data-semantic-scope]')];
  buttons.forEach(b=>b.disabled=true);
  const host=$('semanticJudgeResult');
  try{
    if(host)host.innerHTML='<div class="empty">جارٍ تجهيز الأسئلة للتحكيم التربوي…</div>';
-   let d=await callSemanticAudit('start',{scope,...(subject?{subject}:{})}),job=d.job;
+   let d=await callSemanticAudit('start',{scope,...(subject?{subject}:{}),stale_only:staleOnly===true}),job=d.job;
    renderSemanticProvider(d.provider||{});renderSemanticProgress(job);
    let rounds=0;
    while(job?.status==='running'&&rounds<30){
@@ -712,7 +712,7 @@ async function init(){
  }catch(e){setState(e.message||String(e),'error');}
 }
 $('runIndicatorAudit')?.addEventListener('click',runIndicatorAudit);
-document.querySelectorAll('[data-semantic-scope]').forEach(b=>b.addEventListener('click',()=>runSemanticAudit(b.dataset.semanticScope||'active_tests',b.dataset.semanticSubject||'')));
+document.querySelectorAll('[data-semantic-scope]').forEach(b=>b.addEventListener('click',()=>runSemanticAudit(b.dataset.semanticScope||'active_tests',b.dataset.semanticSubject||'',b.dataset.semanticStale==='true')));
 $('brainForm')?.addEventListener('submit',e=>{e.preventDefault();askBrain($('brainQuestion').value);});
 document.querySelectorAll('[data-brain-q]').forEach(b=>b.addEventListener('click',()=>askBrain(b.dataset.brainQ||'')));
 $('brainAnswer')?.addEventListener('click',e=>{const b=e.target.closest('[data-brain-followup]');if(b)askBrain((lastBrainQuestion?lastBrainQuestion+' — ':'')+(b.dataset.brainFollowup||''));});
