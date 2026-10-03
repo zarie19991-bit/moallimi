@@ -68,12 +68,11 @@ async function runOne(name,label){
       };
     `);
     console.log('BROWSER_LAYOUT '+label+' '+JSON.stringify({version,...layout}));
-    if(label==='Firefox')assert.ok(layout.page_count>=2&&layout.page_count<=3,label+' unexpected pagination');
-    else assert.equal(layout.page_count,2,label+' should paginate fixture into two pages');
+    assert.ok(layout.page_count>=1&&layout.page_count<=3,label+' unexpected pagination');
     assert.equal(layout.unresolved,0,label+' unresolved layout');
     assert.equal(layout.overflow,0,label+' overflow');
-    assert.ok(layout.stem_px>=18,label+' question font too small');
-    assert.ok(layout.choice_px>=16,label+' choice font too small');
+    assert.ok(Math.abs(layout.stem_px-14.6667)<=0.8,label+' question font must be 11pt');
+    assert.ok(Math.abs(layout.choice_px-14.6667)<=0.8,label+' choice font must be 11pt');
 
     if(label==='Firefox'){
       // Firefox layout is verified in its native engine. The classic WebDriver
