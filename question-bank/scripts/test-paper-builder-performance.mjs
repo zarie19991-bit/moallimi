@@ -13,8 +13,8 @@ assert.match(builder,/PAGE_CACHE_TTL_MS=5\*60\*1000/,'catalog and roster cache c
 
 assert.match(printCss,/@page\{size:A4 portrait;margin:6mm\}/,'A4 print page contract is missing');
 assert.match(printCss,/\.paper-page\{width:198mm!important/,'print page must fit the 198 mm A4 printable width');
-assert.match(printCss,/\.stem\{font-size:14pt!important/,'printed question font must stay readable');
-assert.match(printCss,/\.choices\{font-size:12\.5pt!important/,'printed choice font must stay readable');
+assert.match(printCss,/\.stem\{font-size:11pt!important/,'printed question font must be exactly 11pt');
+assert.match(printCss,/\.choices\{font-size:11pt!important/,'printed choice font must be exactly 11pt');
 
 assert.match(printJs,/function collectPrintMetrics\(\)/,'print overflow metrics are required');
 assert.match(printJs,/max_overflow_px/,'print overflow metric is required');
