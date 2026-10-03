@@ -42,6 +42,25 @@ await context.addInitScript(d=>{
 const page=await context.newPage();
 await page.goto(SITE+'review-question-papers.html?pv=qa-print',{waitUntil:'domcontentloaded',timeout:60000});
 await page.waitForSelector('.paper-page',{timeout:30000});
+
+// UAT آلي لزر الطباعة نفسه، مع محاكاة وسم فشل قديم كان يعطل الزر.
+await page.evaluate(()=>{
+  const first=document.querySelector('.paper-page');
+  if(first)first.dataset.layoutUnresolved='1';
+  window.__printCalls=0;
+  window.print=()=>{window.__printCalls++;};
+});
+await page.click('#printBtn');
+await page.waitForTimeout(150);
+const buttonAudit=await page.evaluate(()=>({
+  calls:window.__printCalls||0,
+  stale_unresolved:document.querySelector('.paper-page')?.dataset.layoutUnresolved==='1',
+  disabled:document.getElementById('printBtn')?.disabled===true
+}));
+if(buttonAudit.calls!==1)throw new Error('print button did not call window.print exactly once: '+JSON.stringify(buttonAudit));
+if(buttonAudit.stale_unresolved)throw new Error('stale unresolved flag still blocks print');
+await page.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
+
 await page.emulateMedia({media:'print'});
 await page.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
 await page.waitForTimeout(150);
@@ -65,6 +84,12 @@ const audit=await page.evaluate(()=>{
     choices_font_px:choices?parseFloat(getComputedStyle(choices).fontSize):0,
     overflow_pages:flows.filter(x=>x.scrollHeight>x.clientHeight+2||x.scrollWidth>x.clientWidth+2).length,
     unresolved_pages:pages.filter(x=>x.dataset.layoutUnresolved==='1').length,
+    tail_gaps_px:pages.map((page,i)=>{
+      const flow=page.querySelector('.questions-flow');
+      const last=flow?.lastElementChild;
+      if(!flow||!last||i===pages.length-1)return 0;
+      return Math.max(0,flow.getBoundingClientRect().bottom-last.getBoundingClientRect().bottom);
+    }),
     body_scroll_width:document.body.scrollWidth,
     viewport_width:document.documentElement.clientWidth
   };
@@ -79,6 +104,8 @@ if(audit.stem_font_px<18)throw new Error('question font too small '+audit.stem_f
 if(audit.choices_font_px<16)throw new Error('choice font too small '+audit.choices_font_px);
 if(audit.overflow_pages!==0)throw new Error('overflow pages '+audit.overflow_pages);
 if(audit.unresolved_pages!==0)throw new Error('unresolved pages '+audit.unresolved_pages);
+const maxTailGap=Math.max(0,...audit.tail_gaps_px);
+if(maxTailGap>150)throw new Error('excessive blank tail space '+maxTailGap+'px');
 if(audit.page_count<2)throw new Error('large-font pagination did not add pages');
 
 fs.mkdirSync('qa-output',{recursive:true});
