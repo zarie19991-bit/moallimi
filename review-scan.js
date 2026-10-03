@@ -198,13 +198,13 @@ async function inferNameFromPrintedHeader(canvas){
 function scoreResult(r){
  const key=keyForModel(r.model),start=Number(draft.question_start||1);let score=0,total=Math.min(Number(draft.question_count||20),key.length||20);
  r.answers.forEach((a,i)=>{const k=key[i];a.correctIndex=k?Number(k.correct_index):null;a.indicator=k?.indicator||'';a.correct=a.selected!==null&&a.correctIndex!==null&&Number(a.selected)===Number(a.correctIndex);if(a.correct)score++;});
- const confs=r.answers.map(a=>Number(a.confidence)).filter(Number.isFinite),clearConfs=r.answers.filter(a=>a.status==='clear'||a.status==='manual').map(a=>Number(a.confidence)).filter(Number.isFinite);
+ const confs=r.answers.map(a=>Number(a.originalConfidence??a.confidence)).filter(Number.isFinite),clearConfs=r.answers.filter(a=>a.status==='clear'||a.status==='manual').map(a=>Number(a.originalConfidence??a.confidence)).filter(Number.isFinite);
  const avg=confs.length?confs.reduce((s,x)=>s+x,0)/confs.length:0,minClear=clearConfs.length?Math.min(...clearConfs):0;
  const manual=r.answers.filter(a=>a.status==='manual'||a.manualChanged===true).length;
- const low=r.answers.filter(a=>Number.isFinite(Number(a.confidence))&&Number(a.confidence)<.80).length;
+ const low=r.answers.filter(a=>Number.isFinite(Number(a.originalConfidence??a.confidence))&&Number(a.originalConfidence??a.confidence)<.80).length;
  r.score=score;r.total=total;
  r.unresolved=r.answers.filter(a=>a.status==='multiple'||a.status==='ambiguous').length+(!r.qrValid?1:0);
- r.omr={confidence:Number(avg.toFixed(3)),min_clear_confidence:Number(minClear.toFixed(3)),marker_confidence:Number(r.markerConfidence||0),manual_answers:manual,low_confidence_answers:low,answer_count:r.answers.length,auto_accept:!!r.qrValid&&!!r.markersOk&&r.unresolved===0&&avg>=.95&&minClear>=.90};
+ r.omr={confidence:Number(avg.toFixed(3)),min_clear_confidence:Number(minClear.toFixed(3)),marker_confidence:Number(r.markerConfidence||0),manual_answers:manual,low_confidence_answers:low,answer_count:r.answers.length,auto_accept:!!r.qrValid&&!!r.markersOk&&r.unresolved===0&&manual===0&&avg>=.95&&minClear>=.90};
  return r;
 }
 async function processRegion(c,pageNo,regionNo){
@@ -317,7 +317,7 @@ function saveModal(){
 async function approve(){
  const unresolved=results.filter(r=>!r.qrValid||!r.markersOk||r.answers.some(a=>a.status==='multiple'||a.status==='ambiguous'));
  if(unresolved.length){openModal(results.indexOf(unresolved[0]));return;}
- const payload={review_id:draft.review_id,title:draft.title,approved_at:new Date().toISOString(),results:results.map(r=>({student_id:r.assignment?.student_id||'',student_name:r.studentName,model:r.model,score:r.score,total:r.total,omr:r.omr||null,answers:r.answers.map(a=>({question:a.question,selected:a.selected,correct_index:a.correctIndex,correct:a.correct,indicator:a.indicator,status:a.status,original_status:a.originalStatus||a.status,confidence:Number(a.confidence||0),manual_changed:a.manualChanged===true}))}))};
+ const payload={review_id:draft.review_id,title:draft.title,approved_at:new Date().toISOString(),results:results.map(r=>({student_id:r.assignment?.student_id||'',student_name:r.studentName,model:r.model,score:r.score,total:r.total,omr:r.omr||null,answers:r.answers.map(a=>({question:a.question,selected:a.selected,correct_index:a.correctIndex,correct:a.correct,indicator:a.indicator,status:a.status,original_status:a.originalStatus||a.status,confidence:Number(a.originalConfidence??a.confidence??0),manual_changed:a.manualChanged===true}))}))};
  const btn=$('approveBtn');btn.disabled=true;btn.textContent='جارٍ حفظ النتائج في المنصة…';
  try{
    const saved=await NafesTeacher.api('teacher_paper_review_save',{
@@ -349,7 +349,7 @@ $('fileInput').addEventListener('change',e=>{file=e.target.files?.[0]||null;$('p
 $('processBtn').onclick=processFile;$('clearBtn').onclick=()=>{file=null;$('fileInput').value='';$('processBtn').disabled=true;$('dropzone').querySelector('b').textContent='اختر PDF أو اسحبه هنا';$('progressWrap').classList.add('hidden');};
 ['dragenter','dragover'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{e.preventDefault();$('dropzone').classList.add('drag');}));['dragleave','drop'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{$('dropzone').classList.remove('drag');if(ev==='drop'){e.preventDefault();file=e.dataTransfer.files?.[0]||null;$('processBtn').disabled=!file;$('dropzone').querySelector('b').textContent=file?file.name:'اختر PDF أو اسحبه هنا';}}));
 $('resultsBody').addEventListener('click',e=>{const b=e.target.closest('[data-open]');if(b)openModal(Number(b.dataset.open));});
-$('answerEditor').addEventListener('click',e=>{const b=e.target.closest('[data-answer]');if(!b||activeIndex<0)return;const a=results[activeIndex].answers[Number(b.dataset.answer)],choice=Number(b.dataset.choice);const before=a.selected;if(!a.originalStatus)a.originalStatus=a.status;a.selected=choice<0?null:choice;a.manualChanged=before!==a.selected;a.status='manual';a.confidence=1;scoreResult(results[activeIndex]);openModal(activeIndex);});
+$('answerEditor').addEventListener('click',e=>{const b=e.target.closest('[data-answer]');if(!b||activeIndex<0)return;const a=results[activeIndex].answers[Number(b.dataset.answer)],choice=Number(b.dataset.choice);const before=a.selected;if(!a.originalStatus)a.originalStatus=a.status;if(a.originalConfidence===undefined)a.originalConfidence=a.confidence;a.selected=choice<0?null:choice;a.manualChanged=before!==a.selected;a.status='manual';scoreResult(results[activeIndex]);openModal(activeIndex);});
 $('saveSheetBtn').onclick=saveModal;$('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>{const i=results.findIndex(r=>r.unresolved>0);if(i>=0)openModal(i);};$('approveBtn').onclick=approve;$('exportBtn').onclick=exportCsv;
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();});
 init();
