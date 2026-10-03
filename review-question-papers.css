@@ -65,3 +65,14 @@
  .paper-page.continuation-page .exam-brand{font-size:13pt!important}
  .paper-page.continuation-page .grade-box{font-size:10pt!important}
 }
+
+/* Firefox Arabic font metrics are taller than Chromium on Linux/Windows.
+   Keep the same font size and compact only vertical rhythm so pagination stays equivalent. */
+@supports (-moz-appearance: none){
+ .question{padding-bottom:.4mm;margin-bottom:.4mm}
+ .stem{line-height:1.30!important;margin-bottom:.4mm!important}
+ .choices{line-height:1.22!important;row-gap:.15mm!important}
+ .passage-group{margin-top:1mm;margin-bottom:.7mm}
+ .paper-page.continuation-page .exam-frame-head{min-height:8mm!important;padding:.8mm 3mm!important}
+ .paper-page.continuation-page .page-number{margin:.6mm 2mm .8mm}
+}
