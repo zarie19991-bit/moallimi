@@ -115,11 +115,68 @@ async function latestAssessmentPlanPerfs(studentIds:string[],scope:SubjectScope=
   return out;
 }
 
-async function planQuestionGroups(rows:any[],perIndicator=3){
+async function pickPlanQuestionIds(subject:string,outcome:string,indicator:number,tier:string,count:number){
+  const {data,error}=await db.from("nafes_question_bank")
+    .select("id,cognitive_level,options,correct_index,context_text,question_text")
+    .eq("is_active",true).eq("review_status","approved").eq("alignment_verified",true)
+    .eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator).limit(160);
+  if(error)throw error;
+  const ids=(data||[]).map((q:any)=>q.id);let excluded=new Set<string>();
+  if(ids.length){const {data:ex,error:xe}=await db.from("lugati_remedial_question_exclusions").select("question_id").in("question_id",ids);if(xe)throw xe;excluded=new Set((ex||[]).map((x:any)=>String(x.question_id)))}
+  const badVisual=/(?:في الشكل|من الشكل|كما في الشكل|الشكل الآتي|الشكل التالي|الشكل الموضح|الرسم الآتي|الرسم التالي|الرسم الموضح|المخطط الآتي|المخطط التالي|المخطط الموضح|الجدول الآتي|الجدول التالي|الجدول الموضح)/;
+  const badMeta=/(?:أي صيغة سؤال تقيس|ما الذي يجب أن تتقنه|أي وصف يعبّر بدقة عن المهارة|أفضل خطوة تبدأ بها|أي سؤال من الآتي يرتبط مباشرة بهذا المؤشر|أي علامة في السؤال تساعدك أكثر)/;
+  const rows=(data||[]).filter((q:any)=>{
+    const text=String(q.context_text||"")+" "+String(q.question_text||"");
+    return !excluded.has(String(q.id))&&!badVisual.test(text)&&!badMeta.test(text)&&Array.isArray(q.options)&&q.options.length===4&&new Set(q.options.map((x:any)=>String(x).trim())).size===4&&Number.isInteger(Number(q.correct_index));
+  });
+  if(!rows.length)throw Object.assign(new Error("لا توجد أسئلة معتمدة كافية لهذا المؤشر."),{status:409});
+  const shuffle=(a:any[])=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+  const pools:any={knowledge:shuffle(rows.filter((q:any)=>q.cognitive_level==="knowledge")),application:shuffle(rows.filter((q:any)=>q.cognitive_level==="application")),reasoning:shuffle(rows.filter((q:any)=>q.cognitive_level==="reasoning"))};
+  const n=Math.max(2,Math.min(6,Math.trunc(Number(count)||3)));
+  const target:any=tier==="remedial"
+    ?{knowledge:Math.ceil(n*.45),application:Math.floor(n*.45),reasoning:Math.max(0,n-Math.ceil(n*.45)-Math.floor(n*.45))}
+    :tier==="enrichment"
+      ?{knowledge:0,application:Math.max(1,Math.floor(n*.35)),reasoning:n-Math.max(1,Math.floor(n*.35))}
+      :{knowledge:Math.max(0,Math.floor(n*.2)),application:Math.ceil(n*.5),reasoning:n-Math.max(0,Math.floor(n*.2))-Math.ceil(n*.5)};
+  const chosen:any[]=[];
+  for(const lv of ["knowledge","application","reasoning"])chosen.push(...(pools[lv]||[]).slice(0,target[lv]||0));
+  for(const q of shuffle(rows))if(chosen.length<n&&!chosen.some((x:any)=>String(x.id)===String(q.id)))chosen.push(q);
+  return chosen.slice(0,n).map((q:any)=>String(q.id));
+}
+function withEqualWeights(rows:any[]){
+  const w=rows.length?Math.round((100/rows.length)*100)/100:0;
+  return rows.map((r:any)=>({...r,weight_percent:w,indicator_kind:"مؤشر أداء أكاديمي"}));
+}
+function overallPlanDecision(rows:any[]){
+  const scores=rows.map((r:any)=>Number(r.diagnostic_percent??0));
+  if(!scores.length)return{tier:"reinforcement",tier_label:"تعزيزية",overall_score:null,minimum:null,maximum:null,weak_count:0,strong_count:0,critical_count:0,reason:"لا توجد بيانات كافية للتصنيف.",recommendation:""};
+  const avg=Math.round((scores.reduce((a,b)=>a+b,0)/scores.length)*10)/10,min=Math.min(...scores),max=Math.max(...scores);
+  const weak=scores.filter(x=>x<70).length,critical=scores.filter(x=>x<50).length,strong=scores.filter(x=>x>=90).length;
+  let tier="reinforcement",reason="";
+  if(avg<70||weak>=2||critical>=1){
+    tier="remedial";
+    const why=[];if(avg<70)why.push("المتوسط الكلي أقل من 70٪");if(weak>=2)why.push("يوجد مؤشرين علاجيين أو أكثر");if(critical>=1)why.push("يوجد مؤشر شديد الضعف أقل من 50٪");reason=why.join("، ");
+  }else if(avg>=90&&min>=80&&strong>=Math.max(1,Math.ceil(scores.length*.8))){
+    tier="enrichment";reason="المتوسط 90٪ فأعلى، ولا يوجد مؤشر دون 80٪، ومعظم المؤشرات في مستوى الإتقان.";
+  }else{
+    tier="reinforcement";reason="الأداء العام فوق الحد العلاجي، لكنه لم يحقق شروط الإثراء المتوازن في جميع المؤشرات.";
+  }
+  const recommendation=tier==="remedial"
+    ?"ورقة علاجية تجمع المؤشرات كلها، مع زيادة التدريب في المؤشرات الأقل أداءً وتثبيت المؤشرات المتقنة."
+    :tier==="enrichment"
+      ?"ورقة إثرائية تجمع المؤشرات كلها في تطبيقات أعلى تفكيرًا، مع المحافظة على تمثيل كل مؤشر."
+      :"ورقة تعزيزية تجمع المؤشرات كلها، وتركز على التطبيق والاستقلالية مع دعم إضافي للمؤشرات الأقرب للحد العلاجي.";
+  return{tier,tier_label:tier==="remedial"?"علاجية":tier==="enrichment"?"إثرائية":"تعزيزية",overall_score:avg,minimum:min,maximum:max,weak_count:weak,strong_count:strong,critical_count:critical,reason,recommendation};
+}
+async function planQuestionGroups(rows:any[],decision:any,baseCount=3){
   const groups:any[]=[];
   for(const r of rows){
+    const tier=String(r.tier||"reinforcement");
+    let count=Math.max(2,Math.min(5,Number(baseCount||3)));
+    if(decision?.tier==="remedial"&&tier==="remedial")count=Math.min(5,count+1);
+    if(decision?.tier==="enrichment")count=Math.max(3,count);
     try{
-      const ids=await pickTaskQuestionIds(r.subject_key,r.outcome_code,Number(r.indicator_index),Math.max(2,Math.min(5,Number(perIndicator||3))));
+      const ids=await pickPlanQuestionIds(r.subject_key,r.outcome_code,Number(r.indicator_index),tier,count);
       groups.push({subject_key:r.subject_key,outcome_code:r.outcome_code,indicator_index:r.indicator_index,indicator_text:r.indicator_text,tier:r.tier,tier_label:r.tier_label,questions:await taskQuestions(ids)});
     }catch(error){
       groups.push({subject_key:r.subject_key,outcome_code:r.outcome_code,indicator_index:r.indicator_index,indicator_text:r.indicator_text,tier:r.tier,tier_label:r.tier_label,questions:[],warning:String((error as Error)?.message||"تعذر اختيار أسئلة لهذا المؤشر.")});
@@ -173,19 +230,19 @@ function unifiedRows(perfs:any[],scope:SubjectScope="all"){
 function unifiedSummary(rows:any[]){return{indicators:rows.length,remedial:rows.filter(x=>x.tier==="remedial").length,reinforcement:rows.filter(x=>x.tier==="reinforcement").length,enrichment:rows.filter(x=>x.tier==="enrichment").length,measurements:rows.reduce((n,x)=>n+Number(x.measurements||0),0)}}
 async function studentUnifiedPlan(req:Request,access:Access){
   if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);
-  const students=await roster([access.student_id!]),student=students[0]||null,sources=await assessmentPlanSources(access.student_id!,"all");
-  const selected:any[]=[],seen=new Set<string>();
-  for(const s of sources){if(seen.has(String(s.subject_key)))continue;seen.add(String(s.subject_key));selected.push(s)}
-  const perfs=selected.flatMap((s:any)=>s.perfs||[]),rows=unifiedRows(perfs,"all");
-  const question_groups=await planQuestionGroups(rows,3);
-  return json(req,{ok:true,student,sources:selected.map(publicPlanSource),method:{label:"خطة مرتبطة باختبار معلّمي",description:"تُبنى الخطة من مؤشرات آخر اختبار مؤشرات في معلّمي لكل مادة فقط؛ لا تُضاف مؤشرات من اختبارات أقدم أو من مواد أخرى.",thresholds:{remedial:"أقل من 70٪",reinforcement:"70٪ إلى أقل من 90٪",enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),rows,question_groups});
+  const students=await roster([access.student_id!]),student=students[0]||null,sources=await assessmentPlanSources(access.student_id!,"all"),source=sources[0]||null;
+  if(!source)return json(req,{ok:true,student,selected_source:null,sources:[],summary:unifiedSummary([]),decision:null,rows:[],question_groups:[]});
+  const rows=withEqualWeights(unifiedRows(source.perfs||[],"all")),decision=overallPlanDecision(rows),question_groups=await planQuestionGroups(rows,decision,3);
+  return json(req,{ok:true,student,selected_source:publicPlanSource(source),sources:sources.map(publicPlanSource),method:{label:"تصنيف تربوي متوازن",description:"كل مؤشر له وزن متساوٍ داخل الاختبار. التصنيف النهائي لا يعتمد على المتوسط وحده؛ وجود ضعف حاد أو تكرر المؤشرات العلاجية يمنع إخفاء الفجوات.",weights:"متساوية بين مؤشرات الاختبار",thresholds:{indicator_remedial:"أقل من 70٪",indicator_reinforcement:"70٪ إلى أقل من 90٪",indicator_enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),decision,rows,question_groups});
 }
 async function teacherUnifiedOverview(req:Request,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
-  const scope=teacherScope(access);if(scope==="reading")return json(req,{ok:true,subject_scope:scope,summary:unifiedSummary([])});
-  const students=await roster(),ids=students.map((s:any)=>String(s.id));
-  const perfs=await latestAssessmentPlanPerfs(ids,scope),rows=unifiedRows(perfs,scope);
-  return json(req,{ok:true,subject_scope:scope,summary:unifiedSummary(rows)});
+  const scope=teacherScope(access);if(scope==="reading")return json(req,{ok:true,subject_scope:scope,summary:{students:0,remedial:0,reinforcement:0,enrichment:0}});
+  const students=await roster(),ids=students.map((s:any)=>String(s.id)),perfs=await latestAssessmentPlanPerfs(ids,scope),bySource=new Map<string,any[]>();
+  for(const p of perfs){const key=String(p.student_id)+":"+String(p.source_key);if(!bySource.has(key))bySource.set(key,[]);bySource.get(key)!.push(p)}
+  const decisions=[...bySource.values()].map((group:any[])=>overallPlanDecision(withEqualWeights(unifiedRows(group,scope))));
+  const summary={students:decisions.length,remedial:decisions.filter((d:any)=>d.tier==="remedial").length,reinforcement:decisions.filter((d:any)=>d.tier==="reinforcement").length,enrichment:decisions.filter((d:any)=>d.tier==="enrichment").length};
+  return json(req,{ok:true,subject_scope:scope,summary});
 }
 async function teacherUnifiedSources(req:Request,body:any,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
@@ -199,12 +256,11 @@ async function teacherUnifiedPlan(req:Request,body:any,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
   const studentId=tidy(body?.student_id);if(!studentId)return json(req,{error:"اختر الطالب أولًا."},400);
   const students=await roster([studentId]);const student=students[0];if(!student)return json(req,{error:"الطالب غير موجود أو غير نشط."},404);
-  const scope=teacherScope(access);if(scope==="reading")return json(req,{ok:true,student,subject_scope:scope,method:{label:"خطة مرتبطة باختبار معلّمي",description:"هذه الورقة مخصصة للرياضيات والعلوم."},summary:unifiedSummary([]),rows:[],question_groups:[]});
-  const sources=await assessmentPlanSources(studentId,scope),requested=tidy(body?.source_key);
-  const source=(requested?sources.find((x:any)=>String(x.source_key)===requested):sources[0])||null;
-  if(!source)return json(req,{ok:true,student,subject_scope:scope,selected_source:null,sources:[],method:{label:"خطة مرتبطة باختبار معلّمي",description:"لا يوجد اختبار مؤشرات متعدد في الرياضيات أو العلوم لهذا الطالب."},summary:unifiedSummary([]),rows:[],question_groups:[]});
-  const rows=unifiedRows(source.perfs||[],scope),question_groups=await planQuestionGroups(rows,Math.max(2,Math.min(5,Number(body?.questions_per_indicator||3))));
-  return json(req,{ok:true,student,subject_scope:scope,selected_source:publicPlanSource(source),sources:sources.map(publicPlanSource),method:{label:"خطة مرتبطة باختبار معلّمي",description:"هذه الخطة محصورة في مؤشرات الاختبار المحدد نفسه فقط. إذا كان الاختبار يتكون من 5 مؤشرات فكل أسئلة الخطة تُختار من هذه المؤشرات الخمسة ولا يدخل أي مؤشر آخر.",thresholds:{remedial:"أقل من 70٪",reinforcement:"70٪ إلى أقل من 90٪",enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),rows,question_groups});
+  const scope=teacherScope(access);if(scope==="reading")return json(req,{ok:true,student,subject_scope:scope,summary:unifiedSummary([]),decision:null,rows:[],question_groups:[]});
+  const sources=await assessmentPlanSources(studentId,scope),requested=tidy(body?.source_key),source=(requested?sources.find((x:any)=>String(x.source_key)===requested):sources[0])||null;
+  if(!source)return json(req,{ok:true,student,subject_scope:scope,selected_source:null,sources:[],summary:unifiedSummary([]),decision:null,rows:[],question_groups:[]});
+  const rows=withEqualWeights(unifiedRows(source.perfs||[],scope)),decision=overallPlanDecision(rows),question_groups=await planQuestionGroups(rows,decision,Math.max(2,Math.min(5,Number(body?.questions_per_indicator||3))));
+  return json(req,{ok:true,student,subject_scope:scope,selected_source:publicPlanSource(source),sources:sources.map(publicPlanSource),method:{label:"تصنيف تربوي متوازن",description:"الخطة محصورة في مؤشرات الاختبار المحدد نفسه، وكل مؤشر ممثل بوزن متساوٍ. التصنيف النهائي يستخدم المتوسط مع بوابات أمان تمنع إخفاء مؤشر ضعيف داخل متوسط مرتفع.",weights:"متساوية بين مؤشرات الاختبار",thresholds:{indicator_remedial:"أقل من 70٪",indicator_reinforcement:"70٪ إلى أقل من 90٪",indicator_enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),decision,rows,question_groups});
 }
 
 async function syncStudents(ids?:string[],scope:SubjectScope="all"){
