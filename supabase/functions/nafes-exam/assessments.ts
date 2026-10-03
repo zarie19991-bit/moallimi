@@ -133,12 +133,12 @@ function selectIndicatorQuestions(candidates:Row[],count:number,subject:string,s
   return picked;
 }
 
-function levelTargets(subject:string,count:number){
-  const base=subject==='science'
-    ?{knowledge:3,application:7,reasoning:5}
-    :{knowledge:2,application:8,reasoning:5};
-  const total=15;
-  const raw=Object.entries(base).map(([level,n])=>({level,raw:count*n/total,count:Math.floor(count*n/total)}));
+function levelTargets(subject:string,count:number,custom?:Row|null){
+  const base=custom&&['knowledge','application','reasoning'].every(k=>Number.isFinite(Number(custom[k])))
+    ?{knowledge:Number(custom.knowledge),application:Number(custom.application),reasoning:Number(custom.reasoning)}
+    :(subject==='science'?{knowledge:20,application:47,reasoning:33}:{knowledge:13,application:54,reasoning:33});
+  const levels=['knowledge','application','reasoning'];
+  const raw=levels.map(level=>({level,raw:count*Number((base as any)[level]||0)/100,count:Math.floor(count*Number((base as any)[level]||0)/100)}));
   let left=count-raw.reduce((s,x)=>s+x.count,0);
   raw.sort((x,y)=>(y.raw-y.count)-(x.raw-x.count));
   for(let i=0;i<raw.length&&left>0;i++,left--)raw[i].count++;
@@ -243,7 +243,31 @@ function curatedQuestionEligible(q:Row,subject:string){
   if(needsVisual&&(!q?.image?.url||!q?.image?.alt))return false;
   return true;
 }
-function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
+function allocateSectionLevelTargets(indicators:Row[],pool:Row[],subject:string,total:number,custom?:Row|null,fixedModel?:number|null){
+  const remaining=levelTargets(subject,total,custom),plans=new Map<string,Record<string,number>>();
+  const levels=['knowledge','application','reasoning'];
+  for(const ind of indicators||[]){
+    const need=Math.max(0,Number(ind.count||0));
+    let candidates=pool.filter(q=>q.indicator_key===ind.key&&curatedQuestionEligible(q,subject));
+    if(fixedModel)candidates=candidates.filter(q=>q.model_no===fixedModel);
+    const available:Object=Object.fromEntries(levels.map(level=>[level,candidates.filter(q=>q.cognitive_level===level).length]));
+    const plan:Record<string,number>={knowledge:0,application:0,reasoning:0};
+    for(let slot=0;slot<need;slot++){
+      const feasible=levels.filter(level=>plan[level]<Number((available as any)[level]||0));
+      if(!feasible.length)break;
+      feasible.sort((x,y)=>{
+        const rx=Math.max(0,Number(remaining[x]||0)),ry=Math.max(0,Number(remaining[y]||0));
+        if(ry!==rx)return ry-rx;
+        const ax=Number((available as any)[x]||0)-plan[x],ay=Number((available as any)[y]||0)-plan[y];
+        return ay-ax;
+      });
+      const level=feasible[0];plan[level]++;if(remaining[level]>0)remaining[level]--;
+    }
+    plans.set(String(ind.key),plan);
+  }
+  return plans;
+}
+function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>,explicitTargets?:Record<string,number>):Row[]{
   const mixed=rankQuestionCandidates(candidates.filter(q=>curatedQuestionEligible(q,subject)),seed+'|curated-quality');
   const unique:Row[]=[];
   const localStems=new Set<string>();
@@ -254,7 +278,7 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
   }
   if(unique.length<count)fail(`لا توجد أسئلة محكَّمة ومتنوعة كافية لهذا المؤشر: المطلوب ${count} والمتاح بعد استبعاد الصياغات الضعيفة والمتكررة ${unique.length} فقط.`);
 
-  const targets=levelTargets(subject,count),picked:Row[]=[];
+  const targets=explicitTargets||levelTargets(subject,count),picked:Row[]=[];
   const pickedIds=new Set<string>();
   const familyCounts=new Map<string,number>();
   const add=(q:Row)=>{
@@ -1055,13 +1079,16 @@ async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:un
     } else {
       pool=await fullPool(db,s.subject,s.indicators?.map((i:Row)=>i.key));
       if(excludedIds.size)pool=pool.filter(q=>!excludedIds.has(String(q.id)));
+      const levelPlan=(s.subject==='math'||s.subject==='science')
+        ?allocateSectionLevelTargets(s.indicators||[],pool,s.subject,s.question_count,c.cognitive_targets||null,s.fixed_model||null)
+        :null;
       for(const i of s.indicators){
         let candidates=pool.filter(q=>q.indicator_key===i.key);
         if(s.fixed_model)candidates=candidates.filter(q=>q.model_no===s.fixed_model);
         const picked=(c.review_passage_mode===true&&s.subject==='reading')
           ?selectReadingPassageQuestions(candidates,i.count,token(8),used,usedStems)
           :((s.subject==='math'||s.subject==='science')
-            ?selectCuratedIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems)
+            ?selectCuratedIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems,levelPlan?.get(String(i.key)))
             :selectIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems));
         qs.push(...picked);
       }
@@ -1267,7 +1294,7 @@ function validatePaperReviewPayload(raw:unknown,owner:Row):Row {
   const compact={
     ...p,
     review_id:reviewId,
-    title:tidy(p.title,160)||'مراجعة ورقية',
+    title:tidy(p.title,160)||'اختبار ورقي',
     subject,subjects,
     class_name:tidy(p.class_name,80),
     question_count:Number(p.question_count||0),
@@ -1277,7 +1304,7 @@ function validatePaperReviewPayload(raw:unknown,owner:Row):Row {
     indicator_counts:Array.isArray(p.indicator_counts)?p.indicator_counts:[],
     saved_at:tidy(p.saved_at,80)||new Date().toISOString()
   };
-  if(!Number.isInteger(compact.question_count)||compact.question_count<1||compact.question_count>60)fail('عدد أسئلة المراجعة غير صالح.');
+  if(!Number.isInteger(compact.question_count)||compact.question_count<10||compact.question_count>60)fail('عدد أسئلة الاختبار يجب أن يكون من ١٠ إلى ٦٠ سؤالًا.');
   for(const model of models){
     for(const q of Array.isArray(model?.questions)?model.questions:[]){
       const indicator=tidy(q?.indicator,160);
@@ -1328,7 +1355,7 @@ async function teacherPaperReviewList(db:any,owner:Row){
 async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
   const reviewId=tidy(b.review_id,80);
   if(!/^R[A-Z0-9_-]{4,79}$/i.test(reviewId))fail('معرّف المراجعة الورقية غير صالح.');
-  const title=tidy(b.title,160)||'مراجعة ورقية';
+  const title=tidy(b.title,160)||'اختبار ورقي';
   const models=Array.isArray(b.models)?b.models:[];
   const answerKeys=Array.isArray(b.answer_keys)?b.answer_keys:[];
   const results=Array.isArray(b.results)?b.results:[];
