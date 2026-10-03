@@ -369,19 +369,40 @@ function renderPages(){
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
+function collectPrintMetrics(){
+ const pages=[...document.querySelectorAll('.paper-page')];
+ const details=pages.map((page,index)=>{
+   const flow=page.querySelector('.questions-flow');
+   const overflowY=flow?Math.max(0,flow.scrollHeight-flow.clientHeight):0;
+   const overflowX=flow?Math.max(0,flow.scrollWidth-flow.clientWidth):0;
+   return{page:index+1,overflow_y_px:overflowY,overflow_x_px:overflowX,unresolved:page.dataset.layoutUnresolved==='1'};
+ });
+ const maxOverflow=Math.max(0,...details.map(x=>Math.max(x.overflow_y_px,x.overflow_x_px)));
+ return{at:new Date().toISOString(),pages:pages.length,max_overflow_px:maxOverflow,details};
+}
 function prepareExactPrint(){
- // أعد توزيع المحتوى داخل نفس مساحة الطباعة الآمنة قبل فتح المعاينة.
  document.documentElement.classList.add('print-preparing');
- fitAllRenderedPages();
+ const started=performance.now();
+ for(let pass=0;pass<3;pass++)fitAllRenderedPages();
+ const metrics=collectPrintMetrics();
+ metrics.layout_ms=Math.round(performance.now()-started);
+ localStorage.setItem('nafes_question_paper_last_print_metrics',JSON.stringify(metrics));
+ const bad=metrics.details.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2);
+ if(bad.length){
+   document.documentElement.classList.remove('print-preparing');
+   $('screenMeta').textContent='تم إيقاف الطباعة: '+ar(bad.length)+' صفحة ما زالت تتجاوز مساحة A4. أعد فتح الصفحة بعد تحديثها.';
+   return false;
+ }
+ return true;
 }
 $('printBtn').onclick=()=>{
- prepareExactPrint();
+ if(!prepareExactPrint())return;
  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-   fitAllRenderedPages();
+   if(!prepareExactPrint())return;
    window.print();
  }));
 };
-addEventListener('beforeprint',()=>fitAllRenderedPages());
+addEventListener('beforeprint',()=>{if(!prepareExactPrint())return;});
 addEventListener('afterprint',()=>{
  document.documentElement.classList.remove('print-preparing');
  renderPages();
