@@ -38,6 +38,23 @@ function must(result:Row) {if(result.error)throw result.error;return result.data
 function rendered(row:Row) {return{id:row.id,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:`${row.subject_key}:${row.outcome_code}:i${row.indicator_index}`,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:studentFacingContext(row.subject_key,row.context_text),question:row.question_text,options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:reviewedImage(row)};}
 function curatedVersion(subject:string){return subject==='science'?'science-curated-v4':subject==='math'?'math-curated-v4':'';}
 function renderedCurated(row:Row){return{id:row.id,bank_source:'indicator_curated_bank',quality_version:row.quality_version,subject:row.subject_key,outcome:row.outcome_code,indicator:row.indicator_index,indicator_key:row.indicator_key,indicator_text:row.indicator_text,model_no:row.model_no,question_no:row.question_no,context:studentFacingContext(row.subject_key,row.context_text),question:studentFacingQuestion(row.subject_key,row.question_text,row.cognitive_level),options:row.options,correctIndex:row.correct_index,explanation:row.explanation||null,cognitive_level:row.cognitive_level,difficulty:row.difficulty,image:row.image&&row.image.url?{url:String(row.image.url),alt:String(row.image.alt||'')}:null};}
+async function attachQualityAudit(db:any,rows:Row[]):Promise<Row[]>{
+  if(!rows.length)return rows;
+  const ids=rows.map(q=>String(q.id||'')).filter(isUUID),audit=new Map<string,any>();
+  for(let i=0;i<ids.length;i+=300){
+    const {data,error}=await db.from('maintenance_agent_item_quality_audit')
+      .select('question_id,detected_level,level_match,semantic_current,semantic_judgment,distractor_score,design_score,alignment_band,flags')
+      .in('question_id',ids.slice(i,i+300));
+    if(error)throw error;
+    for(const a of data||[])audit.set(String(a.question_id),a);
+  }
+  return rows.map(q=>{
+    const a=audit.get(String(q.id||''));if(!a)return q;
+    const detected=String(a.detected_level||'');
+    const effective=(a.semantic_current&&a.level_match===false&&['knowledge','application','reasoning'].includes(detected))?detected:String(q.cognitive_level||'');
+    return {...q,registered_cognitive_level:q.cognitive_level,cognitive_level:effective,quality_audit:a};
+  });
+}
 async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
   const all:Row[]=[];
   const version=curatedVersion(subject);
@@ -52,7 +69,7 @@ async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
       for(const q of page||[])all.push(renderedCurated(q));
       if(!page||page.length<500)break;
     }
-    return all;
+    return attachQualityAudit(db,all);
   }
   const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];
   for(let start=0;;start+=500){
@@ -152,6 +169,20 @@ function stemFamilyKey(q:Row){
     .slice(0,7)
     .join(' ');
 }
+function auditFlagCodes(q:Row):Set<string>{
+  const raw=Array.isArray(q?.quality_audit?.flags)?q.quality_audit.flags:[];
+  return new Set(raw.map((x:any)=>String(x?.code||x||'')).filter(Boolean));
+}
+function qualityAuditTier(q:Row):number{
+  const a=q?.quality_audit;if(!a)return 4;
+  const band=String(a.alignment_band||''),current=a.semantic_current===true,flags=auditFlagCodes(q);
+  if(band==='weak'||flags.has('weak_distractors'))return 5;
+  if(current&&band==='strong'&&!flags.has('template_repetition'))return 0;
+  if(current&&(band==='strong'||band==='acceptable'))return 1;
+  if(band==='strong'||band==='acceptable')return 2;
+  if(band==='review'&&!flags.has('template_repetition'))return 3;
+  return 4;
+}
 function structuralQuestionStrength(q:Row):number{
   let score=58;
   const text=String(q?.question??q?.question_text??'').trim();
@@ -172,11 +203,26 @@ function structuralQuestionStrength(q:Row):number{
     if(mn>0&&mx/Math.max(1,mn)<=2.8)score+=4;else score-=4;
   }
   if(/كل ما سبق|جميع ما سبق|لا شيء مما سبق/.test(options.join(' ')))score-=5;
+  const a=q?.quality_audit;
+  if(a){
+    const design=Number(a.design_score),distr=Number(a.distractor_score);
+    if(Number.isFinite(design)&&Number.isFinite(distr))score=Math.round(score*.32+design*.38+distr*.30);
+    const flags=auditFlagCodes(q);
+    if(a.semantic_current===true)score+=5;else score-=3;
+    if(String(a.alignment_band)==='strong')score+=6;
+    else if(String(a.alignment_band)==='acceptable')score+=2;
+    else if(String(a.alignment_band)==='review')score-=9;
+    else if(String(a.alignment_band)==='weak')score-=28;
+    if(a.level_match===false)score-=12;
+    if(flags.has('template_repetition'))score-=10;
+    if(flags.has('option_length_imbalance'))score-=5;
+    if(flags.has('weak_distractors'))score-=18;
+  }
   return Math.max(0,Math.min(100,Math.round(score)));
 }
 function rankQuestionCandidates(rows:Row[],seed:string):Row[]{
-  return rows.map(q=>({q,score:structuralQuestionStrength(q),tie:randomFrom(seed+'|'+String(q.id||stemKey(q)))()}))
-    .sort((a,b)=>b.score-a.score||b.tie-a.tie).map(x=>x.q);
+  return rows.map(q=>({q,tier:qualityAuditTier(q),score:structuralQuestionStrength(q),tie:randomFrom(seed+'|'+String(q.id||stemKey(q)))()}))
+    .sort((a,b)=>a.tier-b.tier||b.score-a.score||b.tie-a.tie).map(x=>x.q);
 }
 
 function curatedQuestionEligible(q:Row,subject:string){
@@ -185,6 +231,8 @@ function curatedQuestionEligible(q:Row,subject:string){
   const ci=Number(q?.correctIndex??q?.correct_index);
   if(!text||options.length!==4||new Set(options).size!==4||options.some((x:string)=>!x))return false;
   if(!Number.isInteger(ci)||ci<0||ci>3)return false;
+  const audit=q?.quality_audit,flags=auditFlagCodes(q);
+  if(String(audit?.alignment_band||'')==='weak'||flags.has('weak_distractors'))return false;
   if(/أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين|ما الإجابة التي تنقل مفهوم|لزم حل المهمة/.test(text))return false;
   if((subject==='math'||subject==='science')&&INTERNAL_STUDENT_STEM.test(text))return false;
   if(subject==='science'){
@@ -217,15 +265,19 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
   };
   const takeLevel=(level:string,desired:number)=>{
     if(!desired)return 0;
-    const pool=rankQuestionCandidates(unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id))),seed+'|'+level+'|quality');
+    const basePool=unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id)));
     let taken=0;
-    for(const cap of [1,2,3,99]){
-      for(const q of pool){
+    for(const tier of [0,1,2,3,4,5]){
+      const pool=rankQuestionCandidates(basePool.filter(q=>qualityAuditTier(q)===tier),seed+'|'+level+'|tier'+tier);
+      for(const cap of [1,2,3,99]){
+        for(const q of pool){
+          if(taken>=desired)break;
+          if(pickedIds.has(String(q.id)))continue;
+          const family=stemFamilyKey(q);
+          if((familyCounts.get(family)||0)>=cap)continue;
+          add(q);taken++;
+        }
         if(taken>=desired)break;
-        if(pickedIds.has(String(q.id)))continue;
-        const family=stemFamilyKey(q);
-        if((familyCounts.get(family)||0)>=cap)continue;
-        add(q);taken++;
       }
       if(taken>=desired)break;
     }
