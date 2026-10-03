@@ -363,9 +363,22 @@ function renderPages(){
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
-$('printBtn').onclick=()=>{
+function prepareExactPrint(){
+ // أعد توزيع المحتوى داخل نفس مساحة الطباعة الآمنة قبل فتح المعاينة.
+ document.documentElement.classList.add('print-preparing');
  fitAllRenderedPages();
- requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
+}
+$('printBtn').onclick=()=>{
+ prepareExactPrint();
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   fitAllRenderedPages();
+   window.print();
+ }));
 };
+addEventListener('beforeprint',()=>fitAllRenderedPages());
+addEventListener('afterprint',()=>{
+ document.documentElement.classList.remove('print-preparing');
+ renderPages();
+});
 render();
 })();
