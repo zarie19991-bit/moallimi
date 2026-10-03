@@ -153,6 +153,10 @@ function modelBooklet(model,d){
  return '<div class="model-booklet" data-booklet="'+esc(model.model)+'">'+pages.map((page,i)=>onePage(model,d,page,i+1,pages.length,questions.length)).join('')+'</div>';
 }
 function pageFits(page,slack=2){
+ if(page?.parentElement?.classList.contains('model-booklet')){
+   const pages=[...page.parentElement.querySelectorAll(':scope > .paper-page')];
+   page.classList.toggle('continuation-page',pages.indexOf(page)>0);
+ }
  const flow=page?.querySelector('.questions-flow');
  if(!flow)return true;
  return flow.scrollHeight<=flow.clientHeight+slack&&flow.scrollWidth<=flow.clientWidth+slack;
@@ -160,6 +164,7 @@ function pageFits(page,slack=2){
 function emptyPageFrom(page){
  const clone=page.cloneNode(true);
  clone.classList.remove('compact-page','compact-page-strong');
+ clone.classList.add('continuation-page');
  clone.querySelector('.questions-flow')?.replaceChildren();
  return clone;
 }
