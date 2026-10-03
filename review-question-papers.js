@@ -146,7 +146,7 @@ function modelBooklet(model,d){
  const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean).sort((a,b)=>paperSubjectRank(a)-paperSubjectRank(b));
  if(subjects.length===1&&subjects[0]==='reading'&&questions.length===20){
    const bad=groups.length!==4||groups.some(g=>!g.context||g.questions.length!==5);
-   if(bad)return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>يجب أن يتكون من ٤ نصوص، وتحت كل نص ٥ أسئلة. أعد إنشاء النماذج من قسم المراجعة والتصحيح الآلي.</p></div></div></section>';
+   if(bad)return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>يجب أن يتكون من ٤ نصوص، وتحت كل نص ٥ أسئلة. أعد إنشاء النماذج من قسم الاختبار الآلي والتصحيح.</p></div></div></section>';
  }
  const mode=subjects.length>1?'mixed':(subjects[0]||d.subject);
  const pages=paginateGroups(groups,mode);
