@@ -57,6 +57,9 @@ lugati-reading-worksheets-ui.css
 lugati-complete.html
 lugati-complete.css
 tamakkun-design-system.css
+tamakkun-unified-plan.css
+tamakkun-unified-plan.js
+tamakkun-competition-polish.css
 lugati-complete.js
 lugati-encouragement.js
 lugati-competition.js
