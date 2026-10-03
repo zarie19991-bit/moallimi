@@ -1,9 +1,13 @@
-/* Unified Moallimi brand logo */
+/* Unified Moallimi brand identity */
+:root{--moallimi-brand:#0f6b63;--moallimi-brand-dark:#0b514c;--moallimi-brand-soft:#eaf7f3;--moallimi-ink:#17324d}
+.platform-brand,.brand,.account-brand,.exam-top .brand{min-height:56px}
+.platform-brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--moallimi-ink)}
 .moallimi-logo-full{
   display:block!important;
   width:158px!important;
   max-width:100%!important;
   height:auto!important;
+  aspect-ratio:3/1!important;
   object-fit:contain!important;
   object-position:center!important;
   flex:0 0 auto!important;
@@ -11,16 +15,23 @@
   border:0!important;
   box-shadow:none!important;
 }
-.side .brand{justify-content:center!important}
+.side .brand{justify-content:center!important;min-height:76px!important}
 .side .brand .moallimi-logo-full{width:170px!important;margin-inline:auto!important}
 .top .brand .moallimi-logo-full,
 .exam-top .brand .moallimi-logo-full,
 .account-brand .moallimi-logo-full{width:150px!important}
 .brand>div small,.account-brand>div small{display:block}
+.moallimi-logo-full[src=""],.moallimi-logo-full:not([src]){display:none!important}
+.platform-brand-fallback{display:none;font-weight:900;color:var(--moallimi-brand);letter-spacing:-.2px}
+.moallimi-logo-full[hidden]+.platform-brand-fallback{display:inline-flex}
+.moallimi-screen-brand{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #dfe9e6;background:#fff;color:var(--moallimi-ink)}
+.moallimi-screen-brand img{width:140px;height:auto;object-fit:contain}
+@media print{.moallimi-screen-brand,.platform-brand{display:none!important}}
 @media(max-width:700px){
   .moallimi-logo-full{width:132px!important}
   .side .brand .moallimi-logo-full{width:148px!important}
   .top .brand .moallimi-logo-full,
   .exam-top .brand .moallimi-logo-full,
   .account-brand .moallimi-logo-full{width:128px!important}
+  .moallimi-screen-brand img{width:122px}
 }
