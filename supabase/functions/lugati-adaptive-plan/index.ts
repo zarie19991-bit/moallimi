@@ -60,19 +60,24 @@ async function latestPerformances(ids?:string[]){
 
 async function assessmentPlanSources(studentId:string,scope:SubjectScope="all"){
   const {data:attempts,error}=await db.from("nafes_assessment_attempts")
-    .select("id,assessment_id,rendered_sections,answers,submitted_at")
+    .select("id,assessment_id,config,events,rendered_sections,answers,submitted_at")
     .eq("student_id",studentId).not("submitted_at","is",null)
     .order("submitted_at",{ascending:false}).limit(120);
   if(error)throw error;
   const assessmentIds=[...new Set((attempts||[]).map((x:any)=>String(x.assessment_id||"")).filter(Boolean))];
   if(!assessmentIds.length)return[];
   const {data:assessments,error:ae}=await db.from("nafes_assessments")
-    .select("id,title,kind,status").in("id",assessmentIds).eq("kind","multi_indicator");
+    .select("id,title,kind,status,config").in("id",assessmentIds).eq("kind","multi_indicator");
   if(ae)throw ae;
   const am=new Map((assessments||[]).map((x:any)=>[String(x.id),x]));
   const sources:any[]=[];
   for(const at of attempts||[]){
     const assessment=am.get(String(at.assessment_id||""));if(!assessment)continue;
+    const paperEvent=Array.isArray(at.events)&&at.events.some((e:any)=>e?.type==="paper_scan"||e?.method==="omr");
+    const isPaper=at.config?.paper_review===true||assessment.config?.paper_review===true||paperEvent;
+    const source_type=isPaper?"paper_omr":"electronic";
+    const source_label=isPaper?"التصحيح الآلي الورقي":"اختبار المؤشرات الإلكتروني";
+    const paper_review_id=isPaper?tidy(at.config?.paper_review_id||assessment.config?.paper_review_id):"";
     const raw=sectionPerfs(at,"assessment").filter((p:any)=>["math","science"].includes(String(p.subject_key))&&(scope==="all"||p.subject_key===scope));
     for(const subject of [...new Set(raw.map((p:any)=>String(p.subject_key)))]){
       const perfs=raw.filter((p:any)=>p.subject_key===subject).map((p:any)=>({
@@ -85,13 +90,13 @@ async function assessmentPlanSources(studentId:string,scope:SubjectScope="all"){
       sources.push({
         source_key:String(at.id)+":"+subject,attempt_id:String(at.id),assessment_id:String(at.assessment_id),
         title:assessment.title||"اختبار مؤشرات",subject_key:subject,subject_label:unifiedSubjectLabel(subject),
-        submitted_at:at.submitted_at,indicator_count:perfs.length,perfs
+        submitted_at:at.submitted_at,indicator_count:perfs.length,source_type,source_label,paper_review_id:paper_review_id||null,perfs
       });
     }
   }
   return sources.sort((a:any,b:any)=>String(b.submitted_at||"").localeCompare(String(a.submitted_at||"")));
 }
-function publicPlanSource(s:any){return s?{source_key:s.source_key,attempt_id:s.attempt_id,assessment_id:s.assessment_id,title:s.title,subject_key:s.subject_key,subject_label:s.subject_label,submitted_at:s.submitted_at,indicator_count:s.indicator_count}:null}
+function publicPlanSource(s:any){return s?{source_key:s.source_key,attempt_id:s.attempt_id,assessment_id:s.assessment_id,title:s.title,subject_key:s.subject_key,subject_label:s.subject_label,submitted_at:s.submitted_at,indicator_count:s.indicator_count,source_type:s.source_type||"electronic",source_label:s.source_label||"اختبار المؤشرات الإلكتروني",paper_review_id:s.paper_review_id||null}:null}
 
 async function latestAssessmentPlanPerfs(studentIds:string[],scope:SubjectScope="all"){
   if(!studentIds.length)return[];
@@ -260,7 +265,7 @@ async function teacherUnifiedPlan(req:Request,body:any,access:Access){
   const sources=await assessmentPlanSources(studentId,scope),requested=tidy(body?.source_key),source=(requested?sources.find((x:any)=>String(x.source_key)===requested):sources[0])||null;
   if(!source)return json(req,{ok:true,student,subject_scope:scope,selected_source:null,sources:[],summary:unifiedSummary([]),decision:null,rows:[],question_groups:[]});
   const rows=withEqualWeights(unifiedRows(source.perfs||[],scope)),decision=overallPlanDecision(rows),question_groups=await planQuestionGroups(rows,decision,Math.max(2,Math.min(5,Number(body?.questions_per_indicator||3))));
-  return json(req,{ok:true,student,subject_scope:scope,selected_source:publicPlanSource(source),sources:sources.map(publicPlanSource),method:{label:"تصنيف تربوي متوازن",description:"الخطة محصورة في مؤشرات الاختبار المحدد نفسه، وكل مؤشر ممثل بوزن متساوٍ. التصنيف النهائي يستخدم المتوسط مع بوابات أمان تمنع إخفاء مؤشر ضعيف داخل متوسط مرتفع.",weights:"متساوية بين مؤشرات الاختبار",thresholds:{indicator_remedial:"أقل من 70٪",indicator_reinforcement:"70٪ إلى أقل من 90٪",indicator_enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),decision,rows,question_groups});
+  return json(req,{ok:true,student,subject_scope:scope,selected_source:publicPlanSource(source),sources:sources.map(publicPlanSource),method:{label:"تصنيف تربوي متوازن",description:"الخطة محصورة في مؤشرات المصدر المحدد نفسه، سواء كان اختبار المؤشرات الإلكتروني أو اختبارًا ورقيًا معتمدًا عبر التصحيح الآلي. كل مؤشر ممثل بوزن متساوٍ، والتصنيف النهائي يستخدم المتوسط مع بوابات أمان تمنع إخفاء مؤشر ضعيف داخل متوسط مرتفع.",weights:"متساوية بين مؤشرات الاختبار",thresholds:{indicator_remedial:"أقل من 70٪",indicator_reinforcement:"70٪ إلى أقل من 90٪",indicator_enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),decision,rows,question_groups});
 }
 
 async function syncStudents(ids?:string[],scope:SubjectScope="all"){
