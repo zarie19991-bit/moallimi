@@ -106,6 +106,8 @@ analysis.js
 analysis-all-subjects.js
 report-absentees.js
 subject-report-separate.js
+analysis-reference-layout.css
+analysis-reference-transform.js
 analysis-section-router.js
 analysis-print.js
 report-test-options.js
