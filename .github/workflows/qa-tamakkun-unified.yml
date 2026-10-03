@@ -1,0 +1,36 @@
+name: QA Tamakkun unified plans
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tamakkun-unified-plan.js'
+      - 'tamakkun-unified-plan.css'
+      - 'tamakkun-competition-polish.css'
+      - 'lugati-dashboard.html'
+      - 'lugati-dashboard.js'
+      - 'lugati-student.html'
+      - 'lugati-complete.html'
+      - 'supabase/functions/lugati-adaptive-plan/**'
+      - 'qa/tamakkun-unified-plan-unit.cjs'
+      - 'qa/competition-unit.cjs'
+      - '.github/workflows/qa-tamakkun-unified.yml'
+  workflow_dispatch:
+
+jobs:
+  tamakkun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax
+        run: |
+          node --check tamakkun-unified-plan.js
+          node --check lugati-dashboard.js
+          node --check lugati-competition.js
+      - name: Unified plan contract
+        run: node qa/tamakkun-unified-plan-unit.cjs
+      - name: Competition regression
+        run: node qa/competition-unit.cjs
