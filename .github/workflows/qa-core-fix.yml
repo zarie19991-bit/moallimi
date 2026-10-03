@@ -1,5 +1,17 @@
 name: QA core stability fixes
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'review-correction.js'
+      - 'review-correction.html'
+      - 'review-question-papers.js'
+      - 'review-question-papers.css'
+      - 'review-question-papers.html'
+      - 'supabase/functions/nafes-exam/**'
+      - 'qa/paper-builder-regression.cjs'
+      - 'qa/review-question-paper-print.mjs'
+      - '.github/workflows/qa-core-fix.yml'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -34,6 +46,7 @@ jobs:
           node --check qa/student-resume-smoke.mjs
           node --check qa/student-paper-smoke.mjs
           node --check qa/paper-builder-regression.cjs
+          node --check qa/review-question-paper-print.mjs
       - name: Core policy regression checks
         run: |
           node <<'NODE'
@@ -143,3 +156,5 @@ jobs:
         run: node qa/student-resume-smoke.mjs
       - name: Browser QA - student paper strict identity
         run: node qa/student-paper-smoke.mjs
+      - name: Browser QA - automatic question paper A4
+        run: node qa/review-question-paper-print.mjs
