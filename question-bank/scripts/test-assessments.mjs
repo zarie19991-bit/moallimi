@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {normalizeConfig,permuteQuestion,randomFrom,gradeQuestions,publicQuestions,buildForms,cleanAnswers,questionKey,selectUnique} from '../../supabase/functions/nafes-exam/assessment-engine.ts';
+import {planReadingPassageAllocation} from '../../supabase/functions/nafes-exam/assessments.ts';
 import analytics from '../../analysis-core.js';
 const q={id:'q1',subject:'math',indicator_key:'math:x:i1',indicator_text:'مهارة',question:'مسألة',context:'سياق',options:['نعم','لا','أحيانًا','لا يمكن'],correctIndex:0};
 test('shuffling retains exactly the correct answer and never produces -1',()=>{for(let n=0;n<80;n++){const mixed=permuteQuestion(q,randomFrom(String(n)));assert.equal(mixed.options[mixed.correctIndex],'نعم');assert.equal(gradeQuestions([mixed],{q1:mixed.correctIndex}).score,1);}});
@@ -13,6 +14,13 @@ test('automated non-simulation tests enforce total range 10 to 60',()=>{
   assert.equal(normalizeConfig(withCount(60)).sections[0].question_count,60);
   assert.throws(()=>normalizeConfig(withCount(9)));
   assert.throws(()=>normalizeConfig(withCount(61)));
+});
+test('adaptive reading passage allocation uses actual question capacity without inventing texts',()=>{
+  assert.deepEqual(planReadingPassageAllocation([15,15],10),[5,5]);
+  assert.deepEqual(planReadingPassageAllocation([3,3,3,3],10),[3,3,2,2]);
+  assert.deepEqual(planReadingPassageAllocation([15],10),[10]);
+  assert.deepEqual(planReadingPassageAllocation([3,3],10),[]);
+  assert.deepEqual(planReadingPassageAllocation([5,5,5],15),[5,5,5]);
 });
 test('per indicator counts and publication settings validate ranges and windows',()=>{const c=normalizeConfig({...config,count_mode:'per_indicator',sections:[{...config.sections[0],indicators:config.sections[0].indicators.map(i=>({...i,count:6}))}]});assert.equal(c.sections[0].question_count,12);assert.throws(()=>normalizeConfig({...config,settings:{opens_at:'2026-12-04',closes_at:'2026-12-03'}}));assert.throws(()=>normalizeConfig({...config,settings:{attempts:11}}));});
 test('question independence includes passage, data choices and image; option permutations are duplicates',()=>{assert.equal(questionKey(q),questionKey({...q,options:q.options.slice().reverse()}));assert.notEqual(questionKey(q),questionKey({...q,options:['1','2','3','4']}));assert.throws(()=>selectUnique([q,{...q,id:'q2',options:q.options.slice().reverse()}],2,'seed'));});
