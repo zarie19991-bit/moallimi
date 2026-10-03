@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id);
 const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-agent';
 const TEST_AUDIT_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-test-audit';
 const SEMANTIC_AUDIT_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-semantic-audit';
-let latestRun=null,latestPrintRun=null,allProposals=[],allHandoffs=[],lastBrainQuestion='';
+let latestRun=null,latestPrintRun=null,allProposals=[],allHandoffs=[],lastBrainQuestion='',lastCorrection=null,correctionDebounce=null;
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sevLabel={ok:'سليم',info:'معلومة',warning:'تحذير',critical:'حرج'};
@@ -401,6 +401,99 @@ async function createPrintHandoff(){
   finally{btn.disabled=false;}
 }
 
+
+function correctionModeLabel(v){
+ return ({arabic:'نص عربي',instruction:'تعليمات تشغيلية',javascript:'JavaScript',css:'CSS',html:'HTML',sql:'SQL'})[String(v||'')]||String(v||'');
+}
+function correctionSeverityLabel(v){return({info:'تصحيح تلقائي',warning:'مراجعة',critical:'حرج'})[String(v||'')]||v||'ملاحظة';}
+function renderCorrectionResult(result){
+ const host=$('correctorResult');if(!host)return;
+ const issues=Array.isArray(result?.issues)?result.issues:[];
+ const critical=issues.filter(x=>x.severity==='critical').length;
+ const warning=issues.filter(x=>x.severity==='warning').length;
+ host.innerHTML='<div class="corrector-summary">'+
+   '<div><span>تصحيحات تلقائية</span><b>'+ar(result?.auto_fix_count||0)+'</b></div>'+
+   '<div><span>تحتاج مراجعة</span><b>'+ar(result?.review_count||0)+'</b></div>'+
+   '<div><span>حرجة</span><b>'+ar(critical)+'</b></div>'+
+ '</div>'+
+ (issues.length?issues.map(x=>'<div class="corrector-issue"><span class="tag '+esc(x.severity||'info')+'">'+esc(correctionSeverityLabel(x.severity))+'</span><div><b>'+esc(x.message||'ملاحظة')+'</b><small>'+esc(x.applied?'طُبق داخل الحقل تلقائيًا.':'لم يُنفذ تلقائيًا؛ يحتاج مراجعة قبل أي تغيير.')+'</small></div></div>').join(''):'<div class="empty">لم يكتشف المصحح أخطاء ضمن القواعد الداخلية الحالية.</div>');
+ const badge=$('correctorBadge');
+ if(badge){
+   badge.className='status-pill '+(critical?'critical':warning?'warning':'ok');
+   badge.textContent=critical?'توجد ملاحظات حرجة':warning?'توجد ملاحظات للمراجعة':'التصحيح آمن';
+ }
+}
+function applyCorrectionResult(result,preserveCaret=false){
+ const input=$('correctorInput');if(!input||!result)return;
+ const before=input.value,after=result.corrected??before;
+ if(after===before)return;
+ const start=input.selectionStart??after.length,end=input.selectionEnd??after.length,delta=after.length-before.length;
+ input.value=after;
+ if(preserveCaret){
+   const ns=Math.max(0,Math.min(after.length,start+delta)),ne=Math.max(ns,Math.min(after.length,end+delta));
+   try{input.setSelectionRange(ns,ne);}catch(_){}
+ }
+}
+async function saveCorrection(result){
+ const source=$('correctorSource')?.value?.trim()||'';
+ return call('correction_save',{
+   mode:result.mode,source_label:source,
+   original_text:result.original,corrected_text:result.corrected,
+   issues:result.issues,auto_fix_count:result.auto_fix_count,review_count:result.review_count,
+   status:'applied'
+ });
+}
+function renderCorrectionHistory(rows){
+ const host=$('correctionHistory');if(!host)return;
+ if(!rows?.length){host.innerHTML='<div class="empty">لا توجد تصحيحات محفوظة بعد.</div>';return;}
+ host.innerHTML=rows.map(r=>{
+   const preview=String(r.corrected_text||r.original_text||'').slice(0,260);
+   return '<article class="correction-history-item" data-correction-id="'+esc(r.id||'')+'">'+
+     '<div class="correction-history-top"><b>'+esc(r.source_label||correctionModeLabel(r.mode))+'</b><span>'+esc(correctionModeLabel(r.mode))+' · '+ar(r.auto_fix_count||0)+' تلقائي · '+ar(r.review_count||0)+' مراجعة</span></div>'+
+     '<p>'+esc(preview)+'</p>'+
+     '<div class="correction-history-actions"><button type="button" data-reopen-correction>إعادة فتح في المحرر</button></div>'+
+   '</article>';
+ }).join('');
+ host.querySelectorAll('[data-reopen-correction]').forEach(b=>b.addEventListener('click',()=>{
+   const row=rows.find(x=>String(x.id)===String(b.closest('[data-correction-id]')?.dataset.correctionId));
+   if(!row)return;
+   $('correctorMode').value=row.mode||'arabic';$('correctorSource').value=row.source_label||'';
+   $('correctorInput').value=row.corrected_text||row.original_text||'';
+   lastCorrection={original:row.original_text||'',corrected:row.corrected_text||'',mode:row.mode||'arabic',issues:row.issues||[],auto_fix_count:row.auto_fix_count||0,review_count:row.review_count||0};
+   $('undoCorrection').disabled=false;renderCorrectionResult(lastCorrection);$('correctorInput').focus();
+ }));
+}
+async function loadCorrections(){
+ try{
+   const d=await call('corrections',{limit:20});
+   renderCorrectionHistory(d.corrections||[]);
+ }catch(e){$('correctionHistory').innerHTML='<div class="empty">'+esc(e.message||String(e))+'</div>';}
+}
+async function runInternalCorrection({save=true,preserveCaret=false}={}){
+ const input=$('correctorInput'),mode=$('correctorMode')?.value||'arabic',engine=window.MoallimiCorrector;
+ if(!input||!engine)throw new Error('وحدة التصحيح الداخلي غير جاهزة.');
+ const raw=input.value;
+ if(!raw.trim()){renderCorrectionResult({issues:[],auto_fix_count:0,review_count:0});return null;}
+ const result=engine.analyze(raw,mode);
+ lastCorrection=result;
+ applyCorrectionResult(result,preserveCaret);
+ $('undoCorrection').disabled=false;
+ renderCorrectionResult(result);
+ if(save){
+   const d=await saveCorrection(result);
+   await loadCorrections();
+   setState('تم التصحيح داخل المنصة وحفظ النتيجة في سجل الحساب الرئيسي.','ok');
+   return d;
+ }
+ return result;
+}
+function scheduleLiveCorrection(){
+ if(!$('correctorLive')?.checked)return;
+ const mode=$('correctorMode')?.value||'arabic';
+ if(!['arabic','instruction'].includes(mode))return;
+ clearTimeout(correctionDebounce);
+ correctionDebounce=setTimeout(()=>runInternalCorrection({save:false,preserveCaret:true}).catch(()=>{}),650);
+}
 async function loadHistory(){
  const d=await call('history',{limit:12});
  renderHistory(d.runs||[]);renderProposals(d.proposals||[]);
@@ -413,7 +506,7 @@ async function init(){
   const p=await window.NafesTeacher.ensureProfile();
   if(p?.subject_scope!=='all'){$('denied').hidden=false;$('mainContent').hidden=true;setState('لا توجد صلاحية لهذا الحساب.','error');return;}
   $('mainContent').hidden=false;setState('الوضع الآمن جاهز. يمكنك تشغيل الفحص الشامل.','ok');
-  await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs(),loadSemanticStatus()]);
+  await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs(),loadSemanticStatus(),loadCorrections()]);
  }catch(e){setState(e.message||String(e),'error');}
 }
 $('runIndicatorAudit')?.addEventListener('click',runIndicatorAudit);
@@ -448,6 +541,25 @@ $('runScan').onclick=async()=>{
  }catch(e){setState(e.message||String(e),'error');}
  finally{btn.disabled=false;}
 };
+
+$('runCorrection')?.addEventListener('click',async()=>{
+ const btn=$('runCorrection');btn.disabled=true;
+ try{setState('جارٍ فحص النص أو الأمر داخل المنصة…');await runInternalCorrection({save:true});}
+ catch(e){setState(e.message||String(e),'error');}
+ finally{btn.disabled=false;}
+});
+$('undoCorrection')?.addEventListener('click',()=>{
+ if(!lastCorrection)return;
+ $('correctorInput').value=lastCorrection.original||'';
+ $('undoCorrection').disabled=true;
+ setState('تم التراجع داخل المحرر فقط. سجل التدقيق السابق بقي محفوظًا.','ok');
+});
+$('refreshCorrections')?.addEventListener('click',loadCorrections);
+$('correctorInput')?.addEventListener('input',scheduleLiveCorrection);
+$('correctorMode')?.addEventListener('change',()=>{clearTimeout(correctionDebounce);if($('correctorInput')?.value)runInternalCorrection({save:false}).catch(()=>{});});
+window.addEventListener('moallimi:autocorrect',e=>{
+ const c=Number(e.detail?.count||0);if(c>0&&$('mainContent')&&!$('mainContent').hidden)setState('صحح محرك الواجهة '+ar(c)+' نصوص عرض آمنة تلقائيًا.','ok');
+});
 $('refreshHistory').onclick=async()=>{try{setState('جارٍ تحديث سجل الوكيل…');await loadHistory();setState('تم تحديث السجل.','ok');}catch(e){setState(e.message||String(e),'error');}};
 $('preparePlan').onclick=async()=>{
  if(!latestRun)return;
