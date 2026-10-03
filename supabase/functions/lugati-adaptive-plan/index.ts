@@ -151,11 +151,11 @@ function overallPlanDecision(rows:any[]){
   const scores=rows.map((r:any)=>Number(r.diagnostic_percent??0));
   if(!scores.length)return{tier:"reinforcement",tier_label:"تعزيزية",overall_score:null,minimum:null,maximum:null,weak_count:0,strong_count:0,critical_count:0,reason:"لا توجد بيانات كافية للتصنيف.",recommendation:""};
   const avg=Math.round((scores.reduce((a,b)=>a+b,0)/scores.length)*10)/10,min=Math.min(...scores),max=Math.max(...scores);
-  const weak=scores.filter(x=>x<70).length,critical=scores.filter(x=>x<50).length,strong=scores.filter(x=>x>=90).length;
+  const weak=scores.filter(x=>x<70).length,critical=scores.filter(x=>x<60).length,strong=scores.filter(x=>x>=90).length;
   let tier="reinforcement",reason="";
   if(avg<70||weak>=2||critical>=1){
     tier="remedial";
-    const why=[];if(avg<70)why.push("المتوسط الكلي أقل من 70٪");if(weak>=2)why.push("يوجد مؤشرين علاجيين أو أكثر");if(critical>=1)why.push("يوجد مؤشر شديد الضعف أقل من 50٪");reason=why.join("، ");
+    const why=[];if(avg<70)why.push("المتوسط الكلي أقل من 70٪");if(weak>=2)why.push("يوجد مؤشرين علاجيين أو أكثر");if(critical>=1)why.push("يوجد مؤشر شديد الضعف أقل من 60٪");reason=why.join("، ");
   }else if(avg>=90&&min>=80&&strong>=Math.max(1,Math.ceil(scores.length*.8))){
     tier="enrichment";reason="المتوسط 90٪ فأعلى، ولا يوجد مؤشر دون 80٪، ومعظم المؤشرات في مستوى الإتقان.";
   }else{
