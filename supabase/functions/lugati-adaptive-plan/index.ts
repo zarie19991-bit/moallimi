@@ -92,6 +92,29 @@ async function assessmentPlanSources(studentId:string,scope:SubjectScope="all"){
   return sources.sort((a:any,b:any)=>String(b.submitted_at||"").localeCompare(String(a.submitted_at||"")));
 }
 function publicPlanSource(s:any){return s?{source_key:s.source_key,attempt_id:s.attempt_id,assessment_id:s.assessment_id,title:s.title,subject_key:s.subject_key,subject_label:s.subject_label,submitted_at:s.submitted_at,indicator_count:s.indicator_count}:null}
+
+async function latestAssessmentPlanPerfs(studentIds:string[],scope:SubjectScope="all"){
+  if(!studentIds.length)return[];
+  let q=db.from("nafes_assessment_attempts")
+    .select("id,assessment_id,student_id,rendered_sections,answers,submitted_at")
+    .in("student_id",studentIds).not("submitted_at","is",null)
+    .order("submitted_at",{ascending:false}).limit(5000);
+  const {data:attempts,error}=await q;if(error)throw error;
+  const assessmentIds=[...new Set((attempts||[]).map((x:any)=>String(x.assessment_id||"")).filter(Boolean))];
+  if(!assessmentIds.length)return[];
+  const {data:assessments,error:ae}=await db.from("nafes_assessments").select("id,title,kind").in("id",assessmentIds).eq("kind","multi_indicator");if(ae)throw ae;
+  const am=new Map((assessments||[]).map((x:any)=>[String(x.id),x])),seen=new Set<string>(),out:any[]=[];
+  for(const at of attempts||[]){
+    const assessment=am.get(String(at.assessment_id||""));if(!assessment)continue;
+    const raw=sectionPerfs(at,"assessment").filter((p:any)=>["math","science"].includes(String(p.subject_key))&&(scope==="all"||p.subject_key===scope));
+    for(const subject of [...new Set(raw.map((p:any)=>String(p.subject_key)))]){
+      const key=String(at.student_id)+":"+subject;if(seen.has(key))continue;seen.add(key);
+      for(const p of raw.filter((x:any)=>x.subject_key===subject))out.push({...p,evidence_count:1,diagnostic_percent:Number(p.percent||0),latest_percent:Number(p.percent||0),previous_percent:null,best_percent:Number(p.percent||0),trend_points:null,assessment_id:String(at.assessment_id),assessment_title:assessment.title||"اختبار مؤشرات",source_key:String(at.id)+":"+subject});
+    }
+  }
+  return out;
+}
+
 async function planQuestionGroups(rows:any[],perIndicator=3){
   const groups:any[]=[];
   for(const r of rows){
@@ -160,12 +183,8 @@ async function studentUnifiedPlan(req:Request,access:Access){
 async function teacherUnifiedOverview(req:Request,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
   const scope=teacherScope(access);if(scope==="reading")return json(req,{ok:true,subject_scope:scope,summary:unifiedSummary([])});
-  const students=await roster();let rows:any[]=[];
-  for(const s of students){
-    const sources=await assessmentPlanSources(String(s.id),scope),latestBySubject=new Map<string,any>();
-    for(const src of sources)if(!latestBySubject.has(String(src.subject_key)))latestBySubject.set(String(src.subject_key),src);
-    rows.push(...[...latestBySubject.values()].flatMap((src:any)=>unifiedRows(src.perfs||[],scope)));
-  }
+  const students=await roster(),ids=students.map((s:any)=>String(s.id));
+  const perfs=await latestAssessmentPlanPerfs(ids,scope),rows=unifiedRows(perfs,scope);
   return json(req,{ok:true,subject_scope:scope,summary:unifiedSummary(rows)});
 }
 async function teacherUnifiedSources(req:Request,body:any,access:Access){
