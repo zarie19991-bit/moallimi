@@ -13,6 +13,7 @@ on:
       - 'qa/review-question-paper-print.mjs'
       - 'qa/review-question-paper-cross-browser.cjs'
       - 'qa/review-question-paper-webkit.mjs'
+      - 'qa/review-reading-review-print.mjs'
       - '.github/workflows/qa-paper-builder.yml'
   workflow_dispatch:
 
@@ -32,6 +33,7 @@ jobs:
           node --check qa/paper-builder-regression.cjs
           node --check qa/review-question-paper-print.mjs
           node --check qa/review-question-paper-webkit.mjs
+          node --check qa/review-reading-review-print.mjs
       - name: Builder and print regression contract
         run: node qa/paper-builder-regression.cjs
       - name: Install browser drivers
@@ -57,6 +59,8 @@ jobs:
         run: node qa/review-question-paper-cross-browser.cjs
       - name: WebKit Safari-engine print QA
         run: node qa/review-question-paper-webkit.mjs
+      - name: Reading NAFES indicators and text integrity QA
+        run: node qa/review-reading-review-print.mjs
       - name: Upload print QA artifacts
         if: always()
         uses: actions/upload-artifact@v4
