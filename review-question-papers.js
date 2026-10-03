@@ -248,6 +248,7 @@ function renumberBooklet(booklet){
  pages.forEach((page,i)=>{
    const no=i+1;
    page.dataset.page=String(no);
+   page.classList.toggle('continuation-page',i>0);
    const pageNumber=page.querySelector('.page-number');
    if(pageNumber){
      const m=pageNumber.textContent.match(/عدد الأسئلة\s+(.+)$/);
