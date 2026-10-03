@@ -5,6 +5,14 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
 const DEFAULT_QUESTION_START=1;
+const PAPER_SUBJECT_ORDER=['science','math','reading'];
+function paperSubjectRank(subject){const i=PAPER_SUBJECT_ORDER.indexOf(String(subject||''));return i<0?99:i;}
+function paperOrderedQuestions(questions){
+ return (questions||[]).map((q,index)=>{
+   const subject=String(q.subject||String(q.indicator||'').split(':')[0]||'').trim()||'reading';
+   return{q,index,subject};
+ }).sort((a,b)=>paperSubjectRank(a.subject)-paperSubjectRank(b.subject)||a.index-b.index).map(x=>x.q);
+}
 let activeDraft=null;
 function getDraft(){if(activeDraft)return activeDraft;try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
 function subjectLabel(s){return({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||s||'—';}
@@ -110,7 +118,7 @@ function renderGroup(g){
  return out;
 }
 function pageHeader(model,d,pageNo,totalPages,totalQuestions){
- const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean);
+ const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean).sort((a,b)=>paperSubjectRank(a)-paperSubjectRank(b));
  const subjectText=subjects.map(subjectLabel).join(' + ');
  return '<div class="exam-frame-head">'+
  '<div class="official"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><b>إدارة تعليم نجران</b><b>مدرسة ابن سينا المتوسطة</b></div>'+
@@ -131,8 +139,8 @@ function onePage(model,d,groups,pageNo,totalPages,totalQuestions){
  '</div></div></section>';
 }
 function modelBooklet(model,d){
- const questions=model.questions||[],startNo=Number(d.question_start||DEFAULT_QUESTION_START),groups=groupsFromQuestions(questions,startNo);
- const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean);
+ const questions=paperOrderedQuestions(model.questions||[]),startNo=Number(d.question_start||DEFAULT_QUESTION_START),groups=groupsFromQuestions(questions,startNo);
+ const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean).sort((a,b)=>paperSubjectRank(a)-paperSubjectRank(b));
  if(subjects.length===1&&subjects[0]==='reading'&&questions.length===20){
    const bad=groups.length!==4||groups.some(g=>!g.context||g.questions.length!==5);
    if(bad)return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>يجب أن يتكون من ٤ نصوص، وتحت كل نص ٥ أسئلة. أعد إنشاء النماذج من قسم المراجعة والتصحيح الآلي.</p></div></div></section>';
@@ -253,6 +261,31 @@ function removeEmptyPages(booklet){
    if(!page.querySelector('.questions-flow')?.children.length)page.remove();
  });
 }
+function pullPartialReadingGroup(page,next,candidate){
+ const nextFlow=next?.querySelector('.questions-flow');
+ const wrap=candidate?.querySelector(':scope > .passage-questions');
+ const hasPassage=!!candidate?.querySelector(':scope > .passage');
+ if(!nextFlow||!wrap||!hasPassage||wrap.children.length<=1)return false;
+
+ const continuation=continuationGroupFrom(candidate);
+ const nextWrap=continuation.querySelector('.passage-questions');
+ nextFlow.prepend(continuation);
+
+ // اترك النص في الصفحة الحالية ومعه أكبر عدد ممكن من أسئلته.
+ while(!pageFits(page,-4)&&wrap.children.length>1){
+   nextWrap.prepend(wrap.lastElementChild);
+ }
+ if(pageFits(page,-4)&&nextWrap.children.length){
+   candidate.dataset.splitReading='1';
+   return true;
+ }
+
+ // لم يتسع حتى النص مع سؤال واحد: أعد المجموعة كما كانت للصفحة التالية.
+ while(nextWrap.firstElementChild)wrap.append(nextWrap.firstElementChild);
+ continuation.remove();
+ nextFlow.prepend(candidate);
+ return false;
+}
 function fillAvailableSpace(booklet){
  let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
  for(let i=0;i<pages.length-1;i++){
@@ -261,10 +294,18 @@ function fillAvailableSpace(booklet){
    while(nextFlow?.firstElementChild){
      const candidate=nextFlow.firstElementChild;
      flow.append(candidate);
-     if(!pageFits(page,-4)){
-       nextFlow.prepend(candidate);
+     if(pageFits(page,-4))continue;
+
+     // في القراءة لا نترك فراغًا كبيرًا لمجرد أن النص مع أسئلته الخمسة
+     // لا يتسع ككتلة واحدة. نضع النص وما يتسع من أسئلته ثم نكمل الباقي.
+     if(candidate.dataset.subject==='reading'&&candidate.querySelector(':scope > .passage')&&candidate.querySelectorAll(':scope > .passage-questions > .question').length>1){
+       if(pullPartialReadingGroup(page,next,candidate))break;
+       // الدالة أعادت المجموعة للصفحة التالية إذا لم يتسع النص مع سؤال واحد.
        break;
      }
+
+     nextFlow.prepend(candidate);
+     break;
    }
  }
  removeEmptyPages(booklet);
@@ -277,7 +318,7 @@ function fitBooklet(booklet){
  // المتبقية فعليًا. هذا يطبق على القراءة والرياضيات والعلوم معًا.
  repairOverflow(booklet);
  removeEmptyPages(booklet);
- for(let pass=0;pass<3;pass++){
+ for(let pass=0;pass<5;pass++){
    fillAvailableSpace(booklet);
    repairOverflow(booklet);
    removeEmptyPages(booklet);
