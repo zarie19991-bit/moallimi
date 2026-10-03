@@ -714,24 +714,53 @@ async function buildEvaluationReport(owner:any,sourceType:string,sourceId:string
       const ci=Number(q.correctIndex??q.correct_index),ans=Number(a?.answers?.[id]);
       if(Number.isInteger(ci)&&ci>=0&&ci<4&&Number.isInteger(ans)&&ans>=0&&ans<4){
         const correct=ans===ci?1:0;
-        itemMap.get(id).observations.push({correct,adjusted:Number(a.score||0)-correct});
+        itemMap.get(id).observations.push({correct,selected:ans,adjusted:Number(a.score||0)-correct});
       }
     }
   }
 
   const items=[...itemMap.values()].map((x:any)=>{
-    const obs=x.observations||[],n=obs.length;
+    const obs=x.observations||[],n=obs.length,ci=Number(x.correct_index);
     const p=n?avgNum(obs.map((o:any)=>o.correct)):null;
     const disc=n>=EVAL_MIN_ITEM_SAMPLE?pearson(obs.map((o:any)=>o.correct),obs.map((o:any)=>o.adjusted)):null;
     const sem=semantic.get(x.id);
     const staticScore=questionStaticStrength(x,sem);
+    const distractorMinSample=20;
+    let distractorAnalysis:any={available:false,min_sample:distractorMinSample,functional_count:null,efficiency:null,nonfunctional:[],options:[]};
+    if(n>=distractorMinSample&&Number.isInteger(ci)&&ci>=0&&ci<4){
+      const ranked=[...obs].sort((a:any,b:any)=>Number(a.adjusted)-Number(b.adjusted));
+      const groupSize=Math.max(5,Math.floor(n*.27)),lower=ranked.slice(0,groupSize),upper=ranked.slice(-groupSize);
+      const stats=[0,1,2,3].map(index=>{
+        const count=obs.filter((o:any)=>Number(o.selected)===index).length;
+        const lowerCount=lower.filter((o:any)=>Number(o.selected)===index).length;
+        const upperCount=upper.filter((o:any)=>Number(o.selected)===index).length;
+        const rate=n?count/n:0,lowerRate=lower.length?lowerCount/lower.length:0,upperRate=upper.length?upperCount/upper.length:0;
+        const isCorrect=index===ci;
+        const functional=isCorrect?null:(rate>=.05&&lowerRate>=upperRate);
+        return{index,label:["أ","ب","ج","د"][index],is_correct:isCorrect,count,
+          rate:Number(rate.toFixed(3)),lower_rate:Number(lowerRate.toFixed(3)),upper_rate:Number(upperRate.toFixed(3)),
+          functional,over_attractive:!isCorrect&&rate>.35};
+      });
+      const distractors=stats.filter((s:any)=>!s.is_correct),functionalCount=distractors.filter((s:any)=>s.functional===true).length;
+      distractorAnalysis={
+        available:true,min_sample:distractorMinSample,group_size:groupSize,functional_count:functionalCount,
+        efficiency:Math.round(functionalCount/3*100),
+        nonfunctional:distractors.filter((s:any)=>!s.functional).map((s:any)=>s.index),
+        over_attractive:distractors.filter((s:any)=>s.over_attractive).map((s:any)=>s.index),
+        options:stats
+      };
+    }
     const dq=p===null?null:difficultyQuality(p),disq=discriminationQuality(disc);
-    const empirical=(dq!==null&&disq!==null)?Math.round(dq*.42+disq*.58):null;
+    const deq=distractorAnalysis.available?Number(distractorAnalysis.efficiency):null;
+    const empirical=(dq!==null&&disq!==null)
+      ?Math.round(deq===null?(dq*.42+disq*.58):(dq*.30+disq*.50+deq*.20))
+      :null;
     const strength=empirical===null?staticScore:Math.round(staticScore*.42+empirical*.58);
     return{
       id:x.id,question:x.question,subject:x.subject,indicator_key:x.indicator_key,indicator_text:x.indicator_text,
       registered_difficulty:x.difficulty,cognitive_level:x.cognitive_level,sample_size:n,
       facility:p===null?null:Number(p.toFixed(3)),discrimination:disc===null?null:Number(disc.toFixed(3)),
+      distractor_analysis:distractorAnalysis,
       static_score:staticScore,empirical_score:empirical,strength_score:strength,strength_class:questionStrengthClass(strength),
       semantic_judgment:sem?.judgment||null,semantic_confidence:sem?.confidence===undefined?null:Number(sem.confidence)
     };
@@ -754,9 +783,13 @@ async function buildEvaluationReport(owner:any,sourceType:string,sourceId:string
   const semanticCounts={pass:0,review:0,reject:0,unknown:0};
   for(const it of items){const k=String(it.semantic_judgment||"unknown") as keyof typeof semanticCounts;if(k in semanticCounts)semanticCounts[k]++;}
   const empiricalItems=items.filter((x:any)=>x.sample_size>=EVAL_MIN_ITEM_SAMPLE);
+  const empiricalDistractorItems=items.filter((x:any)=>x.distractor_analysis?.available);
+  const nonfunctionalDistractorItems=empiricalDistractorItems.filter((x:any)=>(x.distractor_analysis?.nonfunctional||[]).length>0);
+  const overAttractiveDistractorItems=empiricalDistractorItems.filter((x:any)=>(x.distractor_analysis?.over_attractive||[]).length>0);
   const weakItems=items.filter((x:any)=>x.strength_score<55);
   const strongItems=items.filter((x:any)=>x.strength_score>=70);
   const avgStrength=items.length?avgNum(items.map((x:any)=>x.strength_score)):0;
+  const avgDistractorEfficiency=empiricalDistractorItems.length?avgNum(empiricalDistractorItems.map((x:any)=>Number(x.distractor_analysis.efficiency||0))):null;
   const cohort=meanPercent===null?"unknown":meanPercent<60?"needs_support":meanPercent<80?"developing":"advanced";
   const difficultyBlueprint=cohort==="needs_support"?{easy:35,medium:50,hard:15}:cohort==="developing"?{easy:25,medium:50,hard:25}:{easy:15,medium:45,hard:40};
   const cognitiveBlueprint=cohort==="needs_support"?{knowledge:25,application:50,reasoning:25}:cohort==="developing"?{knowledge:20,application:50,reasoning:30}:{knowledge:15,application:45,reasoning:40};
@@ -764,18 +797,24 @@ async function buildEvaluationReport(owner:any,sourceType:string,sourceId:string
   if(submitted<EVAL_MIN_ITEM_SAMPLE)recommendations.push({priority:"high",title:"لا تعتمد معامل التمييز بعد",detail:"عدد المحاولات المعتمدة "+submitted+" فقط. يلزم "+EVAL_MIN_ITEM_SAMPLE+" محاولات على الأقل قبل استخدام معامل التمييز في الحكم على السؤال."});
   if(weakItems.length)recommendations.push({priority:"high",title:"راجع الأسئلة الأضعف أولًا",detail:"يوجد "+weakItems.length+" سؤالًا بقوة أقل من 55/100. افحص مطابقة المؤشر والمشتتات وصحة المفتاح قبل إعادة استخدامها."});
   if(semanticCounts.reject)recommendations.push({priority:"high",title:"استبعد الحالات الدلالية المرفوضة",detail:"يوجد "+semanticCounts.reject+" سؤالًا ظهر له حكم دلالي مرفوض في سجل المحكّم."});
+  if(nonfunctionalDistractorItems.length)recommendations.push({priority:"high",title:"طوّر المشتتات غير الوظيفية",detail:"يوجد "+nonfunctionalDistractorItems.length+" سؤالًا لديه مشتت واحد على الأقل لم يجذب 5٪ من الطلاب أو لم يجذب المجموعة الأدنى أكثر من العليا. راجع البدائل قبل إعادة الاستخدام."});
+  if(overAttractiveDistractorItems.length)recommendations.push({priority:"high",title:"راجع المشتتات شديدة الجذب",detail:"يوجد "+overAttractiveDistractorItems.length+" سؤالًا يختار فيه أكثر من 35٪ من الطلاب مشتتًا واحدًا؛ تحقق من وضوح المفتاح والصياغة واحتمال وجود التباس."});
+  if(!empiricalDistractorItems.length)recommendations.push({priority:"medium",title:"فاعلية المشتتات الميدانية لم تُقَس بعد",detail:"يلزم 20 استجابة صالحة على الأقل للسؤال قبل الحكم على كل مشتت من أنماط اختيار الطلاب، لذلك تبقى جودة المشتت الحالية بنيوية فقط."});
   if(omrEvents.length&&lowConfidence)recommendations.push({priority:"high",title:"راجع خلايا OMR منخفضة الثقة",detail:"رُصدت "+lowConfidence+" إجابة منخفضة الثقة؛ لا ينبغي اعتمادها آليًا دون مراجعة."});
   if(!omrEvents.length)recommendations.push({priority:"medium",title:"بيانات معايرة OMR غير متاحة",detail:"لا توجد تشخيصات ثقة محفوظة من أوراق التظليل لهذا الاختبار بعد. ستظهر تلقائيًا بعد اعتماد مسح جديد بالإصدار المطور."});
   recommendations.push({priority:"medium",title:"مخطط اختيار الأسئلة المقترح",detail:"للمجموعة الحالية: سهل "+difficultyBlueprint.easy+"٪، متوسط "+difficultyBlueprint.medium+"٪، صعب "+difficultyBlueprint.hard+"٪؛ مع معرفة "+cognitiveBlueprint.knowledge+"٪، تطبيق "+cognitiveBlueprint.application+"٪، استدلال "+cognitiveBlueprint.reasoning+"٪."});
 
   const report={
-    version:"evaluation-intelligence-v1",
+    version:"evaluation-intelligence-v2",
     source:{type:sourceType,id:sourceId,title:assessment?.title||paper?.title||"اختبار",assessment_id:assessment?.id||null,review_id:paper?.review_id||assessment?.config?.paper_review_id||null},
     generated_at:new Date().toISOString(),
     summary:{
       attempts:submitted,question_count:items.length,mean_percent:meanPercent===null?null:Number(meanPercent.toFixed(1)),
       average_strength:Number(avgStrength.toFixed(1)),strong_items:strongItems.length,weak_items:weakItems.length,
-      empirical_items:empiricalItems.length,semantic:semanticCounts
+      empirical_items:empiricalItems.length,empirical_distractor_items:empiricalDistractorItems.length,
+      average_distractor_efficiency:avgDistractorEfficiency===null?null:Number(avgDistractorEfficiency.toFixed(1)),
+      nonfunctional_distractor_items:nonfunctionalDistractorItems.length,over_attractive_distractor_items:overAttractiveDistractorItems.length,
+      semantic:semanticCounts
     },
     reliability:{minimum_sample:EVAL_MIN_ITEM_SAMPLE,by_model:reliability},
     omr:{
