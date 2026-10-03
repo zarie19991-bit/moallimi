@@ -27,6 +27,13 @@ export function normalizeConfig(raw:unknown):Row {
  if(!Number.isInteger(settings.attempts)||settings.attempts<1||settings.attempts>10)fail('عدد المحاولات يجب أن يكون من ١ إلى ١٠.');
  if(!Number.isInteger(settings.break_minutes)||settings.break_minutes<0||settings.break_minutes>30)fail('الاستراحة من صفر إلى ٣٠ دقيقة.');
  if(settings.opens_at&&settings.closes_at&&settings.opens_at>=settings.closes_at)fail('وقت النهاية يجب أن يكون بعد البداية.');
+ let cognitive_targets:Row|null=null;
+ if(v.cognitive_targets&&typeof v.cognitive_targets==='object'&&!Array.isArray(v.cognitive_targets)){
+  const ct=v.cognitive_targets as Row;
+  const knowledge=Number(ct.knowledge),application=Number(ct.application),reasoning=Number(ct.reasoning);
+  if(![knowledge,application,reasoning].every(x=>Number.isInteger(x)&&x>=0&&x<=100)||knowledge+application+reasoning!==100)fail('توزيع معرفة/تطبيق/استدلال يجب أن يساوي ١٠٠٪.');
+  cognitive_targets={knowledge,application,reasoning};
+ }
  const sections:Row[]=[];const seen=new Set();for(const x of v.sections||[]){
   if(!SUBJECTS.includes(x.subject)||seen.has(x.subject))fail('حدد مادة الاختبار دون تكرار.');seen.add(x.subject);
   const minutes=Number(x.duration_minutes);if(!Number.isInteger(minutes)||minutes<5||minutes>120)fail('مدة المادة من ٥ إلى ١٢٠ دقيقة.');
@@ -43,13 +50,15 @@ export function normalizeConfig(raw:unknown):Row {
   const fixed=x.fixed_model?Number(x.fixed_model):null;if(fixed&&(![1,2].includes(fixed)||indicators.length!==1||count!==15))fail('النموذج الثابت يتكون من ١٥ سؤالًا لمؤشر واحد.');
   sections.push({subject:x.subject,question_count:count,duration_minutes:minutes,calculator:x.subject==='math'&&!!x.calculator,model_no:model,indicators,fixed_model:fixed});
  }
+ const totalQuestionCount=sections.reduce((sum,x)=>sum+Number(x.question_count||0),0);
+ if(kind!=='simulation'&&(totalQuestionCount<10||totalQuestionCount>60))fail('عدد أسئلة الاختبار الكلي يجب أن يكون من ١٠ إلى ٦٠ سؤالًا.');
  if(!sections.length||sections.length>3)fail('اختر مادة واحدة على الأقل.');
  const num=sections.reduce((s,x)=>s+x.indicators.length,0);
  const identity=['manual','list','email'].includes(v.identity_mode)?v.identity_mode:'manual';
  const roster=[...new Set((Array.isArray(v.roster)?v.roster:[]).map((n:unknown)=>tidy(n,120)).filter(Boolean))].slice(0,1000);
  if(identity==='list'&&!roster.length)fail('أدخل قائمة أسماء الطلاب.');
  const defaultTitle=isSimulation?(simulation_mode==='custom'?'محاكاة مخصصة بالمؤشرات':'محاكاة شاملة'):(num===1?'اختبار مؤشر نافس':'اختبار مؤشرات مجمعة');
- return {kind:isSimulation?'simulation':kind==='simulation'?'simulation':num===1?'indicator':'multi_indicator',simulation_mode,bank_source:isSimulation?'simulation_bank':(v.bank_source||'indicator_bank'),grade_key:'middle_3',title:tidy(v.title)||defaultTitle,class_name:tidy(v.class_name,80),term:tidy(v.term||v.academic_term,80),academic_term:tidy(v.academic_term||v.term,80),school_name:tidy(v.school_name,120),teacher_name:tidy(v.teacher_name,120),principal_name:tidy(v.principal_name,120),identity_mode:identity,roster,sections,count_mode:v.count_mode==='per_indicator'?'per_indicator':'total',review_passage_mode:v.review_passage_mode===true,settings};
+ return {kind:isSimulation?'simulation':kind==='simulation'?'simulation':num===1?'indicator':'multi_indicator',simulation_mode,bank_source:isSimulation?'simulation_bank':(v.bank_source||'indicator_bank'),grade_key:'middle_3',title:tidy(v.title)||defaultTitle,class_name:tidy(v.class_name,80),term:tidy(v.term||v.academic_term,80),academic_term:tidy(v.academic_term||v.term,80),school_name:tidy(v.school_name,120),teacher_name:tidy(v.teacher_name,120),principal_name:tidy(v.principal_name,120),identity_mode:identity,roster,sections,count_mode:v.count_mode==='per_indicator'?'per_indicator':'total',review_passage_mode:v.review_passage_mode===true,cognitive_targets,settings};
 }
 export function selectUnique(pool:Row[],count:number,seed:string,usage=new Map<string,number>(),excluded=new Set<string>()):Row[] {
  const keys=new Map(pool.map(q=>[q,questionKey(q)]));const mixed=shuffle(pool,randomFrom(seed));const picked:Row[]=[];const content=new Set(excluded),indicatorCounts=new Map<string,number>(),cognitiveCounts=new Map<string,number>();
