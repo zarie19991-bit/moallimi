@@ -41,7 +41,7 @@ function archiveItem(row){
    '<h3>'+esc(row.title||'مراجعة ورقية')+'</h3>'+
    '<div class="archive-meta"><span>'+esc(subject)+'</span><span>'+esc(cls)+'</span><span>'+esc(formatArchiveTime(row.updated_at||row.created_at))+'</span></div>'+
    '<div class="archive-actions">'+
-     '<button type="button" class="open-review" data-open-review="'+esc(row.review_id||'')+'">فتح الاختبار</button>'+
+     '<button type="button" class="open-review" data-open-review="'+esc(row.review_id||'')+'">الإعدادات والتعديل</button>'+
      '<a href="review-question-papers.html?rid='+rid+'">أوراق الأسئلة</a>'+
      '<a href="review-bubble-sheets.html?rid='+rid+'">ورق التظليل</a>'+
      '<a href="review-scan.html?rid='+rid+'">رفع وتصحيح</a>'+
@@ -56,12 +56,45 @@ async function loadArchive(){
    const res=await NafesTeacher.api('teacher_paper_review_list',{});
    const rows=Array.isArray(res?.reviews)?res.reviews:[];
    host.innerHTML=rows.length?rows.map(archiveItem).join(''):'<div class="archive-empty">لا توجد اختبارات ورقية محفوظة حتى الآن.</div>';
-   state.textContent=rows.length?'محفوظ '+ar(rows.length)+' اختبار/مراجعة ورقية.':'ابدأ بإنشاء أول مراجعة وسيتم حفظها هنا.';
+   state.textContent=rows.length?'لديك '+ar(rows.length)+' اختبار ورقي محفوظ.':'ابدأ بإنشاء أول اختبار ورقي وسيظهر هنا.';
  }catch(e){
    const local=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
    host.innerHTML=local?.review_id?archiveItem({review_id:local.review_id,title:local.title,subject:local.subject,subjects:local.subjects,class_name:local.class_name,updated_at:local.saved_at}):'<div class="archive-empty">تعذر تحميل الأرشيف الدائم الآن.</div>';
    state.textContent='تعذر تحميل الأرشيف من قاعدة البيانات: '+(e.message||e);
  }
+}
+function showActivePaperReview(payload){
+ const box=$('activePaperReview');if(!box)return;
+ if(!payload?.review_id){box.hidden=true;box.innerHTML='';return;}
+ const subs=(Array.isArray(payload.subjects)&&payload.subjects.length?payload.subjects:[payload.subject]).filter(Boolean).map(x=>labels[x]||x).join(' + ');
+ box.hidden=false;
+ box.innerHTML='<b>أنت تعدّل الآن:</b> <span>'+esc(payload.title||'اختبار ورقي')+'</span><small>'+esc(subs||'—')+' · '+ar(payload.question_count||0)+' سؤال · '+ar(payload.model_count||0)+' نماذج</small>';
+}
+function resetPaperReview(){
+ localStorage.removeItem('nafes_review_correction_draft');
+ history.replaceState(null,'','review-correction.html');
+ setReviewLinks('');
+ models=[];assignments=[];activeModel=0;indicatorState.clear();
+ $('reviewTitle').value='مراجعة مؤشرات نافس';
+ document.querySelectorAll('.subject-check').forEach(x=>x.checked=false);
+ const first=document.querySelector('.subject-check');if(first)first.checked=true;
+ $('subject').value=selectedSubjects()[0]||'reading';
+ $('className').value='';
+ $('questionCount').value='15';
+ $('modelCount').value='5';
+ if($('bubbleNameMode'))$('bubbleNameMode').value='printed';
+ $('knowledge').value='25';$('application').value='40';$('reasoning').value='35';
+ if($('avoidRepeats'))$('avoidRepeats').checked=true;
+ if($('compactPrint'))$('compactPrint').checked=true;
+ if($('imageWhenNeeded'))$('imageWhenNeeded').checked=true;
+ if($('indicatorSearch'))$('indicatorSearch').value='';
+ renderStudents();renderIndicators();updateIndicatorSummary();updateLevelSummary();
+ $('previewSection').classList.add('hidden');$('assignmentSection').classList.add('hidden');
+ $('modelTabs').innerHTML='';$('modelPreview').innerHTML='';$('quality').innerHTML='';
+ $('assignments').innerHTML='';$('assignmentStats').innerHTML='';
+ showActivePaperReview(null);
+ setStatus('اختبار ورقي جديد: اضبط الإعدادات ثم أنشئ النماذج.','ok');
+ document.querySelector('.builder-grid')?.scrollIntoView({behavior:'smooth'});
 }
 async function openArchivedReview(reviewId){
  if(!reviewId)return;
@@ -70,7 +103,8 @@ async function openArchivedReview(reviewId){
    const res=await NafesTeacher.api('teacher_paper_review_get',{review_id:reviewId});
    if(!res?.review?.payload)throw new Error('لم يتم العثور على المراجعة المحفوظة.');
    restoreReviewPayload(res.review.payload);
-   setStatus('تم فتح المراجعة المحفوظة، ويمكنك إعادة طباعة أوراق الأسئلة أو ورق التظليل.','ok');
+   showActivePaperReview(res.review.payload);
+   setStatus('تم فتح إعدادات الاختبار الورقي المحفوظ. يمكنك تعديلها ثم إعادة بناء النماذج وحفظ التغييرات على نفس الاختبار.','ok');
    document.querySelector('.builder-grid')?.scrollIntoView({behavior:'smooth'});
  }catch(e){setStatus('تعذر فتح المراجعة: '+(e.message||e),'error');}
 }
@@ -450,6 +484,14 @@ async function buildAssignments(){
    const draftPayload={
      review_id:reviewId,title:$('reviewTitle').value,subject:subjects[0],subjects,class_name:$('className').value,
      question_count:Number($('questionCount').value),question_start:1,model_count:models.length,bubble_name_mode:$('bubbleNameMode')?.value||'printed',
+     paper_settings:{
+       knowledge:Number($('knowledge').value||25),
+       application:Number($('application').value||40),
+       reasoning:Number($('reasoning').value||35),
+       avoid_repeats:$('avoidRepeats')?.checked!==false,
+       compact_print:$('compactPrint')?.checked!==false,
+       image_when_needed:$('imageWhenNeeded')?.checked!==false
+     },
      indicator_counts:selectedIndicators,
      assignments:assignments.map((a,i)=>({sheet_no:i+1,student_id:a.student.id||'',student_name:a.student.full_name||a.student.student_name,class_name:a.student.class_name||'',model:a.letter})),
      models:printable.map(m=>({model:m.model,questions:m.questions.map(q=>({
@@ -484,6 +526,14 @@ function restoreReviewPayload(payload){
  if($('questionCount')&&[...$('questionCount').options].some(o=>Number(o.value)===Number(payload.question_count)))$('questionCount').value=String(payload.question_count);
  if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);
  if($('bubbleNameMode'))$('bubbleNameMode').value=payload.bubble_name_mode==='blank'?'blank':'printed';
+ const ps=payload.paper_settings||{};
+ $('knowledge').value=String(Number.isFinite(Number(ps.knowledge))?Number(ps.knowledge):25);
+ $('application').value=String(Number.isFinite(Number(ps.application))?Number(ps.application):40);
+ $('reasoning').value=String(Number.isFinite(Number(ps.reasoning))?Number(ps.reasoning):35);
+ if($('avoidRepeats'))$('avoidRepeats').checked=ps.avoid_repeats!==false;
+ if($('compactPrint'))$('compactPrint').checked=ps.compact_print!==false;
+ if($('imageWhenNeeded'))$('imageWhenNeeded').checked=ps.image_when_needed!==false;
+ updateLevelSummary();
  indicatorState.clear();
  for(const x of payload.indicator_counts||[]){
    const subject=x.subject||String(x.key||'').split(':')[0]||payload.subject;
@@ -523,6 +573,7 @@ function restoreReviewPayload(payload){
    $('assignmentSection').classList.remove('hidden');
  }
  history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(payload.review_id));setReviewLinks(payload.review_id);
+ showActivePaperReview(payload);
  return true;
 }
 async function restoreSavedReview(){
@@ -574,6 +625,7 @@ $('buildModels').onclick=buildModels;
 $('rebuildModels').onclick=buildModels;
 $('assignModels').onclick=buildAssignments;
 $('modelTabs').addEventListener('click',e=>{const b=e.target.closest('[data-model]');if(b)renderModel(Number(b.dataset.model));});
+$('newPaperReview')?.addEventListener('click',resetPaperReview);
 $('refreshArchive')?.addEventListener('click',loadArchive);
 $('reviewArchive')?.addEventListener('click',e=>{const b=e.target.closest('[data-open-review]');if(b)openArchivedReview(b.dataset.openReview);});
 addEventListener('nafes:teacher-profile',()=>{const keep=selectedSubjects();populateSubject();document.querySelectorAll('.subject-check').forEach(x=>x.checked=keep.includes(String(x.value)));if(!document.querySelector('.subject-check:checked')&&document.querySelector('.subject-check'))document.querySelector('.subject-check').checked=true;$('subject').value=selectedSubjects()[0]||'reading';renderIndicators();});
