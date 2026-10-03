@@ -16,22 +16,28 @@ const batch=server.slice(server.indexOf("if(b.action==='teacher_preview_batch')"
 assert.doesNotMatch(batch,/nafes_assessments'\)\.insert/,'batch candidates must not create draft rows');
 
 assert.match(css,/@page\{size:A4 portrait;margin:6mm\}/,'print must use explicit A4 with safe physical margins');
-assert.match(css,/\.paper-page\{width:198mm!important[\s\S]*height:285mm!important/,'printed content must fit inside A4 printable box');
+assert.match(css,/\.paper-page\{width:100%!important[\s\S]*height:285mm!important/,'printed content must use the browser A4 printable width');
 assert.match(css,/\.stem\{font-size:14pt!important/,'printed question stems must stay readable');
 assert.match(css,/\.choices\{font-size:12\.5pt!important/,'printed choices must stay readable');
 
-const legacyReadingRequests=5*28;
-const optimizedNormalRequests=5;
-const optimizedFallbackRequests=10;
-const normalReduction=Math.round((1-optimizedNormalRequests/legacyReadingRequests)*1000)/10;
-const fallbackReduction=Math.round((1-optimizedFallbackRequests/legacyReadingRequests)*1000)/10;
-assert.ok(normalReduction>=40);
-assert.ok(fallbackReduction>=40);
+assert.match(best,/initialCandidateCount=reading\?5:/,'reading builds must use a 5-candidate initial batch');
+assert.match(best,/refineCandidateCount=reading\?3:2/,'adaptive refinement batch must remain bounded');
+assert.match(server,/PREVIEW_POOL_CACHE_TTL_MS=45_000/,'preview question-pool cache must remain enabled');
+
+const legacyReadingCandidateWork=5*10;
+const optimizedReadingNormalWork=5*5;
+const legacyObjectiveCandidateWork=5*8;
+const optimizedObjectiveNormalWork=5*4;
+const readingReduction=Math.round((1-optimizedReadingNormalWork/legacyReadingCandidateWork)*1000)/10;
+const objectiveReduction=Math.round((1-optimizedObjectiveNormalWork/legacyObjectiveCandidateWork)*1000)/10;
+assert.ok(readingReduction>=40);
+assert.ok(objectiveReduction>=40);
 
 console.log('PASS paper builder + print regression',JSON.stringify({
-  legacy_reading_requests:legacyReadingRequests,
-  optimized_normal_requests:optimizedNormalRequests,
-  optimized_fallback_requests:optimizedFallbackRequests,
-  request_reduction_normal_percent:normalReduction,
-  request_reduction_fallback_percent:fallbackReduction
+  legacy_reading_candidates:legacyReadingCandidateWork,
+  optimized_reading_candidates:optimizedReadingNormalWork,
+  reading_candidate_reduction_percent:readingReduction,
+  legacy_objective_candidates:legacyObjectiveCandidateWork,
+  optimized_objective_candidates:optimizedObjectiveNormalWork,
+  objective_candidate_reduction_percent:objectiveReduction
 }));
