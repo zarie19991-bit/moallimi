@@ -8,6 +8,12 @@ assert.match(ui,/teacher_unified_plan/);
 assert.match(ui,/window\.print\(\)/);
 assert.match(fs.readFileSync(path.join(root,'lugati-dashboard.html'),'utf8'),/data-tamakkun-unified-plan/);
 assert.match(fs.readFileSync(path.join(root,'lugati-student.html'),'utf8'),/tamakkun-unified-plan\.js/);
+for(const html of ['lugati-dashboard.html','lugati-student.html','lugati-complete.html']){
+  const text=fs.readFileSync(path.join(root,html),'utf8');
+  assert.ok(!text.includes('\\\\n'), html+' must not contain literal \\n markup escapes');
+}
+assert.match(fs.readFileSync(path.join(root,'tamakkun-unified-plan.css'),'utf8'),/print-color-adjust:exact/);
+assert.match(fs.readFileSync(path.join(root,'tamakkun-unified-plan.css'),'utf8'),/:focus-visible/);
 
 const source=fs.readFileSync(path.join(root,'supabase/functions/lugati-adaptive-plan/index.ts'),'utf8');
 assert.match(source,/g\.correct\+=Number\(p\.correct\|\|0\)/);
