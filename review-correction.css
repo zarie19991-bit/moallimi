@@ -22,3 +22,14 @@
 .my-tests-list{display:grid;gap:10px}
 .my-tests-list .published-test{margin:0!important}
 @media(max-width:700px){.my-tests-toolbar>*{width:100%}.my-tests-toolbar #myTestsState{width:auto}}
+
+.review-archive-card{border-top:4px solid #0f6b63}
+.review-archive-card .archive-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.review-archive-card .archive-toolbar .primary{border:0;border-radius:10px;background:#0f6b63;color:#fff;padding:10px 15px;font:800 12px inherit;cursor:pointer}
+.active-paper-review{margin:14px 0 4px;padding:12px 14px;border:1px solid #afd6c9;border-radius:12px;background:#eff9f5;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#174f48}
+.active-paper-review[hidden]{display:none!important}
+.active-paper-review b{color:#0f6b63}
+.active-paper-review small{width:100%;color:#617772}
+.review-archive .archive-item{border:1px solid #d7e5e0;border-radius:14px;padding:15px;background:#fff}
+.review-archive .archive-actions .open-review{background:#0f6b63;color:#fff;border-color:#0f6b63;font-weight:900}
+@media(max-width:700px){.review-archive-card .archive-toolbar>*{width:100%}.active-paper-review{align-items:flex-start}}
