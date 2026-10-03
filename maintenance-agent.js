@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id);
 const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-agent';
 const TEST_AUDIT_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-test-audit';
 const SEMANTIC_AUDIT_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-semantic-audit';
-let latestRun=null,latestPrintRun=null,allProposals=[],allHandoffs=[],lastBrainQuestion='',lastCorrection=null,correctionDebounce=null;
+let latestRun=null,latestPrintRun=null,allProposals=[],allHandoffs=[],lastBrainQuestion='',lastCorrection=null,correctionDebounce=null,latestEvaluationReport=null,evaluationSources=[];
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sevLabel={ok:'سليم',info:'معلومة',warning:'تحذير',critical:'حرج'};
@@ -402,6 +402,108 @@ async function createPrintHandoff(){
 }
 
 
+
+function pct1(v){return v===null||v===undefined||!Number.isFinite(Number(v))?'—':new Intl.NumberFormat('ar-SA',{maximumFractionDigits:1}).format(Number(v))+'٪';}
+function num2(v){return v===null||v===undefined||!Number.isFinite(Number(v))?'—':new Intl.NumberFormat('ar-SA',{maximumFractionDigits:2}).format(Number(v));}
+function subjectLabel(v){return({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[String(v||'')]||String(v||'—');}
+function strengthLabel(v){return({excellent:'ممتاز',strong:'قوي',acceptable:'مقبول',weak:'ضعيف'})[String(v||'')]||String(v||'—');}
+function cohortLabel(v){return({needs_support:'بحاجة إلى دعم',developing:'متوسط / نامٍ',advanced:'متقدم',unknown:'لا توجد نتائج كافية'})[String(v||'')]||String(v||'—');}
+function semanticLabel(v){return({pass:'سليم',review:'مراجعة',reject:'مرفوض',unknown:'غير محكّم'})[String(v||'')]||String(v||'—');}
+
+async function loadEvaluationSources(){
+ const sel=$('evaluationSource');if(!sel)return;
+ try{
+   const d=await call('evaluation_sources');
+   evaluationSources=d.sources||[];
+   sel.innerHTML=evaluationSources.length?evaluationSources.map(x=>{
+     const val=x.source_type+'|'+x.source_id;
+     const meta=(x.class_name?x.class_name+' · ':'')+ar(x.attempt_count||0)+' نتيجة';
+     return '<option value="'+esc(val)+'">'+esc(x.title||'اختبار')+' — '+esc(meta)+'</option>';
+   }).join(''):'<option value="">لا توجد اختبارات متاحة للتحليل</option>';
+   $('evaluationState').textContent=evaluationSources.length?'تم تحميل '+ar(evaluationSources.length)+' اختبارًا/مراجعة.':'لا توجد اختبارات محفوظة حاليًا.';
+ }catch(e){
+   sel.innerHTML='<option value="">تعذر تحميل الاختبارات</option>';
+   $('evaluationState').textContent=e.message||String(e);
+ }
+}
+function renderBlueprint(title,data,kind){
+ const entries=Object.entries(data||{});
+ const labels=kind==='difficulty'?{easy:'سهل',medium:'متوسط',hard:'صعب'}:{knowledge:'معرفة',application:'تطبيق',reasoning:'استدلال'};
+ return '<div class="evaluation-blueprint-row"><b>'+esc(title)+'</b><div><div class="evaluation-bars">'+entries.map(([k,v])=>'<i class="'+esc(k)+'" style="width:'+Math.max(0,Number(v)||0)+'%"></i>').join('')+'</div><div class="evaluation-legend">'+entries.map(([k,v])=>'<span>'+esc(labels[k]||k)+' '+ar(v)+'٪</span>').join('')+'</div></div></div>';
+}
+function standaloneEvaluationHtml(){
+ if(!latestEvaluationReport)return'';
+ const body=$('evaluationReport')?.innerHTML||'';
+ return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تقرير ذكاء التقييم</title><style>body{font-family:Tahoma,Arial,sans-serif;background:#f5f8f7;color:#17324d;padding:24px}*{box-sizing:border-box}.evaluation-report{display:grid;gap:12px;max-width:1200px;margin:auto}.evaluation-report-title{display:flex;justify-content:space-between;gap:12px;padding:14px;border:1px solid #cfe2dc;border-radius:13px;background:linear-gradient(135deg,#edf9f5,#f9fbff)}.evaluation-report-title h3{margin:0;color:#17493e}.evaluation-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.evaluation-kpi,.evaluation-card{border:1px solid #dbe7e4;border-radius:14px;background:#fff;padding:12px}.evaluation-kpi span{display:block;color:#72847f;font-size:11px}.evaluation-kpi b{display:block;margin-top:6px;color:#173f37;font-size:22px}.evaluation-kpi small{display:block;margin-top:6px;color:#899692;font-size:10px}.evaluation-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.evaluation-bars{display:flex;gap:5px;height:12px;border-radius:999px;overflow:hidden;background:#eef3f1}.evaluation-bars i{display:block;height:100%}.easy{background:#55a978}.medium{background:#e0a638}.hard{background:#c86658}.knowledge{background:#5b8dd3}.application{background:#7f63bd}.reasoning{background:#d05a8a}.evaluation-legend{display:flex;gap:8px;flex-wrap:wrap;font-size:10px;color:#758681;margin-top:6px}.evaluation-items{width:100%;border-collapse:collapse;font-size:10px}.evaluation-items th{background:#eff6f4;padding:8px}.evaluation-items td{padding:8px;border-bottom:1px solid #edf2f0}.strength-pill{padding:4px 7px;border-radius:999px;font-weight:700}.excellent{background:#e5f5ec;color:#247047}.strong{background:#e6f1fb;color:#326b9e}.acceptable{background:#fff4da;color:#8d670d}.weak{background:#fdebea;color:#a13e38}.evaluation-rec{border:1px solid #e0e8e6;border-radius:11px;padding:10px;background:#fff;margin:7px 0}.evaluation-note{padding:10px;border-radius:10px;background:#fff8e8;border:1px solid #f0ddb0;color:#795e20}.evaluation-reliability-row{display:flex;justify-content:space-between;padding:8px;background:#f7faf9;border-radius:9px;margin:6px 0}@media print{body{background:#fff;padding:0}.evaluation-report{max-width:none}.evaluation-card,.evaluation-kpi{break-inside:avoid}.evaluation-items{font-size:8.5px}}</style></head><body><main class="evaluation-report">'+body+'</main></body></html>';
+}
+function renderEvaluationReport(report){
+ latestEvaluationReport=report||null;
+ const host=$('evaluationReport'),badge=$('evaluationBadge'),htmlBtn=$('exportEvaluationHtml'),pdfBtn=$('printEvaluationPdf');
+ if(htmlBtn)htmlBtn.disabled=!report;if(pdfBtn)pdfBtn.disabled=!report;
+ if(!report){host.innerHTML='<div class="empty">لم يتم إنشاء تقرير ذكاء تقييم بعد.</div>';return;}
+ const s=report.summary||{},omr=report.omr||{},selection=report.selection||{},items=report.items||[],rels=report.reliability?.by_model||[];
+ const sampleOk=Number(s.attempts||0)>=Number(report.reliability?.minimum_sample||10);
+ const weak=Number(s.weak_items||0);
+ if(badge){badge.className='status-pill '+(weak?'warning':'ok');badge.textContent=weak?'يوجد أسئلة تحتاج مراجعة':'جودة الاختبار مستقرة';}
+ const krRows=rels.length?rels.map(r=>'<div class="evaluation-reliability-row"><b>النموذج '+esc(r.model||'—')+' · '+ar(r.n||0)+' طالب</b><span>'+(r.kr20===null?'غير متاح':num2(r.kr20))+'</span></div>').join(''):'<div class="evaluation-note">لا توجد بيانات كافية لحساب الثبات.</div>';
+ const omrNote=omr.validation_status==='requires_labeled_calibration_sample'
+   ?'<div class="evaluation-note">هدف دقة OMR هو 95٪، لكن الدقة الفعلية <b>غير مثبتة إحصائيًا بعد</b>. يلزم عينة مرجعية موسومة. بوابة القبول الآلي الحالية تتطلب ثقة داخلية ≥ '+ar(Math.round(Number(omr.auto_accept_confidence||.95)*100))+'٪.</div>'
+   :'<div class="evaluation-note ok">معايرة OMR مكتملة.</div>';
+ const rows=items.slice(0,100).map((x,i)=>'<tr>'+
+   '<td>'+ar(i+1)+'</td><td>'+esc(subjectLabel(x.subject))+'</td><td>'+esc(String(x.question||'').slice(0,180))+'</td>'+
+   '<td>'+(x.facility===null?'<span class="metric-na">عينة ناقصة</span>':pct1(Number(x.facility)*100))+'</td>'+
+   '<td>'+(x.discrimination===null?'<span class="metric-na">عينة ناقصة</span>':num2(x.discrimination))+'</td>'+
+   '<td>'+esc(semanticLabel(x.semantic_judgment))+'</td>'+
+   '<td><span class="strength-pill '+esc(x.strength_class)+'">'+ar(x.strength_score)+' · '+esc(strengthLabel(x.strength_class))+'</span></td></tr>').join('');
+ const recs=(report.recommendations||[]).map(r=>'<article class="evaluation-rec '+esc(r.priority||'medium')+'"><span class="prio"></span><div><b>'+esc(r.title)+'</b><p>'+esc(r.detail)+'</p></div></article>').join('');
+ host.innerHTML=
+   '<div class="evaluation-report-title"><div><h3>'+esc(report.source?.title||'تقرير الاختبار')+'</h3><span>تقرير عملي بدون بيانات شخصية · '+esc(new Date(report.generated_at).toLocaleString('ar-SA'))+'</span></div><span>الإصدار '+esc(report.version||'—')+'</span></div>'+
+   '<div class="evaluation-hero">'+
+     '<div class="evaluation-kpi"><span>النتائج المعتمدة</span><b>'+ar(s.attempts||0)+'</b><small>'+(sampleOk?'صالحة للتحليل السيكومتري':'أقل من الحد الأدنى لبعض المؤشرات')+'</small></div>'+
+     '<div class="evaluation-kpi info"><span>متوسط الأداء</span><b>'+pct1(s.mean_percent)+'</b><small>'+esc(cohortLabel(selection.cohort_level))+'</small></div>'+
+     '<div class="evaluation-kpi"><span>متوسط قوة الأسئلة</span><b>'+pct1(s.average_strength)+'</b><small>درجة جودة مركبة</small></div>'+
+     '<div class="evaluation-kpi '+(weak?'critical':'')+'"><span>أسئلة ضعيفة</span><b>'+ar(s.weak_items||0)+'</b><small>أقل من 55/100</small></div>'+
+     '<div class="evaluation-kpi"><span>أسئلة قوية</span><b>'+ar(s.strong_items||0)+'</b><small>70/100 فأعلى</small></div>'+
+     '<div class="evaluation-kpi '+(omr.low_confidence_answers?'warning':'')+'"><span>ثقة OMR</span><b>'+(omr.mean_confidence===null?'—':pct1(Number(omr.mean_confidence)*100))+'</b><small>'+ar(omr.low_confidence_answers||0)+' إجابة منخفضة الثقة</small></div>'+
+   '</div>'+
+   '<div class="evaluation-grid">'+
+     '<section class="evaluation-card"><h3>مخطط الاختيار المتكيف</h3><div class="evaluation-blueprint">'+renderBlueprint('الصعوبة',selection.difficulty_blueprint,'difficulty')+renderBlueprint('المستوى',selection.cognitive_blueprint,'cognitive')+'</div></section>'+
+     '<section class="evaluation-card"><h3>ثبات الاختبار KR-20</h3>'+krRows+'</section>'+
+   '</div>'+
+   '<section class="evaluation-card"><h3>تشخيص أوراق التظليل</h3>'+omrNote+'<div class="evaluation-legend"><span>أوراق ممسوحة: '+ar(omr.scanned_sheets||0)+'</span><span>قبول آلي: '+ar(omr.auto_accepted_sheets||0)+'</span><span>تعديلات يدوية: '+ar(omr.manual_answers||0)+'</span><span>خلايا منخفضة الثقة: '+ar(omr.low_confidence_answers||0)+'</span></div></section>'+
+   '<section class="evaluation-card"><h3>قوة الأسئلة — الصعوبة والتمييز والتحكيم الدلالي</h3><div class="evaluation-items-wrap"><table class="evaluation-items"><thead><tr><th>#</th><th>المادة</th><th>السؤال</th><th>معامل السهولة</th><th>التمييز</th><th>دلالي</th><th>القوة</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>'+
+   '<section class="evaluation-card"><h3>إجراءات عملية</h3><div class="evaluation-recommendations">'+(recs||'<div class="evaluation-note ok">لا توجد إجراءات عاجلة.</div>')+'</div></section>';
+ $('evaluationState').textContent='اكتمل التحليل: '+ar(s.question_count||0)+' سؤالًا · '+ar(s.attempts||0)+' نتيجة · '+ar(s.weak_items||0)+' سؤالًا يحتاج مراجعة.';
+}
+async function runEvaluationIntelligence(){
+ const raw=$('evaluationSource')?.value||'';const [source_type,source_id]=raw.split('|');
+ if(!source_id){$('evaluationState').textContent='اختر اختبارًا أولًا.';return;}
+ const btn=$('runEvaluationIntelligence');btn.disabled=true;
+ const badge=$('evaluationBadge');if(badge){badge.className='status-pill info';badge.textContent='جارٍ التحليل…';}
+ $('evaluationState').textContent='جارٍ تحليل قوة الأسئلة، الاستجابات، وثقة OMR…';
+ try{
+   const d=await call('evaluation_report',{source_type,source_id});
+   renderEvaluationReport(d.report);
+ }catch(e){
+   latestEvaluationReport=null;$('exportEvaluationHtml').disabled=true;$('printEvaluationPdf').disabled=true;
+   $('evaluationReport').innerHTML='<div class="empty">'+esc(e.message||String(e))+'</div>';
+   $('evaluationState').textContent='تعذر إنشاء التقرير.';
+   if(badge){badge.className='status-pill warning';badge.textContent='تعذر التحليل';}
+ }finally{btn.disabled=false;}
+}
+function downloadEvaluationHtml(){
+ if(!latestEvaluationReport)return;
+ const html=standaloneEvaluationHtml(),blob=new Blob([html],{type:'text/html;charset=utf-8'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download='تقرير-ذكاء-التقييم-'+Date.now()+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function printEvaluationReport(){
+ if(!latestEvaluationReport)return;
+ const w=window.open('','_blank','noopener,noreferrer');
+ if(!w){alert('اسمح بفتح نافذة الطباعة من المتصفح.');return;}
+ w.document.open();w.document.write(standaloneEvaluationHtml());w.document.close();
+ setTimeout(()=>{w.focus();w.print();},350);
+}
+
 function correctionModeLabel(v){
  return ({arabic:'نص عربي',instruction:'تعليمات تشغيلية',javascript:'JavaScript',css:'CSS',html:'HTML',sql:'SQL'})[String(v||'')]||String(v||'');
 }
@@ -506,7 +608,7 @@ async function init(){
   const p=await window.NafesTeacher.ensureProfile();
   if(p?.subject_scope!=='all'){$('denied').hidden=false;$('mainContent').hidden=true;setState('لا توجد صلاحية لهذا الحساب.','error');return;}
   $('mainContent').hidden=false;setState('الوضع الآمن جاهز. يمكنك تشغيل الفحص الشامل.','ok');
-  await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs(),loadSemanticStatus(),loadCorrections()]);
+  await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs(),loadSemanticStatus(),loadCorrections(),loadEvaluationSources()]);
  }catch(e){setState(e.message||String(e),'error');}
 }
 $('runIndicatorAudit')?.addEventListener('click',runIndicatorAudit);
@@ -542,6 +644,10 @@ $('runScan').onclick=async()=>{
  finally{btn.disabled=false;}
 };
 
+$('runEvaluationIntelligence')?.addEventListener('click',runEvaluationIntelligence);
+$('refreshEvaluationSources')?.addEventListener('click',loadEvaluationSources);
+$('exportEvaluationHtml')?.addEventListener('click',downloadEvaluationHtml);
+$('printEvaluationPdf')?.addEventListener('click',printEvaluationReport);
 $('runCorrection')?.addEventListener('click',async()=>{
  const btn=$('runCorrection');btn.disabled=true;
  try{setState('جارٍ فحص النص أو الأمر داخل المنصة…');await runInternalCorrection({save:true});}
