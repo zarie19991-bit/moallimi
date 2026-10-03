@@ -1,0 +1,50 @@
+name: QA automatic paper builder and print
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'review-correction.js'
+      - 'review-correction.html'
+      - 'review-question-papers.js'
+      - 'review-question-papers.css'
+      - 'review-question-papers.html'
+      - 'supabase/functions/nafes-exam/**'
+      - 'qa/paper-builder-regression.cjs'
+      - 'qa/review-question-paper-print.mjs'
+      - '.github/workflows/qa-paper-builder.yml'
+  workflow_dispatch:
+
+jobs:
+  paper-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax
+        run: |
+          node --check review-correction.js
+          node --check review-question-papers.js
+          node --check qa/paper-builder-regression.cjs
+          node --check qa/review-question-paper-print.mjs
+      - name: Builder and print regression contract
+        run: node qa/paper-builder-regression.cjs
+      - name: Install browser driver
+        run: npm install --no-save playwright-core@1.55.0
+      - name: Start local site
+        shell: bash
+        run: |
+          nohup python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/qa-paper-http.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/review-question-papers.html >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/review-question-papers.html >/dev/null
+          CHROME_PATH="$(which google-chrome || which chromium || which chromium-browser || true)"
+          test -n "$CHROME_PATH"
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          echo "QA_LOCAL_SITE=http://127.0.0.1:4173/" >> "$GITHUB_ENV"
+      - name: Browser print QA
+        run: node qa/review-question-paper-print.mjs
