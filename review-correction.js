@@ -38,7 +38,7 @@ function archiveItem(row){
  const rid=encodeURIComponent(row.review_id||''),subs=Array.isArray(row.subjects)?row.subjects:(Array.isArray(row.payload?.subjects)?row.payload.subjects:[row.subject].filter(Boolean));
  const subject=subs.length>1?subs.map(x=>labels[x]||x).join(' + '):(labels[subs[0]]||subs[0]||'—'),cls=row.class_name?('فصل '+row.class_name):'جميع الفصول';
  return '<article class="archive-item" data-review-id="'+esc(row.review_id||'')+'">'+
-   '<h3>'+esc(row.title||'مراجعة ورقية')+'</h3>'+
+   '<h3>'+esc(row.title||'اختبار ورقي')+'</h3>'+
    '<div class="archive-meta"><span>'+esc(subject)+'</span><span>'+esc(cls)+'</span><span>'+esc(formatArchiveTime(row.updated_at||row.created_at))+'</span></div>'+
    '<div class="archive-actions">'+
      '<button type="button" class="open-review" data-open-review="'+esc(row.review_id||'')+'">الإعدادات والتعديل</button>'+
@@ -75,7 +75,7 @@ function resetPaperReview(){
  history.replaceState(null,'','review-correction.html');
  setReviewLinks('');
  models=[];assignments=[];activeModel=0;indicatorState.clear();
- $('reviewTitle').value='مراجعة مؤشرات نافس';
+ $('reviewTitle').value='اختبار نافس';
  document.querySelectorAll('.subject-check').forEach(x=>x.checked=false);
  const first=document.querySelector('.subject-check');if(first)first.checked=true;
  $('subject').value=selectedSubjects()[0]||'reading';
@@ -271,7 +271,7 @@ function configForModel(letter){
    const items=inds.filter(x=>x.subject===subject);
    return {subject,question_count:items.reduce((n,x)=>n+x.count,0),duration_minutes:45,calculator:subject==='math',model_no:1,indicators:items.map(x=>({key:x.key,count:x.count}))};
  }).filter(s=>s.question_count>0);
- return {kind:'multi_indicator',review_passage_mode:subjects.includes('reading'),grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections,count_mode:'per_indicator',settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
+ return {kind:'multi_indicator',review_passage_mode:subjects.includes('reading'),grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections,count_mode:'per_indicator',cognitive_targets:{knowledge:Number($('knowledge').value||0),application:Number($('application').value||0),reasoning:Number($('reasoning').value||0)},settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
 }
 function questionIds(d){
  return (d.sections||[]).flatMap(s=>(s.questions||[]).map(q=>String(q.id||q.question_id||q.question||'')));
@@ -430,7 +430,7 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
 }
 function validate(){
  const inds=getSelectedIndicators(),subjects=selectedSubjects(),q=Number($('questionCount').value),sum=inds.reduce((n,x)=>n+x.count,0),stu=selectedStudents();
- if(!$('reviewTitle').value.trim())throw new Error('اكتب اسم المراجعة.');
+ if(!$('reviewTitle').value.trim())throw new Error('اكتب اسم الاختبار.');
  if(!subjects.length)throw new Error('اختر مادة واحدة على الأقل.');
  if(!inds.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
  for(const subject of subjects)if(!inds.some(x=>x.subject===subject))throw new Error('اختر مؤشرًا واحدًا على الأقل من مادة '+labels[subject]+'.');
@@ -462,14 +462,20 @@ function modelStats(m){
 function renderQuality(){
  const all=models.flatMap(m=>questionIds(m)),unique=new Set(all),dup=Math.max(0,all.length-unique.size),total=all.length;
  const unknown=models.reduce((n,m)=>n+modelStats(m).unknown,0);
+ const expected=Number($('questionCount').value||0),badCount=models.filter(m=>modelQuestions(m).length!==expected).length;
+ const cognitiveDeviation=models.length?Math.round(models.reduce((n,m)=>n+cognitiveScore(m),0)/models.length):0;
+ const first=models[0],subjectCounts=first?(first.sections||[]).map(s=>labels[s.subject]+' '+ar((s.questions||[]).length)).join(' · '):'—';
+ const badChoices=models.reduce((n,m)=>n+incompleteChoices(m).length,0);
  const cards=[
   ['النماذج',models.length,'ok'],
-  ['إجمالي الأسئلة',total,'ok'],
+  ['أسئلة كل نموذج',expected,badCount?'warn':'ok'],
+  ['توزيع المواد',subjectCounts,'ok'],
+  ['انحراف المستويات',cognitiveDeviation+' نقطة',cognitiveDeviation>20?'warn':'ok'],
   ['التكرارات بين النماذج',dup,dup>repeatLimit()?'warn':'ok'],
-  ['الحد الأعلى للتكرار',repeatLimit(),'ok'],
+  ['اختيارات ناقصة',badChoices,badChoices?'warn':'ok'],
   ['أسئلة بلا وسم معرفي',unknown,unknown?'warn':'ok']
  ];
- $('quality').innerHTML=cards.map(x=>'<div class="quality-card '+x[2]+'"><span>'+x[0]+'</span><b>'+ar(x[1])+'</b></div>').join('');
+ $('quality').innerHTML=cards.map(x=>'<div class="quality-card '+x[2]+'"><span>'+x[0]+'</span><b>'+esc(String(x[1]))+'</b></div>').join('');
 }
 function renderModelTabs(){
  $('modelTabs').innerHTML=models.map((m,i)=>'<button class="model-tab '+(i===activeModel?'active':'')+'" data-model="'+i+'">نموذج '+letters[i]+'</button>').join('');
@@ -562,14 +568,14 @@ async function buildAssignments(){
 function restoreReviewPayload(payload){
  if(!payload||!Array.isArray(payload.models)||!payload.models.length)return false;
  localStorage.setItem('nafes_review_correction_draft',JSON.stringify(payload));
- if($('reviewTitle'))$('reviewTitle').value=payload.title||'مراجعة مؤشرات نافس';
+ if($('reviewTitle'))$('reviewTitle').value=payload.title||'اختبار نافس';
  const payloadSubjects=(Array.isArray(payload.subjects)&&payload.subjects.length?payload.subjects:[payload.subject]).filter(x=>allowedSubjects().includes(x));
  document.querySelectorAll('.subject-check').forEach(x=>x.checked=payloadSubjects.includes(String(x.value)));
  if(!document.querySelector('.subject-check:checked')&&document.querySelector('.subject-check'))document.querySelector('.subject-check').checked=true;
  if($('subject'))$('subject').value=selectedSubjects()[0]||payload.subject||'reading';
  if($('className')&&[...$('className').options].some(o=>o.value===String(payload.class_name||'')))$('className').value=String(payload.class_name||'');
  renderStudents();
- if($('questionCount')&&[...$('questionCount').options].some(o=>Number(o.value)===Number(payload.question_count)))$('questionCount').value=String(payload.question_count);
+ if($('questionCount'))$('questionCount').value=String(Math.max(10,Math.min(60,Number(payload.question_count)||15)));
  if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);
  if($('bubbleNameMode'))$('bubbleNameMode').value=payload.bubble_name_mode==='blank'?'blank':'printed';
  const ps=payload.paper_settings||{};
@@ -659,7 +665,7 @@ $('subjectChoices').addEventListener('change',e=>{
  if(document.querySelector('.indicator-check:checked'))distributeIndicatorCounts();
 });
 $('className').addEventListener('change',renderStudents);
-$('questionCount').addEventListener('change',()=>{distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
+['input','change'].forEach(ev=>$('questionCount').addEventListener(ev,()=>{const q=Number($('questionCount').value);if(Number.isFinite(q))$('questionCount').value=String(Math.max(10,Math.min(60,Math.trunc(q))));distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();}));
 ['knowledge','application','reasoning'].forEach(id=>$(id).addEventListener('input',updateLevelSummary));
 $('indicatorSearch').addEventListener('input',renderIndicators);
 $('indicators').addEventListener('change',e=>{if(e.target.matches('.indicator-check')){captureIndicatorState();distributeIndicatorCounts();updateIndicatorSummary();}});
