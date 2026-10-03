@@ -95,12 +95,24 @@ function stemKey(q:Row){
     .trim()
     .toLowerCase();
 }
+function selectionStemKey(q:Row,subject:string){
+  const stem=stemKey(q);
+  if(subject!=='reading')return stem;
+  const context=String(q?.context??q?.context_text??'')
+    .normalize('NFKC')
+    .replace(/[\u064B-\u0652\u0670\u0640]/g,'')
+    .replace(/\s+/g,' ')
+    .trim()
+    .toLowerCase();
+  return context?context+'\u241f'+stem:stem;
+}
+
 function selectIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
   const mixed=rankQuestionCandidates(candidates,seed+'|quality');
   const unique:Row[]=[];
   const localStems=new Set<string>();
   for(const q of mixed){
-    const ck=questionKey(q),sk=stemKey(q);
+    const ck=questionKey(q),sk=selectionStemKey(q,subject);
     if(!sk||usedContent.has(ck)||usedStems.has(sk)||localStems.has(sk))continue;
     localStems.add(sk);unique.push(q);
   }
@@ -129,7 +141,7 @@ function selectIndicatorQuestions(candidates:Row[],count:number,subject:string,s
       if(remaining)picked.push(...fallback.slice(0,remaining));
     }
   }
-  for(const q of picked){usedContent.add(questionKey(q));usedStems.add(stemKey(q));}
+  for(const q of picked){usedContent.add(questionKey(q));usedStems.add(selectionStemKey(q,subject));}
   return picked;
 }
 
@@ -351,41 +363,74 @@ function arrangeObjectiveQuestions(qs:Row[],seed:string):Row[]{
   return out;
 }
 
+export function planReadingPassageAllocation(capacities:number[],count:number,preferredPerPassage=5):number[]{
+  const need=Math.trunc(Number(count)||0),preferred=Math.max(1,Math.trunc(Number(preferredPerPassage)||5));
+  const caps=(Array.isArray(capacities)?capacities:[]).map(x=>Math.max(0,Math.trunc(Number(x)||0)));
+  if(need<=0||!caps.length||caps.reduce((a,b)=>a+b,0)<need)return [];
+  const order=caps.map((cap,index)=>({cap,index,preferred:Math.min(cap,preferred)}))
+    .filter(x=>x.cap>0)
+    .sort((a,b)=>b.preferred-a.preferred||b.cap-a.cap||a.index-b.index);
+  const selected:number[]=[];let preferredCapacity=0;
+  for(const x of order){selected.push(x.index);preferredCapacity+=x.preferred;if(preferredCapacity>=need)break;}
+  if(preferredCapacity<need){
+    for(const x of order)if(!selected.includes(x.index))selected.push(x.index);
+  }
+  const allocation=Array(caps.length).fill(0);let remaining=need;
+  const fill=(limit:(idx:number)=>number)=>{
+    while(remaining>0){
+      let progressed=false;
+      for(const idx of selected){
+        if(allocation[idx]>=limit(idx))continue;
+        allocation[idx]++;remaining--;progressed=true;
+        if(!remaining)break;
+      }
+      if(!progressed)break;
+    }
+  };
+  fill(idx=>Math.min(caps[idx],preferred));
+  if(remaining>0)fill(idx=>caps[idx]);
+  return remaining===0?allocation:[];
+}
+
 function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
-  if(count%5!==0)fail('في مراجعة القراءة يجب أن يكون عدد أسئلة كل مؤشر من مضاعفات ٥ حتى يكون كل نص متبوعًا بخمسة أسئلة.');
   const groups=new Map<string,Row[]>();
   for(const q of candidates){
     const context=String(q.context||'').trim();
     if(!context)continue;
     const list=groups.get(context)||[];
-    list.push(q);
-    groups.set(context,list);
+    list.push(q);groups.set(context,list);
   }
-  // Keep passage choice genuinely varied across review models.
-  // Print compactness is scored on the client after generation; sorting here by
-  // passage length forced the same short texts to recur across models.
-  const randomized=[...groups.entries()].map(([context,rows])=>({
-    context,rows,
-    quality:rows.length?rows.reduce((s,q)=>s+structuralQuestionStrength(q),0)/rows.length:0,
-    tie:randomFrom(seed+'|passage|'+context.slice(0,80))()
-  })).sort((a,b)=>b.quality-a.quality||b.tie-a.tie);
-  const neededGroups=count/5;
+
+  const prepared=[...groups.entries()].map(([context,rows])=>{
+    const local=new Set<string>(),available:Row[]=[];
+    for(const q of rankQuestionCandidates(rows,seed+'|passage-items|'+context.slice(0,80))){
+      const ck=questionKey(q),sk=selectionStemKey(q,'reading');
+      if(!sk||usedContent.has(ck)||usedStems.has(sk)||local.has(sk))continue;
+      local.add(sk);available.push(q);
+    }
+    const quality=available.length?available.reduce((s,q)=>s+structuralQuestionStrength(q),0)/available.length:0;
+    return{context,available,quality,tie:randomFrom(seed+'|passage|'+context.slice(0,80))()};
+  }).filter(g=>g.available.length>0)
+    .sort((a,b)=>b.quality-a.quality||b.tie-a.tie);
+
+  const totalAvailable=prepared.reduce((s,g)=>s+g.available.length,0);
+  if(totalAvailable<count){
+    fail(`موارد القراءة لهذا المؤشر غير كافية بعد استبعاد التكرار: المطلوب ${count} سؤالًا، والمتاح ${totalAvailable} سؤالًا صالحًا موزعًا على ${prepared.length} نصوص. أضف أسئلة/نصوص محكّمة أو خفّض عدد أسئلة المؤشر.`);
+  }
+
+  const allocation=planReadingPassageAllocation(prepared.map(g=>g.available.length),count,5);
+  if(!allocation.length){
+    fail(`تعذر توزيع ${count} سؤالًا على النصوص المتاحة توزيعًا صالحًا، رغم وجود ${totalAvailable} سؤالًا. راجع سلامة ارتباط الأسئلة بالنصوص.`);
+  }
+
   const picked:Row[]=[];
-  let chosenGroups=0;
-  for(const group of randomized){
-    if(chosenGroups>=neededGroups)break;
-    const available=group.rows.filter(q=>{
-      const sk=stemKey(q),ck=questionKey(q);
-      return !!sk&&!usedStems.has(sk)&&!usedContent.has(ck);
-    });
-    if(available.length<5)continue;
-    const batch=selectIndicatorQuestions(available,5,'reading',seed+'|passage|'+chosenGroups,usedContent,usedStems);
+  for(let i=0;i<prepared.length;i++){
+    const take=allocation[i]||0;if(!take)continue;
+    const group=prepared[i];
+    const batch=selectIndicatorQuestions(group.available,take,'reading',seed+'|passage|'+i,usedContent,usedStems);
     picked.push(...batch);
-    chosenGroups++;
   }
-  if(picked.length!==count){
-    fail(`لا توجد نصوص قراءة كافية تحقق البناء المطلوب (نص ثم ٥ أسئلة). المطلوب ${neededGroups} نصوص، والمتاح حاليًا ${chosenGroups} فقط لهذا الاختيار.`);
-  }
+  if(picked.length!==count)fail(`تعذر إكمال توزيع أسئلة القراءة: المطلوب ${count} وتم اختيار ${picked.length} فقط.`);
   return picked;
 }
 
@@ -1038,8 +1083,25 @@ async function catalog(db:any) {
   };
   const rows=must(await db.from('nafes_simulation_forms').select('subject,model_no,created_at'));
   const forms=SUBJECTS.flatMap(subject=>Array.from({length:60},(_,i)=>({subject,model_no:i+1,question_count:30,ready:rows.some((r:Row)=>r.subject===subject&&r.model_no===i+1)})));
+  const readingResources=new Map<string,Row>();
+  try{
+    const readingPool=await fullPool(db,'reading');
+    for(const q of readingPool){
+      const key=String(q.indicator_key||'');if(!key)continue;
+      const x=readingResources.get(key)||{questions:0,contexts:new Map<string,number>()};
+      x.questions++;
+      const context=String(q.context||'').trim();
+      if(context)x.contexts.set(context,(x.contexts.get(context)||0)+1);
+      readingResources.set(key,x);
+    }
+  }catch(_){}
+  const resourceMeta=(key:string)=>{
+    const x=readingResources.get(key);if(!x)return{};
+    const counts=[...x.contexts.values()];
+    return{passage_count:counts.length,passages_with_5plus:counts.filter(n=>n>=5).length,max_questions_per_passage:counts.length?Math.max(...counts):0,reading_question_capacity:x.questions};
+  };
   return{
-    indicators:FRAMEWORK.map(i=>({...i,available:available.get(i.key)||0})),
+    indicators:FRAMEWORK.map(i=>({...i,available:available.get(i.key)||0,...(i.subject==='reading'?resourceMeta(i.key):{})})),
     simulation_indicators:FRAMEWORK.map(i=>({...i,available:simCounts.get(i.key)||0})),
     simulation_summary:simSummary,
     forms,
