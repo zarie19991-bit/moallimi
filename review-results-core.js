@@ -17,6 +17,14 @@ function level(p){
 }
 function mean(xs){const v=xs.map(Number).filter(Number.isFinite);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null}
 function median(xs){const v=xs.map(Number).filter(Number.isFinite).sort((a,b)=>a-b);if(!v.length)return null;const m=Math.floor(v.length/2);return v.length%2?v[m]:(v[m-1]+v[m])/2}
+function variance(xs){const v=xs.map(Number).filter(Number.isFinite);if(v.length<2)return null;const m=v.reduce((a,b)=>a+b,0)/v.length;return v.reduce((s,x)=>s+(x-m)**2,0)/(v.length-1)}
+function pearson(xs,ys){
+ const a=xs.map(Number),b=ys.map(Number);if(a.length!==b.length||a.length<2)return null;
+ const ma=mean(a),mb=mean(b);if(ma===null||mb===null)return null;
+ let num=0,da=0,db=0;for(let i=0;i<a.length;i++){const x=a[i]-ma,y=b[i]-mb;num+=x*y;da+=x*x;db+=y*y}
+ const den=Math.sqrt(da*db);return den?num/den:null;
+}
+
 function paperEvent(a,rid){return (a?.events||[]).find(e=>e?.type==='paper_scan'&&String(e.review_id||'')===String(rid||''));}
 async function allAttempts(){
  let cursor=0,out=[],guard=0;
@@ -116,6 +124,18 @@ function cognitiveRows(attempts,meta){
  }
  return ['knowledge','application','reasoning'].map(k=>map.get(k)||{key:k,label:labels[k],correct:0,total:0}).map(g=>({...g,percent:g.total?g.correct*100/g.total:null}));
 }
+function cognitiveRowsBySubject(attempts,meta,subjects=[]){
+ const labels={knowledge:'معرفة',application:'تطبيق',reasoning:'استدلال'},out={};
+ for(const subject of subjects)out[subject]=Object.fromEntries(Object.keys(labels).map(k=>[k,{key:k,label:labels[k],correct:0,total:0}]));
+ for(const a of attempts)for(const q of a.questions||[]){
+   if(typeof q.correct!=='boolean')continue;
+   const m=meta.get(String(q.id||''))||{},subject=q.subject||m.subject||String(q.indicator_key||'').split(':')[0]||'',key=m.cognitive;
+   if(!labels[key]||!subject)continue;
+   if(!out[subject])out[subject]=Object.fromEntries(Object.keys(labels).map(k=>[k,{key:k,label:labels[k],correct:0,total:0}]));
+   const g=out[subject][key];g.total++;if(q.correct)g.correct++;
+ }
+ return Object.fromEntries(Object.entries(out).map(([subject,map])=>[subject,['knowledge','application','reasoning'].map(k=>map[k]).map(g=>({...g,percent:g.total?g.correct*100/g.total:null}))]));
+}
 function subjectRows(attempts,subjects=[]){
  const map=new Map(subjects.map(subject=>[subject,{key:subject,label:subjectNames[subject]||subject,correct:0,total:0,students:new Set()}]));
  for(const a of attempts)for(const q of a.questions||[]){
@@ -126,6 +146,72 @@ function subjectRows(attempts,subjects=[]){
    g.total++;if(q.correct)g.correct++;g.students.add(String(a.student_id||a.student_name||a.id));map.set(subject,g);
  }
  return [...map.values()].filter(g=>g.total>0).map(g=>({...g,students:g.students.size,percent:g.total?g.correct*100/g.total:null,level:level(g.total?g.correct*100/g.total:null)}));
+}
+function psychometrics(attempts,meta,reviewId){
+ const minItemSample=10,minDistractorSample=20;
+ const subjectScores=new Map();
+ for(const a of attempts){
+   const scores={};
+   for(const q of a.questions||[])if(typeof q.correct==='boolean'){
+     const m=meta.get(String(q.id||''))||{},subject=q.subject||m.subject||String(q.indicator_key||'').split(':')[0]||'';
+     if(subject)scores[subject]=(scores[subject]||0)+(q.correct?1:0);
+   }
+   subjectScores.set(String(a.id),scores);
+ }
+ const items=new Map();
+ for(const a of attempts)for(const q of a.questions||[]){
+   if(typeof q.correct!=='boolean')continue;
+   const id=String(q.id||q.question_fingerprint||q.question||''),m=meta.get(String(q.id||''))||{};
+   const subject=q.subject||m.subject||String(q.indicator_key||'').split(':')[0]||'';
+   if(!items.has(id))items.set(id,{id,subject,question:q.question||m.question||'—',indicator:q.indicator_text||q.indicator_key||m.indicator||'—',obs:[]});
+   const correct=q.correct?1:0,selected=Number(q.answer),score=Number(subjectScores.get(String(a.id))?.[subject]||0);
+   items.get(id).obs.push({correct,selected:Number.isInteger(selected)?selected:null,adjusted:score-correct});
+ }
+ const rows=[...items.values()].map(x=>{
+   const n=x.obs.length,facility=n?x.obs.reduce((s,o)=>s+o.correct,0)/n:null;
+   const discrimination=n>=minItemSample?pearson(x.obs.map(o=>o.correct),x.obs.map(o=>o.adjusted)):null;
+   const difficulty_band=n<minItemSample?'insufficient':facility>=.8?'easy':facility>=.4?'medium':'hard';
+   let distractors={available:false,efficiency:null,functional_count:null,nonfunctional:[],over_attractive:[],options:[]};
+   if(n>=minDistractorSample){
+     const ranked=[...x.obs].sort((a,b)=>a.adjusted-b.adjusted),groupSize=Math.max(5,Math.floor(n*.27)),lower=ranked.slice(0,groupSize),upper=ranked.slice(-groupSize);
+     const correctIndex=(()=>{const q=(attempts.flatMap(a=>a.questions||[]).find(q=>String(q.id||q.question_fingerprint||q.question||'')===x.id));return Number(q?.correct_index)})();
+     if(Number.isInteger(correctIndex)&&correctIndex>=0&&correctIndex<4){
+       const opts=[0,1,2,3].map(index=>{
+         const count=x.obs.filter(o=>o.selected===index).length,rate=count/n;
+         const lowerRate=lower.filter(o=>o.selected===index).length/lower.length,upperRate=upper.filter(o=>o.selected===index).length/upper.length;
+         const isCorrect=index===correctIndex,functional=isCorrect?null:(rate>=.05&&lowerRate>=upperRate);
+         return{index,label:['أ','ب','ج','د'][index],is_correct:isCorrect,count,rate,lower_rate:lowerRate,upper_rate:upperRate,functional,over_attractive:!isCorrect&&rate>.35};
+       });
+       const d=opts.filter(o=>!o.is_correct),fc=d.filter(o=>o.functional===true).length;
+       distractors={available:true,efficiency:Math.round(fc/3*100),functional_count:fc,nonfunctional:d.filter(o=>!o.functional).map(o=>o.index),over_attractive:d.filter(o=>o.over_attractive).map(o=>o.index),options:opts};
+     }
+   }
+   return{id:x.id,subject:x.subject,question:x.question,indicator:x.indicator,sample_size:n,facility,discrimination,difficulty_band,distractors};
+ }).sort((a,b)=>(a.subject||'').localeCompare(b.subject||'')||(a.facility??2)-(b.facility??2));
+
+ const groups=new Map();
+ for(const a of attempts){
+   const model=String(paperEvent(a,reviewId)?.model||'—');
+   const bySubject={};
+   for(const q of a.questions||[])if(typeof q.correct==='boolean'){
+     const m=meta.get(String(q.id||''))||{},subject=q.subject||m.subject||String(q.indicator_key||'').split(':')[0]||'',id=String(q.id||q.question_fingerprint||q.question||'');
+     if(!subject||!id)continue;if(!bySubject[subject])bySubject[subject]=new Map();bySubject[subject].set(id,q.correct?1:0);
+   }
+   for(const [subject,responses] of Object.entries(bySubject)){const key=model+'|'+subject,list=groups.get(key)||[];list.push({model,subject,responses});groups.set(key,list);}
+ }
+ const reliability=[...groups.values()].map(group=>{
+   const n=group.length,model=group[0]?.model||'—',subject=group[0]?.subject||'';
+   if(n<minItemSample)return{model,subject,n,item_count:0,kr20:null,status:'insufficient'};
+   const common=[...group[0].responses.keys()].filter(id=>group.every(r=>r.responses.has(id)));
+   if(common.length<5)return{model,subject,n,item_count:common.length,kr20:null,status:'insufficient'};
+   const scores=group.map(r=>common.reduce((s,id)=>s+Number(r.responses.get(id)||0),0)),v=variance(scores);
+   if(v===null||v<=0)return{model,subject,n,item_count:common.length,kr20:null,status:'zero_variance'};
+   let pq=0;for(const id of common){const p=group.reduce((s,r)=>s+Number(r.responses.get(id)||0),0)/n;pq+=p*(1-p)}
+   const k=common.length,kr20=(k/(k-1))*(1-pq/v);
+   return{model,subject,n,item_count:k,kr20:Number(Math.max(-1,Math.min(1,kr20)).toFixed(3)),status:'measured'};
+ });
+ return{minimum_item_sample:minItemSample,minimum_distractor_sample:minDistractorSample,items:rows,reliability,
+   note:'معامل السهولة والتمييز وKR-20 لا يُفسَّر حكمًا نهائيًا عند نقص العينة. فاعلية المشتت تحتاج 20 استجابة صالحة على الأقل للسؤال.'};
 }
 function summary(students,assignedCount){
  const values=students.map(x=>x.percent).filter(Number.isFinite),avg=mean(values),med=median(values);
@@ -150,14 +236,14 @@ async function load(reviewId,className=''){
  const [reviews,attempts,rosterRows]=await Promise.all([listReviews(),allAttempts(),roster()]);
  let chosen=reviewId?reviews.find(r=>String(r.review_id)===String(reviewId)):reviews[0];
  if(!chosen&&reviewId)chosen={review_id:reviewId};
- if(!chosen)return{reviews,review:null,payload:null,attempts:[],students:[],indicators:[],questions:[],cognitive:[],absent:[],summary:summary([],0),recommendations:[]};
+ if(!chosen)return{reviews,review:null,payload:null,attempts:[],students:[],indicators:[],questions:[],cognitive:[],cognitiveBySubject:{},psychometrics:{minimum_item_sample:10,minimum_distractor_sample:20,items:[],reliability:[]},absent:[],summary:summary([],0),recommendations:[]};
  const review=await getReview(chosen.review_id);
  const payload=review?.payload||{};
  const scoped=scopedAttempts(attempts,chosen.review_id,className);
  const subjects=(Array.isArray(payload.subjects)&&payload.subjects.length?payload.subjects:(Array.isArray(review?.subjects)&&review.subjects.length?review.subjects:[review?.subject])).filter(Boolean);
- const students=studentRows(scoped),meta=metadata(payload),indicators=indicatorRows(scoped,meta),questions=questionRows(scoped,meta),cognitive=cognitiveRows(scoped,meta),subjectSummary=subjectRows(scoped,subjects);
+ const students=studentRows(scoped),meta=metadata(payload),indicators=indicatorRows(scoped,meta),questions=questionRows(scoped,meta),cognitive=cognitiveRows(scoped,meta),cognitiveBySubject=cognitiveRowsBySubject(scoped,meta,subjects),subjectSummary=subjectRows(scoped,subjects),psych=psychometrics(scoped,meta,chosen.review_id);
  const assigned=assignmentsFor(payload,className,rosterRows),absent=absentStudents(payload,scoped,className,rosterRows),sum=summary(students,assigned.length||students.length);
- const bundle={reviews,review,payload,subjects,subjectSummary,attempts:scoped,assigned,students,indicators,questions,cognitive,absent,summary:sum,subjectName:subjects.map(x=>subjectNames[x]||x).join(' + ')||'—',recommendations:[]};
+ const bundle={reviews,review,payload,subjects,subjectSummary,cognitiveBySubject,psychometrics:psych,attempts:scoped,assigned,students,indicators,questions,cognitive,absent,summary:sum,subjectName:subjects.map(x=>subjectNames[x]||x).join(' + ')||'—',recommendations:[]};
  bundle.recommendations=recommendations(bundle);
  return bundle;
 }
