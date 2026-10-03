@@ -827,6 +827,60 @@ Deno.serve(async(req:Request)=>{
       return json({ok:true,report});
     }
 
+
+    if(action==="item_quality_summary"){
+      const {data,error}=await db.from("maintenance_agent_item_quality_audit")
+        .select("subject_key,registered_level,design_score,distractor_score,alignment_band,semantic_current,option_length_ratio,template_family_size,flags,audited_at")
+        .in("subject_key",["math","science"]);
+      if(error)throw error;
+      const rows=data||[],bySubject:any={};
+      for(const subject of ["math","science"]){
+        const x=rows.filter((r:any)=>r.subject_key===subject);
+        const levels:any={knowledge:0,application:0,reasoning:0};
+        const bands:any={strong:0,acceptable:0,review:0,weak:0};
+        const flags:any={length_imbalance:0,template_repetition:0,missing_visual:0,stale_semantic:0};
+        let ds=0,dds=0,current=0;
+        for(const r of x){
+          if(levels[r.registered_level]!==undefined)levels[r.registered_level]++;
+          if(bands[r.alignment_band]!==undefined)bands[r.alignment_band]++;
+          ds+=Number(r.design_score||0);dds+=Number(r.distractor_score||0);if(r.semantic_current)current++;
+          if(Number(r.option_length_ratio||0)>3)flags.length_imbalance++;
+          if(Number(r.template_family_size||0)>=4)flags.template_repetition++;
+          for(const f of Array.isArray(r.flags)?r.flags:[]){if(f?.code==="missing_visual")flags.missing_visual++;if(f?.code==="stale_semantic")flags.stale_semantic++;}
+        }
+        bySubject[subject]={
+          total:x.length,levels,bands,current_semantic:current,needs_fresh_semantic:x.length-current,
+          avg_design:x.length?Number((ds/x.length).toFixed(1)):0,
+          avg_distractors:x.length?Number((dds/x.length).toFixed(1)):0,
+          flags
+        };
+      }
+      const auditedAt=rows.reduce((m:any,r:any)=>!m||String(r.audited_at)>String(m)?r.audited_at:m,null);
+      return json({ok:true,summary:bySubject,total:rows.length,audited_at:auditedAt,
+        evidence_note:"درجات المشتتات الحالية بنيوية/دلالية. فاعلية المشتتات إحصائيًا تحتاج استجابات طلاب فعلية وتحليل اختيار كل بديل."});
+    }
+
+    if(action==="item_quality_page"){
+      const subject=["math","science"].includes(String(b.subject||""))?String(b.subject):null;
+      const level=["knowledge","application","reasoning"].includes(String(b.level||""))?String(b.level):null;
+      const band=["strong","acceptable","review","weak"].includes(String(b.band||""))?String(b.band):null;
+      const semanticState=["current","stale"].includes(String(b.semantic_state||""))?String(b.semantic_state):null;
+      const q=tidy(b.q,160);
+      const limit=Math.max(20,Math.min(250,Math.trunc(num(b.limit)||100)));
+      const offset=Math.max(0,Math.trunc(num(b.offset)||0));
+      let query=db.from("maintenance_agent_item_quality_audit")
+        .select("question_id,subject_key,indicator_key,indicator_text,question_text,options,correct_index,registered_level,detected_level,level_match,difficulty,semantic_judgment,semantic_confidence,distractor_status,option_length_ratio,template_family_size,distractor_score,design_score,alignment_band,semantic_current,evidence_note,flags,audited_at",{count:"exact"})
+        .order("subject_key",{ascending:true}).order("indicator_key",{ascending:true}).order("question_id",{ascending:true});
+      if(subject)query=query.eq("subject_key",subject);
+      if(level)query=query.eq("registered_level",level);
+      if(band)query=query.eq("alignment_band",band);
+      if(semanticState)query=query.eq("semantic_current",semanticState==="current");
+      if(q)query=query.or("question_text.ilike.%"+q.replace(/[%_,()]/g," ")+"%,indicator_text.ilike.%"+q.replace(/[%_,()]/g," ")+"%");
+      const {data,error,count}=await query.range(offset,offset+limit-1);
+      if(error)throw error;
+      return json({ok:true,rows:data||[],count:count||0,offset,limit});
+    }
+
     if(action==="corrections"){
       const limit=Math.max(1,Math.min(50,num(b.limit)||20));
       const {data,error}=await db.from("maintenance_agent_corrections")
