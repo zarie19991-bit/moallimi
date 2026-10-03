@@ -219,6 +219,7 @@ function repairOverflow(booklet){
  let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
  for(let i=0;i<pages.length;i++){
    let page=pages[i],flow=page.querySelector('.questions-flow');
+   page.removeAttribute('data-layout-unresolved');
    let guard=0;
    while(!pageFits(page)&&guard++<80){
      // أولوية الطباعة: وضوح الخط قبل تقليل عدد الصفحات.
@@ -245,9 +246,11 @@ function repairOverflow(booklet){
      page.dataset.layoutUnresolved='1';
      break;
    }
+   // إذا نجحت إعادة التوزيع لاحقًا يجب حذف أي وسم فشل سابق فورًا.
+   if(pageFits(page))page.removeAttribute('data-layout-unresolved');
  }
 }
-function renumberBooklet(booklet){
+function renumberBookletfunction renumberBooklet(booklet){
  const pages=[...booklet.querySelectorAll(':scope > .paper-page')];
  const total=pages.length;
  pages.forEach((page,i)=>{
@@ -294,6 +297,45 @@ function pullPartialReadingGroup(page,next,candidate){
  nextFlow.prepend(candidate);
  return false;
 }
+function pullContinuationQuestions(page,next,candidate){
+ const flow=page?.querySelector('.questions-flow');
+ const nextFlow=next?.querySelector('.questions-flow');
+ const sourceWrap=candidate?.querySelector(':scope > .passage-questions');
+ if(!flow||!nextFlow||!sourceWrap||!sourceWrap.children.length)return false;
+
+ let targetGroup=flow.lastElementChild;
+ let targetWrap=(targetGroup?.dataset.subject===candidate.dataset.subject)
+   ?targetGroup.querySelector(':scope > .passage-questions')
+   :null;
+ let created=false;
+
+ if(!targetWrap){
+   targetGroup=document.createElement('section');
+   targetGroup.className='passage-group';
+   targetGroup.dataset.subject=String(candidate.dataset.subject||'reading');
+   targetGroup.dataset.continuation='1';
+   const notice=document.createElement('div');
+   notice.className='continued';
+   notice.textContent='تابع أسئلة النص السابق';
+   targetWrap=document.createElement('div');
+   targetWrap.className='passage-questions';
+   targetGroup.append(notice,targetWrap);
+   flow.appendChild(targetGroup);
+   created=true;
+ }
+
+ let moved=0;
+ while(sourceWrap.firstElementChild){
+   const q=sourceWrap.firstElementChild;
+   targetWrap.appendChild(q);
+   if(pageFits(page,-4)){moved++;continue;}
+   sourceWrap.prepend(q);
+   break;
+ }
+ if(!moved&&created)targetGroup.remove();
+ if(!sourceWrap.children.length)candidate.remove();
+ return moved>0;
+}
 function fillAvailableSpace(booklet){
  let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
  for(let i=0;i<pages.length-1;i++){
@@ -303,6 +345,17 @@ function fillAvailableSpace(booklet){
      const candidate=nextFlow.firstElementChild;
      flow.append(candidate);
      if(pageFits(page,-4))continue;
+
+     // متابعة نص سبق تقسيمه: اسحب الأسئلة واحدًا واحدًا بدل إبقاء
+     // بقية المجموعة ككتلة واحدة تترك فراغًا كبيرًا في الصفحة السابقة.
+     if(candidate.dataset.subject==='reading'&&!candidate.querySelector(':scope > .passage')&&candidate.querySelectorAll(':scope > .passage-questions > .question').length){
+       nextFlow.prepend(candidate);
+       if(pullContinuationQuestions(page,next,candidate)){
+         if(candidate.isConnected&&candidate.parentElement===nextFlow)break;
+         continue;
+       }
+       break;
+     }
 
      // في القراءة لا نترك فراغًا كبيرًا لمجرد أن النص مع أسئلته الخمسة
      // لا يتسع ككتلة واحدة. نضع النص وما يتسع من أسئلته ثم نكمل الباقي.
@@ -318,12 +371,19 @@ function fillAvailableSpace(booklet){
  }
  removeEmptyPages(booklet);
 }
+function resetFitState(booklet){
+ [...booklet.querySelectorAll(':scope > .paper-page')].forEach(page=>{
+   page.removeAttribute('data-layout-unresolved');
+   page.classList.remove('compact-page','compact-page-strong');
+ });
+}
 function fitBooklet(booklet){
  const first=booklet.querySelector(':scope > .paper-page');
  if(!first)return;
 
- // أصلح أي تجاوز أولًا، ثم اسحب المجموعات التالية إلى المساحة
- // المتبقية فعليًا. هذا يطبق على القراءة والرياضيات والعلوم معًا.
+ // كل قياس يبدأ من حالة نظيفة؛ لا نسمح لضغط أو فشل سابق أن يظل
+ // مؤثرًا بعد نقل الأسئلة أو تغيير عدد الصفحات.
+ resetFitState(booklet);
  repairOverflow(booklet);
  removeEmptyPages(booklet);
  for(let pass=0;pass<5;pass++){
@@ -333,7 +393,7 @@ function fitBooklet(booklet){
  }
  renumberBooklet(booklet);
 }
-function fitAllRenderedPages(){
+function fitAllRenderedPagesfunction fitAllRenderedPages(){
  document.querySelectorAll('.model-booklet').forEach(fitBooklet);
 }
 function scheduleRealPageFit(){
@@ -380,9 +440,11 @@ function collectPrintMetrics(){
  const maxOverflow=Math.max(0,...details.map(x=>Math.max(x.overflow_y_px,x.overflow_x_px)));
  return{at:new Date().toISOString(),pages:pages.length,max_overflow_px:maxOverflow,details};
 }
+let printInProgress=false;
 function prepareExactPrint(){
  document.documentElement.classList.add('print-preparing');
  const started=performance.now();
+ // إعادة قياس كاملة من DOM الحالي، بدون الاعتماد على وسم unresolved قديم.
  for(let pass=0;pass<3;pass++)fitAllRenderedPages();
  const metrics=collectPrintMetrics();
  metrics.layout_ms=Math.round(performance.now()-started);
@@ -390,22 +452,42 @@ function prepareExactPrint(){
  const bad=metrics.details.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2);
  if(bad.length){
    document.documentElement.classList.remove('print-preparing');
-   $('screenMeta').textContent='تم إيقاف الطباعة: '+ar(bad.length)+' صفحة ما زالت تتجاوز مساحة A4. أعد فتح الصفحة بعد تحديثها.';
+   $('screenMeta').textContent='تعذر فتح الطباعة لأن '+ar(bad.length)+' صفحة لم تستقر داخل A4. تم إيقاف الطباعة لحماية المحتوى من القص.';
    return false;
  }
  return true;
 }
-$('printBtn').onclick=()=>{
- if(!prepareExactPrint())return;
- requestAnimationFrame(()=>requestAnimationFrame(()=>{
-   if(!prepareExactPrint())return;
-   window.print();
- }));
-};
-addEventListener('beforeprint',()=>{if(!prepareExactPrint())return;});
-addEventListener('afterprint',()=>{
+function releasePrintState(){
+ printInProgress=false;
+ const btn=$('printBtn');
+ if(btn){btn.disabled=false;btn.textContent='طباعة';}
  document.documentElement.classList.remove('print-preparing');
- renderPages();
+ // لا نعيد إنشاء الصفحات بعد الطباعة؛ فقط نراجع القياس الموجود.
+ scheduleRealPageFit();
+}
+$('printBtn').addEventListener('click',()=>{
+ if(printInProgress)return;
+ const btn=$('printBtn');
+ if(!prepareExactPrint())return;
+ printInProgress=true;
+ btn.disabled=true;
+ btn.textContent='جاري تجهيز الطباعة…';
+
+ // window.print يستدعى مرة واحدة فقط. إعادة بناء DOM أثناء beforeprint
+ // كانت تجعل بعض المتصفحات لا تفتح نافذة الطباعة أو تعيد توزيع الصفحات.
+ requestAnimationFrame(()=>{
+   try{window.print();}
+   catch(e){
+     console.error('paper print failed',e);
+     $('screenMeta').textContent='تعذر فتح نافذة الطباعة في هذا المتصفح. أعد المحاولة بعد تحديث الصفحة.';
+     releasePrintState();
+   }
+ });
 });
-render();
+addEventListener('beforeprint',()=>{
+ // للطباعة المباشرة بـ Ctrl/Cmd+P فقط؛ زر المنصة جهّز الصفحات مسبقًا.
+ if(!printInProgress)prepareExactPrint();
+});
+addEventListener('afterprint',releasePrintState);
+render();render();
 })();
