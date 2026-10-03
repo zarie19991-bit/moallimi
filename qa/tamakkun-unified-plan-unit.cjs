@@ -59,6 +59,7 @@ assert.equal(five([80,80,80,80,80])[0].weight_percent,20);
 assert.match(source,/pickPlanQuestionIds/);
 assert.match(source,/weak>=2/);
 assert.match(source,/critical>=1/);
+assert.match(source,/scores\.filter\(x=>x<60\)/);
 assert.match(source,/min>=80/);
 assert.match(ui,/التوصية التربوية النهائية/);
 assert.match(ui,/ملاحظة المعلم/);
