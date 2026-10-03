@@ -17,10 +17,10 @@ function makeSheet(item,index,d){
  const school=esc(d.school_name||''),cls=esc(d.class_name||'');
  return '<section class="bubble-sheet" data-qr="'+esc(payload)+'">'+
  '<div class="sheet-title"><span>ورقة التظليل</span></div>'+
- '<div class="official-row">'+
-   '<div class="official-brand measure-brand"><b>المركز الوطني للقياس</b><small>National Center for Assessment</small></div>'+
+ '<div class="brand-row">'+
+   '<div class="brand-spacer" aria-hidden="true"></div>'+
+   '<div class="sheet-logo-wrap"><img class="sheet-logo" src="moallimi-logo-final.webp?v=20261003-logo2" alt="شعار منصة معلّمي" width="520" height="250" decoding="sync"></div>'+
    '<div class="qr" data-qr-box aria-label="رمز الورقة"></div>'+
-   '<div class="official-brand etec-brand"><b>هيئة تقويم التعليم والتدريب</b><small>Education &amp; Training Evaluation Commission</small></div>'+
  '</div>'+
  '<div class="exam-pill"><b>الاختبارات الوطنية</b><span>الصف الثالث متوسط</span></div>'+
  '<div class="student-name"><b>الاسم الرباعي</b><span>'+name+'</span></div>'+
