@@ -184,10 +184,44 @@ function renderIndicators(){
  $('indicators').innerHTML=groups||'<div class="archive-empty">اختر مادة واحدة على الأقل.</div>';
  updateIndicatorSummary();
 }
+function subjectQuestionTargets(){
+ const subjects=selectedSubjects(),total=Number($('questionCount').value||15);
+ if(total===60&&subjects.length===3&&['reading','math','science'].every(s=>subjects.includes(s))){
+   return new Map([['reading',20],['math',20],['science',20]]);
+ }
+ return null;
+}
 function distributeIndicatorCounts(){
  const rows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
  if(!rows.length)return;
- const total=Number($('questionCount').value||15);
+ const total=Number($('questionCount').value||15),targets=subjectQuestionTargets();
+
+ // عند اختيار ٦٠ سؤالًا والمواد الثلاث: ٢٠ سؤالًا إلزاميًا لكل مادة.
+ if(targets){
+   for(const subject of selectedSubjects()){
+     const subjectRows=rows.filter(r=>r.dataset.subject===subject);
+     if(!subjectRows.length)continue;
+     const target=Number(targets.get(subject)||0);
+     let used=0;
+     for(const r of subjectRows){
+       const step=subject==='reading'?5:1;
+       const x=r.querySelector('.indicator-count');
+       x.disabled=false;x.value=String(step);used+=step;
+     }
+     let remaining=target-used,guard=0,index=0;
+     while(remaining>0&&guard++<1000){
+       const r=subjectRows[index%subjectRows.length],step=subject==='reading'?5:1;
+       if(step<=remaining){
+         const x=r.querySelector('.indicator-count');
+         x.value=String(Number(x.value||0)+step);remaining-=step;
+       }
+       index++;
+       if(index>subjectRows.length*8&&remaining>0&&!subjectRows.some(()=> (subject==='reading'?5:1)<=remaining))break;
+     }
+   }
+   captureIndicatorState();updateIndicatorSummary();return;
+ }
+
  let used=0;
  for(const r of rows){
    const step=r.dataset.subject==='reading'?5:1;
@@ -207,15 +241,16 @@ function distributeIndicatorCounts(){
 }
 function updateIndicatorSummary(){
  captureIndicatorState();
- const selected=getSelectedIndicators(),target=Number($('questionCount').value||15);
+ const selected=getSelectedIndicators(),target=Number($('questionCount').value||15),targets=subjectQuestionTargets();
  document.querySelectorAll('.indicator-row').forEach(r=>r.classList.toggle('selected',r.querySelector('.indicator-check')?.checked));
  const total=selected.reduce((n,x)=>n+Number(x.count||0),0);
  const bySubject=selectedSubjects().map(subject=>{
-   const rows=selected.filter(x=>x.subject===subject),n=rows.reduce((a,x)=>a+Number(x.count||0),0);
-   return rows.length?labels[subject]+' '+ar(n)+' سؤالًا / '+ar(rows.length)+' مؤشر':''; 
+   const rows=selected.filter(x=>x.subject===subject),n=rows.reduce((a,x)=>a+Number(x.count||0),0),quota=targets?.get(subject);
+   return rows.length?labels[subject]+' '+ar(n)+(quota!=null?' من '+ar(quota):'')+' سؤالًا / '+ar(rows.length)+' مؤشر':''; 
  }).filter(Boolean);
  const readingBad=selected.some(x=>x.subject==='reading'&&(x.count<5||x.count%5!==0));
- $('indicatorSummary').textContent='المحدد: '+ar(selected.length)+' مؤشر · مجموع الأسئلة: '+ar(total)+' من '+ar(target)+(bySubject.length?' · '+bySubject.join(' · '):'')+(readingBad?' · القراءة يجب أن تكون ٥ أسئلة أو مضاعفاتها لكل مؤشر':'')+(selected.length&&total!==target?' · عدّل الأعداد حتى يساوي المجموع العدد الكلي':'');
+ const quotaBad=targets?[...targets].some(([subject,quota])=>selected.filter(x=>x.subject===subject).reduce((n,x)=>n+Number(x.count||0),0)!==quota):false;
+ $('indicatorSummary').textContent='المحدد: '+ar(selected.length)+' مؤشر · مجموع الأسئلة: '+ar(total)+' من '+ar(target)+(bySubject.length?' · '+bySubject.join(' · '):'')+(targets?' · التوزيع المطلوب: القراءة ٢٠ · الرياضيات ٢٠ · العلوم ٢٠':'')+(readingBad?' · القراءة يجب أن تكون ٥ أسئلة أو مضاعفاتها لكل مؤشر':'')+(quotaBad?' · يجب إكمال ٢٠ سؤالًا لكل مادة':'')+(selected.length&&total!==target?' · عدّل الأعداد حتى يساوي المجموع العدد الكلي':'');
 }
 function getSelectedIndicators(){
  captureIndicatorState();
@@ -396,6 +431,13 @@ function validate(){
  if(!inds.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
  for(const subject of subjects)if(!inds.some(x=>x.subject===subject))throw new Error('اختر مؤشرًا واحدًا على الأقل من مادة '+labels[subject]+'.');
  if(sum!==q)throw new Error('مجموع أسئلة المؤشرات يجب أن يساوي '+q+' سؤالًا.');
+ const targets=subjectQuestionTargets();
+ if(targets){
+   for(const [subject,quota] of targets){
+     const subjectTotal=inds.filter(x=>x.subject===subject).reduce((n,x)=>n+Number(x.count||0),0);
+     if(subjectTotal!==quota)throw new Error('عند اختيار ٦٠ سؤالًا للمواد الثلاث يجب أن تكون '+labels[subject]+' '+quota+' سؤالًا بالضبط.');
+   }
+ }
  const reading=inds.filter(x=>x.subject==='reading');
  if(reading.some(x=>x.count%5!==0||x.count<5))throw new Error('في القراءة: كل مؤشر مختار يجب أن يأخذ ٥ أسئلة أو مضاعفاتها حتى يبقى النص مع أسئلته.');
  const byKey=new Map((catalog?.indicators||[]).map(i=>[String(i.key),Number(i.available||0)]));
@@ -610,6 +652,7 @@ $('subjectChoices').addEventListener('change',e=>{
  if(!document.querySelector('.subject-check:checked'))e.target.checked=true;
  $('subject').value=selectedSubjects()[0]||'reading';
  renderIndicators();
+ if(document.querySelector('.indicator-check:checked'))distributeIndicatorCounts();
 });
 $('className').addEventListener('change',renderStudents);
 $('questionCount').addEventListener('change',()=>{distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
