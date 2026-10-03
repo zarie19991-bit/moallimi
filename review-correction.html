@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#065f46">
-<title>المراجعة والتصحيح الآلي | معلّمي</title>
-<link rel="stylesheet" href="review-correction.css?v=20261003-paper-tests2">
+<title>الاختبار الآلي والتصحيح | معلّمي</title>
+<link rel="stylesheet" href="review-correction.css?v=20261003-autoexam3">
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
@@ -15,7 +15,7 @@
   <nav class="top-links">
     <a href="./">المؤشرات</a>
     <a href="create.html">إنشاء اختبار</a>
-    <a class="active" href="review-correction.html">المراجعة والتصحيح الآلي</a>
+    <a class="active" href="review-correction.html">الاختبار الآلي والتصحيح</a>
     <a href="analysis.html">تحليل النتائج</a>
     <a href="teacher.html">حساب المعلم</a>
   </nav>
@@ -24,9 +24,9 @@
 <main class="page">
   <section class="hero">
     <div>
-      <span class="eyebrow">قسم جديد في منصة معلّمي</span>
-      <h1>المراجعة والتصحيح الآلي</h1>
-      <p>بناء مراجعات متعددة النماذج من بنك المؤشرات، توزيعها على الطلاب، ثم تجهيزها لمسار التظليل والتصحيح الجماعي.</p>
+      <span class="eyebrow">نظام الاختبارات الورقية الآلية</span>
+      <h1>الاختبار الآلي والتصحيح</h1>
+      <p>إنشاء اختبارات من ١٠ إلى ٦٠ سؤالًا من بنك المؤشرات، ثم توزيع النماذج وتجهيز التظليل والتصحيح والتحليل.</p>
     </div>
     <div class="hero-status">
       <span>النماذج الافتراضية</span>
@@ -44,7 +44,7 @@
   </section>
 
   <section class="progress" aria-label="مراحل العمل">
-    <div class="stage active"><b>١</b><span>إعداد المراجعة</span></div>
+    <div class="stage active"><b>١</b><span>إعداد الاختبار</span></div>
     <div class="stage"><b>٢</b><span>بناء النماذج</span></div>
     <div class="stage"><b>٣</b><span>توزيع الطلاب</span></div>
     <div class="stage"><b>٤</b><span>أوراق التظليل</span></div>
@@ -67,12 +67,12 @@
 
   <section class="builder-grid">
     <article class="card">
-      <header class="card-head"><span class="step-no">١</span><div><h2>بيانات المراجعة</h2><p>اضبط المراجعة مرة واحدة، والمنصة تبني النماذج المتكافئة.</p></div></header>
+      <header class="card-head"><span class="step-no">١</span><div><h2>بيانات الاختبار</h2><p>اضبط الاختبار مرة واحدة، والمنصة تبني النماذج المتكافئة ضمن نطاق ١٠–٦٠ سؤالًا.</p></div></header>
       <div class="fields">
-        <label class="field wide"><span>اسم المراجعة</span><input id="reviewTitle" value="مراجعة مؤشرات نافس" maxlength="160"></label>
+        <label class="field wide"><span>اسم الاختبار</span><input id="reviewTitle" value="اختبار نافس" maxlength="160"></label>
         <div class="field wide"><span>المواد داخل الاختبار</span><div id="subjectChoices" class="subject-choices"></div><select id="subject" hidden></select><small class="field-help">يمكن دمج القراءة والرياضيات والعلوم في اختبار واحد. ستظهر كل مادة في قسم مستقل ومنظم داخل الورقة.</small></div>
         <label class="field"><span>الفصل</span><select id="className"><option value="">جميع الفصول</option></select></label>
-        <label class="field"><span>عدد الأسئلة الكلي</span><select id="questionCount"><option>10</option><option selected>15</option><option>20</option><option>25</option><option>30</option><option>40</option><option>45</option><option>50</option><option>60</option></select></label>
+        <label class="field"><span>عدد الأسئلة الكلي</span><input id="questionCount" type="number" min="10" max="60" step="1" value="15" inputmode="numeric"><small class="field-help">من ١٠ إلى ٦٠ سؤالًا.</small></label>
         <label class="field"><span>عدد النماذج</span><select id="modelCount"><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label class="field"><span>اسم الطالب في ورقة التظليل</span><select id="bubbleNameMode"><option value="printed" selected>مطبوع</option><option value="blank">فارغ</option></select></label>
       </div>
       <div class="switches">
@@ -147,6 +147,6 @@
 <script src="nafes-math.js?v=20260909-final"></script>
 <script src="nafes-science.js?v=20260909-final"></script>
 <script src="teacher-access.js?v=20260930-mainfix1"></script>
-<script src="review-correction.js?v=20261003-paper-tests2"></script>
+<script src="review-correction.js?v=20261003-autoexam3"></script>
 <script src="platform-auto-correct.js?v=20261003-corrector1"></script>\n</body>
 </html>
