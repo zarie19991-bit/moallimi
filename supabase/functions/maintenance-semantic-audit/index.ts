@@ -42,7 +42,7 @@ function providerInfo(){
   return{
     configured:enabled&&!!openaiKey,
     provider:enabled&&openaiKey?"openai":"rules",
-    model:enabled&&openaiKey?String(Deno.env.get("PEDAGOGICAL_AI_MODEL")||"gpt-6-luna"):"pedagogical-rules-v3"
+    model:enabled&&openaiKey?String(Deno.env.get("PEDAGOGICAL_AI_MODEL")||"gpt-6-luna"):"pedagogical-rules-v4"
   };
 }
 function normalized(v:unknown){
@@ -131,7 +131,10 @@ function ruleReview(c:Candidate):Review{
   }
 
   if(c.subject==="science"){
-    const meiosisContradiction=/(نحو|إلى)\s+(?:كل\s+)?قطب/.test(q)&&/(مصطف|تصطف|في\s+المنتصف|عند\s+خط\s+الاستواء)/.test(q);
+    const movementToPoles=/(نحو|إلى)\s+(?:كل\s+)?قطب/.test(q);
+    const alignedAtEquator=/(مصطف|تصطف|في\s+المنتصف|عند\s+خط\s+الاستواء)/.test(q);
+    const negatedMovement=/(?:دون\s+أن|لم|لا)\s+(?:ت)?(?:نفصل|تحرك|تتحرك|تتجه|تجه)[^؟.]{0,45}(?:نحو|إلى)\s+(?:كل\s+)?قطب/.test(q);
+    const meiosisContradiction=movementToPoles&&alignedAtEquator&&!negatedMovement;
     if(meiosisContradiction){
       dimensions.content_accuracy=dim("fail","يجمع السؤال بين حركة الكروموسومات نحو القطبين والاصطفاف في المنتصف؛ وهما حدثان مرحليان مختلفان.");
       dimensions.single_correct_answer=dim("fail","المعطيات المتناقضة تجعل أكثر من مرحلة قابلة للدفاع.");
@@ -281,7 +284,7 @@ async function fetchBankCandidates(subject:string|null):Promise<Candidate[]>{
       for(let start=0;;start+=500){
         const {data,error}=await db.from("nafes_indicator_curated_bank")
           .select("id,subject_key,indicator_key,indicator_text,context_text,question_text,options,correct_index,cognitive_level")
-          .eq("subject_key",sj).eq("quality_version",version).order("indicator_key").order("id").range(start,start+499);
+          .eq("subject_key",sj).eq("quality_version",version).eq("quality_status","approved").order("indicator_key").order("id").range(start,start+499);
         if(error)throw error;
         for(const x of data||[]){const parsed=optionArray(x.options),level=tidy(x.cognitive_level,30);out.push({source_type:"indicator_bank",source_id:String(x.id),assessment_id:null,subject:sj as any,
           indicator_key:tidy(x.indicator_key,180),indicator_text:tidy(x.indicator_text,700),registered_level:level,
@@ -327,7 +330,7 @@ async function processJob(owner:any,jobId:string){
     subject:batch[i].subject,indicator_key:batch[i].indicator_key,indicator_text:batch[i].indicator_text,registered_level:batch[i].registered_level||null,
     detected_level:r.detected_level,question_text:batch[i].question_text,options:batch[i].options,correct_index:batch[i].correct_index,
     judgment:r.judgment,confidence:r.confidence,dimensions:r.dimensions,reasons:r.reasons,suggested_question:r.suggested_question,
-    provider:r.provider,model:r.model,contains_personal_data:false
+    provider:r.provider,model:r.model,review_version:"pedagogical-semantic-v2",contains_personal_data:false
   }));
   const {error:insErr}=await db.from("maintenance_agent_semantic_reviews").insert(rows);if(insErr)throw insErr;
   const next=offset+batch.length,finished=next>=all.length,finalStatus=finished?(p.configured?"completed":"provider_required"):"running";
