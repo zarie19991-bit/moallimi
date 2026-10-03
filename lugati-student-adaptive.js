@@ -6,7 +6,7 @@ const AUTH=`${API}/lugati-auth`;
 const PLAN=`${API}/lugati-adaptive-plan`;
 const KEY='lugati_exact_session_v2';
 
-const S={token:null,profile:null,tab:'home',teacherTasks:[],taskLoading:false,activeTask:null,taskAnswers:{}};
+const S={token:null,profile:null,tab:'journeys',teacherTasks:[],taskLoading:false,activeTask:null,taskAnswers:{}};
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const icon=(n,c='w-4 h-4')=>`<i data-lucide="${n}" class="${c}"></i>`;
 
@@ -25,11 +25,21 @@ async function planPost(action,extra={}){
  return d;
 }
 function nav(){return[
- ['home','الرئيسية','home'],
- ['tasks','مهامي','list-checks'],
- ['competition','المسابقة','trophy'],
- ['progress','تقدمي','chart-no-axes-column-increasing']
+ ['journeys','الرحلات','map','sky'],
+ ['remedial','العلاج','heart-pulse','rose'],
+ ['growth','تعزيز وإثراء','sparkles','amber'],
+ ['competition','المسابقات','trophy','violet']
 ]}
+function navTone(id,active){
+ const tones={
+  journeys:active?'bg-sky-50 text-sky-800 ring-1 ring-sky-100':'text-slate-500 hover:bg-sky-50/60 hover:text-sky-800',
+  remedial:active?'bg-rose-50 text-rose-800 ring-1 ring-rose-100':'text-slate-500 hover:bg-rose-50/60 hover:text-rose-800',
+  growth:active?'bg-amber-50 text-amber-900 ring-1 ring-amber-100':'text-slate-500 hover:bg-amber-50/60 hover:text-amber-900',
+  competition:active?'bg-violet-50 text-violet-800 ring-1 ring-violet-100':'text-slate-500 hover:bg-violet-50/60 hover:text-violet-800'
+ };
+ return tones[id]||'text-slate-500';
+}
+
 function shell(){
  const a=document.getElementById('app');
  a.innerHTML=`<div dir="rtl" class="min-h-screen bg-[#f5f7fb] text-slate-800">
@@ -66,8 +76,8 @@ function shell(){
 }
 function renderNav(){
  const d=document.getElementById('snav'),m=document.getElementById('mnav'),items=nav();
- if(d)d.innerHTML=items.map(([id,l,ic])=>`<button data-tab="${id}" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-right ${S.tab===id?'bg-emerald-50 text-emerald-800 font-black':'text-slate-500 font-bold hover:bg-slate-50'}">${icon(ic)}<span class="text-xs">${l}</span></button>`).join('');
- if(m)m.innerHTML=items.map(([id,l,ic])=>`<button data-tab="${id}" class="flex flex-col items-center gap-1 py-1.5 ${S.tab===id?'text-emerald-700':'text-slate-400'}">${icon(ic,'w-5 h-5')}<span class="text-[9px] font-bold">${l}</span></button>`).join('');
+ if(d)d.innerHTML=items.map(([id,l,ic])=>`<button data-tab="${id}" aria-current="${S.tab===id?'page':'false'}" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-right transition ${navTone(id,S.tab===id)}">${icon(ic)}<span class="text-xs">${l}</span></button>`).join('');
+ if(m)m.innerHTML=items.map(([id,l,ic])=>`<button data-tab="${id}" aria-current="${S.tab===id?'page':'false'}" class="flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-xl transition ${navTone(id,S.tab===id)}">${icon(ic,'w-5 h-5')}<span class="text-[8px] sm:text-[9px] font-black leading-tight text-center">${l}</span></button>`).join('');
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;renderNav();renderView()});
 }
 function wireShell(){
@@ -125,28 +135,50 @@ function home(){
    </section>
  </div>`;
 }
-function tasks(){
+function journeys(){
  return `<div class="space-y-5 pb-24">
-   <section class="rounded-[2rem] bg-gradient-to-l from-emerald-900 via-teal-800 to-emerald-700 text-white p-5 sm:p-6">
-     <div class="text-[10px] font-black text-emerald-200">رتبناها حسب الأولوية</div>
-     <h1 class="text-2xl font-black mt-1">مهامي</h1>
-     <p class="text-xs text-emerald-100 mt-2">ابدأ بالمهمة التالية، ثم افتح بقية المهام عند الحاجة. المهام المكتملة محفوظة في الأسفل.</p>
+   <section class="rounded-[2rem] bg-gradient-to-l from-sky-950 via-sky-800 to-cyan-700 text-white p-5 sm:p-7 shadow-lg">
+     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+       <div><div class="text-[10px] font-black text-sky-200">القسم الأول • الرحلات</div><h1 class="text-2xl sm:text-3xl font-black mt-1">رحلات المهارات</h1><p class="text-xs sm:text-sm text-sky-100 mt-2 leading-6">هنا فقط رحلات المؤشرات وخريطة الإتقان. لا تظهر فيه أوراق العلاج أو التعزيز أو المسابقات.</p></div>
+       <button data-open-journey="1" class="px-4 py-3 rounded-2xl bg-white text-sky-900 text-xs font-black shrink-0 shadow-sm">فتح خريطة المهارات ←</button>
+     </div>
    </section>
    <section>
-     <div class="mb-3"><h2 class="font-black text-slate-900">ما أحتاجه الآن</h2><p class="text-[11px] text-slate-400 mt-1">تظهر المهمة الأهم أولًا بدل عرض كل المسارات دفعة واحدة.</p></div>
-     <div id="teacherRemedialTaskMount"><div class="bg-white border rounded-3xl p-8 text-center text-sm text-slate-400">جارٍ ترتيب مهامك…</div></div>
+     <div class="mb-3"><div class="text-[10px] font-black text-sky-700">المهارة الحالية</div><h2 class="font-black text-slate-900">رحلتي التالية</h2></div>
+     <div id="studentPrimaryMission"><div class="bg-white border border-sky-100 rounded-3xl p-8 text-center"><div class="text-3xl">🧭</div><div class="font-black mt-3">جارٍ تجهيز رحلتك…</div><div class="text-xs text-slate-400 mt-1">ستظهر هنا المهارة المرسلة من المعلم فقط.</div></div></div>
    </section>
-   <section class="rounded-3xl border border-emerald-100 bg-emerald-50/50 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-     <div class="w-11 h-11 rounded-2xl bg-emerald-700 text-white flex items-center justify-center text-xl shrink-0">🎯</div>
-     <div class="flex-1"><h2 class="font-black text-slate-900">رحلة الإتقان</h2><p class="text-[11px] text-slate-500 mt-1 leading-5">شرح قصير + مثال + تدريب موجّه + تدريب مستقل + تحقق نهائي.</p></div>
-     <button data-open-journey="1" class="px-4 py-2.5 rounded-xl bg-emerald-700 text-white text-xs font-black">فتح خريطة المهارات</button>
+   <section class="bg-white border border-sky-100 rounded-3xl p-5 sm:p-6">
+     <div class="flex items-center justify-between gap-3 mb-4"><div><div class="text-[10px] font-black text-sky-700">الرحلات حسب المادة</div><h2 class="font-black text-slate-900">المهارات المرسلة</h2></div><span class="text-2xl">🗺️</span></div>
+     <div id="readingJourneyTaskMount"><div class="rounded-2xl bg-sky-50 p-7 text-center text-sm text-sky-700">جارٍ تحميل الرحلات…</div></div>
    </section>
    <section>
-     <div class="mb-3"><h2 class="font-black text-slate-900">رحلات المؤشرات المرسلة</h2><p class="text-[11px] text-slate-400 mt-1">تظهر لك المواد التي أرسل المعلم فيها مهارات للتدريب.</p></div>
-     <div id="readingJourneyTaskMount"><div class="bg-white border rounded-3xl p-8 text-center text-sm text-slate-400">جارٍ تحميل الرحلات…</div></div>
+     <div class="mb-3"><div class="text-[10px] font-black text-sky-700">تقدم الرحلات</div><h2 class="font-black text-slate-900">ماذا أنجزت؟</h2></div>
+     <div id="studentProgressOverview"><div class="bg-white border rounded-3xl p-7 text-center text-sm text-slate-400">جارٍ تجهيز تقدم الرحلات…</div></div>
    </section>
  </div>`;
 }
+function remedial(){
+ return `<div class="space-y-5 pb-24">
+   <section class="rounded-[2rem] bg-gradient-to-l from-rose-950 via-rose-800 to-red-700 text-white p-5 sm:p-7 shadow-lg">
+     <div class="text-[10px] font-black text-rose-200">القسم الثاني • العلاج</div><h1 class="text-2xl sm:text-3xl font-black mt-1">العلاج</h1>
+     <p class="text-xs sm:text-sm text-rose-100 mt-2 leading-6">هذا القسم مخصص فقط للمهارات التي تحتاج معالجة ودعمًا إضافيًا بناءً على نتيجتك.</p>
+   </section>
+   <section class="bg-rose-50/50 border border-rose-100 rounded-3xl p-4 sm:p-5">
+     <div class="flex items-start gap-3"><div class="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">🩺</div><div><h2 class="font-black text-rose-950">مهامي العلاجية</h2><p class="text-xs text-rose-700 mt-1 leading-6">لن يظهر هنا أي تدريب تعزيز أو إثراء؛ فقط الأنشطة العلاجية المرسلة لك.</p></div></div>
+   </section>
+   <div id="teacherRemedialTaskMount"><div class="bg-white border border-rose-100 rounded-3xl p-8 text-center text-sm text-slate-400">جارٍ تحميل مهام العلاج…</div></div>
+ </div>`;
+}
+function growth(){
+ return `<div class="space-y-5 pb-24">
+   <section class="rounded-[2rem] bg-gradient-to-l from-amber-900 via-orange-700 to-violet-800 text-white p-5 sm:p-7 shadow-lg">
+     <div class="text-[10px] font-black text-amber-100">القسم الثالث • تعزيز وإثراء</div><h1 class="text-2xl sm:text-3xl font-black mt-1">التعزيز والإثراء</h1>
+     <p class="text-xs sm:text-sm text-amber-50 mt-2 leading-6">التعزيز يثبت ما تعلمته، والإثراء ينقلك إلى تطبيقات وتفكير أعلى. لا توجد مهام علاجية في هذا القسم.</p>
+   </section>
+   <div id="teacherGrowthTaskMount"><div class="bg-white border border-amber-100 rounded-3xl p-8 text-center text-sm text-slate-400">جارٍ تحميل مهام التعزيز والإثراء…</div></div>
+ </div>`;
+}
+
 function taskSubject(s){return s==='reading'?'القراءة':s==='math'?'الرياضيات':s==='science'?'العلوم':'—'}
 function taskStatus(s){return s==='completed'?'مكتمل ✓':s==='in_progress'?'قيد الحل':'جديد'}
 function taskTierMeta(tier){
@@ -158,38 +190,48 @@ async function loadTeacherTasks(){
  if(S.taskLoading)return;S.taskLoading=true;
  try{const d=await planPost('my_teacher_tasks');S.teacherTasks=d.tasks||[]}catch(e){S.teacherTasks=[]}finally{S.taskLoading=false;renderTeacherTasks()}
 }
-function renderTeacherTasks(){
- const box=document.getElementById('teacherRemedialTaskMount');if(!box)return;
- const rows=(S.teacherTasks||[]).slice();
+function teacherTaskCard(t,priority=false){
+ const m=taskTierMeta(t.tier);
+ return '<article class="bg-white border '+m.border+' rounded-3xl '+(priority?'p-5 sm:p-6 shadow-sm':'p-4')+'"><div class="flex flex-col sm:flex-row sm:items-center gap-4">'+
+   '<div class="w-11 h-11 rounded-2xl '+m.iconBox+' flex items-center justify-center text-xl shrink-0">'+m.icon+'</div>'+
+   '<div class="flex-1 min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="text-[10px] font-black px-2 py-1 rounded-full '+m.soft+'">'+m.label+'</span><span class="text-[10px] text-slate-400 font-bold">'+taskSubject(t.subject_key)+' • المهارة '+Number(t.indicator_index||0).toLocaleString('ar-SA')+'</span></div>'+
+   '<h3 class="'+(priority?'text-base':'text-sm')+' font-black text-slate-900 mt-2">'+esc(t.title||('مسار '+m.label))+'</h3>'+
+   '<details class="mt-1"><summary class="cursor-pointer text-[11px] font-bold text-slate-500">عرض نص المهارة الرسمي</summary><p class="text-xs text-slate-500 leading-6 mt-2">'+esc(t.indicator_text||'')+'</p></details>'+
+   '<div class="flex flex-wrap gap-2 mt-2"><span class="px-2 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black">'+taskStatus(t.status)+'</span>'+
+   (t.source_percent!=null?'<span class="px-2 py-1 rounded-full bg-slate-50 text-slate-600 text-[10px] font-black">نتيجة المؤشر '+Number(t.source_percent).toLocaleString('ar-SA')+'%</span>':'')+
+   (t.status==='completed'?'<span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black">نتيجة التدريب '+Number(t.percent||0).toLocaleString('ar-SA')+'%</span>':'')+'</div></div>'+
+   (t.status==='completed'?'<div class="text-emerald-700 font-black text-xs">تم الإنجاز ✓</div>':'<button data-open-teacher-task="'+t.id+'" class="px-4 py-3 rounded-2xl '+m.button+' text-white text-xs font-black shrink-0">'+(t.status==='in_progress'?'أكمل المهمة':'ابدأ المهمة')+'</button>')+
+ '</div></article>';
+}
+function taskBucketHtml(rows,emptyIcon,emptyTitle,emptyText){
  const active=rows.filter(t=>t.status!=='completed').sort((a,b)=>(a.status==='in_progress'?0:1)-(b.status==='in_progress'?0:1));
  const done=rows.filter(t=>t.status==='completed');
- const card=(t,priority=false)=>{
-   const m=taskTierMeta(t.tier);
-   return '<article class="bg-white border '+m.border+' rounded-3xl '+(priority?'p-5 sm:p-6 shadow-sm':'p-4')+'"><div class="flex flex-col sm:flex-row sm:items-center gap-4">'+
-     '<div class="w-11 h-11 rounded-2xl '+m.iconBox+' flex items-center justify-center text-xl shrink-0">'+m.icon+'</div>'+
-     '<div class="flex-1 min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="text-[10px] font-black px-2 py-1 rounded-full '+m.soft+'">'+m.label+'</span><span class="text-[10px] text-slate-400 font-bold">'+taskSubject(t.subject_key)+' • المهارة '+Number(t.indicator_index||0).toLocaleString('ar-SA')+'</span></div>'+
-     '<h3 class="'+(priority?'text-base':'text-sm')+' font-black text-slate-900 mt-2">'+esc(t.title||('مسار '+m.label))+'</h3>'+
-     '<details class="mt-1"><summary class="cursor-pointer text-[11px] font-bold text-slate-500">عرض نص المهارة الرسمي</summary><p class="text-xs text-slate-500 leading-6 mt-2">'+esc(t.indicator_text||'')+'</p></details>'+
-     '<div class="flex flex-wrap gap-2 mt-2"><span class="px-2 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black">'+taskStatus(t.status)+'</span>'+
-     (t.source_percent!=null?'<span class="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black">نتيجة المؤشر '+Number(t.source_percent).toLocaleString('ar-SA')+'%</span>':'')+
-     (t.status==='completed'?'<span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black">نتيجة التدريب '+Number(t.percent||0).toLocaleString('ar-SA')+'%</span>':'')+'</div></div>'+
-     (t.status==='completed'?'<div class="text-emerald-700 font-black text-xs">تم الإنجاز ✓</div>':'<button data-open-teacher-task="'+t.id+'" class="px-4 py-3 rounded-2xl '+m.button+' text-white text-xs font-black shrink-0">'+(t.status==='in_progress'?'أكمل المهمة':'ابدأ المهمة')+'</button>')+
-   '</div></article>';
- };
- if(!rows.length){
-   box.innerHTML='<div class="bg-white border rounded-3xl p-8 text-center"><div class="text-3xl">📭</div><div class="font-black mt-2">لا توجد مهام مرسلة الآن</div><div class="text-xs text-slate-400 mt-1">عندما يرسل المعلم تدريبًا علاجيًا أو تعزيزًا أو إثراءً سيظهر هنا.</div></div>';
- }else{
-   let html='';
-   if(active.length){
-     html+='<div class="rounded-3xl border border-emerald-200 bg-emerald-50/40 p-3 sm:p-4"><div class="text-[10px] font-black text-emerald-700 mb-2">مهمتك التالية</div>'+card(active[0],true)+'</div>';
-     if(active.length>1)html+='<details class="mt-3 bg-white border rounded-3xl p-4"><summary class="cursor-pointer font-black text-sm text-slate-700">مهام أخرى تحتاج إكمالًا ('+Number(active.length-1).toLocaleString('ar-SA')+') ▾</summary><div class="space-y-3 mt-3">'+active.slice(1).map(t=>card(t,false)).join('')+'</div></details>';
-   }else html+='<div class="bg-emerald-50 border border-emerald-200 rounded-3xl p-6 text-center"><div class="text-3xl">✅</div><div class="font-black text-emerald-800 mt-2">أنجزت كل المهام المرسلة</div><div class="text-xs text-emerald-700 mt-1">يمكنك مراجعة الأعمال المكتملة في الأسفل.</div></div>';
-   if(done.length)html+='<details class="mt-3 bg-white border rounded-3xl p-4"><summary class="cursor-pointer font-black text-sm text-slate-600">المهام المكتملة ('+Number(done.length).toLocaleString('ar-SA')+') ▾</summary><div class="space-y-3 mt-3">'+done.map(t=>card(t,false)).join('')+'</div></details>';
-   box.innerHTML=html;
+ if(!rows.length)return '<div class="bg-white border rounded-3xl p-8 text-center"><div class="text-3xl">'+emptyIcon+'</div><div class="font-black mt-2">'+emptyTitle+'</div><div class="text-xs text-slate-400 mt-1">'+emptyText+'</div></div>';
+ let html='';
+ if(active.length){
+   html+='<div class="space-y-3">'+active.map((t,i)=>teacherTaskCard(t,i===0)).join('')+'</div>';
+ }else html+='<div class="bg-emerald-50 border border-emerald-200 rounded-3xl p-6 text-center"><div class="text-3xl">✅</div><div class="font-black text-emerald-800 mt-2">أنجزت المهام النشطة</div></div>';
+ if(done.length)html+='<details class="mt-3 bg-white border rounded-3xl p-4"><summary class="cursor-pointer font-black text-sm text-slate-600">الأعمال المكتملة ('+Number(done.length).toLocaleString('ar-SA')+') ▾</summary><div class="space-y-3 mt-3">'+done.map(t=>teacherTaskCard(t,false)).join('')+'</div></details>';
+ return html;
+}
+function bindTeacherTaskButtons(root){if(!root)return;root.querySelectorAll('[data-open-teacher-task]').forEach(b=>b.onclick=()=>openTeacherTask(b.dataset.openTeacherTask))}
+function renderTeacherTasks(){
+ const rows=(S.teacherTasks||[]).slice();
+ const remedialBox=document.getElementById('teacherRemedialTaskMount');
+ if(remedialBox){
+   const remedialRows=rows.filter(t=>t.tier==='remedial');
+   remedialBox.innerHTML=taskBucketHtml(remedialRows,'🩺','لا توجد مهام علاجية الآن','إذا احتاج أحد مؤشراتك معالجة فستظهر مهمته هنا فقط.');
+   bindTeacherTaskButtons(remedialBox);
  }
- const taskSummary=document.getElementById('studentTasksSummary');
- if(taskSummary){const n=active.length;taskSummary.textContent=n?('لديك '+Number(n).toLocaleString('ar-SA')+' مهمة تحتاج إلى إكمال'):(rows.length?'أنجزت كل المهام المرسلة':'لا توجد مهام مرسلة الآن')}
- box.querySelectorAll('[data-open-teacher-task]').forEach(b=>b.onclick=()=>openTeacherTask(b.dataset.openTeacherTask));
+ const growthBox=document.getElementById('teacherGrowthTaskMount');
+ if(growthBox){
+   const reinforcement=rows.filter(t=>t.tier==='reinforcement');
+   const enrichment=rows.filter(t=>t.tier==='enrichment');
+   growthBox.innerHTML=
+    '<section class="rounded-3xl border border-amber-200 bg-amber-50/50 p-4 sm:p-5"><div class="flex items-center gap-3 mb-4"><div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl">💪</div><div><h2 class="font-black text-amber-950">التعزيز</h2><p class="text-xs text-amber-700 mt-1">لتثبيت المهارة وزيادة الدقة والاستقلالية.</p></div></div>'+taskBucketHtml(reinforcement,'💪','لا توجد مهام تعزيز الآن','تظهر هنا مهام التعزيز فقط عندما تُرسل لك.')+'</section>'+
+    '<section class="rounded-3xl border border-emerald-200 bg-emerald-50/50 p-4 sm:p-5 mt-4"><div class="flex items-center gap-3 mb-4"><div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl">✨</div><div><h2 class="font-black text-emerald-950">الإثراء</h2><p class="text-xs text-emerald-700 mt-1">لتطبيق المهارة في مواقف جديدة وأسئلة أعلى تفكيرًا.</p></div></div>'+taskBucketHtml(enrichment,'✨','لا توجد مهام إثراء الآن','تظهر هنا مهام الإثراء فقط عندما تحقق مستوى الإتقان المطلوب.')+'</section>';
+   bindTeacherTaskButtons(growthBox);
+ }
 }
 async function openTeacherTask(id){
  try{const d=await planPost('start_teacher_task',{task_id:id});S.activeTask={...d.task,questions:d.questions||[]};S.taskAnswers={};renderTeacherTaskModal()}catch(e){alert(e.message)}
@@ -212,7 +254,7 @@ async function submitTeacherTask(){
   const ctx=improved?{from:Math.round(src),to:Math.round(pct)}:{};
   const encouragement=window.TamakkunEncouragement?.card?.(type,ctx)||'';
   const modal=document.getElementById('teacherTaskModal');
-  if(modal)modal.innerHTML='<div class="max-w-lg mx-auto mt-20 bg-white rounded-[2rem] p-8 text-center"><div class="text-5xl">'+(pct>=70?'✅':'📘')+'</div><h2 class="text-2xl font-black mt-4">تم تسليم المسار</h2><div class="text-3xl font-black text-rose-700 mt-4">'+Number(d.score).toLocaleString('ar-SA')+' / '+Number(d.total).toLocaleString('ar-SA')+'</div><p class="text-sm text-slate-500 mt-2">النسبة '+pct.toLocaleString('ar-SA')+'%</p><div class="mt-5 text-right">'+encouragement+'</div><button id="doneTeacherTask" class="mt-6 px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black">العودة إلى مهامي</button></div>';
+  if(modal)modal.innerHTML='<div class="max-w-lg mx-auto mt-20 bg-white rounded-[2rem] p-8 text-center"><div class="text-5xl">'+(pct>=70?'✅':'📘')+'</div><h2 class="text-2xl font-black mt-4">تم تسليم المسار</h2><div class="text-3xl font-black text-rose-700 mt-4">'+Number(d.score).toLocaleString('ar-SA')+' / '+Number(d.total).toLocaleString('ar-SA')+'</div><p class="text-sm text-slate-500 mt-2">النسبة '+pct.toLocaleString('ar-SA')+'%</p><div class="mt-5 text-right">'+encouragement+'</div><button id="doneTeacherTask" class="mt-6 px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black">العودة إلى القسم</button></div>';
   document.getElementById('doneTeacherTask').onclick=async()=>{closeTeacherTask();await loadTeacherTasks()}
  }catch(e){alert(e.message);renderTeacherTaskModal()}
 }
@@ -233,14 +275,16 @@ function progress(){
  </div>`;
 }
 function competition(){
- return '<div id="lugatiCompetitionMount"><div class="bg-white border rounded-3xl p-10 text-center text-sm text-slate-400">جارٍ تحميل مسابقة المؤشرات…</div></div>';
+ return '<div class="space-y-5 pb-24"><section class="rounded-[2rem] bg-gradient-to-l from-violet-950 via-indigo-900 to-purple-700 text-white p-5 sm:p-7 shadow-lg"><div class="text-[10px] font-black text-violet-200">القسم الرابع • المسابقات</div><h1 class="text-2xl sm:text-3xl font-black mt-1">المسابقات</h1><p class="text-xs sm:text-sm text-violet-100 mt-2 leading-6">الجولات التنافسية والنتائج والترتيب فقط. لا تظهر هنا الرحلات أو مهام العلاج والتعزيز.</p></section><div id="lugatiCompetitionMount"><div class="bg-white border border-violet-100 rounded-3xl p-10 text-center text-sm text-slate-400">جارٍ تحميل المسابقات…</div></div></div>';
 }
 function renderView(){
  const v=document.getElementById('sview');if(!v)return;
- v.innerHTML=S.tab==='home'?home():S.tab==='tasks'?tasks():S.tab==='competition'?competition():progress();
+ const views={journeys,remedial,growth,competition};
+ const view=views[S.tab]||journeys;
+ v.innerHTML=view();
  renderNav();
  if(S.tab==='competition'&&window.LugatiCompetition?.mount)window.LugatiCompetition.mount({token:S.token,role:'student',profile:S.profile});
- if(S.tab==='tasks'||S.tab==='home')loadTeacherTasks();
+ if(S.tab==='remedial'||S.tab==='growth')loadTeacherTasks();
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;renderView()});
  document.querySelectorAll('[data-open-journey]').forEach(b=>b.onclick=()=>{if(window.LugatiJourney?.openCurrent)window.LugatiJourney.openCurrent();else if(window.LugatiJourney?.openMap)window.LugatiJourney.openMap('reading');else alert('تعذر فتح رحلة المؤشر الآن. حدّث الصفحة وحاول مرة أخرى.');});
  icons();
