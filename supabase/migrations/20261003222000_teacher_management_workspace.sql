@@ -79,6 +79,7 @@ create or replace function public.lugati_teacher_management_report(
   p_subject text default null,
   p_from timestamptz default null,
   p_to timestamptz default null,
+  p_student_id uuid default null,
   p_limit integer default 500
 ) returns jsonb
 language sql
@@ -107,6 +108,7 @@ task_base as (
     and (nullif(p_subject,'') is null or p_subject='all' or t.subject_key=p_subject)
     and (p_from is null or coalesce(t.completed_at,t.started_at,t.assigned_at,t.updated_at)>=p_from)
     and (p_to is null or coalesce(t.completed_at,t.started_at,t.assigned_at,t.updated_at)<(p_to + interval '1 day'))
+    and (p_student_id is null or t.student_id=p_student_id)
 ),
 summary as (
   select
@@ -134,6 +136,6 @@ select jsonb_build_object(
 $$;
 
 revoke all on function public.lugati_teacher_management_snapshot(uuid,text) from public, anon, authenticated;
-revoke all on function public.lugati_teacher_management_report(uuid,text,uuid[],text,text,timestamptz,timestamptz,integer) from public, anon, authenticated;
+revoke all on function public.lugati_teacher_management_report(uuid,text,uuid[],text,text,timestamptz,timestamptz,uuid,integer) from public, anon, authenticated;
 grant execute on function public.lugati_teacher_management_snapshot(uuid,text) to service_role;
-grant execute on function public.lugati_teacher_management_report(uuid,text,uuid[],text,text,timestamptz,timestamptz,integer) to service_role;
+grant execute on function public.lugati_teacher_management_report(uuid,text,uuid[],text,text,timestamptz,timestamptz,uuid,integer) to service_role;
