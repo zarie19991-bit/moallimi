@@ -14,3 +14,11 @@
 .model-subject-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-12px -12px 12px;padding:10px 14px;border-bottom:1px solid #dbe7e4;background:#eef7f4;border-radius:16px 16px 0 0;color:var(--teal);font-size:12px;font-weight:900}
 .model-subject-head span{font-size:9px;color:var(--muted)}
 @media(max-width:760px){.subject-choices{grid-template-columns:1fr}.indicator-subject-items{grid-template-columns:1fr}}
+
+.my-tests-card{margin-top:18px;border-top:4px solid #0f6b63}
+.my-tests-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.my-tests-toolbar .primary,.my-tests-toolbar .secondary{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+#myTestsState{font-size:12px;color:#667b80}
+.my-tests-list{display:grid;gap:10px}
+.my-tests-list .published-test{margin:0!important}
+@media(max-width:700px){.my-tests-toolbar>*{width:100%}.my-tests-toolbar #myTestsState{width:auto}}
