@@ -18,8 +18,8 @@ assert.doesNotMatch(batch,/nafes_assessments'\)\.insert/,'batch candidates must 
 
 assert.match(css,/@page\{size:A4 portrait;margin:6mm\}/,'print must use explicit A4 with safe physical margins');
 assert.match(css,/\.paper-page\{width:198mm!important[\s\S]*height:285mm!important/,'printed content must fit exactly inside A4 minus 6mm margins');
-assert.match(css,/\.stem\{font-size:14pt!important/,'printed question stems must stay readable');
-assert.match(css,/\.choices\{font-size:12\.5pt!important/,'printed choices must stay readable');
+assert.match(css,/\.stem\{font-size:11pt!important/,'printed question stems must be exactly 11pt');
+assert.match(css,/\.choices\{font-size:11pt!important/,'printed choices must be exactly 11pt');
 assert.match(printClient,/removeAttribute\('data-layout-unresolved'\)/,'stale unresolved print state must be cleared before re-measurement');
 assert.match(printClient,/window\.print\(\)/,'print button must call the native print API');
 assert.doesNotMatch(printClient,/addEventListener\('afterprint',[\s\S]{0,240}renderPages\(\)/,'afterprint must not rebuild all pages and reintroduce layout gaps');
