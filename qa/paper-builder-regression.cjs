@@ -2,6 +2,7 @@ const fs=require('node:fs');
 const assert=require('node:assert/strict');
 
 const client=fs.readFileSync('review-correction.js','utf8');
+const printClient=fs.readFileSync('review-question-papers.js','utf8');
 const server=fs.readFileSync('supabase/functions/nafes-exam/assessments.ts','utf8');
 const css=fs.readFileSync('review-question-papers.css','utf8');
 
@@ -19,9 +20,9 @@ assert.match(css,/@page\{size:A4 portrait;margin:6mm\}/,'print must use explicit
 assert.match(css,/\.paper-page\{width:198mm!important[\s\S]*height:285mm!important/,'printed content must fit exactly inside A4 minus 6mm margins');
 assert.match(css,/\.stem\{font-size:14pt!important/,'printed question stems must stay readable');
 assert.match(css,/\.choices\{font-size:12\.5pt!important/,'printed choices must stay readable');
-assert.match(client,/removeAttribute\('data-layout-unresolved'\)/,'stale unresolved print state must be cleared before re-measurement');
-assert.match(client,/window\.print\(\)/,'print button must call the native print API');
-assert.doesNotMatch(client,/addEventListener\('afterprint',[\s\S]{0,240}renderPages\(\)/,'afterprint must not rebuild all pages and reintroduce layout gaps');
+assert.match(printClient,/removeAttribute\('data-layout-unresolved'\)/,'stale unresolved print state must be cleared before re-measurement');
+assert.match(printClient,/window\.print\(\)/,'print button must call the native print API');
+assert.doesNotMatch(printClient,/addEventListener\('afterprint',[\s\S]{0,240}renderPages\(\)/,'afterprint must not rebuild all pages and reintroduce layout gaps');
 
 assert.match(best,/initialCandidateCount=reading\?5:/,'reading builds must use a 5-candidate initial batch');
 assert.match(best,/refineCandidateCount=reading\?3:2/,'adaptive refinement batch must remain bounded');
