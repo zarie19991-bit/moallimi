@@ -46,3 +46,17 @@
   .recommendation{font-size:8.2pt!important;border-radius:2.5mm!important;padding:2.5mm!important}
   .absent-chips span{font-size:8pt!important;padding:1.5mm 2mm!important}
 }
+
+.analysis-overview-sheet,.subject-detail-sheet{margin-bottom:18px}
+.subject-detail-sheet .sar-chart-card table{width:100%;border-collapse:collapse;font-size:8.4pt}
+.subject-detail-sheet .sar-chart-card th,.subject-detail-sheet .sar-chart-card td{border:1px solid #d5dfdc;padding:1.4mm 1.7mm;text-align:right;vertical-align:top}
+.subject-detail-sheet .sar-chart-card th{background:#f2f7f5;color:#31574e}
+.subject-detail-sheet .sar-chart-card td:nth-child(2){max-width:78mm}
+@media print{
+ #officialAnalysisPreview>.subject-analysis-sheet:not(:first-child),
+ #printRoot>.subject-analysis-sheet:not(:first-child){break-before:page!important;page-break-before:always!important}
+ .subject-analysis-sheet{break-inside:avoid-page!important}
+ .subject-detail-sheet .sar-chart-card{break-inside:avoid!important}
+ .subject-detail-sheet .sar-chart-card table{font-size:7.6pt!important}
+ .subject-detail-sheet .sar-chart-card th,.subject-detail-sheet .sar-chart-card td{padding:1.1mm 1.3mm!important}
+}
