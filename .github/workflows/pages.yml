@@ -31,6 +31,7 @@ jobs:
             esac
           done < production-files.txt
           node --test question-bank/scripts/test-reviewed-contract.mjs question-bank/scripts/test-assessments.mjs question-bank/scripts/test-analysis-contract.mjs question-bank/scripts/test-analysis-loading.mjs question-bank/scripts/test-report-absentees.mjs
+          node question-bank/scripts/test-paper-builder-performance.mjs
           node question-bank/scripts/verify-reviewed-release.mjs
       - name: Verify the published reviewed tests
         continue-on-error: true
