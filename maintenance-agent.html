@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f6b63">
 <title>وكيل صيانة المنصة | معلّمي</title>
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
-<link rel="stylesheet" href="maintenance-agent.css?v=20261002-semanticfix2">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261003-corrector1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -104,6 +104,38 @@
       <div id="printAuditFrameHost" aria-hidden="true"></div>
     </section>
 
+    <section class="panel corrector-panel" id="internalCorrector">
+      <div class="panel-head">
+        <div><span class="kicker">التصحيح الداخلي</span><h2>مصحح النصوص والأوامر</h2></div>
+        <span id="correctorBadge" class="status-pill ok">محلي داخل المنصة</span>
+      </div>
+      <p class="brain-intro">يفحص النصوص والتعليمات والأكواد داخل منصة معلّمي فقط. التصحيحات الإملائية والتنسيقية المؤكدة تُطبّق مباشرة داخل الحقل، أما العمليات المنطقية أو الخطرة فتظهر كملاحظات ولا تُنفذ تلقائيًا. لا يرسل هذا القسم النص إلى أي مزود ذكاء خارجي.</p>
+      <div class="corrector-privacy">الخصوصية: لا تستخدم هذا الحقل لأسماء الطلاب أو أرقامهم. سجل التصحيح محفوظ داخل مشروع المنصة للحساب الرئيسي فقط.</div>
+      <div class="corrector-controls">
+        <label><span>نوع المحتوى</span>
+          <select id="correctorMode">
+            <option value="arabic">نص عربي</option>
+            <option value="instruction">تعليمات / أمر تشغيلي</option>
+            <option value="javascript">JavaScript</option>
+            <option value="css">CSS</option>
+            <option value="html">HTML</option>
+            <option value="sql">SQL</option>
+          </select>
+        </label>
+        <label class="wide"><span>مرجع اختياري</span><input id="correctorSource" maxlength="120" placeholder="مثال: نص زر في صفحة التحليل"></label>
+        <label class="corrector-live"><input id="correctorLive" type="checkbox" checked><span>تصحيح فوري آمن أثناء الكتابة للنصوص العربية والتعليمات</span></label>
+      </div>
+      <textarea id="correctorInput" class="corrector-input" rows="8" maxlength="20000" placeholder="الصق النص أو التعليمات أو الكود هنا. سيُصحّح المحتوى الآمن داخل نفس الحقل، وتظهر الملاحظات التي تحتاج مراجعة أسفله."></textarea>
+      <div class="corrector-actions">
+        <button id="runCorrection" class="btn primary" type="button">فحص وتصحيح الآن</button>
+        <button id="undoCorrection" class="btn light" type="button" disabled>تراجع عن آخر تصحيح</button>
+        <button id="refreshCorrections" class="btn light" type="button">تحديث سجل التصحيحات</button>
+      </div>
+      <div id="correctorResult" class="corrector-result"><div class="empty">اكتب أو الصق محتوى لبدء التصحيح داخل المنصة.</div></div>
+      <div class="corrector-history-head"><b>سجل التصحيحات الأخيرة</b><span>يمكن إعادة فتح أي تصحيح سابق داخل المحرر.</span></div>
+      <div id="correctionHistory" class="correction-history"><div class="empty">لا توجد تصحيحات محفوظة بعد.</div></div>
+    </section>
+
     <section class="panel brain-panel">
       <div class="panel-head"><div><span class="kicker">عقل منصة معلّمي</span><h2>اسأل الوكيل عن منصتك</h2></div><span id="brainBadge" class="status-pill info">جارٍ تحميل المعرفة…</span></div>
       <p class="brain-intro">يعتمد على خريطة موثقة للمنصة وقرارات المشروع والمسارات الحية في GitHub وSupabase. لا يرسل السؤال إلى ذكاء خارجي ولا يحفظ المحادثة.</p>
@@ -139,6 +171,7 @@
 </div>
 
 <script src="teacher-access.js?v=20260930-mainfix2"></script>
-<script src="maintenance-agent.js?v=20261002-semanticfix2"></script>
+<script src="platform-auto-correct.js?v=20261003-corrector1"></script>
+<script src="maintenance-agent.js?v=20261003-corrector1"></script>
 </body>
 </html>
