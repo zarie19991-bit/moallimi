@@ -65,7 +65,7 @@ assert.match(ui,/التوصية التربوية النهائية/);
 assert.match(ui,/ملاحظة المعلم/);
 assert.match(ui,/ملف أداء المؤشرات/);
 assert.match(ui,/مصدر النتيجة/);
-assert.match(ui,/التصحيح الآلي الورقي/);
+assert.match(ui,/تصحيح آلي ورقي/);
 assert.match(source,/paper_scan/);
 assert.match(source,/paper_review/);
 assert.equal(check.planSourceMeta({config:{paper_review:true,paper_review_id:'R12345'}},{config:{}}).source_type,'paper_omr');
