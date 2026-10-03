@@ -1397,7 +1397,18 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     }
     const graded=gradeSections(sections,answers);
     const attemptConfig={...config,paper_model:model};
-    const event={type:'paper_scan',at:submittedAt,review_id:reviewId,model,method:'omr',subjects};
+    const rawOmr=result.omr&&typeof result.omr==='object'?result.omr:{};
+    const clamp01=(v:any)=>Math.max(0,Math.min(1,Number(v)||0));
+    const omr={
+      confidence:clamp01(rawOmr.confidence),
+      min_clear_confidence:clamp01(rawOmr.min_clear_confidence),
+      marker_confidence:clamp01(rawOmr.marker_confidence),
+      manual_answers:Math.max(0,Math.min(questionCount,Math.trunc(Number(rawOmr.manual_answers)||0))),
+      low_confidence_answers:Math.max(0,Math.min(questionCount,Math.trunc(Number(rawOmr.low_confidence_answers)||0))),
+      answer_count:Math.max(0,Math.min(questionCount,Math.trunc(Number(rawOmr.answer_count)||0))),
+      auto_accept:rawOmr.auto_accept===true
+    };
+    const event={type:'paper_scan',at:submittedAt,review_id:reviewId,model,method:'omr',subjects,omr};
     const existing=must(await db.from('nafes_assessment_attempts').select('*').eq('assessment_id',assessment.id).eq('student_id',student.id).order('attempt_no',{ascending:false}).limit(1).maybeSingle());
     const lastSection=sections[sections.length-1];
     const payload={
