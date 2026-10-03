@@ -48,3 +48,9 @@ jobs:
           echo "QA_LOCAL_SITE=http://127.0.0.1:4173/" >> "$GITHUB_ENV"
       - name: Browser print QA
         run: node qa/review-question-paper-print.mjs
+      - name: Upload print QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automatic-question-paper-print
+          path: qa-output/
