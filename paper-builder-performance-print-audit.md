@@ -31,7 +31,7 @@ The print renderer previously relied on fixed physical widths/heights plus hidde
 
 ### Implemented print contract
 - A4 page: `@page { size: A4 portrait; margin: 6mm; }`.
-- The rendered paper uses 100% of the browser-provided printable width instead of a hard 198 mm width.
+- The rendered paper uses an explicit 198 × 285 mm printable box, exactly matching A4 minus 6 mm margins on every side.
 - Question font: 14 pt.
 - Choice font: 12.5 pt.
 - Page fitting runs immediately before print.
@@ -58,7 +58,7 @@ Print metrics:
 - Typical model-build candidate workload reduction: >= 40%.
 - Print max overflow: <= 2 px.
 - No unresolved page may reach `window.print()`.
-- Chrome, Edge and Firefox must preserve the A4 margin and readable font contract.
+- Chrome, Edge and Firefox must preserve the 198 × 285 mm printable box, A4 margin and readable font contract.
 
 ## Regression gate
 Run:
