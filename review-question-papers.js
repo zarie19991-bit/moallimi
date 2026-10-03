@@ -119,23 +119,26 @@ function renderGroup(g){
 }
 function pageHeader(model,d,pageNo,totalPages,totalQuestions){
  const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean).sort((a,b)=>paperSubjectRank(a)-paperSubjectRank(b));
- const subjectText=subjects.map(subjectLabel).join(' + ');
+ const subjectText=subjects.map(subjectLabel).join(' + ')||'—';
+ const title=String(d.title||'اختبار نافس').trim();
  return '<div class="exam-frame-head">'+
  '<div class="official"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><b>إدارة تعليم نجران</b><b>مدرسة ابن سينا المتوسطة</b></div>'+
- '<div class="exam-brand">مراجعة نافس</div>'+
+ '<div class="exam-brand">اختبار '+esc(subjectText)+'</div>'+
  '<div class="grade-box"><b>ثالث متوسط</b><span>نموذج '+esc(model.model)+'</span></div>'+
  '</div>'+
- '<div class="title-strip">'+esc(d.title||'مراجعة مؤشرات نافس')+(subjectText?'<small>'+esc(subjectText)+'</small>':'')+'</div>'+
+ '<div class="title-strip"><b>'+esc(title)+'</b><small>المادة: '+esc(subjectText)+'</small></div>'+
  '<div class="student-line"><b>الاسم:</b><span></span></div>'+
  '<div class="page-number">الصفحة '+ar(pageNo)+' من '+ar(totalPages)+' · عدد الأسئلة '+ar(totalQuestions)+'</div>';
 }
 function onePage(model,d,groups,pageNo,totalPages,totalQuestions){
- const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean);
+ const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean).sort((a,b)=>paperSubjectRank(a)-paperSubjectRank(b));
+ const subjectText=subjects.map(subjectLabel).join(' + ')||'—';
+ const title=String(d.title||'اختبار نافس').trim();
  const mode=subjects.length>1?'mixed':(subjects[0]||d.subject||'');
  return '<section class="paper-page" data-model="'+esc(model.model)+'" data-subject="'+esc(mode)+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
  pageHeader(model,d,pageNo,totalPages,totalQuestions)+
  '<div class="questions-flow">'+groups.map(g=>renderGroup(g)).join('')+'</div>'+
- '<footer class="footer"><span>منصة معلّمي — مراجعة مؤشرات نافس</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/'+ar(totalPages)+'</span></footer>'+
+ '<footer class="footer"><span>منصة معلّمي — '+esc(title)+' — '+esc(subjectText)+'</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/'+ar(totalPages)+'</span></footer>'+
  '</div></div></section>';
 }
 function modelBooklet(model,d){
