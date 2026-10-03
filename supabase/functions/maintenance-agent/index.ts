@@ -602,15 +602,34 @@ function kr20ForAttempts(attempts:any[]){
   if(usable<5)return null;
   return Math.max(-1,Math.min(1,(usable/(usable-1))*(1-pq/totalVar)));
 }
-async function semanticForQuestionIds(ids:string[]){
+async function semanticForQuestions(questions:any[]){
   const map=new Map<string,any>();
-  const clean=[...new Set(ids.filter(x=>/^[0-9a-f-]{36}$/i.test(x)))];
+  const current=new Map<string,any>();
+  for(const q of questions||[]){
+    const id=String(q?.id||"");
+    if(!/^[0-9a-f-]{36}$/i.test(id))continue;
+    current.set(id,{
+      question:String(q?.question??q?.question_text??""),
+      options:Array.isArray(q?.options)?q.options:[],
+      correct_index:Number(q?.correctIndex??q?.correct_index),
+      registered_level:String(q?.cognitive_level||"")
+    });
+  }
+  const clean=[...current.keys()];
   for(let i=0;i<clean.length;i+=150){
     const {data,error}=await db.from("maintenance_agent_semantic_reviews")
-      .select("source_id,judgment,confidence,dimensions,created_at")
+      .select("source_id,judgment,confidence,dimensions,question_text,options,correct_index,registered_level,created_at")
       .in("source_id",clean.slice(i,i+150)).order("created_at",{ascending:false});
     if(error)throw error;
-    for(const row of data||[])if(!map.has(String(row.source_id)))map.set(String(row.source_id),row);
+    for(const row of data||[]){
+      const id=String(row.source_id),cur=current.get(id);
+      if(!cur||map.has(id))continue;
+      const sameQuestion=String(row.question_text||"")===cur.question;
+      const sameOptions=JSON.stringify(Array.isArray(row.options)?row.options:[])===JSON.stringify(cur.options);
+      const sameCorrect=Number(row.correct_index)===cur.correct_index;
+      const sameLevel=String(row.registered_level||"")===cur.registered_level;
+      if(sameQuestion&&sameOptions&&sameCorrect&&sameLevel)map.set(id,row);
+    }
   }
   return map;
 }
@@ -681,8 +700,7 @@ async function buildEvaluationReport(owner:any,sourceType:string,sourceId:string
     if(error)throw error;attempts=data||[];
   }
   if(!questions.length&&attempts.length)questions=flattenSectionQuestions(attempts[0].rendered_sections||[]);
-  const qIds=questions.map(q=>String(q.id||"")).filter(Boolean);
-  const semantic=await semanticForQuestionIds(qIds);
+  const semantic=await semanticForQuestions(questions);
 
   const itemMap=new Map<string,any>();
   for(const q of questions){
