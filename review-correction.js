@@ -20,6 +20,7 @@ function repeatLimit(){
  return minimumRequiredRepeats()+MAX_CROSS_MODEL_REPEATS;
 }
 let catalog=null,students=[],models=[],activeModel=0,assignments=[];const indicatorState=new Map();
+let buildPerf={started_at:0,total_ms:0,api_calls:0,candidates:0,pool_groups:0,server_ms:0,client_api_ms:0};
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
  const q=reviewId?'?rid='+encodeURIComponent(reviewId):'';
@@ -398,22 +399,13 @@ function reorderModelQuestions(d,modelIndex,previous){
 function modelSignature(d){return questionIds(d).slice().sort().join('|');}
 async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  const reading=hasReading();
- const attempts=reading?28:($('avoidRepeats').checked?22:14);
+ const candidateCount=reading?10:($('avoidRepeats').checked?8:6);
  let best=null,bestScore=Infinity,bestOverlap=Infinity;
  const previousSignatures=new Set(models.map(modelSignature));
- for(let n=0;n<attempts;n++){
-   const body={config:configForModel(letter),regenerate:n>0};
-   if(used.size)body.exclude_question_ids=[...used];
-   let d;
-   try{
-     d=await NafesTeacher.api('teacher_preview',body);
-   }catch(e){
-     if(!used.size)throw e;
-     // إذا نفدت الأسئلة الفريدة بسبب صغر بنك أحد المؤشرات، لا نوقف الاختبار.
-     // نعود للبنك الكامل ثم نختار النموذج الأقل تكرارًا والأكثر اختلافًا.
-     d=await NafesTeacher.api('teacher_preview',{config:configForModel(letter),regenerate:true});
-   }
-   if(incompleteChoices(d).length||!hasValidAnswerKey(d))continue;
+ const config=configForModel(letter);
+
+ const evaluate=d=>{
+   if(!d||incompleteChoices(d).length||!hasValidAnswerKey(d))return false;
    d=reorderModelQuestions(d,modelIndex,previous);
    const overlap=overlapCount(d,used);
    const duplicateSetPenalty=previousSignatures.has(modelSignature(d))?5000000:0;
@@ -423,11 +415,41 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
    const printPenalty=reading?layoutScore(d):0;
    const score=duplicateSetPenalty+repeatPenalty+positionPenalty+cognitivePenalty+printPenalty;
    if(score<bestScore){best=d;bestScore=score;bestOverlap=overlap;}
-   if(overlap===0&&!duplicateSetPenalty&&(!previous||samePositionCount(previous,d)===0))break;
+   return overlap===0&&!duplicateSetPenalty&&(!previous||samePositionCount(previous,d)===0);
+ };
+
+ const fetchBatch=async(useExclusions)=>{
+   const body={config,candidate_count:candidateCount};
+   if(useExclusions&&used.size)body.exclude_question_ids=[...used];
+   const t0=performance.now();
+   const res=await NafesTeacher.api('teacher_preview_batch',body);
+   buildPerf.api_calls++;
+   buildPerf.client_api_ms+=performance.now()-t0;
+   buildPerf.server_ms+=Number(res?.timing_ms||0);
+   const rows=Array.isArray(res?.candidates)?res.candidates:[];
+   buildPerf.candidates+=rows.length;
+   buildPerf.pool_groups+=Number(res?.pool_groups||0);
+   return rows;
+ };
+
+ let rows=[];
+ try{
+   rows=await fetchBatch(true);
+ }catch(e){
+   if(!used.size)throw e;
+   // إذا كان الاستبعاد يجعل أحد المؤشرات غير قادر على توفير العدد المطلوب،
+   // نطلب دفعة ثانية من البنك الكامل ثم نختار الأقل تكرارًا.
+   rows=await fetchBatch(false);
+ }
+ for(const d of rows)if(evaluate(d))break;
+
+ // بعض البنوك الصغيرة قد تعيد مرشحين صالحين فقط عند السماح بالتكرار.
+ if(!best&&used.size){
+   const fallback=await fetchBatch(false);
+   for(const d of fallback)if(evaluate(d))break;
  }
  if(!best)throw new Error('تعذر تكوين نموذج مكتمل من بنك الأسئلة المعتمد.');
- // repeatBudget أصبح هدفًا إرشاديًا لا حاجزًا يمنع بناء الاختبار؛
- // بعض المؤشرات يملك أسئلة أقل بعد تطبيق فلاتر الجودة من العدد الخام المعروض.
+
  best._repeat_overlap=bestOverlap;
  best._repeat_budget=repeatBudget;
  return best;
@@ -498,6 +520,7 @@ function renderModel(i){
 async function buildModels(){
  try{validate();}catch(e){setStatus(e.message,'error');return;}
  const btn=$('buildModels');btn.disabled=true;models=[];assignments=[];$('previewSection').classList.add('hidden');$('assignmentSection').classList.add('hidden');
+ buildPerf={started_at:performance.now(),total_ms:0,api_calls:0,candidates:0,pool_groups:0,server_ms:0,client_api_ms:0};
  const count=Number($('modelCount').value||5),used=new Set();let repeatTotal=0,maxRepeats=repeatLimit();
  const requiredRepeats=minimumRequiredRepeats();
  try{
@@ -516,7 +539,22 @@ async function buildModels(){
    const repeatNote=repeatTotal>maxRepeats
      ?'استخدم النظام '+ar(repeatTotal)+' تكرارًا بين النماذج لأن بنك المؤشرات بعد فلاتر الجودة لا يسمح بالحد التقديري '+ar(maxRepeats)+'، مع اختيار أقل تكرار متاح.'
      :'إجمالي التكرار بين النماذج '+ar(repeatTotal)+' ضمن الحد التقديري '+ar(maxRepeats)+'.';
-   setStatus('تم إنشاء '+count+' نماذج منظمة حسب المواد. '+repeatNote+' مجموعات الأسئلة المختلفة: '+ar(distinctSets)+' من '+ar(count)+'. اختلاف مواضع أ/ب: '+ar(Math.max(0,modelQuestions(models[0]).length-sameAB))+' من '+ar(modelQuestions(models[0]).length)+'.','ok');
+   buildPerf.total_ms=performance.now()-buildPerf.started_at;
+   const metrics={
+     at:new Date().toISOString(),
+     total_ms:Math.round(buildPerf.total_ms),
+     api_calls:buildPerf.api_calls,
+     candidates:buildPerf.candidates,
+     pool_groups:buildPerf.pool_groups,
+     server_ms:Math.round(buildPerf.server_ms),
+     client_api_ms:Math.round(buildPerf.client_api_ms),
+     models:count,
+     questions_per_model:Number($('questionCount').value||0),
+     subjects:selectedSubjects()
+   };
+   localStorage.setItem('nafes_paper_builder_last_metrics',JSON.stringify(metrics));
+   const perfNote=' زمن البناء '+(metrics.total_ms/1000).toFixed(1)+' ث · '+ar(metrics.api_calls)+' طلبات خادم · '+ar(metrics.candidates)+' مرشحًا.';
+   setStatus('تم إنشاء '+count+' نماذج منظمة حسب المواد. '+repeatNote+' مجموعات الأسئلة المختلفة: '+ar(distinctSets)+' من '+ar(count)+'. اختلاف مواضع أ/ب: '+ar(Math.max(0,modelQuestions(models[0]).length-sameAB))+' من '+ar(modelQuestions(models[0]).length)+'.'+perfNote,'ok');
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
