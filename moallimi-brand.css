@@ -35,3 +35,17 @@
   .account-brand .moallimi-logo-full{width:128px!important}
   .moallimi-screen-brand img{width:122px}
 }
+
+/* 2026-10-03 complete-logo guard */
+.platform-brand,.brand,.account-brand,.exam-top .brand{
+  overflow:visible!important;
+}
+.moallimi-logo-full{
+  max-height:none!important;
+  clip-path:none!important;
+  object-fit:contain!important;
+  object-position:center!important;
+}
+.moallimi-logo-full[width][height]{
+  aspect-ratio:3/1!important;
+}
