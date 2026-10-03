@@ -431,6 +431,7 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
 function validate(){
  const inds=getSelectedIndicators(),subjects=selectedSubjects(),q=Number($('questionCount').value),sum=inds.reduce((n,x)=>n+x.count,0),stu=selectedStudents();
  if(!$('reviewTitle').value.trim())throw new Error('اكتب اسم الاختبار.');
+ if(!Number.isInteger(q)||q<10||q>60)throw new Error('عدد أسئلة الاختبار يجب أن يكون عددًا صحيحًا من ١٠ إلى ٦٠.');
  if(!subjects.length)throw new Error('اختر مادة واحدة على الأقل.');
  if(!inds.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
  for(const subject of subjects)if(!inds.some(x=>x.subject===subject))throw new Error('اختر مؤشرًا واحدًا على الأقل من مادة '+labels[subject]+'.');
