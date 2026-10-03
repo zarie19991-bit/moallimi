@@ -193,7 +193,7 @@ function ruleReview(c:Candidate):Review{
     escalate("reject",.99,"الإجابة الصحيحة المعتمدة تشير إلى بديل فارغ.");
   }
   if(!reasons.length)reasons.push("اجتاز الفحص التربوي القاعدي فقط؛ لا يُعد ذلك اعتمادًا دلاليًا نهائيًا من دون نموذج لغوي.");
-  return{source_id:c.source_id,judgment,confidence,detected_level:detected,dimensions,reasons,suggested_question:suggested,provider:"rules",model:"pedagogical-rules-v3"};
+  return{source_id:c.source_id,judgment,confidence,detected_level:detected,dimensions,reasons,suggested_question:suggested,provider:"rules",model:"pedagogical-rules-v5"};
 }
 
 function outputText(data:any){
@@ -297,14 +297,37 @@ async function fetchBankCandidates(subject:string|null):Promise<Candidate[]>{
   return out;
 }
 async function candidates(scope:string,subject:string|null){return scope==="indicator_bank"?fetchBankCandidates(subject):fetchActiveTestCandidates(subject);}
+async function staleOnlyCandidates(all:Candidate[],cutoff:string):Promise<Candidate[]>{
+  const ids=all.map(x=>x.source_id).filter(Boolean),current=new Set<string>();
+  for(let i=0;i<ids.length;i+=150){
+    const {data,error}=await db.from("maintenance_agent_semantic_reviews")
+      .select("source_id,question_text,options,correct_index,registered_level,created_at")
+      .in("source_id",ids.slice(i,i+150)).lt("created_at",cutoff).order("created_at",{ascending:false});
+    if(error)throw error;
+    const first=new Map<string,any>();
+    for(const row of data||[]){const id=String(row.source_id);if(!first.has(id))first.set(id,row);}
+    for(const x of all){
+      const row=first.get(x.source_id);if(!row)continue;
+      const sameQuestion=String(row.question_text||"")===String(x.question_text||"");
+      const sameOptions=JSON.stringify(Array.isArray(row.options)?row.options:[])===JSON.stringify(x.options||[]);
+      const sameCorrect=Number(row.correct_index)===Number(x.correct_index);
+      const sameLevel=String(row.registered_level||"")===String(x.registered_level||"");
+      if(sameQuestion&&sameOptions&&sameCorrect&&sameLevel)current.add(x.source_id);
+    }
+  }
+  return all.filter(x=>!current.has(x.source_id));
+}
 
 async function startJob(owner:any,body:any){
   const scope=body?.scope==="indicator_bank"?"indicator_bank":"active_tests";
   const subject=["reading","math","science"].includes(String(body?.subject||""))?String(body.subject):null;
-  const all=await candidates(scope,subject),p=providerInfo();
+  const candidateMode=body?.stale_only===true?"stale_only":"all",cutoff=new Date().toISOString();
+  const raw=await candidates(scope,subject),all=candidateMode==="stale_only"?await staleOnlyCandidates(raw,cutoff):raw,p=providerInfo();
   const {data,error}=await db.from("maintenance_agent_semantic_jobs").insert({
-    owner_id:owner.id,scope,subject,status:"running",provider:p.provider,model:p.model,total_candidates:all.length,
-    summary:p.configured?"بدأ التحكيم التربوي القاعدي والدلالي.":"بدأ التحكيم التربوي القاعدي. يلزم ربط مزود ذكاء دلالي لإكمال الفهم العميق لجميع الأسئلة.",
+    owner_id:owner.id,scope,subject,candidate_mode:candidateMode,status:"running",provider:p.provider,model:p.model,total_candidates:all.length,
+    summary:candidateMode==="stale_only"
+      ?"بدأ تحديث التحكيم للأسئلة التي تغيّرت نسختها أو لم تُحكّم بعد."
+      :(p.configured?"بدأ التحكيم التربوي القاعدي والدلالي.":"بدأ التحكيم التربوي القاعدي. يلزم ربط مزود ذكاء دلالي لإكمال الفهم العميق لجميع الأسئلة."),
     contains_personal_data:false
   }).select("*").single();
   if(error)throw error;return data;
@@ -317,7 +340,7 @@ async function processJob(owner:any,jobId:string){
   if(job.provider==="rules"&&job.model!==currentProvider.model){
     throw Object.assign(new Error("هذه المهمة بدأت بإصدار قديم من المحكّم. ابدأ تحكيمًا جديدًا لضمان أن تكون جميع النتائج بالإصدار نفسه."),{status:409});
   }
-  const all=await candidates(job.scope,job.subject||null),p=providerInfo(),batchSize=p.configured?8:120,offset=num(job.current_offset),batch=all.slice(offset,offset+batchSize);
+  const raw=await candidates(job.scope,job.subject||null),all=job.candidate_mode==="stale_only"?await staleOnlyCandidates(raw,String(job.created_at)):raw,p=providerInfo(),batchSize=p.configured?8:120,offset=num(job.current_offset),batch=all.slice(offset,offset+batchSize);
   if(!batch.length){
     const finalStatus=p.configured?"completed":"provider_required";
     const {data:done,error:e}=await db.from("maintenance_agent_semantic_jobs").update({status:finalStatus,completed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",job.id).select("*").single();
@@ -330,7 +353,7 @@ async function processJob(owner:any,jobId:string){
     subject:batch[i].subject,indicator_key:batch[i].indicator_key,indicator_text:batch[i].indicator_text,registered_level:batch[i].registered_level||null,
     detected_level:r.detected_level,question_text:batch[i].question_text,options:batch[i].options,correct_index:batch[i].correct_index,
     judgment:r.judgment,confidence:r.confidence,dimensions:r.dimensions,reasons:r.reasons,suggested_question:r.suggested_question,
-    provider:r.provider,model:r.model,review_version:"pedagogical-semantic-v2",contains_personal_data:false
+    provider:r.provider,model:r.model,review_version:"pedagogical-semantic-v3",contains_personal_data:false
   }));
   const {error:insErr}=await db.from("maintenance_agent_semantic_reviews").insert(rows);if(insErr)throw insErr;
   const next=offset+batch.length,finished=next>=all.length,finalStatus=finished?(p.configured?"completed":"provider_required"):"running";
