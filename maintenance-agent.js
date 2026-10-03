@@ -5,6 +5,7 @@ const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenanc
 const TEST_AUDIT_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-test-audit';
 const SEMANTIC_AUDIT_ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/maintenance-semantic-audit';
 let latestRun=null,latestPrintRun=null,allProposals=[],allHandoffs=[],lastBrainQuestion='',lastCorrection=null,correctionDebounce=null,latestEvaluationReport=null,evaluationSources=[];
+const itemQualityState={offset:0,limit:100,count:0,loaded:false};
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sevLabel={ok:'سليم',info:'معلومة',warning:'تحذير',critical:'حرج'};
@@ -504,6 +505,97 @@ function printEvaluationReport(){
  setTimeout(()=>{w.focus();w.print();},350);
 }
 
+
+function itemQualityFilters(){
+ return{
+   subject:$('itemQualitySubject')?.value||'',
+   level:$('itemQualityLevel')?.value||'',
+   band:$('itemQualityBand')?.value||'',
+   semantic_state:$('itemQualitySemantic')?.value||'',
+   q:$('itemQualitySearch')?.value?.trim()||''
+ };
+}
+function itemBandLabel(v){return({strong:'قوي',acceptable:'مقبول',review:'يحتاج مراجعة',weak:'ضعيف'})[String(v||'')]||String(v||'—');}
+function levelLabel(v){return({knowledge:'معرفة',application:'تطبيق',reasoning:'استدلال'})[String(v||'')]||String(v||'—');}
+function renderItemQualitySummary(d){
+ const host=$('itemQualitySummary');if(!host)return;
+ const m=d?.summary?.math||{},s=d?.summary?.science||{};
+ const card=(title,x)=>'<article class="item-summary-card"><h4>'+title+'</h4>'+
+   '<div class="item-summary-kpis"><span><b>'+ar(x.total||0)+'</b> سؤال</span><span><b>'+pct1(x.avg_design)+'</b> جودة تصميم</span><span><b>'+pct1(x.avg_distractors)+'</b> جودة مشتتات بنيوية</span></div>'+
+   '<div class="item-summary-lines"><span>معرفة '+ar(x.levels?.knowledge||0)+'</span><span>تطبيق '+ar(x.levels?.application||0)+'</span><span>استدلال '+ar(x.levels?.reasoning||0)+'</span><span>تحكيم محدث '+ar(x.current_semantic||0)+'</span><span class="'+((x.needs_fresh_semantic||0)?'warn':'')+'">يحتاج تحكيمًا محدثًا '+ar(x.needs_fresh_semantic||0)+'</span><span>تفاوت أطوال البدائل '+ar(x.flags?.length_imbalance||0)+'</span></div></article>';
+ host.innerHTML='<div class="item-summary-grid">'+card('الرياضيات',m)+card('العلوم',s)+'</div>'+
+   '<div class="evaluation-note">المقارنة مع أسلوب نافس هنا تقيس البناء: أربعة بدائل، إجابة واحدة، تنوع معرفي، وضوح، وعدم اعتماد مشتتات شكلية. <b>فاعلية المشتت إحصائيًا لا تُثبت إلا من اختيارات الطلاب الفعلية.</b> '+esc(d.evidence_note||'')+'</div>';
+}
+function flagsText(row){
+ const flags=Array.isArray(row?.flags)?row.flags:[];
+ const labels=[...new Set(flags.map(x=>x?.label).filter(Boolean))];
+ if(!row?.semantic_current&&!labels.some(x=>String(x).includes('التحكيم')))labels.unshift('يحتاج تحكيمًا دلاليًا للنسخة الحالية');
+ return labels.slice(0,4).join(' · ')||'لا توجد ملاحظة بنيوية';
+}
+function renderItemQualityRows(d){
+ const body=$('itemQualityBody');if(!body)return;
+ const rows=d?.rows||[];
+ itemQualityState.count=Number(d?.count||0);itemQualityState.offset=Number(d?.offset||0);itemQualityState.limit=Number(d?.limit||100);itemQualityState.loaded=true;
+ body.innerHTML=rows.length?rows.map(r=>'<tr>'+
+   '<td>'+esc(subjectLabel(r.subject_key))+'</td>'+
+   '<td><b>'+esc(r.indicator_key||'—')+'</b><small>'+esc(String(r.indicator_text||'').slice(0,140))+'</small></td>'+
+   '<td>'+esc(String(r.question_text||''))+'</td>'+
+   '<td><span class="level-chip">'+esc(levelLabel(r.registered_level))+'</span>'+(r.detected_level&&r.detected_level!==r.registered_level?'<small>مرجح: '+esc(levelLabel(r.detected_level))+'</small>':'')+'</td>'+
+   '<td><b>'+ar(r.distractor_score||0)+'/90</b><small>'+(r.semantic_current?'دلالي + بنيوي':'بنيوي فقط')+'</small></td>'+
+   '<td><span class="strength-pill '+esc(r.alignment_band||'review')+'">'+ar(r.design_score||0)+'/90 · '+esc(itemBandLabel(r.alignment_band))+'</span></td>'+
+   '<td>'+(r.semantic_current?'<span class="audit-current">محدث</span>':'<span class="audit-stale">يحتاج تحديثًا</span>')+'</td>'+
+   '<td>'+esc(flagsText(r))+'</td>'+
+   '</tr>').join(''):'<tr><td colspan="8">لا توجد أسئلة مطابقة للتصفية الحالية.</td></tr>';
+ const from=itemQualityState.count?itemQualityState.offset+1:0,to=Math.min(itemQualityState.count,itemQualityState.offset+itemQualityState.limit);
+ $('itemQualityPageState').textContent=ar(from)+'–'+ar(to)+' من '+ar(itemQualityState.count);
+ $('itemQualityPrev').disabled=itemQualityState.offset<=0;
+ $('itemQualityNext').disabled=itemQualityState.offset+itemQualityState.limit>=itemQualityState.count;
+ $('exportItemQualityCsv').disabled=itemQualityState.count===0;
+}
+async function loadItemQualitySummary(){
+ try{const d=await call('item_quality_summary');renderItemQualitySummary(d);return d;}
+ catch(e){$('itemQualitySummary').innerHTML='<div class="empty">'+esc(e.message||String(e))+'</div>';throw e;}
+}
+async function loadItemQualityPage(reset=false){
+ if(reset)itemQualityState.offset=0;
+ const filters=itemQualityFilters();
+ const d=await call('item_quality_page',{...filters,offset:itemQualityState.offset,limit:itemQualityState.limit});
+ renderItemQualityRows(d);return d;
+}
+async function loadItemQualityAudit(){
+ const btn=$('loadItemQualityAudit');if(btn)btn.disabled=true;
+ try{
+   await loadItemQualitySummary();
+   await loadItemQualityPage(true);
+   setState('اكتمل تحميل التدقيق الشامل لبنك العلوم والرياضيات.','ok');
+ }catch(e){setState(e.message||String(e),'error');}
+ finally{if(btn)btn.disabled=false;}
+}
+function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"';}
+async function exportItemQualityCsv(){
+ const btn=$('exportItemQualityCsv');if(btn){btn.disabled=true;btn.textContent='جارٍ تجهيز CSV…';}
+ try{
+   const filters=itemQualityFilters(),all=[];let offset=0,count=1;
+   while(offset<count){
+     const d=await call('item_quality_page',{...filters,offset,limit:250});
+     count=Number(d.count||0);all.push(...(d.rows||[]));offset+=Number(d.limit||250);
+     if(all.length>10000)break;
+   }
+   const head=['المادة','المؤشر','نص المؤشر','السؤال','البدائل','الإجابة الصحيحة','المستوى المسجل','المستوى المرجح','حالة المطابقة','الصعوبة','درجة المشتتات من 90','درجة التصميم من 90','الحالة','التحكيم محدث','ملاحظات','دليل التقييم'];
+   const rows=[head,...all.map(r=>[
+     subjectLabel(r.subject_key),r.indicator_key,r.indicator_text,r.question_text,
+     Array.isArray(r.options)?r.options.join(' | '):'',Number(r.correct_index)+1,levelLabel(r.registered_level),levelLabel(r.detected_level),
+     r.level_match?'مطابق':'مراجعة',r.difficulty,r.distractor_score,r.design_score,itemBandLabel(r.alignment_band),
+     r.semantic_current?'نعم':'لا',flagsText(r),r.evidence_note
+   ])];
+   const csv='\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\n');
+   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');
+   a.href=URL.createObjectURL(blob);a.download='تدقيق-أسئلة-العلوم-والرياضيات-'+Date.now()+'.csv';a.click();
+   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+ }catch(e){setState(e.message||String(e),'error');}
+ finally{if(btn){btn.disabled=false;btn.textContent='تصدير CSV كامل';}}
+}
+
 function correctionModeLabel(v){
  return ({arabic:'نص عربي',instruction:'تعليمات تشغيلية',javascript:'JavaScript',css:'CSS',html:'HTML',sql:'SQL'})[String(v||'')]||String(v||'');
 }
@@ -608,7 +700,7 @@ async function init(){
   const p=await window.NafesTeacher.ensureProfile();
   if(p?.subject_scope!=='all'){$('denied').hidden=false;$('mainContent').hidden=true;setState('لا توجد صلاحية لهذا الحساب.','error');return;}
   $('mainContent').hidden=false;setState('الوضع الآمن جاهز. يمكنك تشغيل الفحص الشامل.','ok');
-  await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs(),loadSemanticStatus(),loadCorrections(),loadEvaluationSources()]);
+  await Promise.all([loadHistory(),loadBrainOverview(),loadHandoffs(),loadSemanticStatus(),loadCorrections(),loadEvaluationSources(),loadItemQualitySummary()]);
  }catch(e){setState(e.message||String(e),'error');}
 }
 $('runIndicatorAudit')?.addEventListener('click',runIndicatorAudit);
@@ -644,6 +736,12 @@ $('runScan').onclick=async()=>{
  finally{btn.disabled=false;}
 };
 
+$('loadItemQualityAudit')?.addEventListener('click',loadItemQualityAudit);
+$('applyItemQualityFilters')?.addEventListener('click',()=>loadItemQualityPage(true).catch(e=>setState(e.message||String(e),'error')));
+$('itemQualityPrev')?.addEventListener('click',()=>{itemQualityState.offset=Math.max(0,itemQualityState.offset-itemQualityState.limit);loadItemQualityPage(false).catch(e=>setState(e.message||String(e),'error'));});
+$('itemQualityNext')?.addEventListener('click',()=>{itemQualityState.offset+=itemQualityState.limit;loadItemQualityPage(false).catch(e=>setState(e.message||String(e),'error'));});
+$('exportItemQualityCsv')?.addEventListener('click',exportItemQualityCsv);
+$('itemQualitySearch')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();loadItemQualityPage(true).catch(err=>setState(err.message||String(err),'error'));}});
 $('runEvaluationIntelligence')?.addEventListener('click',runEvaluationIntelligence);
 $('refreshEvaluationSources')?.addEventListener('click',loadEvaluationSources);
 $('exportEvaluationHtml')?.addEventListener('click',downloadEvaluationHtml);
