@@ -139,13 +139,18 @@ function readAnswers(c,markers,total,startNo){
    const scores=NafesOmrTemplate.answerPoints(i,total).map(p=>{const m=mapTemplate(markers,p.x,p.y);return darknessAt(markers.image,m.x,m.y,radius);});
    raw.push(scores);allScores.push(...scores);
  }
- const base=median(allScores),threshold=Math.min(.34,Math.max(.12,base+.095));
+ const base=median(allScores),threshold=Math.min(.34,Math.max(.12,base+.095)),clamp=v=>Math.max(0,Math.min(1,v));
  return raw.map((scores,i)=>{
    const order=scores.map((s,j)=>({s,j})).sort((a,b)=>b.s-a.s),top=order[0],second=order[1];
-   if(top.s<threshold)return{question:startNo+i,selected:null,status:'blank',scores};
-   if(second.s>=Math.max(threshold*.92,top.s-.045))return{question:startNo+i,selected:top.j,status:'multiple',scores};
-   if(top.s<threshold+.045)return{question:startNo+i,selected:top.j,status:'ambiguous',scores};
-   return{question:startNo+i,selected:top.j,status:'clear',scores};
+   const separation=Math.max(0,top.s-second.s),signal=top.s-threshold;
+   if(top.s<threshold){
+     const confidence=clamp((threshold-top.s)/.08);
+     return{question:startNo+i,selected:null,status:'blank',scores,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold,separation};
+   }
+   const confidence=clamp(.58*Math.max(0,signal)/.16+.42*separation/.10);
+   if(second.s>=Math.max(threshold*.92,top.s-.045))return{question:startNo+i,selected:top.j,status:'multiple',scores,confidence:Number(Math.min(.49,confidence).toFixed(3)),topScore:top.s,secondScore:second.s,threshold,separation};
+   if(top.s<threshold+.045||confidence<.72)return{question:startNo+i,selected:top.j,status:'ambiguous',scores,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold,separation};
+   return{question:startNo+i,selected:top.j,status:'clear',scores,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold,separation};
  });
 }
 function thumb(c){const w=520,h=Math.round(c.height*w/c.width),o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(c,0,0,w,h);return o.toDataURL('image/jpeg',.68);}
@@ -193,13 +198,22 @@ async function inferNameFromPrintedHeader(canvas){
 function scoreResult(r){
  const key=keyForModel(r.model),start=Number(draft.question_start||1);let score=0,total=Math.min(Number(draft.question_count||20),key.length||20);
  r.answers.forEach((a,i)=>{const k=key[i];a.correctIndex=k?Number(k.correct_index):null;a.indicator=k?.indicator||'';a.correct=a.selected!==null&&a.correctIndex!==null&&Number(a.selected)===Number(a.correctIndex);if(a.correct)score++;});
- r.score=score;r.total=total;r.unresolved=r.answers.filter(a=>a.status==='multiple'||a.status==='ambiguous').length+(!r.qrValid?1:0);return r;
+ const confs=r.answers.map(a=>Number(a.confidence)).filter(Number.isFinite),clearConfs=r.answers.filter(a=>a.status==='clear'||a.status==='manual').map(a=>Number(a.confidence)).filter(Number.isFinite);
+ const avg=confs.length?confs.reduce((s,x)=>s+x,0)/confs.length:0,minClear=clearConfs.length?Math.min(...clearConfs):0;
+ const manual=r.answers.filter(a=>a.status==='manual'||a.manualChanged===true).length;
+ const low=r.answers.filter(a=>Number.isFinite(Number(a.confidence))&&Number(a.confidence)<.80).length;
+ r.score=score;r.total=total;
+ r.unresolved=r.answers.filter(a=>a.status==='multiple'||a.status==='ambiguous').length+(!r.qrValid?1:0);
+ r.omr={confidence:Number(avg.toFixed(3)),min_clear_confidence:Number(minClear.toFixed(3)),marker_confidence:Number(r.markerConfidence||0),manual_answers:manual,low_confidence_answers:low,answer_count:r.answers.length,auto_accept:!!r.qrValid&&!!r.markersOk&&r.unresolved===0&&avg>=.95&&minClear>=.90};
+ return r;
 }
 async function processRegion(c,pageNo,regionNo){
  const normed=normalizeOrientation(c),canvas=normed.canvas,qrRaw=normed.qr?.data||'',q=parseQr(qrRaw);
  const qrValid=!!q&&q.reviewId===draft.review_id,assignment=qrValid?assignmentBySheet(q.sheetNo):null,model=assignment?.model||q?.model||'';
  const markers=detectMarkers(canvas),answers=markers?readAnswers(canvas,markers,Number(draft.question_count||20),Number(draft.question_start||1)):[];
- const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,answers,thumbnail:thumb(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),sourceCanvas:canvas};
+ const markerScores=markers?[markers.tl?.score,markers.tr?.score,markers.bl?.score,markers.br?.score].map(Number).filter(Number.isFinite):[];
+ const markerConfidence=markerScores.length?Math.max(0,Math.min(1,(markerScores.reduce((s,x)=>s+x,0)/markerScores.length-.70)/.30)):0;
+ const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,markerConfidence:Number(markerConfidence.toFixed(3)),answers,thumbnail:thumb(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),sourceCanvas:canvas};
  if(!markers){r.unresolved++;r.error='تعذر تحديد علامات المحاذاة في ورقة التظليل.';}
  if(markers&&answers.length)scoreResult(r);return r;
 }
@@ -281,17 +295,18 @@ async function processFile(){
 }
 function renderSummary(){
  const total=results.length,identified=results.filter(r=>r.qrValid).length,ready=results.filter(r=>r.qrValid&&r.unresolved===0&&r.markersOk).length,review=results.filter(r=>r.unresolved>0).length,unknown=total-identified;
- const cards=[['الأوراق',total,''],['تم التعرف',identified,'ok'],['جاهزة',ready,'ok'],['تحتاج مراجعة',review,review?'warn':'ok'],['QR غير معروف',unknown,unknown?'bad':'ok']];
- $('summaryCards').innerHTML=cards.map(c=>'<div class="summary '+c[2]+'"><span>'+c[0]+'</span><b>'+ar(c[1])+'</b></div>').join('');$('summarySection').classList.remove('hidden');
+ const confs=results.map(r=>Number(r.omr?.confidence)).filter(Number.isFinite),avgConf=confs.length?Math.round(confs.reduce((s,x)=>s+x,0)*100/confs.length):0,auto=results.filter(r=>r.omr?.auto_accept).length;
+ const cards=[['الأوراق',total,''],['تم التعرف',identified,'ok'],['جاهزة',ready,'ok'],['تحتاج مراجعة',review,review?'warn':'ok'],['QR غير معروف',unknown,unknown?'bad':'ok'],['ثقة OMR',avgConf+'٪',avgConf>=95?'ok':avgConf>=80?'warn':'bad'],['قبول آلي ≥95٪',auto,auto===ready&&ready?'ok':'']];
+ $('summaryCards').innerHTML=cards.map(c=>'<div class="summary '+c[2]+'"><span>'+c[0]+'</span><b>'+(/٪/.test(String(c[1]))?c[1]:ar(c[1]))+'</b></div>').join('');$('summarySection').classList.remove('hidden');
 }
 function renderResults(){
  renderSummary();$('resultsBody').innerHTML=results.map((r,i)=>{const st=statusLabel(r);return'<tr class="'+(r.unresolved?'needs-review':'')+'"><td>'+r.studentName+'</td><td>'+(r.model||'—')+'</td><td>'+ar(r.score)+' / '+ar(r.total)+'</td><td><span class="badge '+st[1]+'">'+st[0]+'</span></td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button></td></tr>';}).join('')||'<tr><td colspan="5">لم يتم العثور على أوراق تظليل قابلة للقراءة.</td></tr>';
  $('resultsSection').classList.remove('hidden');
 }
 function openModal(i){
- activeIndex=i;const r=results[i];if(!r)return;$('modalTitle').textContent=r.studentName+' — نموذج '+(r.model||'—');$('modalSub').textContent='الصفحة '+ar(r.pageNo)+' · الدرجة الحالية '+ar(r.score)+'/'+ar(r.total);$('scanImage').src=r.thumbnail;
+ activeIndex=i;const r=results[i];if(!r)return;$('modalTitle').textContent=r.studentName+' — نموذج '+(r.model||'—');$('modalSub').textContent='الصفحة '+ar(r.pageNo)+' · الدرجة الحالية '+ar(r.score)+'/'+ar(r.total)+' · ثقة OMR '+ar(Math.round(Number(r.omr?.confidence||0)*100))+'٪';$('scanImage').src=r.thumbnail;
  $('manualAssignmentWrap').classList.toggle('hidden',r.qrValid);$('manualAssignment').innerHTML='<option value="">اختر الطالب…</option>'+assignmentOptions(r.qr?.sheetNo||'');
- $('answerEditor').innerHTML=r.answers.map((a,idx)=>'<div class="answer-row-edit '+((a.status==='multiple'||a.status==='ambiguous')?'ambiguous':'')+'"><div><b>س '+ar(a.question)+'</b><small>'+(a.status==='multiple'?'تظليل مزدوج':a.status==='ambiguous'?'غير واضح':a.status==='blank'?'بدون إجابة':a.correct?'صحيح':'خطأ')+'</small></div><div class="choice-buttons">'+letters.map((l,j)=>'<button type="button" data-answer="'+idx+'" data-choice="'+j+'" class="'+(a.selected===j?'selected':'')+'">'+l+'</button>').join('')+'<button type="button" data-answer="'+idx+'" data-choice="-1" class="'+(a.selected===null?'selected':'')+'">—</button></div></div>').join('');
+ $('answerEditor').innerHTML=r.answers.map((a,idx)=>'<div class="answer-row-edit '+((a.status==='multiple'||a.status==='ambiguous')?'ambiguous':'')+'"><div><b>س '+ar(a.question)+'</b><small>'+(a.status==='multiple'?'تظليل مزدوج':a.status==='ambiguous'?'غير واضح':a.status==='blank'?'بدون إجابة':a.correct?'صحيح':'خطأ')+' · ثقة '+ar(Math.round(Number(a.confidence||0)*100))+'٪</small></div><div class="choice-buttons">'+letters.map((l,j)=>'<button type="button" data-answer="'+idx+'" data-choice="'+j+'" class="'+(a.selected===j?'selected':'')+'">'+l+'</button>').join('')+'<button type="button" data-answer="'+idx+'" data-choice="-1" class="'+(a.selected===null?'selected':'')+'">—</button></div></div>').join('');
  $('sheetModal').classList.remove('hidden');
 }
 function saveModal(){
@@ -302,7 +317,7 @@ function saveModal(){
 async function approve(){
  const unresolved=results.filter(r=>!r.qrValid||!r.markersOk||r.answers.some(a=>a.status==='multiple'||a.status==='ambiguous'));
  if(unresolved.length){openModal(results.indexOf(unresolved[0]));return;}
- const payload={review_id:draft.review_id,title:draft.title,approved_at:new Date().toISOString(),results:results.map(r=>({student_id:r.assignment?.student_id||'',student_name:r.studentName,model:r.model,score:r.score,total:r.total,answers:r.answers.map(a=>({question:a.question,selected:a.selected,correct_index:a.correctIndex,correct:a.correct,indicator:a.indicator,status:a.status}))}))};
+ const payload={review_id:draft.review_id,title:draft.title,approved_at:new Date().toISOString(),results:results.map(r=>({student_id:r.assignment?.student_id||'',student_name:r.studentName,model:r.model,score:r.score,total:r.total,omr:r.omr||null,answers:r.answers.map(a=>({question:a.question,selected:a.selected,correct_index:a.correctIndex,correct:a.correct,indicator:a.indicator,status:a.status,original_status:a.originalStatus||a.status,confidence:Number(a.confidence||0),manual_changed:a.manualChanged===true}))}))};
  const btn=$('approveBtn');btn.disabled=true;btn.textContent='جارٍ حفظ النتائج في المنصة…';
  try{
    const saved=await NafesTeacher.api('teacher_paper_review_save',{
@@ -334,7 +349,7 @@ $('fileInput').addEventListener('change',e=>{file=e.target.files?.[0]||null;$('p
 $('processBtn').onclick=processFile;$('clearBtn').onclick=()=>{file=null;$('fileInput').value='';$('processBtn').disabled=true;$('dropzone').querySelector('b').textContent='اختر PDF أو اسحبه هنا';$('progressWrap').classList.add('hidden');};
 ['dragenter','dragover'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{e.preventDefault();$('dropzone').classList.add('drag');}));['dragleave','drop'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{$('dropzone').classList.remove('drag');if(ev==='drop'){e.preventDefault();file=e.dataTransfer.files?.[0]||null;$('processBtn').disabled=!file;$('dropzone').querySelector('b').textContent=file?file.name:'اختر PDF أو اسحبه هنا';}}));
 $('resultsBody').addEventListener('click',e=>{const b=e.target.closest('[data-open]');if(b)openModal(Number(b.dataset.open));});
-$('answerEditor').addEventListener('click',e=>{const b=e.target.closest('[data-answer]');if(!b||activeIndex<0)return;const a=results[activeIndex].answers[Number(b.dataset.answer)],choice=Number(b.dataset.choice);a.selected=choice<0?null:choice;a.status='manual';scoreResult(results[activeIndex]);openModal(activeIndex);});
+$('answerEditor').addEventListener('click',e=>{const b=e.target.closest('[data-answer]');if(!b||activeIndex<0)return;const a=results[activeIndex].answers[Number(b.dataset.answer)],choice=Number(b.dataset.choice);const before=a.selected;if(!a.originalStatus)a.originalStatus=a.status;a.selected=choice<0?null:choice;a.manualChanged=before!==a.selected;a.status='manual';a.confidence=1;scoreResult(results[activeIndex]);openModal(activeIndex);});
 $('saveSheetBtn').onclick=saveModal;$('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>{const i=results.findIndex(r=>r.unresolved>0);if(i>=0)openModal(i);};$('approveBtn').onclick=approve;$('exportBtn').onclick=exportCsv;
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();});
 init();
