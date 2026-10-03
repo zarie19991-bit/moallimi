@@ -57,6 +57,54 @@ async function latestPerformances(ids?:string[]){
   });
 }
 
+
+async function assessmentPlanSources(studentId:string,scope:SubjectScope="all"){
+  const {data:attempts,error}=await db.from("nafes_assessment_attempts")
+    .select("id,assessment_id,rendered_sections,answers,submitted_at")
+    .eq("student_id",studentId).not("submitted_at","is",null)
+    .order("submitted_at",{ascending:false}).limit(120);
+  if(error)throw error;
+  const assessmentIds=[...new Set((attempts||[]).map((x:any)=>String(x.assessment_id||"")).filter(Boolean))];
+  if(!assessmentIds.length)return[];
+  const {data:assessments,error:ae}=await db.from("nafes_assessments")
+    .select("id,title,kind,status").in("id",assessmentIds).eq("kind","multi_indicator");
+  if(ae)throw ae;
+  const am=new Map((assessments||[]).map((x:any)=>[String(x.id),x]));
+  const sources:any[]=[];
+  for(const at of attempts||[]){
+    const assessment=am.get(String(at.assessment_id||""));if(!assessment)continue;
+    const raw=sectionPerfs(at,"assessment").filter((p:any)=>["math","science"].includes(String(p.subject_key))&&(scope==="all"||p.subject_key===scope));
+    for(const subject of [...new Set(raw.map((p:any)=>String(p.subject_key)))]){
+      const perfs=raw.filter((p:any)=>p.subject_key===subject).map((p:any)=>({
+        ...p,evidence_count:1,diagnostic_percent:Number(p.percent||0),latest_percent:Number(p.percent||0),
+        previous_percent:null,best_percent:Number(p.percent||0),trend_points:null,
+        assessment_id:String(at.assessment_id),assessment_title:assessment.title||"اختبار مؤشرات",
+        source_key:String(at.id)+":"+subject
+      }));
+      if(!perfs.length)continue;
+      sources.push({
+        source_key:String(at.id)+":"+subject,attempt_id:String(at.id),assessment_id:String(at.assessment_id),
+        title:assessment.title||"اختبار مؤشرات",subject_key:subject,subject_label:unifiedSubjectLabel(subject),
+        submitted_at:at.submitted_at,indicator_count:perfs.length,perfs
+      });
+    }
+  }
+  return sources.sort((a:any,b:any)=>String(b.submitted_at||"").localeCompare(String(a.submitted_at||"")));
+}
+function publicPlanSource(s:any){return s?{source_key:s.source_key,attempt_id:s.attempt_id,assessment_id:s.assessment_id,title:s.title,subject_key:s.subject_key,subject_label:s.subject_label,submitted_at:s.submitted_at,indicator_count:s.indicator_count}:null}
+async function planQuestionGroups(rows:any[],perIndicator=3){
+  const groups:any[]=[];
+  for(const r of rows){
+    try{
+      const ids=await pickTaskQuestionIds(r.subject_key,r.outcome_code,Number(r.indicator_index),Math.max(2,Math.min(5,Number(perIndicator||3))));
+      groups.push({subject_key:r.subject_key,outcome_code:r.outcome_code,indicator_index:r.indicator_index,indicator_text:r.indicator_text,tier:r.tier,tier_label:r.tier_label,questions:await taskQuestions(ids)});
+    }catch(error){
+      groups.push({subject_key:r.subject_key,outcome_code:r.outcome_code,indicator_index:r.indicator_index,indicator_text:r.indicator_text,tier:r.tier,tier_label:r.tier_label,questions:[],warning:String((error as Error)?.message||"تعذر اختيار أسئلة لهذا المؤشر.")});
+    }
+  }
+  return groups;
+}
+
 function unifiedTierLabel(t:string){return t==="remedial"?"علاجي":t==="reinforcement"?"تعزيز":"إثرائي"}
 function unifiedSubjectLabel(s:string){return s==="math"?"الرياضيات":s==="science"?"العلوم":s==="reading"?"القراءة":"—"}
 function unifiedAction(p:any){
@@ -102,25 +150,42 @@ function unifiedRows(perfs:any[],scope:SubjectScope="all"){
 function unifiedSummary(rows:any[]){return{indicators:rows.length,remedial:rows.filter(x=>x.tier==="remedial").length,reinforcement:rows.filter(x=>x.tier==="reinforcement").length,enrichment:rows.filter(x=>x.tier==="enrichment").length,measurements:rows.reduce((n,x)=>n+Number(x.measurements||0),0)}}
 async function studentUnifiedPlan(req:Request,access:Access){
   if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);
-  await syncStudents([access.student_id!]);
-  const [students,perfs]=await Promise.all([roster([access.student_id!]),latestPerformances([access.student_id!])]);
-  const student=students[0]||null,rows=unifiedRows(perfs,"all");
-  return json(req,{ok:true,student,method:{label:"تشخيص تراكمي",description:"درجة التشخيص = مجموع الإجابات الصحيحة في القياسات المتاحة للمؤشر ÷ مجموع أسئلتها، مع عرض أحدث نتيجة والاتجاه بصورة مستقلة.",thresholds:{remedial:"أقل من 70٪",reinforcement:"70٪ إلى أقل من 90٪",enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),rows});
+  const students=await roster([access.student_id!]),student=students[0]||null,sources=await assessmentPlanSources(access.student_id!,"all");
+  const selected:any[]=[],seen=new Set<string>();
+  for(const s of sources){if(seen.has(String(s.subject_key)))continue;seen.add(String(s.subject_key));selected.push(s)}
+  const perfs=selected.flatMap((s:any)=>s.perfs||[]),rows=unifiedRows(perfs,"all");
+  const question_groups=await planQuestionGroups(rows,3);
+  return json(req,{ok:true,student,sources:selected.map(publicPlanSource),method:{label:"خطة مرتبطة باختبار معلّمي",description:"تُبنى الخطة من مؤشرات آخر اختبار مؤشرات في معلّمي لكل مادة فقط؛ لا تُضاف مؤشرات من اختبارات أقدم أو من مواد أخرى.",thresholds:{remedial:"أقل من 70٪",reinforcement:"70٪ إلى أقل من 90٪",enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),rows,question_groups});
 }
 async function teacherUnifiedOverview(req:Request,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
   const scope=teacherScope(access);if(scope==="reading")return json(req,{ok:true,subject_scope:scope,summary:unifiedSummary([])});
-  const students=await roster(),ids=students.map((s:any)=>String(s.id)),perfs=await latestPerformances(ids),rows=unifiedRows(perfs,scope);
+  const students=await roster();let rows:any[]=[];
+  for(const s of students){
+    const sources=await assessmentPlanSources(String(s.id),scope),latestBySubject=new Map<string,any>();
+    for(const src of sources)if(!latestBySubject.has(String(src.subject_key)))latestBySubject.set(String(src.subject_key),src);
+    rows.push(...[...latestBySubject.values()].flatMap((src:any)=>unifiedRows(src.perfs||[],scope)));
+  }
   return json(req,{ok:true,subject_scope:scope,summary:unifiedSummary(rows)});
+}
+async function teacherUnifiedSources(req:Request,body:any,access:Access){
+  if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
+  const studentId=tidy(body?.student_id);if(!studentId)return json(req,{error:"اختر الطالب أولًا."},400);
+  const students=await roster([studentId]);if(!students[0])return json(req,{error:"الطالب غير موجود أو غير نشط."},404);
+  const scope=teacherScope(access);if(scope==="reading")return json(req,{ok:true,sources:[]});
+  const sources=await assessmentPlanSources(studentId,scope);
+  return json(req,{ok:true,sources:sources.map(publicPlanSource)});
 }
 async function teacherUnifiedPlan(req:Request,body:any,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
   const studentId=tidy(body?.student_id);if(!studentId)return json(req,{error:"اختر الطالب أولًا."},400);
   const students=await roster([studentId]);const student=students[0];if(!student)return json(req,{error:"الطالب غير موجود أو غير نشط."},404);
-  const scope=teacherScope(access);if(scope==="reading")return json(req,{ok:true,student,subject_scope:scope,method:{label:"تشخيص تراكمي",description:"هذه الورقة مخصصة للرياضيات والعلوم، وحساب القراءة لا يعرض بيانات خارج صلاحياته."},summary:unifiedSummary([]),rows:[]});
-  await syncStudents([studentId],scope);
-  const perfs=await latestPerformances([studentId]),rows=unifiedRows(perfs,scope);
-  return json(req,{ok:true,student,subject_scope:scope,method:{label:"تشخيص تراكمي",description:"درجة التشخيص = مجموع الإجابات الصحيحة في القياسات المتاحة للمؤشر ÷ مجموع أسئلتها، مع عرض أحدث نتيجة والاتجاه بصورة مستقلة.",thresholds:{remedial:"أقل من 70٪",reinforcement:"70٪ إلى أقل من 90٪",enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),rows});
+  const scope=teacherScope(access);if(scope==="reading")return json(req,{ok:true,student,subject_scope:scope,method:{label:"خطة مرتبطة باختبار معلّمي",description:"هذه الورقة مخصصة للرياضيات والعلوم."},summary:unifiedSummary([]),rows:[],question_groups:[]});
+  const sources=await assessmentPlanSources(studentId,scope),requested=tidy(body?.source_key);
+  const source=(requested?sources.find((x:any)=>String(x.source_key)===requested):sources[0])||null;
+  if(!source)return json(req,{ok:true,student,subject_scope:scope,selected_source:null,sources:[],method:{label:"خطة مرتبطة باختبار معلّمي",description:"لا يوجد اختبار مؤشرات متعدد في الرياضيات أو العلوم لهذا الطالب."},summary:unifiedSummary([]),rows:[],question_groups:[]});
+  const rows=unifiedRows(source.perfs||[],scope),question_groups=await planQuestionGroups(rows,Math.max(2,Math.min(5,Number(body?.questions_per_indicator||3))));
+  return json(req,{ok:true,student,subject_scope:scope,selected_source:publicPlanSource(source),sources:sources.map(publicPlanSource),method:{label:"خطة مرتبطة باختبار معلّمي",description:"هذه الخطة محصورة في مؤشرات الاختبار المحدد نفسه فقط. إذا كان الاختبار يتكون من 5 مؤشرات فكل أسئلة الخطة تُختار من هذه المؤشرات الخمسة ولا يدخل أي مؤشر آخر.",thresholds:{remedial:"أقل من 70٪",reinforcement:"70٪ إلى أقل من 90٪",enrichment:"90٪ فأعلى"}},summary:unifiedSummary(rows),rows,question_groups});
 }
 
 async function syncStudents(ids?:string[],scope:SubjectScope="all"){
@@ -746,4 +811,4 @@ async function teacherTrainingArchiveDetail(req:Request,body:any,access:Access){
   return json(req,{ok:true,attempt:{source,attempt_id:x.id,student_name:s?.full_name||"طالب",class_name:s?.class_name||"",grade:s?.grade||"",subject_key:b.subject_key,outcome_code:b.outcome_code,indicator_index:b.indicator_index,indicator_text:b.indicator_text,title:(c.title?c.title+" • ":"")+phaseArabic(x.phase),training_type:x.phase==="enrichment"?"enrichment":"mastery",phase:x.phase,score:x.score,total:x.total,percent:x.percent,submitted_at:x.completed_at,hints_used:x.hints_used||0},questions:qs.map((q:any)=>{const e=em.get(String(q.id));return{...q,selected_index:e?.selected_index??null,correct:e?.correct??null,hints_used:e?.hints_used??0,elapsed_seconds:e?.elapsed_seconds??null}})});
 }
 
-Deno.serve(async(req:Request)=>{if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});if(req.method!=="POST")return json(req,{error:"method_not_allowed"},405);try{const access=await requireAccess(req),body=await req.json().catch(()=>({})),action=tidy(body?.action||"my_plan");if(action==="my_plan"){if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);return await myPlan(req,access)}if(action==="teacher_overview"){if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);return await teacherOverview(req,access)}if(action==="student_unified_plan")return await studentUnifiedPlan(req,access);if(action==="teacher_unified_overview")return await teacherUnifiedOverview(req,access);if(action==="teacher_unified_plan")return await teacherUnifiedPlan(req,body,access);if(action==="sync_all"){if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);return json(req,{ok:true,...await syncStudents(undefined,teacherScope(access))})}if(action==="start_training"){if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);return await startTraining(req,body,access)}if(action==="submit_training")return await submitTraining(req,body,access);if(action==="teacher_send_task")return await teacherSendTask(req,body,access);if(action==="teacher_send_indicator")return await teacherSendIndicator(req,body,access);if(action==="teacher_revoke_catalog")return await teacherRevokeCatalog(req,access);if(action==="teacher_revoke_selected")return await teacherRevokeSelected(req,body,access);if(action==="teacher_revoke_all")return await teacherRevokeAll(req,access);if(action==="teacher_print_catalog")return await teacherPrintCatalog(req,body,access);if(action==="teacher_print_sheet")return await teacherPrintSheet(req,body,access);if(action==="my_teacher_tasks")return await myTeacherTasks(req,access);if(action==="teacher_tasks")return await teacherTasks(req,access);if(action==="teacher_response_tracking")return await teacherResponseTracking(req,access);if(action==="teacher_training_archive")return await teacherTrainingArchive(req,access);if(action==="teacher_training_archive_detail")return await teacherTrainingArchiveDetail(req,body,access);if(action==="start_teacher_task")return await startTeacherTask(req,body,access);if(action==="submit_teacher_task")return await submitTeacherTask(req,body,access);return json(req,{error:"action_not_supported"},400)}catch(error){console.error("lugati-adaptive-plan",error);const status=error&&typeof error==="object"&&"status" in error?Number((error as any).status):500;return json(req,{error:status===500?"تعذر مزامنة الخطة التكيفية الآن.":String((error as Error).message)},status)}});
+Deno.serve(async(req:Request)=>{if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});if(req.method!=="POST")return json(req,{error:"method_not_allowed"},405);try{const access=await requireAccess(req),body=await req.json().catch(()=>({})),action=tidy(body?.action||"my_plan");if(action==="my_plan"){if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);return await myPlan(req,access)}if(action==="teacher_overview"){if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);return await teacherOverview(req,access)}if(action==="student_unified_plan")return await studentUnifiedPlan(req,access);if(action==="teacher_unified_overview")return await teacherUnifiedOverview(req,access);if(action==="teacher_unified_sources")return await teacherUnifiedSources(req,body,access);if(action==="teacher_unified_plan")return await teacherUnifiedPlan(req,body,access);if(action==="sync_all"){if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);return json(req,{ok:true,...await syncStudents(undefined,teacherScope(access))})}if(action==="start_training"){if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);return await startTraining(req,body,access)}if(action==="submit_training")return await submitTraining(req,body,access);if(action==="teacher_send_task")return await teacherSendTask(req,body,access);if(action==="teacher_send_indicator")return await teacherSendIndicator(req,body,access);if(action==="teacher_revoke_catalog")return await teacherRevokeCatalog(req,access);if(action==="teacher_revoke_selected")return await teacherRevokeSelected(req,body,access);if(action==="teacher_revoke_all")return await teacherRevokeAll(req,access);if(action==="teacher_print_catalog")return await teacherPrintCatalog(req,body,access);if(action==="teacher_print_sheet")return await teacherPrintSheet(req,body,access);if(action==="my_teacher_tasks")return await myTeacherTasks(req,access);if(action==="teacher_tasks")return await teacherTasks(req,access);if(action==="teacher_response_tracking")return await teacherResponseTracking(req,access);if(action==="teacher_training_archive")return await teacherTrainingArchive(req,access);if(action==="teacher_training_archive_detail")return await teacherTrainingArchiveDetail(req,body,access);if(action==="start_teacher_task")return await startTeacherTask(req,body,access);if(action==="submit_teacher_task")return await submitTeacherTask(req,body,access);return json(req,{error:"action_not_supported"},400)}catch(error){console.error("lugati-adaptive-plan",error);const status=error&&typeof error==="object"&&"status" in error?Number((error as any).status):500;return json(req,{error:status===500?"تعذر مزامنة الخطة التكيفية الآن.":String((error as Error).message)},status)}});
