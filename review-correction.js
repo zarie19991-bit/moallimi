@@ -181,7 +181,10 @@ function renderIndicators(){
    const rows=items.map((i,n)=>{
      const state=indicatorState.get(String(i.key))||{checked:false,count:subject==='reading'?5:1,subject};
      indicatorState.set(String(i.key),state);
-     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا</small></span><input class="indicator-count" type="number" min="1" max="60" value="'+Math.max(1,Number(state.count||1))+'" '+(state.checked?'':'disabled')+' aria-label="عدد الأسئلة"></label>';
+     const readingMeta=subject==='reading'&&Number(i.passage_count||0)>0
+       ?' · '+ar(i.passage_count)+' نصوص · أعلى سعة للنص '+ar(i.max_questions_per_passage||0)+' سؤالًا'
+       :'';
+     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا'+readingMeta+'</small></span><input class="indicator-count" type="number" min="1" max="60" value="'+Math.max(1,Number(state.count||1))+'" '+(state.checked?'':'disabled')+' aria-label="عدد الأسئلة"></label>';
    }).join('');
    return '<section class="indicator-subject-group" data-indicator-subject="'+subject+'"><div class="indicator-subject-title"><b>'+labels[subject]+'</b><span>'+ar(items.length)+' مؤشرًا متاحًا</span></div><div class="indicator-subject-items">'+(rows||'<div class="archive-empty">لا توجد مؤشرات مطابقة للبحث في هذه المادة.</div>')+'</div></section>';
  }).join('');
@@ -254,7 +257,7 @@ function updateIndicatorSummary(){
  }).filter(Boolean);
  const readingBad=selected.some(x=>x.subject==='reading'&&(x.count<5||x.count%5!==0));
  const quotaBad=targets?[...targets].some(([subject,quota])=>selected.filter(x=>x.subject===subject).reduce((n,x)=>n+Number(x.count||0),0)!==quota):false;
- $('indicatorSummary').textContent='المحدد: '+ar(selected.length)+' مؤشر · مجموع الأسئلة: '+ar(total)+' من '+ar(target)+(bySubject.length?' · '+bySubject.join(' · '):'')+(targets?' · التوزيع المطلوب: القراءة ٢٠ · الرياضيات ٢٠ · العلوم ٢٠':'')+(readingBad?' · القراءة يجب أن تكون ٥ أسئلة أو مضاعفاتها لكل مؤشر':'')+(quotaBad?' · يجب إكمال ٢٠ سؤالًا لكل مادة':'')+(selected.length&&total!==target?' · عدّل الأعداد حتى يساوي المجموع العدد الكلي':'');
+ $('indicatorSummary').textContent='المحدد: '+ar(selected.length)+' مؤشر · مجموع الأسئلة: '+ar(total)+' من '+ar(target)+(bySubject.length?' · '+bySubject.join(' · '):'')+(targets?' · التوزيع المطلوب: القراءة ٢٠ · الرياضيات ٢٠ · العلوم ٢٠':'')+(readingBad?' · القراءة: العدد لكل مؤشر ٥ أو مضاعفاتها، والتوزيع على النصوص يتم تلقائيًا':'')+(quotaBad?' · يجب إكمال ٢٠ سؤالًا لكل مادة':'')+(selected.length&&total!==target?' · عدّل الأعداد حتى يساوي المجموع العدد الكلي':'');
 }
 function getSelectedIndicators(){
  captureIndicatorState();
@@ -444,7 +447,7 @@ function validate(){
    }
  }
  const reading=inds.filter(x=>x.subject==='reading');
- if(reading.some(x=>x.count%5!==0||x.count<5))throw new Error('في القراءة: كل مؤشر مختار يجب أن يأخذ ٥ أسئلة أو مضاعفاتها حتى يبقى النص مع أسئلته.');
+ if(reading.some(x=>x.count%5!==0||x.count<5))throw new Error('في القراءة: عدد أسئلة كل مؤشر يجب أن يكون ٥ أسئلة أو مضاعفاتها، ثم يوزعها النظام تلقائيًا على النصوص بحسب السعة الفعلية لكل نص.');
  const byKey=new Map((catalog?.indicators||[]).map(i=>[String(i.key),Number(i.available||0)]));
  for(const x of inds){
    const available=Number(byKey.get(String(x.key))||0);
