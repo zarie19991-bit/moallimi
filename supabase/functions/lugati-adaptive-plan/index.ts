@@ -58,6 +58,15 @@ async function latestPerformances(ids?:string[]){
 }
 
 
+function planSourceMeta(at:any,assessment:any){
+  const paperEvent=Array.isArray(at?.events)&&at.events.some((e:any)=>e?.type==="paper_scan"||e?.method==="omr");
+  const isPaper=at?.config?.paper_review===true||assessment?.config?.paper_review===true||paperEvent;
+  return{
+    source_type:isPaper?"paper_omr":"electronic",
+    source_label:isPaper?"التصحيح الآلي الورقي":"اختبار المؤشرات الإلكتروني",
+    paper_review_id:isPaper?(tidy(at?.config?.paper_review_id||assessment?.config?.paper_review_id)||null):null
+  };
+}
 async function assessmentPlanSources(studentId:string,scope:SubjectScope="all"){
   const {data:attempts,error}=await db.from("nafes_assessment_attempts")
     .select("id,assessment_id,config,events,rendered_sections,answers,submitted_at")
@@ -73,11 +82,7 @@ async function assessmentPlanSources(studentId:string,scope:SubjectScope="all"){
   const sources:any[]=[];
   for(const at of attempts||[]){
     const assessment=am.get(String(at.assessment_id||""));if(!assessment)continue;
-    const paperEvent=Array.isArray(at.events)&&at.events.some((e:any)=>e?.type==="paper_scan"||e?.method==="omr");
-    const isPaper=at.config?.paper_review===true||assessment.config?.paper_review===true||paperEvent;
-    const source_type=isPaper?"paper_omr":"electronic";
-    const source_label=isPaper?"التصحيح الآلي الورقي":"اختبار المؤشرات الإلكتروني";
-    const paper_review_id=isPaper?tidy(at.config?.paper_review_id||assessment.config?.paper_review_id):"";
+    const {source_type,source_label,paper_review_id}=planSourceMeta(at,assessment);
     const raw=sectionPerfs(at,"assessment").filter((p:any)=>["math","science"].includes(String(p.subject_key))&&(scope==="all"||p.subject_key===scope));
     for(const subject of [...new Set(raw.map((p:any)=>String(p.subject_key)))]){
       const perfs=raw.filter((p:any)=>p.subject_key===subject).map((p:any)=>({
