@@ -51,3 +51,17 @@
  .paper-page{padding:0!important}
  .page-inner{width:198mm!important;height:285mm!important;min-height:285mm!important;max-height:285mm!important}
 }
+
+/* Continuation sheets keep test identity without repeating the full first-page header. */
+.paper-page.continuation-page .exam-frame-head{grid-template-columns:1fr auto;min-height:11mm;padding:1.4mm 3mm}
+.paper-page.continuation-page .exam-frame-head .official{display:none!important}
+.paper-page.continuation-page .exam-brand{text-align:right;font-size:13pt}
+.paper-page.continuation-page .grade-box{display:flex;gap:3mm;align-items:center;white-space:nowrap;font-size:10pt}
+.paper-page.continuation-page .title-strip,
+.paper-page.continuation-page .student-line{display:none!important}
+.paper-page.continuation-page .page-number{margin:1mm 2mm 1.4mm}
+@media print{
+ .paper-page.continuation-page .exam-frame-head{grid-template-columns:1fr auto!important;min-height:11mm!important;padding:1.4mm 3mm!important}
+ .paper-page.continuation-page .exam-brand{font-size:13pt!important}
+ .paper-page.continuation-page .grade-box{font-size:10pt!important}
+}
