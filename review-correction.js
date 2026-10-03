@@ -645,7 +645,7 @@ async function restoreSavedReview(){
 }
 
 async function load(){
- if(!window.NafesTeacher?.getKey()){NafesTeacher.requireKey('أدخل مفتاح المعلم لفتح قسم المراجعة والتصحيح الآلي.');setStatus('يلزم تسجيل دخول المعلم.');return;}
+ if(!window.NafesTeacher?.getKey()){NafesTeacher.requireKey('أدخل مفتاح المعلم لفتح قسم الاختبار الآلي والتصحيح.');setStatus('يلزم تسجيل دخول المعلم.');return;}
  try{
    setStatus('جارٍ تحميل بنك المؤشرات وسجل الطلاب…');
    await NafesTeacher.ensureProfile?.();
@@ -665,7 +665,8 @@ $('subjectChoices').addEventListener('change',e=>{
  if(document.querySelector('.indicator-check:checked'))distributeIndicatorCounts();
 });
 $('className').addEventListener('change',renderStudents);
-['input','change'].forEach(ev=>$('questionCount').addEventListener(ev,()=>{const q=Number($('questionCount').value);if(Number.isFinite(q))$('questionCount').value=String(Math.max(10,Math.min(60,Math.trunc(q))));distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();}));
+$('questionCount').addEventListener('input',()=>{updateIndicatorSummary();updateLevelSummary();});
+$('questionCount').addEventListener('change',()=>{const q=Math.trunc(Number($('questionCount').value)||15);$('questionCount').value=String(Math.max(10,Math.min(60,q)));distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
 ['knowledge','application','reasoning'].forEach(id=>$(id).addEventListener('input',updateLevelSummary));
 $('indicatorSearch').addEventListener('input',renderIndicators);
 $('indicators').addEventListener('change',e=>{if(e.target.matches('.indicator-check')){captureIndicatorState();distributeIndicatorCounts();updateIndicatorSummary();}});
