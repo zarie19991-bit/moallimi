@@ -450,12 +450,19 @@ function renderEvaluationReport(report){
  const omrNote=omr.validation_status==='requires_labeled_calibration_sample'
    ?'<div class="evaluation-note">هدف دقة OMR هو 95٪، لكن الدقة الفعلية <b>غير مثبتة إحصائيًا بعد</b>. يلزم عينة مرجعية موسومة. بوابة القبول الآلي الحالية تتطلب ثقة داخلية ≥ '+ar(Math.round(Number(omr.auto_accept_confidence||.95)*100))+'٪.</div>'
    :'<div class="evaluation-note ok">معايرة OMR مكتملة.</div>';
- const rows=items.slice(0,100).map((x,i)=>'<tr>'+
+ const rows=items.slice(0,100).map((x,i)=>{
+   const da=x.distractor_analysis||{};
+   const distractorCell=!da.available
+     ?'<span class="metric-na">يحتاج 20 استجابة</span>'
+     :'<b>'+ar(da.efficiency||0)+'٪</b><small>'+ar(da.functional_count||0)+' من 3 مشتتات وظيفية'+((da.nonfunctional||[]).length?' · غير وظيفية: '+(da.nonfunctional||[]).map(j=>['أ','ب','ج','د'][Number(j)]||'?').join('، '):'')+'</small>';
+   return '<tr>'+
    '<td>'+ar(i+1)+'</td><td>'+esc(subjectLabel(x.subject))+'</td><td>'+esc(String(x.question||'').slice(0,180))+'</td>'+
    '<td>'+(x.facility===null?'<span class="metric-na">عينة ناقصة</span>':pct1(Number(x.facility)*100))+'</td>'+
    '<td>'+(x.discrimination===null?'<span class="metric-na">عينة ناقصة</span>':num2(x.discrimination))+'</td>'+
+   '<td>'+distractorCell+'</td>'+
    '<td>'+esc(semanticLabel(x.semantic_judgment))+'</td>'+
-   '<td><span class="strength-pill '+esc(x.strength_class)+'">'+ar(x.strength_score)+' · '+esc(strengthLabel(x.strength_class))+'</span></td></tr>').join('');
+   '<td><span class="strength-pill '+esc(x.strength_class)+'">'+ar(x.strength_score)+' · '+esc(strengthLabel(x.strength_class))+'</span></td></tr>';
+ }).join('');
  const recs=(report.recommendations||[]).map(r=>'<article class="evaluation-rec '+esc(r.priority||'medium')+'"><span class="prio"></span><div><b>'+esc(r.title)+'</b><p>'+esc(r.detail)+'</p></div></article>').join('');
  host.innerHTML=
    '<div class="evaluation-report-title"><div><h3>'+esc(report.source?.title||'تقرير الاختبار')+'</h3><span>تقرير عملي بدون بيانات شخصية · '+esc(new Date(report.generated_at).toLocaleString('ar-SA'))+'</span></div><span>الإصدار '+esc(report.version||'—')+'</span></div>'+
@@ -465,6 +472,7 @@ function renderEvaluationReport(report){
      '<div class="evaluation-kpi"><span>متوسط قوة الأسئلة</span><b>'+pct1(s.average_strength)+'</b><small>درجة جودة مركبة</small></div>'+
      '<div class="evaluation-kpi '+(weak?'critical':'')+'"><span>أسئلة ضعيفة</span><b>'+ar(s.weak_items||0)+'</b><small>أقل من 55/100</small></div>'+
      '<div class="evaluation-kpi"><span>أسئلة قوية</span><b>'+ar(s.strong_items||0)+'</b><small>70/100 فأعلى</small></div>'+
+     '<div class="evaluation-kpi '+(s.nonfunctional_distractor_items?'warning':'')+'"><span>فاعلية المشتتات</span><b>'+(s.average_distractor_efficiency===null||s.average_distractor_efficiency===undefined?'—':pct1(s.average_distractor_efficiency))+'</b><small>'+ar(s.empirical_distractor_items||0)+' سؤالًا بعينة ميدانية · '+ar(s.nonfunctional_distractor_items||0)+' يحتاج تطويرًا</small></div>'+
      '<div class="evaluation-kpi '+(omr.low_confidence_answers?'warning':'')+'"><span>ثقة OMR</span><b>'+(omr.mean_confidence===null?'—':pct1(Number(omr.mean_confidence)*100))+'</b><small>'+ar(omr.low_confidence_answers||0)+' إجابة منخفضة الثقة</small></div>'+
    '</div>'+
    '<div class="evaluation-grid">'+
@@ -472,7 +480,7 @@ function renderEvaluationReport(report){
      '<section class="evaluation-card"><h3>ثبات الاختبار KR-20</h3>'+krRows+'</section>'+
    '</div>'+
    '<section class="evaluation-card"><h3>تشخيص أوراق التظليل</h3>'+omrNote+'<div class="evaluation-legend"><span>أوراق ممسوحة: '+ar(omr.scanned_sheets||0)+'</span><span>قبول آلي: '+ar(omr.auto_accepted_sheets||0)+'</span><span>تعديلات يدوية: '+ar(omr.manual_answers||0)+'</span><span>خلايا منخفضة الثقة: '+ar(omr.low_confidence_answers||0)+'</span></div></section>'+
-   '<section class="evaluation-card"><h3>قوة الأسئلة — الصعوبة والتمييز والتحكيم الدلالي</h3><div class="evaluation-items-wrap"><table class="evaluation-items"><thead><tr><th>#</th><th>المادة</th><th>السؤال</th><th>معامل السهولة</th><th>التمييز</th><th>دلالي</th><th>القوة</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>'+
+   '<section class="evaluation-card"><h3>قوة الأسئلة — الصعوبة والتمييز وفاعلية المشتتات</h3><div class="evaluation-items-wrap"><table class="evaluation-items"><thead><tr><th>#</th><th>المادة</th><th>السؤال</th><th>معامل السهولة</th><th>التمييز</th><th>المشتتات ميدانيًا</th><th>دلالي</th><th>القوة</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>'+
    '<section class="evaluation-card"><h3>إجراءات عملية</h3><div class="evaluation-recommendations">'+(recs||'<div class="evaluation-note ok">لا توجد إجراءات عاجلة.</div>')+'</div></section>';
  $('evaluationState').textContent='اكتمل التحليل: '+ar(s.question_count||0)+' سؤالًا · '+ar(s.attempts||0)+' نتيجة · '+ar(s.weak_items||0)+' سؤالًا يحتاج مراجعة.';
 }
