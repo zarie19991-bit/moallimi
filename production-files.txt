@@ -164,3 +164,4 @@ review-results.css
 review-results-core.js
 analysis-reference-layout.css
 analysis-reference-transform.js
+review-my-tests.js
