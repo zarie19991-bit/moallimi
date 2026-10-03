@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f6b63">
 <title>وكيل صيانة المنصة | معلّمي</title>
 <link rel="stylesheet" href="moallimi-brand.css?v=20260920-png1">
-<link rel="stylesheet" href="maintenance-agent.css?v=20261003-corrector1">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261003-eval-intelligence1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -82,6 +82,22 @@
       </div>
       <div id="semanticJudgeProgress" class="semantic-progress"></div>
       <div id="semanticJudgeResult" class="semantic-result"><div class="empty">اختر نطاق التحكيم التربوي. الحالات التي تحتاج تعديلًا ستظهر مع السبب والمستوى الحقيقي والصياغة المقترحة عند توفرها.</div></div>
+    </section>
+
+    <section class="panel evaluation-intelligence-panel" id="evaluationIntelligence">
+      <div class="panel-head">
+        <div><span class="kicker">ذكاء التقييم والقياس</span><h2>قوة الأسئلة، OMR، وثبات الاختبار</h2></div>
+        <span id="evaluationBadge" class="status-pill info">جاهز للتحليل</span>
+      </div>
+      <p class="brain-intro">يحلل الاختبار الفعلي من أربعة محاور: جودة السؤال قبل الاستخدام، الصعوبة والتمييز بعد توفر استجابات كافية، ثبات الاختبار، وتشخيص ثقة قراءة أوراق التظليل. لا يختلق معاملات إحصائية عند نقص العينة، ولا يعتبر حد 95٪ دقةً مثبتة قبل وجود عينة معايرة مرجعية.</p>
+      <div class="evaluation-controls">
+        <label><span>الاختبار</span><select id="evaluationSource"><option value="">جارٍ تحميل الاختبارات…</option></select></label>
+        <button id="runEvaluationIntelligence" class="btn primary" type="button">تحليل الاختبار</button>
+        <button id="exportEvaluationHtml" class="btn light" type="button" disabled>تصدير HTML</button>
+        <button id="printEvaluationPdf" class="btn light" type="button" disabled>طباعة / PDF</button>
+      </div>
+      <div id="evaluationState" class="evaluation-state">اختر اختبارًا لتحليل جودة الأسئلة وبيانات التظليل والقياس.</div>
+      <div id="evaluationReport" class="evaluation-report"><div class="empty">لم يتم إنشاء تقرير ذكاء تقييم بعد.</div></div>
     </section>
 
     <section class="panel print-agent-panel">
@@ -172,6 +188,6 @@
 
 <script src="teacher-access.js?v=20260930-mainfix2"></script>
 <script src="platform-auto-correct.js?v=20261003-corrector1"></script>
-<script src="maintenance-agent.js?v=20261003-corrector1"></script>
+<script src="maintenance-agent.js?v=20261003-eval-intelligence1"></script>
 </body>
 </html>
