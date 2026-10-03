@@ -7,7 +7,7 @@
   width:158px!important;
   max-width:100%!important;
   height:auto!important;
-  aspect-ratio:3/1!important;
+  aspect-ratio:auto!important;
   object-fit:contain!important;
   object-position:center!important;
   flex:0 0 auto!important;
@@ -47,5 +47,24 @@
   object-position:center!important;
 }
 .moallimi-logo-full[width][height]{
-  aspect-ratio:3/1!important;
+  aspect-ratio:auto!important;
+}
+
+/* 2026-10-03 full-logo asset correction */
+.moallimi-logo-full{
+  aspect-ratio:auto!important;
+  width:auto;
+  height:auto;
+}
+.side .brand .moallimi-logo-full{
+  width:min(220px,100%)!important;
+  max-width:220px!important;
+  height:auto!important;
+  max-height:110px!important;
+}
+@media(max-width:700px){
+  .side .brand .moallimi-logo-full{
+    width:min(190px,100%)!important;
+    max-height:92px!important;
+  }
 }
