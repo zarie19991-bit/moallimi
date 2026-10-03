@@ -36,7 +36,7 @@ let buildPerf={started_at:0,total_ms:0,api_calls:0,candidates:0,pool_groups:0,se
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
  const q=reviewId?'?rid='+encodeURIComponent(reviewId):'';
- const paperQ=reviewId?'?rid='+encodeURIComponent(reviewId)+'&pv=20261003-a4continuation7':'?pv=20261003-a4continuation7';
+ const paperQ=reviewId?'?rid='+encodeURIComponent(reviewId)+'&pv=20261003-readingreview12':'?pv=20261003-readingreview12';
  const scan=document.querySelectorAll('a[href^="review-scan.html"]');
  const bubbles=document.querySelectorAll('a[href^="review-bubble-sheets.html"]');
  const papers=document.querySelectorAll('a[href^="review-question-papers.html"]');
@@ -56,7 +56,7 @@ function archiveItem(row){
    '<div class="archive-meta"><span>'+esc(subject)+'</span><span>'+esc(cls)+'</span><span>'+esc(formatArchiveTime(row.updated_at||row.created_at))+'</span></div>'+
    '<div class="archive-actions">'+
      '<button type="button" class="open-review" data-open-review="'+esc(row.review_id||'')+'">الإعدادات والتعديل</button>'+
-     '<a href="review-question-papers.html?rid='+rid+'&pv=20261003-a4continuation7">أوراق الأسئلة</a>'+
+     '<a href="review-question-papers.html?rid='+rid+'&pv=20261003-readingreview12">أوراق الأسئلة</a>'+
      '<a href="review-bubble-sheets.html?rid='+rid+'">ورق التظليل</a>'+
      '<a href="review-scan.html?rid='+rid+'">رفع وتصحيح</a>'+
      '<a href="review-analysis.html?rid='+rid+'">التحليل</a>'+
