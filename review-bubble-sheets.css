@@ -17,11 +17,11 @@ body{background:#e8edef;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
 .sheet-title:after{content:"";position:absolute;right:-3.2mm;top:-1mm;width:3.2mm;height:18.5mm;border:1.2px solid var(--teal2);border-top:0;background:#f7fbfb}
 .sheet-title span{transform:translateY(-.3mm)}
 
-.brand-row{height:30mm;margin-top:14mm;display:grid;grid-template-columns:18mm 1fr 18mm;align-items:center;gap:5mm;padding:0 19mm;overflow:visible}
+.brand-row{height:32mm;margin-top:14mm;display:grid;grid-template-columns:18mm minmax(0,1fr) 18mm;align-items:center;gap:4mm;padding:0 12mm;overflow:visible}
 .brand-spacer{width:18mm;height:18mm}
-.sheet-logo-wrap{height:27mm;min-width:0;display:flex;align-items:center;justify-content:center;overflow:visible;padding:0}
-.sheet-logo{display:block;width:auto!important;height:auto!important;max-width:72mm!important;max-height:27mm!important;object-fit:contain!important;object-position:center!important;clip-path:none!important;transform:none!important;filter:none!important}
-.qr{width:16mm;height:16mm;padding:.6mm;display:grid;place-items:center;background:#fff;border:0;justify-self:end;overflow:visible}
+.sheet-logo-wrap{width:96mm;height:30mm;max-width:100%;min-width:0;justify-self:center;display:flex;align-items:center;justify-content:center;overflow:visible;padding:0;margin:0}
+.sheet-logo{display:block!important;width:100%!important;height:100%!important;max-width:96mm!important;max-height:30mm!important;object-fit:contain!important;object-position:50% 50%!important;clip-path:none!important;mask:none!important;-webkit-mask:none!important;transform:none!important;filter:none!important;border:0!important}
+.qr{width:16mm;height:16mm;padding:.6mm;display:grid;place-items:center;background:#fff;border:0;justify-self:end;overflow:visible;z-index:2}
 .qr canvas,.qr img{width:100%!important;height:auto!important;max-width:15mm!important;max-height:15mm!important}
 
 .exam-pill{width:61mm;min-height:14mm;border-radius:7mm;background:#f1f1f1;margin:0 auto 4mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.45;color:#111}
