@@ -17,15 +17,11 @@ body{background:#e8edef;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
 .sheet-title:after{content:"";position:absolute;right:-3.2mm;top:-1mm;width:3.2mm;height:18.5mm;border:1.2px solid var(--teal2);border-top:0;background:#f7fbfb}
 .sheet-title span{transform:translateY(-.3mm)}
 
-.official-row{height:30mm;margin-top:14mm;display:grid;grid-template-columns:1fr 18mm 1fr;align-items:center;gap:7mm;padding:0 23mm}
-.official-brand{text-align:center;line-height:1.16;color:#374047;white-space:nowrap}
-.official-brand b{display:block;font-size:12.5pt;font-weight:900}
-.official-brand small{display:block;font-family:Arial,sans-serif;font-size:5.5pt;font-weight:600;margin-top:1mm;color:#555}
-.etec-brand{position:relative;padding-right:12mm}
-.etec-brand:before{content:"";position:absolute;right:0;top:50%;transform:translateY(-50%) rotate(45deg);width:8mm;height:8mm;border:2.2mm solid #2ca568;border-left-color:#3b5db0;border-bottom-color:#79b92d}
-.measure-brand{position:relative;padding-left:12mm}
-.measure-brand:after{content:"قياس";position:absolute;left:0;top:50%;transform:translateY(-50%);width:10mm;height:9mm;border:1px solid #1d92b8;border-radius:1mm;color:#158ab1;font-size:6pt;font-weight:900;display:grid;place-items:center;background:#fff}
-.qr{width:16mm;height:16mm;padding:.6mm;display:grid;place-items:center;background:#fff;border:0}
+.brand-row{height:30mm;margin-top:14mm;display:grid;grid-template-columns:18mm 1fr 18mm;align-items:center;gap:5mm;padding:0 19mm;overflow:visible}
+.brand-spacer{width:18mm;height:18mm}
+.sheet-logo-wrap{height:27mm;min-width:0;display:flex;align-items:center;justify-content:center;overflow:visible;padding:0}
+.sheet-logo{display:block;width:auto!important;height:auto!important;max-width:72mm!important;max-height:27mm!important;object-fit:contain!important;object-position:center!important;clip-path:none!important;transform:none!important;filter:none!important}
+.qr{width:16mm;height:16mm;padding:.6mm;display:grid;place-items:center;background:#fff;border:0;justify-self:end;overflow:visible}
 .qr canvas,.qr img{width:100%!important;height:auto!important;max-width:15mm!important;max-height:15mm!important}
 
 .exam-pill{width:61mm;min-height:14mm;border-radius:7mm;background:#f1f1f1;margin:0 auto 4mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.45;color:#111}
