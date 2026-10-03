@@ -1110,7 +1110,7 @@ async function catalog(db:any) {
 }
 async function findDraft(db:any,id:unknown,owner:Row) {if(!isUUID(id))fail('المسودة غير موجودة.');const t=must(await db.from('nafes_assessments').select('*').eq('id',id).eq('owner_id',owner.id).maybeSingle());if(!t)fail('المسودة غير موجودة.',404);if(t.status!=='draft')fail('نُشر الاختبار بالفعل؛ أنشئ نسخة جديدة لتغيير الأسئلة.',409);return t;}
 function preview(t:Row) {return{draft_id:t.id,config:t.config,sections:t.rendered_sections};}
-async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:unknown[]=[]):Promise<Row[]> {
+async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:unknown[]=[],poolCache?:Map<string,Row[]>):Promise<Row[]> {
   const isSimulation=c.kind==='simulation'&&c.bank_source==='simulation_bank';
   const excludedIds=new Set((Array.isArray(excludeQuestionIds)?excludeQuestionIds:[]).slice(0,2000).map(String));
   const simulationMode=c.simulation_mode==='custom'?'custom':'standard';
@@ -1139,7 +1139,13 @@ async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:un
         qs=selectIndicatorQuestions(pool,s.question_count,s.subject,token(8),used,usedStems);
       }
     } else {
-      pool=await fullPool(db,s.subject,s.indicators?.map((i:Row)=>i.key));
+      const keys=(s.indicators||[]).map((i:Row)=>String(i.key)).sort();
+      const cacheKey=s.subject+'|'+keys.join(',');
+      if(poolCache?.has(cacheKey))pool=poolCache.get(cacheKey)!;
+      else{
+        pool=await fullPool(db,s.subject,keys);
+        if(poolCache)poolCache.set(cacheKey,pool);
+      }
       if(excludedIds.size)pool=pool.filter(q=>!excludedIds.has(String(q.id)));
       const levelPlan=(s.subject==='math'||s.subject==='science')
         ?allocateSectionLevelTargets(s.indicators||[],pool,s.subject,s.question_count,c.cognitive_targets||null,s.fixed_model||null)
@@ -1625,6 +1631,28 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
     return {...t,created_by_label:creator?.label||'النظام',created_by_scope:creator?.subject_scope||null,is_owner:String(t.owner_id||'')===String(owner.id),can_manage:scope==='all'||String(t.owner_id||'')===String(owner.id)};
   });
   return {...base,indicators:(base.indicators||[]).filter((i:Row)=>scope==='all'||i.subject===scope),simulation_indicators:[],simulation_summary:{reading:0,math:0,science:0},forms:[],tests};
+ }
+ if(b.action==='teacher_preview_batch') {
+  const config=normalizeConfig(b.config);
+  assertIndicatorBuilderConfig(owner,config);
+  const requested=Math.trunc(Number(b.candidate_count)||6),candidateCount=Math.max(1,Math.min(12,requested));
+  const excluded=Array.isArray(b.exclude_question_ids)?b.exclude_question_ids:[];
+  const started=performance.now(),poolCache=new Map<string,Row[]>(),candidates:Row[]=[];
+  for(let i=0;i<candidateCount;i++){
+    try{
+      const sections=await draftSections(db,config,true,excluded,poolCache);
+      candidates.push({config,sections});
+    }catch(e){
+      if(!candidates.length)throw e;
+      break;
+    }
+  }
+  return{
+    candidates,
+    candidate_count:candidates.length,
+    pool_groups:poolCache.size,
+    timing_ms:Math.round((performance.now()-started)*10)/10
+  };
  }
  if(b.action==='teacher_preview') {
   const config=normalizeConfig(b.config);
