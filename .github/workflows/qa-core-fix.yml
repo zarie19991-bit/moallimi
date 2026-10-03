@@ -29,6 +29,7 @@ jobs:
           node --check student-papers.js
           node --check subject-report-separate.js
           node --check teacher-access.js
+          node --check tamakkun-unified-plan.js
           node --check qa/core-browser-smoke.mjs
           node --check qa/student-resume-smoke.mjs
           node --check qa/student-paper-smoke.mjs
@@ -69,6 +70,10 @@ jobs:
           assert.equal(unsafeNameOnly[0].unresolved, 1);
           console.log('Core policy checks passed');
           NODE
+      - name: Tamakkun unified plan and competition regressions
+        run: |
+          node qa/tamakkun-unified-plan-unit.cjs
+          node qa/competition-unit.cjs
       - name: Student identity privacy and class guards
         run: |
           ! grep -q "localStorage.setItem(identityKey" e.js
