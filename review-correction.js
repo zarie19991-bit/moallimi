@@ -20,6 +20,18 @@ function repeatLimit(){
  return minimumRequiredRepeats()+MAX_CROSS_MODEL_REPEATS;
 }
 let catalog=null,students=[],models=[],activeModel=0,assignments=[];const indicatorState=new Map();
+const PAGE_CACHE_TTL_MS=5*60*1000;
+function cacheRead(key){
+ try{
+   const row=JSON.parse(sessionStorage.getItem(key)||'null');
+   if(!row||!Number.isFinite(Number(row.at))||Date.now()-Number(row.at)>PAGE_CACHE_TTL_MS)return null;
+   return row.value??null;
+ }catch(_){return null;}
+}
+function cacheWrite(key,value){
+ try{sessionStorage.setItem(key,JSON.stringify({at:Date.now(),value}));}catch(_){}
+}
+
 let buildPerf={started_at:0,total_ms:0,api_calls:0,candidates:0,pool_groups:0,server_ms:0,client_api_ms:0,model_ms:[]};
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
@@ -713,8 +725,29 @@ async function load(){
  try{
    setStatus('جارٍ تحميل بنك المؤشرات وسجل الطلاب…');
    await NafesTeacher.ensureProfile?.();
-   const [cat,stu]=await Promise.all([NafesTeacher.api('teacher_catalog'),NafesTeacher.api('teacher_students_list',{include_archived:false})]);
-   catalog=cat;students=stu.students||[];populateSubject();populateClasses();renderIndicators();updateLevelSummary();
+
+   const cachedCatalog=cacheRead('nafes_paper_catalog_v1');
+   const cachedStudents=cacheRead('nafes_paper_students_v1');
+   if(cachedCatalog&&Array.isArray(cachedStudents?.students)){
+     catalog=cachedCatalog;students=cachedStudents.students||[];
+     populateSubject();populateClasses();renderIndicators();updateLevelSummary();
+     setStatus('تم فتح بيانات الاختبار من الذاكرة المؤقتة، ويجري التحقق من آخر تحديث…','ok');
+   }
+
+   const freshPromise=Promise.all([
+     NafesTeacher.api('teacher_catalog'),
+     NafesTeacher.api('teacher_students_list',{include_archived:false})
+   ]).then(([cat,stu])=>{
+     catalog=cat;students=stu.students||[];
+     cacheWrite('nafes_paper_catalog_v1',cat);
+     cacheWrite('nafes_paper_students_v1',stu);
+     populateSubject();populateClasses();renderIndicators();updateLevelSummary();
+     return true;
+   });
+
+   if(!cachedCatalog||!Array.isArray(cachedStudents?.students))await freshPromise;
+   else freshPromise.catch(e=>console.warn('paper builder background refresh failed',e));
+
    const restored=await restoreSavedReview();
    await loadArchive();
    if(!restored)setStatus('تم ربط القسم ببنك المؤشرات وسجل الطلاب الحالي في منصة معلّمي.','ok');
