@@ -14,6 +14,12 @@ for(const file of production){
 }
 
 
+assert.match(client,/const PAPER_QUESTION_TARGET=60/,'paper builder must use a fixed 60-question target');
+assert.match(client,/function allocateIndicatorRows\(rows,target\)/,'indicator allocation must be capacity-aware');
+assert.match(client,/المتاح في البنك/,'UI must distinguish bank availability from allocated exam questions');
+assert.doesNotMatch(client,/x\.count%5!==0\|\|x\.count<5/,'reading indicators must not be forced to five questions each');
+assert.match(client,/paper_review_builder:true/,'paper preview requests must carry the server-side fixed-60 guard');
+
 assert.match(client,/teacher_preview_batch/,'paper builder must use batched preview generation');
 const best=client.slice(client.indexOf('async function bestCandidate'),client.indexOf('function validate'));
 assert.doesNotMatch(best,/teacher_preview'\s*,/,'bestCandidate must not return to sequential teacher_preview calls');
