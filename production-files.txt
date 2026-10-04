@@ -174,3 +174,6 @@ review-results-core.js
 analysis-reference-layout.css
 analysis-reference-transform.js
 review-my-tests.js
+
+# معاينة UX الداخلية للألوان وتسلسل الأسئلة.
+ux-cognitive-preview.html
