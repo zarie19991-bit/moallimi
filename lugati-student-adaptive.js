@@ -94,58 +94,6 @@ function renderNav(){
 function wireShell(){
  document.getElementById('logout').onclick=async()=>{try{await post({action:'logout'})}catch{}sessionStorage.removeItem(KEY);localStorage.removeItem(KEY);location.replace('./lugati-complete.html')};
 }
-function home(){
- return `<div class="space-y-4 pb-24 lg:pb-8">
-   <section class="rounded-[2rem] bg-gradient-to-l from-emerald-900 via-teal-800 to-emerald-700 text-white p-5 sm:p-6 shadow-lg">
-     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-       <div>
-         <div class="text-[10px] font-black text-emerald-100">مسارك اليوم</div>
-         <h1 class="text-2xl sm:text-3xl font-black mt-1">مرحبًا ${esc((S.profile?.full_name||'').split(' ')[0]||'بك')} 👋</h1>
-         <p class="text-xs sm:text-sm text-emerald-100 mt-2 leading-6">${esc(window.TamakkunEncouragement?.welcome?.(S.profile?.full_name)||'ابدأ بما عليك الآن، ثم انتقل إلى بقية أقسام تَمَكُّن.')}</p>
-       </div>
-       <button data-open-journey="1" class="px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black shrink-0">خريطة مهاراتي</button>
-     </div>
-   </section>
-
-   <section>
-     <div class="flex items-center justify-between gap-3 mb-2">
-       <div><div class="text-[10px] font-black text-emerald-700">ابدأ من هنا</div><h2 class="font-black text-slate-900">مهمتك التالية</h2></div>
-     </div>
-     <div id="studentPrimaryMission">
-       <div class="bg-white border rounded-3xl p-7 text-center">
-         <div class="text-3xl">⏳</div>
-         <div class="font-black mt-3">جارٍ تجهيز مهارتك الحالية…</div>
-         <div class="text-xs text-slate-400 mt-1">ستظهر المهمة التي تحتاجها الآن فقط.</div>
-       </div>
-     </div>
-   </section>
-
-   <details class="bg-white border border-emerald-100 rounded-3xl p-4 sm:p-5">
-     <summary class="cursor-pointer flex items-center justify-between gap-3 font-black text-sm text-slate-800">
-       <span>كيف أتعلم في تَمَكُّن؟</span><span class="text-emerald-700 text-xs">عرض الخطوات ▾</span>
-     </summary>
-     <p class="text-xs text-slate-500 mt-3 leading-6">أفهم المطلوب أولًا، ثم أتعرف صياغة السؤال وأبحث عن الدليل، وبعدها أحل وحدي وأثبت الإتقان.</p>
-     <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-4">
-       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">١</div><div class="text-[9px] font-bold text-slate-600 mt-1">أفهم المطلوب</div></div>
-       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">٢</div><div class="text-[9px] font-bold text-slate-600 mt-1">أتعرف الصياغة</div></div>
-       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-[10px] font-black">٣</div><div class="text-[9px] font-bold text-slate-600 mt-1">أبحث عن الدليل</div></div>
-       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">٤</div><div class="text-[9px] font-bold text-slate-600 mt-1">أحل وحدي</div></div>
-       <div class="text-center"><div class="w-8 h-8 mx-auto rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center text-[10px] font-black">٥</div><div class="text-[9px] font-bold text-slate-600 mt-1">أثبت الإتقان</div></div>
-     </div>
-   </details>
-
-   <section class="grid sm:grid-cols-2 gap-3">
-     <button data-tab="tasks" class="bg-white border rounded-3xl p-5 text-right hover:bg-emerald-50 hover:border-emerald-100 transition">
-       <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">${icon('list-checks','w-5 h-5')}</div>
-       <div class="font-black mt-3">مهامي</div><div id="studentTasksSummary" class="text-[11px] text-slate-400 mt-1">جارٍ حساب مهامك…</div>
-     </button>
-     <button data-tab="progress" class="bg-white border rounded-3xl p-5 text-right hover:bg-emerald-50 hover:border-emerald-100 transition">
-       <div class="w-10 h-10 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center">${icon('chart-no-axes-column-increasing','w-5 h-5')}</div>
-       <div class="font-black mt-3">تقدمي</div><div id="studentProgressSummary" class="text-[11px] text-slate-400 mt-1">جارٍ حساب تقدمك…</div>
-     </button>
-   </section>
- </div>`;
-}
 function studentTaskStats(){
  const rows=Array.isArray(S.teacherTasks)?S.teacherTasks:[];
  const completed=rows.filter(t=>t.status==='completed');
@@ -390,21 +338,6 @@ async function submitTeacherTask(){
  }catch(e){alert(e.message);renderTeacherTaskModal()}
 }
 
-function progress(){
- return `<div class="space-y-5 pb-24">
-   <section class="rounded-[2rem] bg-gradient-to-l from-emerald-900 via-teal-800 to-emerald-700 text-white p-5 sm:p-6">
-     <div class="text-[10px] font-black text-emerald-200">تقدم واضح من المهارات التي تدربت عليها</div>
-     <h1 class="text-2xl font-black mt-1">تقدمي</h1>
-     <p class="text-xs text-emerald-100 mt-2">نعرض ما أرسله المعلم وما أنجزته فعلًا، دون أرقام كبيرة لا تعبّر عن مسارك الحالي.</p>
-   </section>
-   <section id="studentProgressOverview">
-     <div class="bg-white border rounded-3xl p-7 text-center text-sm text-slate-400">جارٍ تجهيز ملخص تقدمك…</div>
-   </section>
-   <section id="readingJourneyProgressMount">
-     <div class="bg-white border rounded-3xl p-8 text-center text-sm text-slate-400">جارٍ تحميل تقدمك…</div>
-   </section>
- </div>`;
-}
 function competition(){
  return '<div class="space-y-5 pb-24"><section class="rounded-[2rem] bg-gradient-to-l from-violet-950 via-indigo-900 to-purple-700 text-white p-5 sm:p-7 shadow-lg"><div class="text-[10px] font-black text-violet-200">القسم الرابع • المسابقات</div><h1 class="text-2xl sm:text-3xl font-black mt-1">المسابقات</h1><p class="text-xs sm:text-sm text-violet-100 mt-2 leading-6">الجولات التنافسية والنتائج والترتيب فقط. لا تظهر هنا الرحلات أو مهام العلاج والتعزيز.</p></section><div id="lugatiCompetitionMount"><div class="bg-white border border-violet-100 rounded-3xl p-10 text-center text-sm text-slate-400">جارٍ تحميل المسابقات…</div></div></div>';
 }
