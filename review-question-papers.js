@@ -328,7 +328,6 @@ function removeEmptyPages(booklet){
  });
 }
 function pullPartialReadingGroup(page,next,candidate){
- page.dataset.partialAttempts=String(Number(page.dataset.partialAttempts||0)+1);
  const nextFlow=next?.querySelector('.questions-flow');
  const wrap=candidate?.querySelector(':scope > .passage-questions');
  const hasPassage=!!candidate?.querySelector(':scope > .passage');
@@ -362,7 +361,6 @@ function pullPartialReadingGroup(page,next,candidate){
    nextWrap.prepend(wrap.lastElementChild);
    if(pageFits(page,0)&&nextWrap.children.length){
      candidate.dataset.splitReading='passage-only';
-     page.dataset.partialResult='passage-only';
      const notice=continuation.querySelector(':scope > .continued');
      if(notice)notice.textContent='أسئلة النص في الصفحة السابقة';
      // إذا كان النص وحده يتسع بالإيقاع الطبيعي، أعد المسافات الطبيعية
@@ -386,7 +384,6 @@ function pullPartialReadingGroup(page,next,candidate){
  if(!hadStrong)page.classList.remove('compact-page-strong');
  if(!hadCompact)page.classList.remove('compact-page');
  void page.offsetHeight;
- page.dataset.partialResult='failed';
  return false;
 }
 function pullContinuationQuestions(page,next,candidate){
@@ -437,11 +434,9 @@ function fillAvailableSpace(booklet){
  let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
  for(let i=0;i<pages.length-1;i++){
    const page=pages[i],flow=page.querySelector('.questions-flow');
-   page.dataset.fillVisits=String(Number(page.dataset.fillVisits||0)+1);
    const next=pages[i+1],nextFlow=next.querySelector('.questions-flow');
    while(nextFlow?.firstElementChild){
      const candidate=nextFlow.firstElementChild;
-     page.dataset.fillCandidates=String(Number(page.dataset.fillCandidates||0)+1);
      flow.append(candidate);
      if(pageFits(page,0))continue;
 
