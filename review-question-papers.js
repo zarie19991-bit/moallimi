@@ -624,17 +624,19 @@ function prepareExactPrint(){
  const metrics=collectPrintMetrics();
  metrics.layout_ms=Math.round(performance.now()-started);
  localStorage.setItem('nafes_question_paper_last_print_metrics',JSON.stringify(metrics));
- const bad=metrics.details.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2||x.hidden_text_nodes>0||x.avoidable_large_gap);
- if(bad.length){
+ const hardErrors=metrics.details.filter(x=>x.overflow_y_px>6||x.overflow_x_px>6||x.hidden_text_nodes>0);
+ const softWarnings=metrics.details.filter(x=>x.unresolved||x.avoidable_large_gap);
+ if(hardErrors.length){
    document.documentElement.classList.remove('print-preparing');
-   const clipped=bad.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2||x.hidden_text_nodes>0).length;
-   const gaps=bad.filter(x=>x.avoidable_large_gap).length;
-   $('screenMeta').textContent='تعذر فتح الطباعة: '+(clipped?ar(clipped)+' صفحة فيها قص أو محتوى غير مستقر':'')+(clipped&&gaps?'، و':'')+(gaps?ar(gaps)+' صفحة فيها فراغ يمكن تعبئته فعليًا':'')+'. أعد المحاولة بعد اكتمال إعادة توزيع الصفحة.';
+   $('screenMeta').textContent='تعذر فتح الطباعة لأن '+ar(hardErrors.length)+' صفحة فيها قص حقيقي أو نص مخفي. أُوقف التصدير لحماية المحتوى.';
    return false;
  }
  const structuralGaps=metrics.details.filter(x=>x.large_gap&&!x.avoidable_large_gap).length;
- if(structuralGaps){
-   $('screenMeta').textContent='تم تجهيز الطباعة. توجد '+ar(structuralGaps)+' مساحة بيضاء مبررة لأن العنصر التالي لا يتسع دون كسر السؤال أو النص.';
+ if(softWarnings.length||structuralGaps){
+   $('screenMeta').textContent='تم تجهيز الطباعة'+
+     (softWarnings.length?' مع '+ar(softWarnings.length)+' تنبيه تخطيط غير مانع':'')+
+     (structuralGaps?' و'+ar(structuralGaps)+' مساحة بيضاء مبررة':'')+
+     '. لا يوجد قص فعلي يمنع التصدير.';
  }
  return true;
 }
