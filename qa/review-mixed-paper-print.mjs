@@ -49,17 +49,8 @@ try{
   const stripText=await page.locator('.title-strip').first().textContent();
   if(!/اختبار نافس/.test(stripText||'')||!/المادة:/.test(stripText||''))throw new Error('mixed title strip is incomplete: '+stripText);
 
-  const footerAudit=await page.evaluate(()=>{
-    return [...document.querySelectorAll('.paper-page')].map((p,index)=>{
-      const footer=p.querySelector('.footer');
-      const flow=p.querySelector('.questions-flow');
-      const last=flow?.lastElementChild;
-      if(!footer||!flow||!last)return {page:index+1,overlap:false,gap:999};
-      const fr=footer.getBoundingClientRect(),lr=last.getBoundingClientRect();
-      return {page:index+1,overlap:lr.bottom>fr.top+0.5,gap:fr.top-lr.bottom};
-    });
-  });
-  if(footerAudit.some(x=>x.overlap))throw new Error('footer_overlap '+JSON.stringify(footerAudit));
+  const footerCount=await page.locator('.paper-page .footer').count();
+  if(footerCount!==0)throw new Error('printed paper must not contain a footer; found '+footerCount);
 
   const audit=await page.evaluate(()=>{
     const readingGroups=[...document.querySelectorAll('.passage-group[data-subject="reading"]')].filter(g=>g.querySelector(':scope > .passage'));
