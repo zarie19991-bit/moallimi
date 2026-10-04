@@ -77,3 +77,7 @@ console.log('PASS paper builder + print regression',JSON.stringify({
 assert.match(css,/@media screen and \(max-width:900px\)/,'responsive scale must be screen-only and must never affect print preview');
 assert.match(css,/@media print\{[\s\S]*html,body,#pages,\.model-booklet,\.paper-page,\.page-inner\{[\s\S]*transform:none!important;[\s\S]*zoom:1!important;/,'print CSS must explicitly reset responsive transform and zoom');
 assert.doesNotMatch(css,/@media\(max-width:900px\)\{#pages\{transform-origin:top right;transform:scale\(\.7\)/,'unscoped mobile scale must never return');
+
+assert.doesNotMatch(printClient,/منصة معلّمي —/,'printed footer must not contain platform branding that can overlap exam text');
+assert.match(css,/\.footer\{flex:0 0 6mm;min-height:6mm;max-height:6mm/,'printed footer must reserve a fixed six-millimetre safety band');
+assert.match(css,/\.questions-flow\{flex:1;min-height:0;overflow:visible;padding-bottom:1\.5mm\}/,'question flow must reserve breathing room above footer');
