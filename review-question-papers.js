@@ -458,7 +458,7 @@ async function render(){
  activeDraft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(getDraft()));
  const d=getDraft();
  if(!d||!Array.isArray(d.models)||!d.models.length){document.body.innerHTML='<div class="empty"><h2>لا توجد أوراق أسئلة جاهزة بعد</h2><p>ارجع إلى قسم «الاختبار الآلي والتصحيح»، أنشئ النماذج ثم اعتمد التوزيع مرة أخرى.</p><a href="review-correction.html">العودة للقسم</a></div>';return;}
- $('screenTitle').textContent=d.title||'أوراق الأسئلة';
+ $('screenTitle').textContent=exportPaperTitle(d.title)||'أوراق الأسئلة';
  $('modelFilter').innerHTML='<option value="all">جميع النماذج</option>'+d.models.map(m=>'<option value="'+esc(m.model)+'">نموذج '+esc(m.model)+' فقط</option>').join('');
  renderPages();
 }
