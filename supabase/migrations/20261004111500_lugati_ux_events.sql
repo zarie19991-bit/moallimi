@@ -27,3 +27,40 @@ grant select,insert,delete on table public.lugati_ux_events to service_role;
 
 comment on table public.lugati_ux_events is
 'Privacy-minimal product analytics: internal account id, event, section, UI variant and elapsed time only. No names, answers or question text.';
+
+
+create or replace view public.lugati_ux_metrics_daily as
+with student_day as (
+  select
+    created_at::date as metric_date,
+    variant,
+    student_id,
+    bool_or(event_name='student_workspace_view') as opened_workspace,
+    bool_or(event_name='student_task_start') as started_task,
+    bool_or(event_name='student_task_complete') as completed_task,
+    bool_or(event_name='student_onboarding_complete') as completed_onboarding,
+    min(elapsed_ms) filter (where event_name='student_task_start') as first_task_start_ms
+  from public.lugati_ux_events
+  where role='student' and student_id is not null
+  group by created_at::date,variant,student_id
+)
+select
+  metric_date,
+  variant,
+  count(*) filter (where opened_workspace)::int as active_students,
+  count(*) filter (where started_task)::int as students_started_task,
+  count(*) filter (where completed_task)::int as students_completed_task,
+  count(*) filter (where completed_onboarding)::int as students_completed_onboarding,
+  round(
+    (100.0*count(*) filter (where started_task)/nullif(count(*) filter (where opened_workspace),0))::numeric,1
+  ) as activation_rate,
+  round(
+    (100.0*count(*) filter (where completed_task)/nullif(count(*) filter (where started_task),0))::numeric,1
+  ) as completion_rate,
+  percentile_cont(0.5) within group (order by first_task_start_ms)
+    filter (where first_task_start_ms is not null) as median_first_task_start_ms
+from student_day
+group by metric_date,variant;
+
+revoke all on public.lugati_ux_metrics_daily from public,anon,authenticated;
+grant select on public.lugati_ux_metrics_daily to service_role;
