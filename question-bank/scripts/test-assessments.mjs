@@ -15,6 +15,12 @@ test('automated non-simulation tests enforce total range 10 to 60',()=>{
   assert.throws(()=>normalizeConfig(withCount(9)));
   assert.throws(()=>normalizeConfig(withCount(61)));
 });
+test('paper review builder is hard-capped to exactly 60 questions',()=>{
+  const sixty={...config,paper_review_builder:true,sections:[{...config.sections[0],question_count:60}]};
+  assert.equal(normalizeConfig(sixty).sections.reduce((n,s)=>n+s.question_count,0),60);
+  assert.throws(()=>normalizeConfig({...sixty,sections:[{...sixty.sections[0],question_count:59}]}));
+  assert.throws(()=>normalizeConfig({...sixty,sections:[{...sixty.sections[0],question_count:61}]}));
+});
 test('adaptive reading passage allocation uses actual question capacity without inventing texts',()=>{
   assert.deepEqual(planReadingPassageAllocation([15,15],10),[5,5]);
   assert.deepEqual(planReadingPassageAllocation([3,3,3,3],10),[3,3,2,2]);
