@@ -40,7 +40,10 @@ assert.doesNotMatch(printClient,/addEventListener\('afterprint',[\s\S]{0,240}ren
 assert.doesNotMatch(printClient,/مراجعة مؤشرات نافس/,'exported question papers must never contain the removed review heading');
 assert.match(printClient,/function tryCompactCandidate\(page\)/,'page packer must try vertical-rhythm compaction before moving content to another page');
 assert.match(printClient,/unused_bottom_px/,'print metrics must measure unused bottom space');
-assert.match(printClient,/large_gap/,'large non-final white gaps must be rejected before printing');
+assert.match(printClient,/function avoidableLargeGap\(page,threshold=140\)/,'large gaps must be classified by whether the next block can actually fit');
+assert.match(printClient,/avoidable_large_gap/,'only genuinely fillable large gaps may block printing');
+assert.doesNotMatch(printClient,/\|\|x\.large_gap\)/,'raw large-gap size alone must not block printing');
+assert.match(printClient,/large_gap&&!x\.avoidable_large_gap/,'structural gaps must be reported without blocking print');
 assert.match(css,/gap-control contract/,'print CSS must keep the gap-control contract');
 assert.match(css,/compact-page-strong \.stem\{font-size:11pt!important;line-height:1\.28!important/,'gap control may tighten vertical rhythm but must preserve 11pt stems');
 
