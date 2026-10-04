@@ -57,6 +57,9 @@ for(const event of ['login_success','student_workspace_view','student_section_op
 assert.match(migration,/create table if not exists public\.lugati_ux_events/);
 assert.match(migration,/enable row level security/);
 assert.match(migration,/grant select,insert,delete .*service_role/);
+assert.match(migration,/lugati_ux_metrics_daily/);
+assert.match(migration,/activation_rate/);
+assert.match(migration,/median_first_task_start_ms/);
 assert.doesNotMatch(migration,/full_name/);
 assert.doesNotMatch(migration,/question_text/);
 assert.doesNotMatch(migration,/answers/);
