@@ -21,6 +21,22 @@ test('paper review builder is hard-capped to exactly 60 questions',()=>{
   assert.throws(()=>normalizeConfig({...sixty,sections:[{...sixty.sections[0],question_count:59}]}));
   assert.throws(()=>normalizeConfig({...sixty,sections:[{...sixty.sections[0],question_count:61}]}));
 });
+test('paper reading structure requires five-question passage blocks',()=>{
+  const readingSection={
+    subject:'reading',question_count:20,duration_minutes:20,
+    indicators:[
+      {key:'reading:1-1-1-2-9:i1',count:5},
+      {key:'reading:1-1-1-2-9:i2',count:5},
+      {key:'reading:1-1-1-2-9:i3',count:5},
+      {key:'reading:1-1-1-2-9:i4',count:5}
+    ]
+  };
+  const mathSection={subject:'math',question_count:20,duration_minutes:20,calculator:true,indicators:[{key:'math:2-1-1-1-3:i1',count:20}]};
+  const scienceSection={subject:'science',question_count:20,duration_minutes:20,indicators:[{key:'science:1-1-1-1-2:i1',count:20}]};
+  const paper={...config,paper_review_builder:true,review_passage_mode:true,count_mode:'per_indicator',sections:[readingSection,mathSection,scienceSection]};
+  assert.equal(normalizeConfig(paper).sections.find(s=>s.subject==='reading').question_count,20);
+  assert.throws(()=>normalizeConfig({...paper,sections:[{...readingSection,indicators:readingSection.indicators.map(i=>({...i,count:4})),question_count:20},mathSection,scienceSection]}));
+});
 test('adaptive reading passage allocation uses actual question capacity without inventing texts',()=>{
   assert.deepEqual(planReadingPassageAllocation([15,15],10),[5,5]);
   assert.deepEqual(planReadingPassageAllocation([3,3,3,3],10),[3,3,2,2]);
