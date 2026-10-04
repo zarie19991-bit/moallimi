@@ -16,6 +16,16 @@ function paperOrderedQuestions(questions){
 let activeDraft=null;
 function getDraft(){if(activeDraft)return activeDraft;try{return JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');}catch(_){return null;}}
 function subjectLabel(s){return({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||s||'—';}
+const REMOVED_PRINT_HEADING=new RegExp(['مراجعة','مؤشرات','نافس'].join('\\s+'),'g');
+function exportPaperTitle(value){
+ const fallback='اختبار نافس';
+ const cleaned=String(value||fallback)
+  .replace(REMOVED_PRINT_HEADING,' ')
+  .replace(/\s{2,}/g,' ')
+  .replace(/^[\s:،؛|\-–—]+|[\s:،؛|\-–—]+$/g,'')
+  .trim();
+ return cleaned||fallback;
+}
 function questionSubject(q){return String(q?.subject||String(q?.indicator||'').split(':')[0]||'').trim()||'reading';}
 function indicatorLabels(model,subject='reading'){
  const seen=new Set(),out=[];
@@ -134,7 +144,7 @@ function renderGroup(g){
 function pageHeader(model,d,pageNo,totalPages,totalQuestions){
  const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean).sort((a,b)=>paperSubjectRank(a)-paperSubjectRank(b));
  const subjectText=subjects.map(subjectLabel).join(' + ')||'—';
- const title=String(d.title||'اختبار نافس').trim();
+ const title=exportPaperTitle(d.title);
  const readingOnly=subjects.length===1&&subjects[0]==='reading';
  const indicators=readingOnly?indicatorLabels(model,'reading'):[];
  const brand=readingOnly?title:'اختبار '+subjectText;
@@ -155,7 +165,7 @@ function pageHeader(model,d,pageNo,totalPages,totalQuestions){
 function onePage(model,d,groups,pageNo,totalPages,totalQuestions){
  const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean).sort((a,b)=>paperSubjectRank(a)-paperSubjectRank(b));
  const subjectText=subjects.map(subjectLabel).join(' + ')||'—';
- const title=String(d.title||'اختبار نافس').trim();
+ const title=exportPaperTitle(d.title);
  const mode=subjects.length>1?'mixed':(subjects[0]||d.subject||'');
  return '<section class="paper-page" data-model="'+esc(model.model)+'" data-subject="'+esc(mode)+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
  pageHeader(model,d,pageNo,totalPages,totalQuestions)+
