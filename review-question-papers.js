@@ -191,7 +191,11 @@ function pageFits(page,slack=2){
  }
  const flow=page?.querySelector('.questions-flow');
  if(!flow)return true;
- return flow.scrollHeight<=flow.clientHeight+slack&&flow.scrollWidth<=flow.clientWidth+slack;
+ // flex:1 يجعل scrollHeight مساويًا لـ clientHeight حتى عندما توجد مساحة فارغة.
+ // لذلك السماحية السالبة تجعل "الملاءمة" مستحيلة حسابيًا. نستخدم فقط
+ // سماحية غير سالبة، ويظل منع القص محكومًا بقياس overflow الفعلي.
+ const tolerance=Math.max(0,Number(slack)||0);
+ return flow.scrollHeight<=flow.clientHeight+tolerance&&flow.scrollWidth<=flow.clientWidth+tolerance;
 }
 function emptyPageFrom(page){
  const clone=page.cloneNode(true);
@@ -251,9 +255,9 @@ function tryCompactCandidate(page){
  const hadCompact=page.classList.contains('compact-page');
  const hadStrong=page.classList.contains('compact-page-strong');
  if(!hadCompact){page.classList.add('compact-page');void page.offsetHeight;}
- if(pageFits(page,-4))return true;
+ if(pageFits(page,0))return true;
  if(!hadStrong){page.classList.add('compact-page-strong');void page.offsetHeight;}
- if(pageFits(page,-4))return true;
+ if(pageFits(page,0))return true;
  if(!hadStrong)page.classList.remove('compact-page-strong');
  if(!hadCompact)page.classList.remove('compact-page');
  void page.offsetHeight;
@@ -343,10 +347,10 @@ function pullPartialReadingGroup(page,next,candidate){
  nextFlow.prepend(continuation);
 
  // اترك النص في الصفحة الحالية ومعه أكبر عدد ممكن من أسئلته.
- while(!pageFits(page,-4)&&wrap.children.length>1){
+ while(!pageFits(page,0)&&wrap.children.length>1){
    nextWrap.prepend(wrap.lastElementChild);
  }
- if(pageFits(page,-4)&&nextWrap.children.length){
+ if(pageFits(page,0)&&nextWrap.children.length){
    candidate.dataset.splitReading='1';
    return true;
  }
@@ -356,7 +360,7 @@ function pullPartialReadingGroup(page,next,candidate){
  // ولا يقسم النص ولا يصغر خطه.
  if(wrap.children.length===1){
    nextWrap.prepend(wrap.lastElementChild);
-   if(pageFits(page,-4)&&nextWrap.children.length){
+   if(pageFits(page,0)&&nextWrap.children.length){
      candidate.dataset.splitReading='passage-only';
      page.dataset.partialResult='passage-only';
      const notice=continuation.querySelector(':scope > .continued');
@@ -366,7 +370,7 @@ function pullPartialReadingGroup(page,next,candidate){
      if(!hadStrong)page.classList.remove('compact-page-strong');
      if(!hadCompact)page.classList.remove('compact-page');
      void page.offsetHeight;
-     if(!pageFits(page,-4)){
+     if(!pageFits(page,0)){
        page.classList.add('compact-page','compact-page-strong');
        void page.offsetHeight;
      }
@@ -421,7 +425,7 @@ function pullContinuationQuestions(page,next,candidate){
  while(sourceWrap.firstElementChild){
    const q=sourceWrap.firstElementChild;
    targetWrap.appendChild(q);
-   if(pageFits(page,-4)){moved++;continue;}
+   if(pageFits(page,0)){moved++;continue;}
    sourceWrap.prepend(q);
    break;
  }
@@ -439,7 +443,7 @@ function fillAvailableSpace(booklet){
      const candidate=nextFlow.firstElementChild;
      page.dataset.fillCandidates=String(Number(page.dataset.fillCandidates||0)+1);
      flow.append(candidate);
-     if(pageFits(page,-4))continue;
+     if(pageFits(page,0))continue;
 
      // قبل إرسال المحتوى إلى صفحة جديدة، اضغط الإيقاع الرأسي فقط
      // مع إبقاء حجم الخط 11pt. هذا يمنع الفراغات الكبيرة القابلة للاستفادة.
