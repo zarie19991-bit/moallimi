@@ -17,6 +17,9 @@ on:
       - 'tamakkun-teacher-workspace.css'
       - 'platform-color-system.css'
       - 'qa/platform-color-system-unit.cjs'
+      - 'tamakkun-ux-v3.css'
+      - 'qa/ux-engagement-v3-unit.cjs'
+      - 'supabase/migrations/20261004111500_lugati_ux_events.sql'
       - 'supabase/migrations/20261003222000_teacher_management_workspace.sql'
       - 'qa/teacher-management-workspace-unit.cjs'
       - 'supabase/functions/lugati-adaptive-plan/**'
@@ -54,3 +57,5 @@ jobs:
         run: node qa/teacher-management-workspace-unit.cjs
       - name: Platform color system
         run: node qa/platform-color-system-unit.cjs
+      - name: UX engagement v3
+        run: node qa/ux-engagement-v3-unit.cjs
