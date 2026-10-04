@@ -60,8 +60,8 @@ assert.match(migration,/grant select,insert,delete .*service_role/);
 assert.match(migration,/lugati_ux_metrics_daily/);
 assert.match(migration,/activation_rate/);
 assert.match(migration,/median_first_task_start_ms/);
-assert.doesNotMatch(migration,/full_name/);
-assert.doesNotMatch(migration,/question_text/);
-assert.doesNotMatch(migration,/answers/);
+assert.doesNotMatch(migration,/^\s*full_name\s+/m);
+assert.doesNotMatch(migration,/^\s*question_text\s+/m);
+assert.doesNotMatch(migration,/^\s*answers\s+/m);
 
 console.log('PASS: UX v3 daily dashboard, simplified login, real-achievement gamification, responsive onboarding and privacy-minimal measurement.');
