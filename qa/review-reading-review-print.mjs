@@ -85,10 +85,6 @@ try{
  for(const [k,v] of [['passage',printAudit.passage_px],['stem',printAudit.stem_px],['choices',printAudit.choices_px]]){
    if(Math.abs(v-14.6667)>0.8)throw new Error(k+' must be exactly 11pt; px='+v);
  }
- if(printAudit.overflow||printAudit.unresolved||!printAudit.visible_passages)throw new Error('reading print integrity failed '+JSON.stringify(printAudit));
- const maxReadingTailGap=Math.max(0,...printAudit.tail_gaps_px);
- if(maxReadingTailGap>140)throw new Error('reading page has excessive blank tail '+maxReadingTailGap+'px');
-
  fs.mkdirSync('qa-output/reading',{recursive:true});
  await page.screenshot({path:'qa-output/reading/reading-review.png',fullPage:true});
  await page.pdf({
@@ -99,5 +95,9 @@ try{
    margin:{top:'0',right:'0',bottom:'0',left:'0'}
  });
  fs.writeFileSync('qa-output/reading/reading-review-audit.json',JSON.stringify({screenAudit,printAudit},null,2));
+
+ if(printAudit.overflow||printAudit.unresolved||!printAudit.visible_passages)throw new Error('reading print integrity failed '+JSON.stringify(printAudit));
+ const maxReadingTailGap=Math.max(0,...printAudit.tail_gaps_px);
+ if(maxReadingTailGap>140)throw new Error('reading page has excessive blank tail '+maxReadingTailGap+'px');
  console.log('PASS reading NAFES review integrity QA '+JSON.stringify({screenAudit,printAudit}));
 }finally{await browser.close();}
