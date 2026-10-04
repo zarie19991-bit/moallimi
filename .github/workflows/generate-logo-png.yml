@@ -19,19 +19,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Render high-resolution PNG from complete logo
+      - name: Render high-resolution PNG from canonical complete logo
         run: |
-          python -m pip install --disable-pip-version-check --quiet cairosvg pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq webp
+          dwebp moallimi-logo-final.webp -o /tmp/moallimi-logo-source.png
+          python -m pip install --disable-pip-version-check --quiet pillow
           python - <<'PY'
-          import cairosvg
           from PIL import Image
-          src='moallimi-logo-complete.svg'
-          out='moallimi-logo-complete-2x.png'
-          cairosvg.svg2png(url=src, write_to=out, output_width=2080, output_height=1000)
-          im=Image.open(out)
-          assert im.size == (2080,1000), im.size
-          assert im.mode in ('RGBA','LA','P','RGB'), im.mode
-          print('PNG', im.size, im.mode)
+          src=Image.open('/tmp/moallimi-logo-source.png').convert('RGBA')
+          assert src.width/src.height > 1.9, src.size
+          out=src.resize((2080,1000),Image.Resampling.LANCZOS)
+          out.save('moallimi-logo-complete-2x.png',optimize=True)
+          chk=Image.open('moallimi-logo-complete-2x.png')
+          assert chk.size == (2080,1000), chk.size
+          print('PNG',chk.size,chk.mode)
           PY
       - name: Add production asset and commit
         run: |
