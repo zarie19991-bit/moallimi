@@ -61,6 +61,8 @@ if(buttonAudit.calls!==1)throw new Error('print button did not call window.print
 if(buttonAudit.stale_unresolved)throw new Error('stale unresolved flag still blocks print');
 await page.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
 
+// Chrome print preview lays A4 out at a viewport narrower than 900px.
+await page.setViewportSize({width:794,height:1123});
 await page.emulateMedia({media:'print'});
 await page.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
 await page.waitForTimeout(150);
@@ -91,11 +93,16 @@ const audit=await page.evaluate(()=>{
       return Math.max(0,flow.getBoundingClientRect().bottom-last.getBoundingClientRect().bottom);
     }),
     body_scroll_width:document.body.scrollWidth,
-    viewport_width:document.documentElement.clientWidth
+    viewport_width:document.documentElement.clientWidth,
+    pages_transform:getComputedStyle(document.getElementById('pages')).transform,
+    page_transform:getComputedStyle(pages[0]).transform,
+    pages_zoom:getComputedStyle(document.getElementById('pages')).zoom||'1'
   };
 });
 
 const near=(v,target,tol)=>Math.abs(v-target)<=tol;
+if(audit.pages_transform!=='none'||audit.page_transform!=='none')throw new Error('print must not inherit screen transform '+JSON.stringify(audit));
+if(String(audit.pages_zoom)!=='1'&&String(audit.pages_zoom)!=='normal')throw new Error('print zoom must remain 1 '+JSON.stringify(audit));
 if(!near(audit.page_width_mm,198,0.8))throw new Error('print page width '+audit.page_width_mm);
 if(!near(audit.page_height_mm,285,0.8))throw new Error('print page height '+audit.page_height_mm);
 if(!near(audit.inner_width_mm,198,0.8))throw new Error('inner width '+audit.inner_width_mm);
