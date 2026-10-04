@@ -14,7 +14,7 @@ for(const file of production){
 }
 
 
-assert.match(client,/const PAPER_QUESTION_TARGET=60/,'paper builder must use a fixed 60-question target');
+assert.match(client,/const\s+PAPER_QUESTION_TARGET\s*=\s*60/,'paper builder must use a fixed 60-question target');
 assert.match(client,/function allocateIndicatorRows\(rows,target\)/,'indicator allocation must be capacity-aware');
 assert.match(client,/المتاح في البنك/,'UI must distinguish bank availability from allocated exam questions');
 assert.doesNotMatch(client,/x\.count%5!==0\|\|x\.count<5/,'reading indicators must not be forced to five questions each');
