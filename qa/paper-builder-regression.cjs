@@ -88,8 +88,8 @@ assert.match(omrTemplate,/separated-answer-groups/,'OMR answer groups must remai
 assert.match(omrTemplate,/optionOffsets:\[7\.5,15\.5,23\.5,31\.5\],blockLeftOffset:34\.5,blockGap:5\.5/,'OMR answer groups must match the reference spacing and internal option rhythm');
 assert.doesNotMatch(omrTemplate,/connected-answer-grid/,'OMR answer groups must not be connected');
 assert.match(omrTemplate,/dominant-baseline="middle"/,'Arabic option letters must be vertically centered inside their header capsules');
-assert.match(omrTemplate,/Reference-style option tab: rounded top corners, straight lower edge/,'OMR option headers must use the rounded-top reference tab shape');
-assert.match(omrTemplate,/version:9/,'OMR template version must advance after rounded-top option-tab alignment');
+assert.match(omrTemplate,/Reference-style option tab: clearly domed top, straight lower edge/,'OMR option headers must use the clearly domed reference tab shape');
+assert.match(omrTemplate,/version:10/,'OMR template version must advance after clearly domed option-tab alignment');
 
 assert.match(bubbleSheetClient,/const school='',cls='';/,'only the student name may be dynamically printed in visible identity fields');
 assert.match(bubbleSheetClient,/printed-student-name/,'printed student name must use the reference-aligned name field');
