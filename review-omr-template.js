@@ -26,8 +26,8 @@ function svg(startNo=1,total=60,activeTotal=60){
    const pts=answerPoints(b*L.blockSize,60);
    pts.forEach((p,j)=>{
      {
-     const x=p.x-3.6,y=9.4,w=7.2,h=6.8,r=2.1;
-     // Reference-style option tab: rounded top corners, straight lower edge.
+     const x=p.x-3.6,y=9.25,w=7.2,h=7.0,r=3.15;
+     // Reference-style option tab: clearly domed top, straight lower edge.
      const d='M '+x+' '+(y+h)+' L '+x+' '+(y+r)+' Q '+x+' '+y+' '+(x+r)+' '+y+' L '+(x+w-r)+' '+y+' Q '+(x+w)+' '+y+' '+(x+w)+' '+(y+r)+' L '+(x+w)+' '+(y+h)+' Z';
      s+='<path d="'+d+'" fill="#0c8184"/>';
      s+='<text x="'+p.x+'" y="12.9" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" dy=".12" font-size="3.65" font-weight="700" fill="#fff" font-family="Tahoma,Arial,sans-serif" style="direction:rtl;unicode-bidi:isolate">'+LETTERS[j]+'</text>';
@@ -43,5 +43,5 @@ function svg(startNo=1,total=60,activeTotal=60){
  }
  s+='</svg>';return s;
 }
-window.NafesOmrTemplate={version:9,width:WIDTH,height:HEIGHT,maxQuestions:MAX_QUESTIONS,markers:MARKERS,letters:LETTERS,layout,answerPoints,svg};
+window.NafesOmrTemplate={version:10,width:WIDTH,height:HEIGHT,maxQuestions:MAX_QUESTIONS,markers:MARKERS,letters:LETTERS,layout,answerPoints,svg};
 })();
