@@ -1,27 +1,28 @@
 /* Tamakkun Design System — single visual source of truth */
 :root{
   --tk-font:Tahoma,Arial,sans-serif;
-  --tk-brand-950:#0b1f33;
-  --tk-brand-900:#16324f;
-  --tk-brand-800:#1e4666;
+  /* Cognitive learning palette: calm focus + restrained motivational accents */
+  --tk-brand-950:#0b2a3d;
+  --tk-brand-900:#123b5d;
+  --tk-brand-800:#15516f;
   --tk-brand-700:#0f766e;
-  --tk-brand-600:#0d9488;
-  --tk-brand-500:#14b8a6;
-  --tk-brand-100:#ccfbf1;
-  --tk-brand-50:#f0fdfa;
+  --tk-brand-600:#147a55;
+  --tk-brand-500:#2b8c73;
+  --tk-brand-100:#dcefeb;
+  --tk-brand-50:#f0f8f6;
   --tk-teal-700:#0f766e;
-  --tk-sky-700:#2563eb;
-  --tk-sky-50:#f0f9ff;
-  --tk-gold-500:#d97706;
-  --tk-gold-50:#fffbeb;
-  --tk-danger-700:#b42318;
-  --tk-danger-50:#fff1f2;
-  --tk-ink:#16324f;
-  --tk-text:#1f2937;
-  --tk-muted:#64748b;
-  --tk-line:#dce4ec;
+  --tk-sky-700:#1d5f8a;
+  --tk-sky-50:#eef7fc;
+  --tk-gold-500:#a86600;
+  --tk-gold-50:#fff4d6;
+  --tk-danger-700:#a33a3a;
+  --tk-danger-50:#fdf1f1;
+  --tk-ink:#102a43;
+  --tk-text:#334e68;
+  --tk-muted:#52677a;
+  --tk-line:#d9e3ea;
   --tk-soft:#f8fafc;
-  --tk-page:#f4f7fa;
+  --tk-page:#f6f9fb;
   --tk-white:#fff;
   --tk-radius-xs:10px;
   --tk-radius-sm:14px;
@@ -44,6 +45,12 @@
   --tk-transition:.18s ease;
 }
 html,body,#app{font-family:var(--tk-font)}
+html{color-scheme:light}
+input[type="checkbox"],input[type="radio"]{accent-color:var(--tk-brand-700)}
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{
+  outline:3px solid var(--tk-sky-700)!important;
+  outline-offset:2px!important;
+}
 .tk-surface{background:var(--tk-white);border:1px solid var(--tk-line);border-radius:var(--tk-radius-lg);box-shadow:var(--tk-shadow-sm)}
 .tk-panel{background:var(--tk-white);border:1px solid var(--tk-line);border-radius:var(--tk-radius-lg);padding:var(--tk-space-5)}
 .tk-title{font-size:var(--tk-title-lg);font-weight:900;line-height:1.55;color:var(--tk-ink);margin:0}
