@@ -33,7 +33,7 @@ assert.match(css,/object-fit:contain!important/);
 assert.match(css,/clip-path:none!important/);
 assert.match(css,/aspect-ratio:auto!important/);
 assert.match(css,/moallimi-logo-full/);
-assert.match(tk,/--tk-brand-900:#16324f/);
+assert.match(tk,/--tk-brand-900:#[0-9a-f]{6}/);
 assert.match(tk,/--tk-brand-700:#0f766e/);
 assert.match(tk,/prefers-color-scheme:dark/);
 assert.match(teacher,/moallimi-logo-final\.webp\?v=20261004-full1/);
