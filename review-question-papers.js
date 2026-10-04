@@ -568,6 +568,26 @@ function unusedBottomSpace(page){
  const fr=flow.getBoundingClientRect(),lr=last.getBoundingClientRect();
  return Math.max(0,Math.round(fr.bottom-lr.bottom));
 }
+function avoidableLargeGap(page,threshold=140){
+ const gap=unusedBottomSpace(page);
+ if(gap<=threshold)return false;
+ const booklet=page?.parentElement?.classList.contains('model-booklet')?page.parentElement:null;
+ if(!booklet)return false;
+ const pages=[...booklet.querySelectorAll(':scope > .paper-page')],index=pages.indexOf(page),next=pages[index+1];
+ const flow=page.querySelector('.questions-flow'),nextFlow=next?.querySelector('.questions-flow');
+ const candidate=nextFlow?.firstElementChild;
+ if(!flow||!candidate)return false;
+
+ // قياس مؤقت: هل كان يمكن نقل العنصر التالي كاملًا إلى هذا الفراغ؟
+ // إذا لم يتسع، فالفراغ هندسي مبرر ولا يجوز إيقاف الطباعة بسببه.
+ const marker=document.createComment('gap-probe');
+ nextFlow.insertBefore(marker,candidate);
+ flow.appendChild(candidate);
+ const fits=pageFits(page,0);
+ marker.replaceWith(candidate);
+ void page.offsetHeight;
+ return fits;
+}
 function collectPrintMetrics(){
  const pages=[...document.querySelectorAll('.paper-page')];
  const details=pages.map((page,index)=>{
@@ -583,11 +603,13 @@ function collectPrintMetrics(){
    const isFinalInBooklet=bookletPages.at(-1)===page;
    const unusedBottom=unusedBottomSpace(page);
    const largeGap=!isFinalInBooklet&&unusedBottom>140;
-   return{page:index+1,overflow_y_px:overflowY,overflow_x_px:overflowX,unused_bottom_px:unusedBottom,large_gap:largeGap,hidden_text_nodes:hiddenText,unresolved:page.dataset.layoutUnresolved==='1'};
+   const avoidableGap=largeGap&&avoidableLargeGap(page,140);
+   return{page:index+1,overflow_y_px:overflowY,overflow_x_px:overflowX,unused_bottom_px:unusedBottom,large_gap:largeGap,avoidable_large_gap:avoidableGap,hidden_text_nodes:hiddenText,unresolved:page.dataset.layoutUnresolved==='1'};
  });
  const maxOverflow=Math.max(0,...details.map(x=>Math.max(x.overflow_y_px,x.overflow_x_px)));
- const maxNonFinalGap=Math.max(0,...details.filter(x=>!x.large_gap||x.unused_bottom_px).map(x=>x.unused_bottom_px||0));
- return{at:new Date().toISOString(),pages:pages.length,max_overflow_px:maxOverflow,max_unused_bottom_px:maxNonFinalGap,details};
+ const maxNonFinalGap=Math.max(0,...details.map(x=>x.unused_bottom_px||0));
+ const avoidableGapPages=details.filter(x=>x.avoidable_large_gap).length;
+ return{at:new Date().toISOString(),pages:pages.length,max_overflow_px:maxOverflow,max_unused_bottom_px:maxNonFinalGap,avoidable_gap_pages:avoidableGapPages,details};
 }
 let printInProgress=false;
 function prepareExactPrint(){
@@ -598,11 +620,17 @@ function prepareExactPrint(){
  const metrics=collectPrintMetrics();
  metrics.layout_ms=Math.round(performance.now()-started);
  localStorage.setItem('nafes_question_paper_last_print_metrics',JSON.stringify(metrics));
- const bad=metrics.details.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2||x.hidden_text_nodes>0||x.large_gap);
+ const bad=metrics.details.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2||x.hidden_text_nodes>0||x.avoidable_large_gap);
  if(bad.length){
    document.documentElement.classList.remove('print-preparing');
-   $('screenMeta').textContent='تعذر فتح الطباعة لأن '+ar(bad.length)+' صفحة فيها قص أو فراغ كبير غير مبرر. أُوقف التصدير حتى تستقر الصفحة.';
+   const clipped=bad.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2||x.hidden_text_nodes>0).length;
+   const gaps=bad.filter(x=>x.avoidable_large_gap).length;
+   $('screenMeta').textContent='تعذر فتح الطباعة: '+(clipped?ar(clipped)+' صفحة فيها قص أو محتوى غير مستقر':'')+(clipped&&gaps?'، و':'')+(gaps?ar(gaps)+' صفحة فيها فراغ يمكن تعبئته فعليًا':'')+'. أعد المحاولة بعد اكتمال إعادة توزيع الصفحة.';
    return false;
+ }
+ const structuralGaps=metrics.details.filter(x=>x.large_gap&&!x.avoidable_large_gap).length;
+ if(structuralGaps){
+   $('screenMeta').textContent='تم تجهيز الطباعة. توجد '+ar(structuralGaps)+' مساحة بيضاء مبررة لأن العنصر التالي لا يتسع دون كسر السؤال أو النص.';
  }
  return true;
 }
