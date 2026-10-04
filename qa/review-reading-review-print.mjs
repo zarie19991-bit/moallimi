@@ -74,13 +74,20 @@ try{
     passage_px:px(getComputedStyle(passage).fontSize),stem_px:px(getComputedStyle(stem).fontSize),choices_px:px(getComputedStyle(choices).fontSize),
     overflow:flows.filter(x=>x.scrollHeight>x.clientHeight+2||x.scrollWidth>x.clientWidth+2).length,
     unresolved:pages.filter(x=>x.dataset.layoutUnresolved==='1').length,
-    visible_passages:[...document.querySelectorAll('.passage')].every(x=>getComputedStyle(x).overflow==='visible')
+    visible_passages:[...document.querySelectorAll('.passage')].every(x=>getComputedStyle(x).overflow==='visible'),
+    tail_gaps_px:pages.map((p,i)=>{
+      if(i===pages.length-1)return 0;
+      const f=p.querySelector('.questions-flow'),last=f?.lastElementChild;
+      return f&&last?Math.max(0,f.getBoundingClientRect().bottom-last.getBoundingClientRect().bottom):0;
+    })
    };
  });
  for(const [k,v] of [['passage',printAudit.passage_px],['stem',printAudit.stem_px],['choices',printAudit.choices_px]]){
    if(Math.abs(v-14.6667)>0.8)throw new Error(k+' must be exactly 11pt; px='+v);
  }
  if(printAudit.overflow||printAudit.unresolved||!printAudit.visible_passages)throw new Error('reading print integrity failed '+JSON.stringify(printAudit));
+ const maxReadingTailGap=Math.max(0,...printAudit.tail_gaps_px);
+ if(maxReadingTailGap>140)throw new Error('reading page has excessive blank tail '+maxReadingTailGap+'px');
 
  fs.mkdirSync('qa-output/reading',{recursive:true});
  await page.screenshot({path:'qa-output/reading/reading-review.png',fullPage:true});
