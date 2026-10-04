@@ -177,3 +177,5 @@ review-my-tests.js
 
 # معاينة UX الداخلية للألوان وتسلسل الأسئلة.
 ux-cognitive-preview.html
+
+moallimi-logo-complete-2x.png
