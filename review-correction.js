@@ -37,7 +37,7 @@ let buildPerf={started_at:0,total_ms:0,api_calls:0,candidates:0,pool_groups:0,se
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
  const q=reviewId?'?rid='+encodeURIComponent(reviewId):'';
- const paperQ=reviewId?'?rid='+encodeURIComponent(reviewId)+'&pv=20261004-mixedtitle1':'?pv=20261004-mixedtitle1';
+ const paperQ=reviewId?'?rid='+encodeURIComponent(reviewId)+'&pv=20261004-footersafe1':'?pv=20261004-footersafe1';
  const scan=document.querySelectorAll('a[href^="review-scan.html"]');
  const bubbles=document.querySelectorAll('a[href^="review-bubble-sheets.html"]');
  const papers=document.querySelectorAll('a[href^="review-question-papers.html"]');
