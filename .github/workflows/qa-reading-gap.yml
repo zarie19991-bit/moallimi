@@ -1,0 +1,44 @@
+name: QA reading paper gap and removed heading
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'review-question-papers.js'
+      - 'review-question-papers.css'
+      - 'review-question-papers.html'
+      - 'qa/review-reading-review-print.mjs'
+      - '.github/workflows/qa-reading-gap.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reading-gap-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install lightweight browser client
+        run: npm install --no-save playwright-core@1.55.0
+      - name: Start local site
+        shell: bash
+        run: |
+          nohup python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/qa-reading-http.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4173/review-question-papers.html >/dev/null; then break; fi
+            sleep 1
+          done
+          CHROME_PATH="$(which google-chrome || which chromium || which chromium-browser || true)"
+          test -n "$CHROME_PATH"
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          echo "QA_LOCAL_SITE=http://127.0.0.1:4173/" >> "$GITHUB_ENV"
+      - name: Reading gap and heading QA
+        run: node qa/review-reading-review-print.mjs
+      - name: Upload reading proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reading-paper-gap-proof
+          path: qa-output/reading/
