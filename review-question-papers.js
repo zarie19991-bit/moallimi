@@ -267,10 +267,17 @@ function repairOverflow(booklet){
    let guard=0;
    while(!pageFits(page)&&guard++<80){
      // أولوية الطباعة: وضوح الخط قبل تقليل عدد الصفحات.
-     // إذا كانت الصفحة تحتوي أكثر من مجموعة، انقل آخر مجموعة كاملة أولاً.
+     // في القراءة لا ننقل النص الأخير كاملًا مباشرة؛ نقسمه أولًا
+     // بحيث يبقى النص وما يتسع من أسئلته في الصفحة الحالية.
      if(flow?.children.length>1){
        const next=ensureNextPage(booklet,page),nextFlow=next.querySelector('.questions-flow');
-       nextFlow.prepend(flow.lastElementChild);
+       const last=flow.lastElementChild;
+       if(last?.dataset.subject==='reading'&&last.querySelector(':scope > .passage')){
+         pullPartialReadingGroup(page,next,last);
+         pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+         continue;
+       }
+       nextFlow.prepend(last);
        pages=[...booklet.querySelectorAll(':scope > .paper-page')];
        continue;
      }
