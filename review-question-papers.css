@@ -107,3 +107,26 @@
  .paper-page.compact-page-strong .choices{font-size:11pt!important;line-height:1.24!important;column-gap:3mm!important;row-gap:.15mm!important}
  .paper-page.compact-page-strong .subject-divider{padding:1mm 1.8mm!important;margin:.8mm 0 .7mm!important}
 }
+
+
+/* Sparse-final-page absorber: keep 11pt type, tighten only vertical rhythm. */
+.paper-page.compact-page-tight .exam-frame-head{padding:.7mm 3mm 1mm;gap:3mm}
+.paper-page.compact-page-tight .title-strip{padding:.6mm 1.5mm}
+.paper-page.compact-page-tight .title-strip small{margin-top:.25mm;line-height:1.18}
+.paper-page.compact-page-tight .student-line{padding:.8mm 3mm}
+.paper-page.compact-page-tight .student-line span{height:2.6mm}
+.paper-page.compact-page-tight .page-number{margin:.45mm 2mm .6mm}
+.paper-page.compact-page-tight .passage-group{margin:.65mm 1.5mm .45mm}
+.paper-page.compact-page-tight .passage{font-size:11pt;line-height:1.22;padding:1.25mm 2.1mm;margin-bottom:.45mm}
+.paper-page.compact-page-tight .after-passage{font-size:11pt;margin:0 .7mm .4mm}
+.paper-page.compact-page-tight .question{padding-bottom:.18mm;margin-bottom:.18mm}
+.paper-page.compact-page-tight .stem{font-size:11pt;line-height:1.20;margin-bottom:.12mm}
+.paper-page.compact-page-tight .choices{font-size:11pt;line-height:1.16;column-gap:2.6mm;row-gap:0}
+.paper-page.compact-page-tight .footer{margin-top:.3mm;padding-top:.35mm}
+@media print{
+ .paper-page.compact-page-tight .passage{font-size:11pt!important;line-height:1.22!important;padding:1.25mm 2.1mm!important;margin-bottom:.45mm!important}
+ .paper-page.compact-page-tight .after-passage{font-size:11pt!important;margin:0 .7mm .4mm!important}
+ .paper-page.compact-page-tight .question{padding-bottom:.18mm!important;margin-bottom:.18mm!important}
+ .paper-page.compact-page-tight .stem{font-size:11pt!important;line-height:1.20!important;margin-bottom:.12mm!important}
+ .paper-page.compact-page-tight .choices{font-size:11pt!important;line-height:1.16!important;column-gap:2.6mm!important;row-gap:0!important}
+}
