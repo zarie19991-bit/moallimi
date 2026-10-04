@@ -44,6 +44,11 @@ try{
   await page.waitForSelector('.paper-page',{timeout:30000});
   await page.waitForTimeout(700);
 
+  const redundantUpper=await page.locator('.exam-frame-head .exam-brand').allTextContents();
+  if(redundantUpper.some(x=>/اختبار\s+العلوم\s*\+\s*الرياضيات\s*\+\s*القراءة/.test(x)))throw new Error('redundant upper mixed title still rendered: '+JSON.stringify(redundantUpper));
+  const stripText=await page.locator('.title-strip').first().textContent();
+  if(!/اختبار نافس/.test(stripText||'')||!/المادة:/.test(stripText||''))throw new Error('mixed title strip is incomplete: '+stripText);
+
   const audit=await page.evaluate(()=>{
     const readingGroups=[...document.querySelectorAll('.passage-group[data-subject="reading"]')].filter(g=>g.querySelector(':scope > .passage'));
     const allQuestions=document.querySelectorAll('.question').length;
