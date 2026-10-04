@@ -84,6 +84,13 @@ try{
 
  fs.mkdirSync('qa-output/reading',{recursive:true});
  await page.screenshot({path:'qa-output/reading/reading-review.png',fullPage:true});
+ await page.pdf({
+   path:'qa-output/reading/reading-review-after.pdf',
+   format:'A4',
+   printBackground:true,
+   preferCSSPageSize:true,
+   margin:{top:'0',right:'0',bottom:'0',left:'0'}
+ });
  fs.writeFileSync('qa-output/reading/reading-review-audit.json',JSON.stringify({screenAudit,printAudit},null,2));
  console.log('PASS reading NAFES review integrity QA '+JSON.stringify({screenAudit,printAudit}));
 }finally{await browser.close();}
