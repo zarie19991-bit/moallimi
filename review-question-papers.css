@@ -88,3 +88,22 @@
  .passage,.stem,.choices{font-size:11pt!important}
  .page-inner,.questions-flow,.passage,.stem,.choice span{overflow:visible!important}
 }
+
+
+/* 2026-10-04: gap-control contract.
+   Compact classes reduce vertical rhythm only; printed text remains 11pt. */
+@media print{
+ .paper-page.compact-page .passage{font-size:11pt!important;line-height:1.34!important;padding:2mm 2.6mm!important;margin-bottom:1mm!important}
+ .paper-page.compact-page .after-passage{font-size:11pt!important;margin-bottom:1mm!important}
+ .paper-page.compact-page .question{padding-bottom:.65mm!important;margin-bottom:.65mm!important}
+ .paper-page.compact-page .stem{font-size:11pt!important;line-height:1.32!important;margin-bottom:.45mm!important}
+ .paper-page.compact-page .choices{font-size:11pt!important;line-height:1.28!important;row-gap:.2mm!important}
+ .paper-page.compact-page .subject-divider{padding:1.2mm 2mm!important;margin:1.1mm 0 .9mm!important}
+
+ .paper-page.compact-page-strong .passage{font-size:11pt!important;line-height:1.30!important;padding:1.6mm 2.3mm!important;margin-bottom:.8mm!important}
+ .paper-page.compact-page-strong .after-passage{font-size:11pt!important;margin-bottom:.7mm!important}
+ .paper-page.compact-page-strong .question{padding-bottom:.45mm!important;margin-bottom:.45mm!important}
+ .paper-page.compact-page-strong .stem{font-size:11pt!important;line-height:1.28!important;margin-bottom:.35mm!important}
+ .paper-page.compact-page-strong .choices{font-size:11pt!important;line-height:1.24!important;column-gap:3mm!important;row-gap:.15mm!important}
+ .paper-page.compact-page-strong .subject-divider{padding:1mm 1.8mm!important;margin:.8mm 0 .7mm!important}
+}
