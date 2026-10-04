@@ -37,7 +37,7 @@ let buildPerf={started_at:0,total_ms:0,api_calls:0,candidates:0,pool_groups:0,se
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
  const q=reviewId?'?rid='+encodeURIComponent(reviewId):'';
- const paperQ=reviewId?'?rid='+encodeURIComponent(reviewId)+'&pv=20261003-readingreview12':'?pv=20261003-readingreview12';
+ const paperQ=reviewId?'?rid='+encodeURIComponent(reviewId)+'&pv=20261004-reading4x5':'?pv=20261004-reading4x5';
  const scan=document.querySelectorAll('a[href^="review-scan.html"]');
  const bubbles=document.querySelectorAll('a[href^="review-bubble-sheets.html"]');
  const papers=document.querySelectorAll('a[href^="review-question-papers.html"]');
@@ -57,7 +57,7 @@ function archiveItem(row){
    '<div class="archive-meta"><span>'+esc(subject)+'</span><span>'+esc(cls)+'</span><span>'+esc(formatArchiveTime(row.updated_at||row.created_at))+'</span></div>'+
    '<div class="archive-actions">'+
      '<button type="button" class="open-review" data-open-review="'+esc(row.review_id||'')+'">الإعدادات والتعديل</button>'+
-     '<a href="review-question-papers.html?rid='+rid+'&pv=20261003-readingreview12">أوراق الأسئلة</a>'+
+     '<a href="review-correction.html?rid='+rid+'#previewSection">أوراق الأسئلة</a>'+
      '<a href="review-bubble-sheets.html?rid='+rid+'">ورق التظليل</a>'+
      '<a href="review-scan.html?rid='+rid+'">رفع وتصحيح</a>'+
      '<a href="review-analysis.html?rid='+rid+'">التحليل</a>'+
@@ -78,12 +78,32 @@ async function loadArchive(){
    state.textContent='تعذر تحميل الأرشيف من قاعدة البيانات: '+(e.message||e);
  }
 }
+function readingPaperStructure(payload){
+ const models=Array.isArray(payload?.models)?payload.models:[];
+ let invalid=0,totalReading=0;
+ for(const model of models){
+   const reading=(model?.questions||[]).filter(q=>String(q.subject||String(q.indicator||'').split(':')[0])==='reading');
+   if(!reading.length)continue;
+   totalReading+=reading.length;
+   const groups=new Map();
+   for(const q of reading){
+     const ctx=normalizeContext(q.context||'');
+     if(!ctx){invalid++;continue;}
+     groups.set(ctx,(groups.get(ctx)||0)+1);
+   }
+   const expected=reading.length/5;
+   if(!Number.isInteger(expected)||groups.size!==expected||[...groups.values()].some(n=>n!==5))invalid++;
+ }
+ return{valid:invalid===0,invalid,totalReading};
+}
 function showActivePaperReview(payload){
  const box=$('activePaperReview');if(!box)return;
  if(!payload?.review_id){box.hidden=true;box.innerHTML='';return;}
  const subs=(Array.isArray(payload.subjects)&&payload.subjects.length?payload.subjects:[payload.subject]).filter(Boolean).map(x=>labels[x]||x).join(' + ');
  box.hidden=false;
- box.innerHTML='<b>أنت تعدّل الآن:</b> <span>'+esc(payload.title||'اختبار ورقي')+'</span><small>'+esc(subs||'—')+' · '+ar(payload.question_count||0)+' سؤال · '+ar(payload.model_count||0)+' نماذج</small>';
+ const readingState=readingPaperStructure(payload);
+ box.innerHTML='<b>أنت تعدّل الآن:</b> <span>'+esc(payload.title||'اختبار ورقي')+'</span><small>'+esc(subs||'—')+' · '+ar(payload.question_count||0)+' سؤال · '+ar(payload.model_count||0)+' نماذج</small>'+
+   (!readingState.valid&&readingState.totalReading?'<div class="status error" style="margin-top:10px">هذه النسخة حُفظت قبل قاعدة «٤ نصوص × ٥ أسئلة» للقراءة. اضغط «إنشاء النماذج» ثم «تجهيز التوزيع» مرة واحدة لاستبدال النسخة القديمة قبل الطباعة.</div>':'');
 }
 function resetPaperReview(){
  localStorage.removeItem('nafes_review_correction_draft');
