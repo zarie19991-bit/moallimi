@@ -199,7 +199,7 @@ function renderIndicators(){
      const readingMeta=subject==='reading'&&Number(i.passage_count||0)>0
        ?' · '+ar(i.passage_count)+' نصوص · أعلى سعة للنص '+ar(i.max_questions_per_passage||0)+' سؤالًا'
        :'';
-     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'" data-available="'+Math.max(0,Number(i.available||0))+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا'+readingMeta+'</small></span><input class="indicator-count" type="number" min="0" max="60" value="'+Math.max(0,Number(state.count||0))+'" readonly '+(state.checked?'':'disabled')+' aria-label="الحصة المخصصة تلقائيًا من أصل 60 سؤالًا" title="يحددها النظام تلقائيًا من أصل 60 سؤالًا"></label>';
+     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'" data-available="'+Math.max(0,Number(i.available||0))+'" data-passages5="'+Math.max(0,Number(i.passages_with_5plus||0))+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا'+readingMeta+'</small></span><input class="indicator-count" type="number" min="0" max="60" value="'+Math.max(0,Number(state.count||0))+'" readonly '+(state.checked?'':'disabled')+' aria-label="الحصة المخصصة تلقائيًا من أصل 60 سؤالًا" title="يحددها النظام تلقائيًا من أصل 60 سؤالًا"></label>';
    }).join('');
    return '<section class="indicator-subject-group" data-indicator-subject="'+subject+'"><div class="indicator-subject-title"><b>'+labels[subject]+'</b><span>'+ar(items.length)+' مؤشرًا متاحًا</span></div><div class="indicator-subject-items">'+(rows||'<div class="archive-empty">لا توجد مؤشرات مطابقة للبحث في هذه المادة.</div>')+'</div></section>';
  }).join('');
@@ -212,6 +212,28 @@ function subjectQuestionTargets(){
    return new Map([['reading',20],['math',20],['science',20]]);
  }
  return null;
+}
+function allocateReadingIndicatorRows(rows,target){
+ const blocks=Math.max(0,Math.trunc(Number(target)||0)/5);
+ const entries=rows.map(r=>({
+   row:r,
+   input:r.querySelector('.indicator-count'),
+   passages5:Math.max(0,Math.trunc(Number(r.dataset.passages5)||0)),
+   count:0
+ }));
+ let remainingBlocks=Number.isInteger(blocks)?blocks:0;
+ let index=0,guard=0;
+ while(remainingBlocks>0&&entries.length&&guard++<1000){
+   const e=entries[index%entries.length];
+   const usedBlocks=e.count/5;
+   if(usedBlocks<e.passages5){e.count+=5;remainingBlocks--;}
+   index++;
+   if(index%entries.length===0&&!entries.some(x=>x.count/5<x.passages5))break;
+ }
+ for(const e of entries){
+   if(e.input){e.input.disabled=false;e.input.value=String(e.count);}
+ }
+ return{target,allocated:target-remainingBlocks*5,remaining:remainingBlocks*5,zero_selected:entries.filter(e=>e.count===0).length};
 }
 function allocateIndicatorRows(rows,target){
  const entries=rows.map(r=>({
@@ -257,7 +279,11 @@ function distributeIndicatorCounts(){
  if(targets){
    for(const subject of selectedSubjects()){
      const subjectRows=rows.filter(r=>r.dataset.subject===subject);
-     if(subjectRows.length)allocateIndicatorRows(subjectRows,Number(targets.get(subject)||0));
+     if(subjectRows.length){
+       const quota=Number(targets.get(subject)||0);
+       if(subject==='reading'&&quota%5===0)allocateReadingIndicatorRows(subjectRows,quota);
+       else allocateIndicatorRows(subjectRows,quota);
+     }
    }
  }else{
    allocateIndicatorRows(rows,PAPER_QUESTION_TARGET);
@@ -273,7 +299,8 @@ function updateIndicatorSummary(){
  document.querySelectorAll('.indicator-row').forEach(r=>r.classList.toggle('selected',r.querySelector('.indicator-check')?.checked));
  const total=selected.reduce((n,x)=>n+Number(x.count||0),0);
  const availableTotal=checkedRows.reduce((n,r)=>n+Math.max(0,Number(r.dataset.available)||0),0);
- const zeroSelected=checkedRows.filter(r=>Number(r.querySelector('.indicator-count')?.value||0)===0).length;
+ const zeroSelected=checkedRows.filter(r=>r.dataset.subject!=='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0).length;
+ const readingChecked=checkedRows.filter(r=>r.dataset.subject==='reading').length;
  const bySubject=selectedSubjects().map(subject=>{
    const rows=selected.filter(x=>x.subject===subject),n=rows.reduce((a,x)=>a+Number(x.count||0),0),quota=targets?.get(subject);
    return rows.length?labels[subject]+' '+ar(n)+(quota!=null?' من '+ar(quota):'')+' سؤالًا / '+ar(rows.length)+' مؤشر':''; 
@@ -285,7 +312,8 @@ function updateIndicatorSummary(){
    ' · المتاح في البنك: '+ar(availableTotal)+' سؤالًا'+
    ' · سيُستخدم في الاختبار: '+ar(total)+' من '+ar(target)+
    (bySubject.length?' · '+bySubject.join(' · '):'')+
-   (targets?' · التوزيع المطلوب: القراءة ٢٠ · الرياضيات ٢٠ · العلوم ٢٠':'')+
+   (targets?' · التوزيع المطلوب: القراءة ٢٠ (٤ نصوص × ٥ أسئلة) · الرياضيات ٢٠ · العلوم ٢٠':'')+
+   (targets&&readingChecked>4?' · مؤشرات القراءة المختارة أكثر من ٤؛ ستتدوّر بين النماذج بحيث يبقى كل نموذج ٤ نصوص فقط.':'')+
    (zeroSelected?' · تنبيه: '+ar(zeroSelected)+' مؤشرًا مختارًا لم يحصل على سؤال لأن ٦٠ سؤالًا لا تكفي لتمثيل جميع المؤشرات؛ قلل عدد المؤشرات المختارة.':'')+
    (quotaBad?' · يجب إكمال ٢٠ سؤالًا لكل مادة':'')+
    (!exact&&checkedRows.length&&!zeroSelected?' · يعاد التوزيع تلقائيًا حتى يصبح المجموع ٦٠ سؤالًا بالضبط':'')+
@@ -296,14 +324,47 @@ function getSelectedIndicators(){
  const subjects=new Set(selectedSubjects());
  return [...indicatorState.entries()].filter(([,v])=>v.checked&&subjects.has(v.subject)&&Number(v.count)>0).map(([key,v])=>({key,subject:v.subject,count:Number(v.count)}));
 }
+function checkedIndicatorRows(subject){
+ return [...document.querySelectorAll('.indicator-row')]
+   .filter(r=>r.dataset.subject===subject&&r.querySelector('.indicator-check')?.checked)
+   .map(r=>({
+     key:String(r.dataset.key||''),
+     subject,
+     available:Math.max(0,Number(r.dataset.available)||0),
+     passages5:Math.max(0,Number(r.dataset.passages5)||0)
+   }));
+}
+function readingIndicatorsForModel(letter,total){
+ const all=checkedIndicatorRows('reading').filter(x=>x.passages5>0);
+ const blocks=Math.trunc(Number(total)||0)/5;
+ if(!Number.isInteger(blocks)||blocks<1||!all.length)return[];
+ const modelIndex=Math.max(0,letters.indexOf(letter));
+ const rotated=rotateList(all,modelIndex%all.length);
+ const slotCount=Math.min(blocks,rotated.length);
+ const chosen=rotated.slice(0,slotCount).map(x=>({...x,count:5}));
+ let left=blocks-slotCount,step=0;
+ while(left>0&&chosen.length){
+   const x=chosen[(modelIndex+step)%chosen.length];
+   if(x.count/5<x.passages5){x.count+=5;left--;}
+   step++;
+   if(step>500)break;
+ }
+ if(left>0)return[];
+ return chosen.map(x=>({key:x.key,subject:'reading',count:x.count}));
+}
 function selectedStudents(){
  const ids=new Set([...document.querySelectorAll('.student-check:checked')].map(x=>String(x.dataset.id)));
  return visibleStudents().filter(s=>ids.has(String(s.id)));
 }
 function configForModel(letter){
- const inds=getSelectedIndicators(),subjects=paperOrderedSubjects(selectedSubjects());
+ const inds=getSelectedIndicators(),subjects=paperOrderedSubjects(selectedSubjects()),targets=subjectQuestionTargets();
  const sections=subjects.map(subject=>{
-   const items=inds.filter(x=>x.subject===subject);
+   let items=inds.filter(x=>x.subject===subject);
+   const target=targets?.get(subject);
+   if(subject==='reading'&&Number(target||0)>0){
+     const rotated=readingIndicatorsForModel(letter,Number(target));
+     if(rotated.length)items=rotated;
+   }
    return {subject,question_count:items.reduce((n,x)=>n+x.count,0),duration_minutes:45,calculator:subject==='math',model_no:1,indicators:items.map(x=>({key:x.key,count:x.count}))};
  }).filter(s=>s.question_count>0);
  return {kind:'multi_indicator',paper_review_builder:true,review_passage_mode:subjects.includes('reading'),grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections,count_mode:'per_indicator',cognitive_targets:{knowledge:Number($('knowledge').value||0),application:Number($('application').value||0),reasoning:Number($('reasoning').value||0)},settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
@@ -510,8 +571,10 @@ function validate(){
  if(!inds.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
  for(const subject of subjects)if(!inds.some(x=>x.subject===subject))throw new Error('اختر مؤشرًا واحدًا على الأقل من مادة '+labels[subject]+'.');
  const checkedRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
- const zeroSelected=checkedRows.filter(r=>Number(r.querySelector('.indicator-count')?.value||0)===0);
- if(zeroSelected.length)throw new Error('اخترت مؤشرات أكثر مما يمكن تمثيله داخل ٦٠ سؤالًا. قلل عدد المؤشرات المختارة حتى يحصل كل مؤشر على سؤال واحد على الأقل.');
+ const zeroSelected=checkedRows.filter(r=>r.dataset.subject!=='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0);
+ if(zeroSelected.length)throw new Error('اخترت مؤشرات أكثر مما يمكن تمثيله داخل ٦٠ سؤالًا. قلل عدد مؤشرات الرياضيات أو العلوم المختارة حتى يحصل كل مؤشر على سؤال واحد على الأقل.');
+ const badReading=checkedRows.filter(r=>r.dataset.subject==='reading'&&Number(r.dataset.passages5||0)<1);
+ if(badReading.length)throw new Error('يوجد مؤشر قراءة مختار لا يملك نصًا محكّمًا يحتوي ٥ أسئلة على الأقل. ألغِ هذا المؤشر أو أضف له نصًا مناسبًا قبل بناء الورقة.');
  if(sum!==PAPER_QUESTION_TARGET)throw new Error('مجموع أسئلة المؤشرات يجب أن يساوي ٦٠ سؤالًا بالضبط.');
  const targets=subjectQuestionTargets();
  if(targets){
