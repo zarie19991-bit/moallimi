@@ -55,7 +55,9 @@ try{
      questions_overflow:getComputedStyle(document.querySelector('.questions-flow')).overflow
    };
  },{passages,indicators});
- if(screenAudit.brand!=='مراجعة مؤشرات نافس')throw new Error('old reading exam heading remains: '+screenAudit.brand);
+ if(screenAudit.brand!=='اختبار نافس')throw new Error('sanitized reading heading is wrong: '+screenAudit.brand);
+ const exportedText=await page.locator('.paper-page').allTextContents();
+ if(exportedText.some(x=>/مراجعة مؤشرات نافس/.test(x)))throw new Error('removed review heading leaked into exported paper');
  if(/اختبار القراءة/.test(screenAudit.brand+screenAudit.strip))throw new Error('اختبار القراءة must be removed');
  if(!screenAudit.all_passages||screenAudit.passage_count!==2)throw new Error('reading passage disappeared '+JSON.stringify(screenAudit));
  if(!screenAudit.all_indicators)throw new Error('NAFES indicators are incomplete '+JSON.stringify(screenAudit));
