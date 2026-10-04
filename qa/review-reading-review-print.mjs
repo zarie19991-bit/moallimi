@@ -79,6 +79,22 @@ try{
       if(i===pages.length-1)return 0;
       const f=p.querySelector('.questions-flow'),last=f?.lastElementChild;
       return f&&last?Math.max(0,f.getBoundingClientRect().bottom-last.getBoundingClientRect().bottom):0;
+    }),
+    page_layout:pages.map((p,i)=>{
+      const f=p.querySelector('.questions-flow');
+      return{
+        page:i+1,
+        class_name:p.className,
+        flow_client_height:f?.clientHeight||0,
+        flow_scroll_height:f?.scrollHeight||0,
+        groups:[...p.querySelectorAll('.questions-flow > .passage-group')].map(g=>({
+          subject:g.dataset.subject||'',
+          split:g.dataset.splitReading||'',
+          has_passage:!!g.querySelector(':scope > .passage'),
+          questions:g.querySelectorAll(':scope > .passage-questions > .question').length,
+          height:g.getBoundingClientRect().height
+        }))
+      };
     })
    };
  });
@@ -97,7 +113,8 @@ try{
  fs.writeFileSync('qa-output/reading/reading-review-audit.json',JSON.stringify({screenAudit,printAudit},null,2));
 
  if(printAudit.overflow||printAudit.unresolved||!printAudit.visible_passages)throw new Error('reading print integrity failed '+JSON.stringify(printAudit));
- const maxReadingTailGap=Math.max(0,...printAudit.tail_gaps_px);
+ console.log('READING_LAYOUT_DEBUG '+JSON.stringify(printAudit.page_layout));
+  const maxReadingTailGap=Math.max(0,...printAudit.tail_gaps_px);
  if(maxReadingTailGap>140)throw new Error('reading page has excessive blank tail '+maxReadingTailGap+'px');
  console.log('PASS reading NAFES review integrity QA '+JSON.stringify({screenAudit,printAudit}));
 }finally{await browser.close();}
