@@ -80,3 +80,10 @@ assert.doesNotMatch(css,/@media\(max-width:900px\)\{#pages\{transform-origin:top
 
 assert.doesNotMatch(printClient,/<footer class="footer">/,'printed paper must not render a footer that can overlap the final question');
 assert.match(css,/\.questions-flow\{flex:1;min-height:0;overflow:visible\}/,'question flow must recover the full printable height after footer removal');
+
+const bubbleSheetClient=fs.readFileSync('review-bubble-sheets.js','utf8');
+const omrTemplate=fs.readFileSync('review-omr-template.js','utf8');
+assert.doesNotMatch(bubbleSheetClient,/<img class="sheet-logo"/,'bubble sheet must not print the platform logo');
+assert.match(omrTemplate,/connected-answer-grid/,'OMR answer groups must use one connected outer frame');
+assert.match(omrTemplate,/for\(let b=1;b<blocks;b\+\+\)/,'OMR groups must share vertical dividers with no horizontal gaps');
+assert.match(omrTemplate,/version:6/,'OMR template version must advance after geometry-frame update');
