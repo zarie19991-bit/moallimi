@@ -85,6 +85,7 @@ try{
       return{
         page:i+1,
         class_name:p.className,
+        diagnostics:{fill_visits:p.dataset.fillVisits||'',fill_candidates:p.dataset.fillCandidates||'',partial_attempts:p.dataset.partialAttempts||'',partial_result:p.dataset.partialResult||''},
         flow_client_height:f?.clientHeight||0,
         flow_scroll_height:f?.scrollHeight||0,
         groups:[...p.querySelectorAll('.questions-flow > .passage-group')].map(g=>({
