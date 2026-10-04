@@ -92,3 +92,8 @@ assert.match(omrTemplate,/version:8/,'OMR template version must advance after re
 
 assert.match(bubbleSheetClient,/const school='',cls='';/,'only the student name may be dynamically printed in visible identity fields');
 assert.match(bubbleSheetClient,/printed-student-name/,'printed student name must use the reference-aligned name field');
+
+const bubbleCss=fs.readFileSync('review-bubble-sheets.css','utf8');
+assert.match(bubbleCss,/@media screen and \(max-width:900px\)/,'bubble-sheet responsive scale must be screen-only');
+assert.doesNotMatch(bubbleCss,/@media\(max-width:900px\)\{[\s\S]*transform:scale\(\.7\)/,'bubble-sheet print must never inherit the mobile 70% scale');
+assert.match(bubbleCss,/Bubble-sheet print must never inherit responsive preview scaling/,'bubble-sheet print must explicitly reset transform and zoom');
