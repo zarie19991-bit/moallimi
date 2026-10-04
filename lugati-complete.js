@@ -80,7 +80,7 @@ function getSession(){for(const store of [sessionStorage,localStorage]){try{cons
 async function post(url,body,token=state.token){const h={'Content-Type':'application/json'};if(token)h.Authorization=`Bearer ${token}`;const r=await fetch(url,{method:'POST',headers:h,body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);return d}
 function trackUxEvent(event_name,area='',token=state.token){
  if(!token)return;
- fetch(ADAPT,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({action:'ux_event',event_name,area,variant:'ux_v3',elapsed_ms:Math.round(performance.now()-UX_STARTED_AT)}),cache:'no-store'}).catch(()=>{});
+ fetch(ADAPT,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({action:'ux_event',event_name,area,variant:'ux_v3',elapsed_ms:Math.round(performance.now()-UX_STARTED_AT)}),cache:'no-store',keepalive:true}).catch(()=>{});
 }
 function toast(msg){document.querySelector('.toast')?.remove();const e=document.createElement('div');e.className='toast';e.textContent=msg;document.body.appendChild(e);setTimeout(()=>e.remove(),3200)}
 function shuffle(arr){return [...arr].sort(()=>Math.random()-.5)}
