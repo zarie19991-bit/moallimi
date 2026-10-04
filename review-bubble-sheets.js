@@ -14,7 +14,7 @@ function makeSheet(item,index,d){
  const total=Number(d.question_count||20),sheetNo=Number(item.sheet_no||index+1),nameMode=d.bubble_name_mode==='blank'?'blank':'printed';
  const payload='MR4|'+String(d.review_id||'R')+'|'+String(sheetNo)+'|'+String(item.model||'');
  const name=nameMode==='printed'?esc(item.student_name||''):'';
- const school=esc(d.school_name||''),cls=esc(d.class_name||'');
+ const school='',cls='';
  return '<section class="bubble-sheet" data-qr="'+esc(payload)+'">'+
  '<div class="sheet-title"><span>ورقة التظليل</span></div>'+
  '<div class="brand-row">'+
@@ -23,7 +23,7 @@ function makeSheet(item,index,d){
    '<div class="qr" data-qr-box aria-label="رمز الورقة"></div>'+
  '</div>'+
  '<div class="exam-pill"><b>الاختبارات الوطنية</b><span>الصف الثالث متوسط</span></div>'+
- '<div class="student-name"><b>الاسم الرباعي</b><span>'+name+'</span></div>'+
+ '<div class="student-name"><b>الاسم الرباعي</b><span class="printed-student-name">'+name+'</span></div>'+
  '<div class="info-grid">'+
    digitPanel('رقم السجل المدني / رقم الإقامة',10,'identity-number')+
    digitPanel('رمز المدرسة',6,'school-code')+
