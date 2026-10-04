@@ -58,6 +58,7 @@ const buttonAudit=await page.evaluate(()=>({
   disabled:document.getElementById('printBtn')?.disabled===true
 }));
 if(buttonAudit.calls!==1)throw new Error('print button did not call window.print exactly once: '+JSON.stringify(buttonAudit));
+if(buttonAudit.stale_unresolved)throw new Error('stale unresolved marker should be cleared before print');
 if(buttonAudit.stale_unresolved)throw new Error('stale unresolved flag still blocks print');
 await page.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
 
@@ -120,3 +121,7 @@ await page.screenshot({path:'qa-output/question-paper-print.png',fullPage:true})
 fs.writeFileSync('qa-output/question-paper-audit.json',JSON.stringify(audit,null,2));
 console.log('PASS question paper A4 browser QA',JSON.stringify(audit));
 await browser.close();
+
+const source=fs.readFileSync('review-question-papers.js','utf8');
+if(/hardErrors=metrics\.details\.filter\(x=>x\.unresolved/.test(source))throw new Error('soft unresolved warning must not block native print');
+if(!/overflow_y_px>6\|\|x\.overflow_x_px>6\|\|x\.hidden_text_nodes>0/.test(source))throw new Error('print guard must block only measurable clipping/hidden text');
