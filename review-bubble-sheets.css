@@ -63,7 +63,7 @@ body{background:#e8edef;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
  .paper{margin:0;box-shadow:none}
  @page{size:A4 portrait;margin:0}
 }
-@media(max-width:900px){
+@media screen and (max-width:900px){
  #pages{transform-origin:top right;transform:scale(.7);width:210mm}
  .screen-bar{position:relative;flex-wrap:wrap}
  .screen-actions{width:100%;justify-content:center}
@@ -76,4 +76,13 @@ body{background:#e8edef;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
 @media print{
  .printed-student-name{font-size:9.5pt!important}
  .omr-wrap{padding-inline:2.4mm!important}
+}
+
+/* Bubble-sheet print must never inherit responsive preview scaling. */
+@media print{
+ html,body,#pages,.paper,.bubble-sheet{
+   transform:none!important;
+   scale:none!important;
+   zoom:1!important;
+ }
 }
