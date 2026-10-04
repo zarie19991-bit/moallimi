@@ -472,8 +472,40 @@ function fillAvailableSpace(booklet){
 function resetFitState(booklet){
  [...booklet.querySelectorAll(':scope > .paper-page')].forEach(page=>{
    page.removeAttribute('data-layout-unresolved');
-   page.classList.remove('compact-page','compact-page-strong');
+   page.classList.remove('compact-page','compact-page-strong','compact-page-tight');
  });
+}
+function absorbSparseFinalContinuation(booklet){
+ const pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+ if(pages.length<2)return false;
+ const prev=pages.at(-2),last=pages.at(-1);
+ const lastFlow=last.querySelector('.questions-flow');
+ const groups=[...lastFlow.querySelectorAll(':scope > .passage-group')];
+ if(groups.length!==1)return false;
+ const source=groups[0];
+ if(source.querySelector(':scope > .passage'))return false;
+ const sourceWrap=source.querySelector(':scope > .passage-questions');
+ const questions=[...sourceWrap?.children||[]];
+ if(!questions.length||questions.length>2)return false;
+
+ const prevFlow=prev.querySelector('.questions-flow');
+ const target=[...prevFlow.querySelectorAll(':scope > .passage-group')].at(-1);
+ const targetWrap=target?.querySelector(':scope > .passage-questions');
+ if(!target||!targetWrap||String(target.dataset.subject||'')!==String(source.dataset.subject||''))return false;
+
+ prev.classList.add('compact-page','compact-page-strong','compact-page-tight');
+ questions.forEach(q=>targetWrap.appendChild(q));
+ void prev.offsetHeight;
+ if(pageFits(prev,0)){
+   source.remove();
+   if(!lastFlow.children.length)last.remove();
+   return true;
+ }
+
+ questions.forEach(q=>sourceWrap.appendChild(q));
+ prev.classList.remove('compact-page-tight');
+ void prev.offsetHeight;
+ return false;
 }
 function fitBooklet(booklet){
  const first=booklet.querySelector(':scope > .paper-page');
@@ -489,6 +521,8 @@ function fitBooklet(booklet){
    repairOverflow(booklet);
    removeEmptyPages(booklet);
  }
+ absorbSparseFinalContinuation(booklet);
+ removeEmptyPages(booklet);
  renumberBooklet(booklet);
 }
 function fitAllRenderedPages(){
