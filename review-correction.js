@@ -37,13 +37,14 @@ let buildPerf={started_at:0,total_ms:0,api_calls:0,candidates:0,pool_groups:0,se
 function setStatus(msg,type){const el=$('status');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setReviewLinks(reviewId){
  const q=reviewId?'?rid='+encodeURIComponent(reviewId):'';
+ const bubbleQ=reviewId?'?rid='+encodeURIComponent(reviewId)+'&bv=20261004-optiontabs2':'?bv=20261004-optiontabs2';
  const paperQ=reviewId?'?rid='+encodeURIComponent(reviewId)+'&pv=20261004-printbutton1':'?pv=20261004-printbutton1';
  const scan=document.querySelectorAll('a[href^="review-scan.html"]');
  const bubbles=document.querySelectorAll('a[href^="review-bubble-sheets.html"]');
  const papers=document.querySelectorAll('a[href^="review-question-papers.html"]');
  const analysis=document.querySelectorAll('a[href^="review-analysis.html"]');
  const reports=document.querySelectorAll('a[href^="review-report.html"]');
- scan.forEach(a=>a.href='review-scan.html'+q);bubbles.forEach(a=>a.href='review-bubble-sheets.html'+q);papers.forEach(a=>a.href='review-question-papers.html'+paperQ);analysis.forEach(a=>a.href='review-analysis.html'+q);reports.forEach(a=>a.href='review-report.html'+q);
+ scan.forEach(a=>a.href='review-scan.html'+q);bubbles.forEach(a=>a.href='review-bubble-sheets.html'+bubbleQ);papers.forEach(a=>a.href='review-question-papers.html'+paperQ);analysis.forEach(a=>a.href='review-analysis.html'+q);reports.forEach(a=>a.href='review-report.html'+q);
 }
 function formatArchiveTime(v){
  if(!v)return'';
@@ -58,7 +59,7 @@ function archiveItem(row){
    '<div class="archive-actions">'+
      '<button type="button" class="open-review" data-open-review="'+esc(row.review_id||'')+'">الإعدادات والتعديل</button>'+
      '<a href="review-correction.html?rid='+rid+'#previewSection">أوراق الأسئلة</a>'+
-     '<a href="review-bubble-sheets.html?rid='+rid+'">ورق التظليل</a>'+
+     '<a href="review-bubble-sheets.html?rid='+rid+'&bv=20261004-optiontabs2">ورق التظليل</a>'+
      '<a href="review-scan.html?rid='+rid+'">رفع وتصحيح</a>'+
      '<a href="review-analysis.html?rid='+rid+'">التحليل</a>'+
      '<a href="review-report.html?rid='+rid+'">التقرير</a>'+
