@@ -53,6 +53,15 @@ export function normalizeConfig(raw:unknown):Row {
  const totalQuestionCount=sections.reduce((sum,x)=>sum+Number(x.question_count||0),0);
  const paperReviewBuilder=v.paper_review_builder===true;
  if(paperReviewBuilder&&totalQuestionCount!==60)fail('الاختبار الورقي يجب أن يتكون من ٦٠ سؤالًا بالضبط.');
+ if(paperReviewBuilder&&v.review_passage_mode===true){
+   const reading=sections.find(x=>x.subject==='reading');
+   if(reading){
+     if(reading.question_count%5!==0)fail('قسم القراءة الورقي يجب أن يكون مجموع أسئلته من مضاعفات ٥.');
+     if(reading.indicators.some((i:Row)=>Number(i.count)%5!==0))fail('كل مؤشر قراءة داخل النموذج الورقي يجب أن يسهم في كتل من ٥ أسئلة حتى يبقى كل نص مع خمسة أسئلة.');
+     const passageBlocks=reading.indicators.reduce((n:number,i:Row)=>n+Number(i.count||0)/5,0);
+     if(passageBlocks!==reading.question_count/5)fail('توزيع القراءة غير صالح للطباعة؛ يجب أن يساوي عدد كتل النصوص عدد الأسئلة ÷ ٥.');
+   }
+ }
  if(kind!=='simulation'&&(totalQuestionCount<10||totalQuestionCount>60))fail('عدد أسئلة الاختبار الكلي يجب أن يكون من ١٠ إلى ٦٠ سؤالًا.');
  if(!sections.length||sections.length>3)fail('اختر مادة واحدة على الأقل.');
  const num=sections.reduce((s,x)=>s+x.indicators.length,0);
