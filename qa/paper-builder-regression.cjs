@@ -85,6 +85,10 @@ const bubbleSheetClient=fs.readFileSync('review-bubble-sheets.js','utf8');
 const omrTemplate=fs.readFileSync('review-omr-template.js','utf8');
 assert.doesNotMatch(bubbleSheetClient,/<img class="sheet-logo"/,'bubble sheet must not print the platform logo');
 assert.match(omrTemplate,/separated-answer-groups/,'OMR answer groups must remain separate boxes');
-assert.match(omrTemplate,/blockLeftOffset:38,blockGap:2/,'OMR answer groups must keep a fixed visual gap without moving bubble coordinates');
+assert.match(omrTemplate,/optionOffsets:\[7\.5,15\.5,23\.5,31\.5\],blockLeftOffset:34\.5,blockGap:5\.5/,'OMR answer groups must match the reference spacing and internal option rhythm');
 assert.doesNotMatch(omrTemplate,/connected-answer-grid/,'OMR answer groups must not be connected');
-assert.match(omrTemplate,/version:7/,'OMR template version must advance after separated-group geometry update');
+assert.match(omrTemplate,/dominant-baseline="middle"/,'Arabic option letters must be vertically centered inside their header capsules');
+assert.match(omrTemplate,/version:8/,'OMR template version must advance after reference-layout alignment');
+
+assert.match(bubbleSheetClient,/const school='',cls='';/,'only the student name may be dynamically printed in visible identity fields');
+assert.match(bubbleSheetClient,/printed-student-name/,'printed student name must use the reference-aligned name field');
