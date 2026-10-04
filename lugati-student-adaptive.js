@@ -5,6 +5,7 @@ const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1';
 const AUTH=`${API}/lugati-auth`;
 const PLAN=`${API}/lugati-adaptive-plan`;
 const KEY='lugati_exact_session_v2';
+const UX_STARTED_AT=performance.now();
 
 const S={token:null,profile:null,tab:'journeys',teacherTasks:[],taskLoading:false,activeTask:null,taskAnswers:{},pulseReady:false};
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -23,6 +24,16 @@ async function planPost(action,extra={}){
  const d=await r.json().catch(()=>({}));
  if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);
  return d;
+}
+function trackUx(event_name,area=''){
+ if(!S.token)return;
+ planPost('ux_event',{event_name,area,variant:'ux_v3',elapsed_ms:Math.round(performance.now()-UX_STARTED_AT)}).catch(()=>{});
+}
+function goStudentTab(id){
+ if(!['journeys','remedial','growth','competition'].includes(String(id)))return;
+ const changed=S.tab!==id;S.tab=id;
+ if(changed)trackUx('student_section_open',id);
+ renderView();
 }
 function nav(){return[
  ['journeys','الرحلات','map','sky'],
@@ -78,7 +89,7 @@ function renderNav(){
  const d=document.getElementById('snav'),m=document.getElementById('mnav'),items=nav();
  if(d)d.innerHTML=items.map(([id,l,ic])=>`<button data-tab="${id}" aria-current="${S.tab===id?'page':'false'}" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-right transition ${navTone(id,S.tab===id)}">${icon(ic)}<span class="text-xs">${l}</span></button>`).join('');
  if(m)m.innerHTML=items.map(([id,l,ic])=>`<button data-tab="${id}" aria-current="${S.tab===id?'page':'false'}" class="flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-xl transition ${navTone(id,S.tab===id)}">${icon(ic,'w-5 h-5')}<span class="text-[8px] sm:text-[9px] font-black leading-tight text-center">${l}</span></button>`).join('');
- document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;renderNav();renderView()});
+ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>goStudentTab(b.dataset.tab));
 }
 function wireShell(){
  document.getElementById('logout').onclick=async()=>{try{await post({action:'logout'})}catch{}sessionStorage.removeItem(KEY);localStorage.removeItem(KEY);location.replace('./lugati-complete.html')};
@@ -214,7 +225,7 @@ function renderStudentPulse(){
     return '<article class="txv3-subject-card"><div class="txv3-subject-head"><span>'+ic+'</span><div><b>'+l+'</b><small>'+Number(done).toLocaleString('ar-SA')+' من '+Number(total).toLocaleString('ar-SA')+' مهام</small></div></div><div class="txv3-subject-progress"><i style="width:'+rate+'%"></i></div><strong>'+rate.toLocaleString('ar-SA')+'٪</strong></article>';
   }).join('');
  }
- document.querySelectorAll('[data-next-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.nextTab;renderView()});
+ document.querySelectorAll('[data-next-tab]').forEach(b=>b.onclick=()=>goStudentTab(b.dataset.nextTab));
  S.pulseReady=true;
 }
 function showStudentOnboarding(){
@@ -229,7 +240,7 @@ function showStudentOnboarding(){
  let i=0;
  const o=document.createElement('section');o.id='studentOnboarding';o.className='txv3-onboard';o.dir='rtl';
  const paint=()=>{const x=steps[i];o.innerHTML='<div class="txv3-onboard-card" role="dialog" aria-modal="true" aria-labelledby="txv3OnboardTitle"><div class="txv3-onboard-top"><span>تعرف على تمكّن في أقل من دقيقة</span><button type="button" data-ob-skip aria-label="تخطي الإرشاد">تخطي</button></div><div class="txv3-onboard-icon">'+x.icon+'</div><h2 id="txv3OnboardTitle">'+x.title+'</h2><p>'+x.text+'</p><div class="txv3-onboard-dots">'+steps.map((_,n)=>'<i class="'+(n===i?'active':'')+'"></i>').join('')+'</div><button type="button" class="txv3-onboard-next" data-ob-next>'+(i===steps.length-1?'ابدأ مساري':'التالي')+'</button></div>';o.querySelector('[data-ob-skip]').onclick=finish;o.querySelector('[data-ob-next]').onclick=()=>{if(i<steps.length-1){i++;paint()}else finish()}};
- const finish=()=>{try{localStorage.setItem(key,'1')}catch{}o.remove()};
+ const finish=()=>{try{localStorage.setItem(key,'1')}catch{}trackUx('student_onboarding_complete','onboarding');o.remove()};
  document.body.appendChild(o);paint();
 }
 function journeys(){
@@ -353,7 +364,7 @@ function renderTeacherTasks(){
  }
 }
 async function openTeacherTask(id){
- try{const d=await planPost('start_teacher_task',{task_id:id});S.activeTask={...d.task,questions:d.questions||[]};S.taskAnswers={};renderTeacherTaskModal()}catch(e){alert(e.message)}
+ try{const d=await planPost('start_teacher_task',{task_id:id});S.activeTask={...d.task,questions:d.questions||[]};S.taskAnswers={};trackUx('student_task_start',String(d.task?.tier||'task'));renderTeacherTaskModal()}catch(e){alert(e.message)}
 }
 function closeTeacherTask(){document.getElementById('teacherTaskModal')?.remove();S.activeTask=null;S.taskAnswers={}}
 function renderTeacherTaskModal(){
@@ -368,6 +379,7 @@ async function submitTeacherTask(){
  const t=S.activeTask;if(!t)return;const btn=document.getElementById('submitTeacherTask');if(btn){btn.disabled=true;btn.textContent='جارٍ التصحيح…'}
  try{
   const d=await planPost('submit_teacher_task',{task_id:t.id,answers:S.taskAnswers});
+  trackUx('student_task_complete',String(t.tier||'task'));
   const pct=Number(d.percent||0),src=t.source_percent==null?null:Number(t.source_percent),improved=src!=null&&pct>src;
   const type=improved?'improvement':pct>=90?'mastery':pct>=70?'remedial_complete':'near_mastery';
   const ctx=improved?{from:Math.round(src),to:Math.round(pct)}:{};
@@ -405,8 +417,8 @@ function renderView(){
  if(S.tab==='competition'&&window.LugatiCompetition?.mount)window.LugatiCompetition.mount({token:S.token,role:'student',profile:S.profile});
  if(S.tab==='journeys')renderStudentPulse();
  if(S.tab==='remedial'||S.tab==='growth')loadTeacherTasks();
- document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;renderView()});
- document.querySelectorAll('[data-open-journey]').forEach(b=>b.onclick=()=>{if(window.LugatiJourney?.openCurrent)window.LugatiJourney.openCurrent();else if(window.LugatiJourney?.openMap)window.LugatiJourney.openMap('reading');else alert('تعذر فتح رحلة المؤشر الآن. حدّث الصفحة وحاول مرة أخرى.');});
+ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>goStudentTab(b.dataset.tab));
+ document.querySelectorAll('[data-open-journey]').forEach(b=>b.onclick=()=>{trackUx('student_journey_open','journeys');if(window.LugatiJourney?.openCurrent)window.LugatiJourney.openCurrent();else if(window.LugatiJourney?.openMap)window.LugatiJourney.openMap('reading');else alert('تعذر فتح رحلة المؤشر الآن. حدّث الصفحة وحاول مرة أخرى.');});
  icons();
  window.dispatchEvent(new CustomEvent('lugati:student-view-rendered',{detail:{tab:S.tab}}));
 }
@@ -419,6 +431,8 @@ async function init(){
    if(v.role!=='student')throw new Error('هذه الصفحة للطلاب فقط.');
    S.profile=v.profile||S.profile;
    shell();
+   trackUx('student_workspace_view','journeys');
+   trackUx('student_section_open','journeys');
    loadTeacherTasks();
    setTimeout(showStudentOnboarding,260);
  }catch(e){
