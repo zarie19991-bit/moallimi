@@ -1,27 +1,27 @@
 /* Tamakkun Design System — single visual source of truth */
 :root{
   --tk-font:Tahoma,Arial,sans-serif;
-  --tk-brand-950:#022c22;
-  --tk-brand-900:#064e3b;
-  --tk-brand-800:#065f46;
-  --tk-brand-700:#047857;
-  --tk-brand-600:#059669;
-  --tk-brand-500:#10b981;
-  --tk-brand-100:#d1fae5;
-  --tk-brand-50:#ecfdf5;
+  --tk-brand-950:#0b1f33;
+  --tk-brand-900:#16324f;
+  --tk-brand-800:#1e4666;
+  --tk-brand-700:#0f766e;
+  --tk-brand-600:#0d9488;
+  --tk-brand-500:#14b8a6;
+  --tk-brand-100:#ccfbf1;
+  --tk-brand-50:#f0fdfa;
   --tk-teal-700:#0f766e;
-  --tk-sky-700:#0369a1;
+  --tk-sky-700:#2563eb;
   --tk-sky-50:#f0f9ff;
-  --tk-gold-500:#f59e0b;
+  --tk-gold-500:#d97706;
   --tk-gold-50:#fffbeb;
-  --tk-danger-700:#be123c;
+  --tk-danger-700:#b42318;
   --tk-danger-50:#fff1f2;
-  --tk-ink:#0f172a;
-  --tk-text:#334155;
+  --tk-ink:#16324f;
+  --tk-text:#1f2937;
   --tk-muted:#64748b;
-  --tk-line:#e2e8f0;
+  --tk-line:#dce4ec;
   --tk-soft:#f8fafc;
-  --tk-page:#f1f5f9;
+  --tk-page:#f4f7fa;
   --tk-white:#fff;
   --tk-radius-xs:10px;
   --tk-radius-sm:14px;
@@ -277,4 +277,35 @@ html,body,#app{font-family:var(--tk-font)}
  #lugatiCompetitionMount .comp-powerup small{font-size:8px}
  #lugatiCompetitionMount .comp-boss-rules{grid-template-columns:1fr}
  #lugatiCompetitionMount .comp-next-mission{align-items:stretch;flex-direction:column}
+}
+
+/* Visual System v2 dark tokens */
+@media (prefers-color-scheme:dark){
+  :root{
+    --tk-brand-950:#07111d;
+    --tk-brand-900:#0b1f33;
+    --tk-brand-800:#123e55;
+    --tk-brand-700:#2dd4bf;
+    --tk-brand-600:#2dd4bf;
+    --tk-brand-500:#5eead4;
+    --tk-brand-100:#143c3c;
+    --tk-brand-50:#102a2c;
+    --tk-teal-700:#2dd4bf;
+    --tk-sky-700:#60a5fa;
+    --tk-sky-50:#101d30;
+    --tk-gold-500:#fbbf24;
+    --tk-gold-50:#251f11;
+    --tk-danger-700:#fb7185;
+    --tk-danger-50:#35151c;
+    --tk-ink:#e8eef5;
+    --tk-text:#d7e0ea;
+    --tk-muted:#a8b3c3;
+    --tk-line:#2a3547;
+    --tk-soft:#172033;
+    --tk-page:#0b1220;
+    --tk-white:#111827;
+    --tk-shadow-sm:0 2px 8px rgba(0,0,0,.20);
+    --tk-shadow-md:0 14px 36px rgba(0,0,0,.28);
+    --tk-shadow-lg:0 24px 64px rgba(0,0,0,.36);
+  }
 }

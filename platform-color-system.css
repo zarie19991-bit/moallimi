@@ -1,0 +1,187 @@
+/* Platform Visual System v2 — calm focus, restrained motivation, full-logo rendering */
+:root{
+  color-scheme:light dark;
+  --pv-navy-950:#0b1f33;
+  --pv-navy-900:#16324f;
+  --pv-navy-800:#1e4666;
+  --pv-blue-600:#2563eb;
+  --pv-teal-700:#0f766e;
+  --pv-teal-600:#0d9488;
+  --pv-teal-100:#ccfbf1;
+  --pv-teal-50:#f0fdfa;
+  --pv-success-700:#15803d;
+  --pv-success-50:#f0fdf4;
+  --pv-amber-700:#b45309;
+  --pv-amber-600:#d97706;
+  --pv-amber-100:#fef3c7;
+  --pv-amber-50:#fffbeb;
+  --pv-danger-700:#b42318;
+  --pv-danger-50:#fff1f2;
+  --pv-page:#f4f7fa;
+  --pv-surface:#ffffff;
+  --pv-surface-soft:#f8fafc;
+  --pv-surface-blue:#f1f5f9;
+  --pv-text:#1f2937;
+  --pv-heading:#16324f;
+  --pv-muted:#64748b;
+  --pv-line:#dce4ec;
+  --pv-shadow-sm:0 3px 14px rgba(22,50,79,.06);
+  --pv-shadow-md:0 14px 34px rgba(22,50,79,.10);
+  --pv-focus:#2563eb;
+  --pv-hero:linear-gradient(135deg,#16324f 0%,#155e75 52%,#0f766e 100%);
+  --pv-motivation:#d97706;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --pv-page:#0b1220;
+    --pv-surface:#111827;
+    --pv-surface-soft:#172033;
+    --pv-surface-blue:#111d2f;
+    --pv-text:#e8eef5;
+    --pv-heading:#f1f5f9;
+    --pv-muted:#a8b3c3;
+    --pv-line:#2a3547;
+    --pv-teal-700:#2dd4bf;
+    --pv-teal-600:#2dd4bf;
+    --pv-teal-100:#143c3c;
+    --pv-teal-50:#102a2c;
+    --pv-success-700:#4ade80;
+    --pv-success-50:#10281d;
+    --pv-amber-700:#fbbf24;
+    --pv-amber-600:#fbbf24;
+    --pv-amber-100:#443416;
+    --pv-amber-50:#251f11;
+    --pv-danger-700:#fb7185;
+    --pv-danger-50:#35151c;
+    --pv-focus:#60a5fa;
+    --pv-hero:linear-gradient(135deg,#0b1f33 0%,#123e55 52%,#0f5f5b 100%);
+    --pv-shadow-sm:0 3px 14px rgba(0,0,0,.20);
+    --pv-shadow-md:0 16px 38px rgba(0,0,0,.28);
+  }
+}
+
+/* Core surfaces */
+html,body{background:var(--pv-page);color:var(--pv-text)}
+body,.main-shell,.main-content{transition:background-color .18s ease,color .18s ease}
+html body.bg-slate-100,
+html body.page-dashboard,
+html body.page-teacher,
+html body.page-analysis{background:var(--pv-page)!important;color:var(--pv-text)!important}
+html .bg-white,
+html .tk-surface,
+html .tk-panel{background-color:var(--pv-surface)!important}
+html .bg-slate-50{background-color:var(--pv-surface-soft)!important}
+html .bg-slate-100{background-color:var(--pv-surface-blue)!important}
+html .text-slate-900,html .text-slate-800{color:var(--pv-heading)!important}
+html .text-slate-700,html .text-slate-600{color:var(--pv-text)!important}
+html .text-slate-500,html .text-slate-400{color:var(--pv-muted)!important}
+html .border-slate-100,html .border-slate-200,html .border-slate-300{border-color:var(--pv-line)!important}
+
+/* Structural identity: navy for orientation, teal for actions/progress */
+html .bg-emerald-700,html .bg-teal-700{background-color:#0f766e!important}
+html .hover\:bg-emerald-800:hover,html .bg-emerald-800{background-color:#115e59!important}
+html .text-emerald-700,html .text-teal-700{color:#0f766e!important}
+html .bg-emerald-50,html .bg-teal-50{background-color:#f0fdfa!important}
+html .border-emerald-200,html .border-teal-200{border-color:#99f6e4!important}
+html .from-emerald-800{--tw-gradient-from:#16324f!important;--tw-gradient-to:rgba(22,50,79,0)!important}
+html .via-emerald-700{--tw-gradient-stops:var(--tw-gradient-from),#155e75,var(--tw-gradient-to)!important}
+html .to-teal-800{--tw-gradient-to:#0f766e!important}
+html .from-emerald-900{--tw-gradient-from:#16324f!important;--tw-gradient-to:rgba(22,50,79,0)!important}
+html .via-emerald-800{--tw-gradient-stops:var(--tw-gradient-from),#155e75,var(--tw-gradient-to)!important}
+
+/* Semantic states: never rely on color alone */
+html .bg-rose-50{background-color:var(--pv-danger-50)!important}
+html .text-rose-700,html .text-rose-800{color:var(--pv-danger-700)!important}
+html .bg-amber-50{background-color:var(--pv-amber-50)!important}
+html .text-amber-700,html .text-amber-800{color:var(--pv-amber-700)!important}
+html .bg-emerald-100{background-color:var(--pv-teal-100)!important}
+html .text-emerald-800{color:#115e59!important}
+
+/* Calm reading surfaces */
+html .tk-hero{background:var(--pv-hero)!important;box-shadow:var(--pv-shadow-md)!important}
+html .tk-title{color:var(--pv-heading)!important}
+html .tk-subtitle{color:var(--pv-muted)!important}
+html .tk-btn-primary{background:#0f766e!important;box-shadow:0 8px 20px rgba(15,118,110,.14)!important}
+html .tk-btn-primary:hover{background:#115e59!important}
+html .tk-progress>span{background:linear-gradient(90deg,#0f766e,#2563eb)!important}
+
+/* Focus visibility */
+html :where(a,button,input,select,textarea,[tabindex]):focus-visible{
+  outline:3px solid var(--pv-focus)!important;
+  outline-offset:3px!important;
+}
+
+/* Complete logo rendering — no crop, no squeeze */
+.moallimi-logo-full,
+.platform-brand img,
+.moallimi-screen-brand img,
+.brand img[src*="logo"],
+.account-brand img[src*="logo"],
+.exam-top img[src*="logo"]{
+  object-fit:contain!important;
+  object-position:center!important;
+  width:auto;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:none!important;
+  aspect-ratio:auto!important;
+  clip-path:none!important;
+  transform:none;
+}
+.platform-brand,.brand,.account-brand,.exam-top .brand,.moallimi-screen-brand{overflow:visible!important}
+.moallimi-logo-full{width:min(210px,100%)!important}
+.side .brand .moallimi-logo-full{width:min(220px,100%)!important}
+.top .brand .moallimi-logo-full,.exam-top .brand .moallimi-logo-full,.account-brand .moallimi-logo-full{width:min(170px,100%)!important}
+
+/* Main Moallimi dashboard harmonization */
+body.page-dashboard{
+  --ink:var(--pv-heading)!important;
+  --teal:#0f766e!important;
+  --teal2:#115e59!important;
+  --paper:var(--pv-page)!important;
+  --muted:var(--pv-muted)!important;
+  --line:var(--pv-line)!important;
+  background:var(--pv-page)!important;
+  color:var(--pv-text)!important;
+}
+body.page-dashboard .side,
+body.page-dashboard .stat,
+body.page-dashboard .subject,
+body.page-dashboard .panel,
+body.page-dashboard .topbar{background-color:var(--pv-surface)!important;border-color:var(--pv-line)!important}
+body.page-dashboard .hero{background:var(--pv-hero)!important;box-shadow:var(--pv-shadow-md)!important}
+body.page-dashboard .nav-item.active{background:#e8f7f4!important;color:#0f766e!important}
+body.page-dashboard .nav-item:hover{background:#f0f7f7!important;color:#0f766e!important}
+
+/* Dark mode specifics for utility-heavy Tamakkun views */
+@media (prefers-color-scheme:dark){
+  html .bg-white{background-color:var(--pv-surface)!important}
+  html .bg-slate-50,html .bg-slate-100{background-color:var(--pv-surface-soft)!important}
+  html .shadow-sm,html .shadow-xl,html .shadow-2xl{box-shadow:var(--pv-shadow-sm)!important}
+  html .text-emerald-700,html .text-teal-700{color:#2dd4bf!important}
+  html .bg-emerald-700,html .bg-teal-700{background-color:#0f766e!important}
+  html .bg-emerald-50,html .bg-teal-50{background-color:#102a2c!important}
+  html .border-emerald-200,html .border-teal-200{border-color:#245e5b!important}
+  html .text-emerald-800{color:#5eead4!important}
+  html .bg-emerald-100{background-color:#143c3c!important}
+  html .text-sky-700,html .text-blue-700{color:#60a5fa!important}
+  html .bg-sky-50,html .bg-blue-50{background-color:#101d30!important}
+  html .border-sky-200,html .border-blue-200{border-color:#274568!important}
+  body.page-dashboard .side,body.page-dashboard .topbar{background:var(--pv-surface)!important}
+  body.page-dashboard .nav-item.active{background:#123532!important;color:#5eead4!important}
+  body.page-dashboard .nav-item:hover{background:#16283a!important;color:#5eead4!important}
+}
+
+/* Avoid visual fatigue from decorative motion */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+@media(max-width:700px){
+  .moallimi-logo-full{width:min(168px,100%)!important}
+  .side .brand .moallimi-logo-full{width:min(180px,100%)!important}
+}
+@media print{
+  html,body{background:#fff!important;color:#111827!important}
+  .moallimi-logo-full,.platform-brand img,.brand img[src*="logo"]{object-fit:contain!important;max-width:100%!important;height:auto!important;filter:none!important}
+}
