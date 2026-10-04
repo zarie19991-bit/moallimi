@@ -5,7 +5,7 @@ const WIDTH=180,HEIGHT=112,MAX_QUESTIONS=60;
 const MARKERS={tl:[4,4],tr:[176,4],bl:[4,108],br:[176,108],size:3};
 const LETTERS=['أ','ب','ج','د'];
 function layout(){
- return{count:60,blockSize:15,rights:[171,128,85,42],rowStart:20,rowStep:5.45,optionOffsets:[9,18,27,36],blockLeftOffset:38,blockGap:2};
+ return{count:60,blockSize:15,rights:[171,128,85,42],rowStart:20,rowStep:5.45,optionOffsets:[7.5,15.5,23.5,31.5],blockLeftOffset:34.5,blockGap:5.5};
 }
 function answerPoints(index,total=60){
  const L=layout(),block=Math.floor(index/L.blockSize),row=index%L.blockSize,right=L.rights[block];
@@ -25,8 +25,8 @@ function svg(startNo=1,total=60,activeTotal=60){
    s+='<rect x="'+left+'" y="'+headY+'" width="'+(right-left+3)+'" height="'+(outerBottom-headY)+'" rx="2" fill="none" stroke="#13888b" stroke-width=".55"/>';
    const pts=answerPoints(b*L.blockSize,60);
    pts.forEach((p,j)=>{
-     s+='<rect x="'+(p.x-4.1)+'" y="9.3" width="8.2" height="7.1" rx="2.2" fill="#0c8184"/>';
-     s+='<text x="'+p.x+'" y="14.2" text-anchor="middle" font-size="4.1" font-weight="700" fill="#fff" font-family="Tahoma,Arial,sans-serif">'+LETTERS[j]+'</text>';
+     s+='<rect x="'+(p.x-3.6)+'" y="9.4" width="7.2" height="6.8" rx="1.55" fill="#0c8184"/>';
+     s+='<text x="'+p.x+'" y="12.9" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" dy=".12" font-size="3.65" font-weight="700" fill="#fff" font-family="Tahoma,Arial,sans-serif" style="direction:rtl;unicode-bidi:isolate">'+LETTERS[j]+'</text>';
    });
    for(let r=0;r<L.blockSize;r++){
      const idx=b*L.blockSize+r,y=L.rowStart+r*L.rowStep,num=startNo+idx,isActive=idx<active;
@@ -38,5 +38,5 @@ function svg(startNo=1,total=60,activeTotal=60){
  }
  s+='</svg>';return s;
 }
-window.NafesOmrTemplate={version:7,width:WIDTH,height:HEIGHT,maxQuestions:MAX_QUESTIONS,markers:MARKERS,letters:LETTERS,layout,answerPoints,svg};
+window.NafesOmrTemplate={version:8,width:WIDTH,height:HEIGHT,maxQuestions:MAX_QUESTIONS,markers:MARKERS,letters:LETTERS,layout,answerPoints,svg};
 })();
