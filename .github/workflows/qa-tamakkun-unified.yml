@@ -15,6 +15,8 @@ on:
       - 'lugati-complete.js'
       - 'tamakkun-teacher-workspace.js'
       - 'tamakkun-teacher-workspace.css'
+      - 'platform-color-system.css'
+      - 'qa/platform-color-system-unit.cjs'
       - 'supabase/migrations/20261003222000_teacher_management_workspace.sql'
       - 'qa/teacher-management-workspace-unit.cjs'
       - 'supabase/functions/lugati-adaptive-plan/**'
@@ -50,3 +52,5 @@ jobs:
         run: node qa/student-activity-sections-unit.cjs
       - name: Teacher management workspace
         run: node qa/teacher-management-workspace-unit.cjs
+      - name: Platform color system
+        run: node qa/platform-color-system-unit.cjs
