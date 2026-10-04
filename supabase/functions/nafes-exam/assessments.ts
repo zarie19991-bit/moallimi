@@ -389,6 +389,53 @@ function arrangeObjectiveQuestions(qs:Row[],seed:string):Row[]{
   return out;
 }
 
+const COGNITIVE_SEQUENCE:Record<string,number>={knowledge:0,application:1,reasoning:2};
+const DIFFICULTY_SEQUENCE:Record<string,number>={easy:0,medium:1,hard:2,very_hard:3};
+
+/**
+ * Educational sequence for indicator tests:
+ * indicator/topic order -> knowledge -> application -> reasoning -> difficulty.
+ * Reading keeps each passage together before applying the cognitive progression.
+ * Original order is the final stable tie-breaker, so this is deterministic.
+ */
+export function sequenceLearningQuestions(qs:Row[],subject:string,indicatorPlan:Row[]=[]):Row[]{
+  const plan=new Map<string,number>();
+  for(const item of indicatorPlan||[]){
+    const key=String(item?.key||item?.indicator_key||'').trim();
+    if(key&&!plan.has(key))plan.set(key,plan.size);
+  }
+  let nextRank=plan.size;
+  for(const q of qs||[]){
+    const key=String(q?.indicator_key||indicatorOf(q)||'').trim();
+    if(key&&!plan.has(key))plan.set(key,nextRank++);
+  }
+  const contexts=new Map<string,number>();
+  if(subject==='reading'){
+    for(const q of qs||[]){
+      const ctx=String(q?.context||'').trim();
+      const key=ctx||'__no_context__'+contexts.size;
+      if(!contexts.has(key))contexts.set(key,contexts.size);
+    }
+  }
+  return (qs||[]).map((q,index)=>{
+    const indicator=String(q?.indicator_key||indicatorOf(q)||'').trim();
+    const context=String(q?.context||'').trim();
+    return{
+      q,index,
+      indicatorRank:plan.get(indicator)??9999,
+      contextRank:subject==='reading'?(contexts.get(context)||0):0,
+      cognitiveRank:COGNITIVE_SEQUENCE[String(q?.cognitive_level||'')]??9,
+      difficultyRank:DIFFICULTY_SEQUENCE[String(q?.difficulty||'')]??9
+    };
+  }).sort((a,b)=>
+    a.contextRank-b.contextRank||
+    a.indicatorRank-b.indicatorRank||
+    a.cognitiveRank-b.cognitiveRank||
+    a.difficultyRank-b.difficultyRank||
+    a.index-b.index
+  ).map(x=>x.q);
+}
+
 export function planReadingPassageAllocation(capacities:number[],count:number,preferredPerPassage=5):number[]{
   const need=Math.trunc(Number(count)||0),preferred=Math.max(1,Math.trunc(Number(preferredPerPassage)||5));
   const caps=(Array.isArray(capacities)?capacities:[]).map(x=>Math.max(0,Math.trunc(Number(x)||0)));
@@ -1186,7 +1233,9 @@ async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:un
             :selectIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems));
         qs.push(...picked);
       }
-      if(s.subject==='math'||s.subject==='science')qs=arrangeObjectiveQuestions(qs,token(8)+'|section');
+      // Final student-facing order is pedagogical, not random:
+      // indicator/passage -> knowledge -> application -> reasoning.
+      qs=sequenceLearningQuestions(qs,s.subject,s.indicators||[]);
     }
 
     sections.push({...s,questions:qs});
@@ -1324,7 +1373,13 @@ async function studentAction(db:any,body:Row) {
      return {...attemptResponse(completed),resumed:true,completed_before:true,training_url:`${BASE}training.html?t=${t.short_code}`};
    }
    if(!isDemo&&previous.length>=s.attempts){if(previous[0])return{...attemptResponse(previous[0]),attempts_exhausted:true,training_url:`${BASE}training.html?t=${t.short_code}`};fail('استُنفد عدد المحاولات المسموح به.',409);}
-   const seed=token(12);const rand=randomFrom(seed);const sections=t.rendered_sections.map((section:Row)=>({...section,questions:(s.shuffle_questions?shuffle(section.questions,rand):section.questions).map((q:Row)=>s.shuffle_options?permuteQuestion(q,rand):q)}));
+   const seed=token(12);const rand=randomFrom(seed);const sections=t.rendered_sections.map((section:Row)=>{
+     // Indicator tests preserve the learning progression. Only simulation mode may randomize question order.
+     const ordered=(c.kind==='simulation'&&s.shuffle_questions)
+       ?shuffle(section.questions,rand)
+       :sequenceLearningQuestions(section.questions,section.subject,section.indicators||[]);
+     return{...section,questions:ordered.map((q:Row)=>s.shuffle_options?permuteQuestion(q,rand):q)};
+   });
    const duration=c.sections.reduce((n:number,sec:Row)=>n+sec.duration_minutes,0)+s.break_minutes*(sections.length-1);const expires=new Date(Math.min(now+duration*60000,s.closes_at?new Date(s.closes_at).getTime():Infinity)).toISOString();
    const r=await db.from('nafes_assessment_attempts').insert({assessment_id:t.id,student_id,student_name:name,student_no:no,student_key,class_name:className,attempt_no:previous.length+1,config:c,rendered_sections:sections,session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),expires_at:expires,is_demo:isDemo}).select().single();if(r.error?.code==='23505')fail('بدأت محاولة لهذا الطالب؛ أعد فتحها من التبويب الأصلي.',409);const created=must(r);return{...attemptResponse(created),access_token:access,resumed:false};
  }
