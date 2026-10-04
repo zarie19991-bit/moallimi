@@ -171,7 +171,7 @@ function onePage(model,d,groups,pageNo,totalPages,totalQuestions){
  return '<section class="paper-page" data-model="'+esc(model.model)+'" data-subject="'+esc(mode)+'" data-page="'+pageNo+'"><div class="page-inner"><div class="page-flow">'+
  pageHeader(model,d,pageNo,totalPages,totalQuestions)+
  '<div class="questions-flow">'+groups.map(g=>renderGroup(g)).join('')+'</div>'+
- '<footer class="footer"><span>منصة معلّمي — '+esc(title)+' — '+esc(subjectText)+'</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/'+ar(totalPages)+'</span></footer>'+
+ '<footer class="footer"><span>'+esc(title)+' — '+esc(subjectText)+'</span><span>نموذج '+esc(model.model)+' · '+ar(pageNo)+'/'+ar(totalPages)+'</span></footer>'+
  '</div></div></section>';
 }
 function modelBooklet(model,d){
