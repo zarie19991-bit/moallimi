@@ -119,5 +119,6 @@ try{
  console.log('READING_LAYOUT_DEBUG '+JSON.stringify(printAudit.page_layout));
   const maxReadingTailGap=Math.max(0,...printAudit.tail_gaps_px);
  if(maxReadingTailGap>140)throw new Error('reading page has excessive blank tail '+maxReadingTailGap+'px');
+ if(printAudit.page_layout.length!==1)throw new Error('short two-passage sample should collapse to one A4 page; pages='+printAudit.page_layout.length);
  console.log('PASS reading NAFES review integrity QA '+JSON.stringify({screenAudit,printAudit}));
 }finally{await browser.close();}
