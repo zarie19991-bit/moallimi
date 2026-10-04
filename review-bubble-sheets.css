@@ -29,7 +29,7 @@ body{background:#e8edef;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
 
 .student-name{height:14.5mm;border:1.4px solid var(--line);border-radius:4mm;margin:0 .5mm 2mm;padding:0 4mm;display:flex;align-items:center;gap:4mm}
 .student-name b{font-size:10pt;color:var(--teal);white-space:nowrap}
-.student-name span{flex:1;border-bottom:1px dotted #8e9a9d;height:6mm;line-height:6mm;font-size:9.5pt;font-weight:700;text-align:right}
+.student-name span{flex:1;border-bottom:1px dotted #8e9a9d;height:6mm;line-height:6mm;font-size:9.5pt;font-weight:700;text-align:center;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .info-grid{height:63mm;display:grid;grid-template-columns:1.12fr .68fr 1.62fr;grid-template-areas:"id code info";gap:2.5mm;margin:0 .5mm 2.2mm;direction:ltr}
 .digit-panel,.info-panel{border:1.4px solid var(--line);border-radius:4mm;background:#fff;overflow:hidden;direction:rtl}
@@ -51,7 +51,7 @@ body{background:#e8edef;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
 .grade-panel strong{background:#fff;z-index:1;padding:0 3mm}
 
 .answers-title{height:12mm;border-radius:3mm;background:#087f83;color:#fff;display:grid;place-content:center;font-size:11pt;font-weight:900;margin:0 .5mm 2.4mm}
-.omr-wrap{height:137mm;border:1.2px solid var(--line);border-radius:3mm;margin:0 .5mm;padding:1.5mm 1.8mm;display:grid;place-items:center;background:#fff}
+.omr-wrap{height:137mm;border:1.2px solid var(--line);border-radius:3mm;margin:0 .5mm;padding:1.5mm 2.4mm;display:grid;place-items:center;background:#fff}
 .omr-svg{display:block;width:184mm;height:119mm;max-width:100%}
 .sheet-meta{height:0;overflow:hidden;opacity:0;position:absolute;pointer-events:none}
 .sheet-code{font-family:monospace;direction:ltr}
@@ -67,4 +67,13 @@ body{background:#e8edef;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
  #pages{transform-origin:top right;transform:scale(.7);width:210mm}
  .screen-bar{position:relative;flex-wrap:wrap}
  .screen-actions{width:100%;justify-content:center}
+}
+
+/* Reference-sheet alignment contract:
+   four independent 15-question groups, equal visible gaps, centered Arabic option headers. */
+.printed-student-name{font-weight:800!important;letter-spacing:0!important}
+.omr-svg text{font-variant-ligatures:none}
+@media print{
+ .printed-student-name{font-size:9.5pt!important}
+ .omr-wrap{padding-inline:2.4mm!important}
 }
