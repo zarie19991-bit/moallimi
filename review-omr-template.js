@@ -5,7 +5,7 @@ const WIDTH=180,HEIGHT=112,MAX_QUESTIONS=60;
 const MARKERS={tl:[4,4],tr:[176,4],bl:[4,108],br:[176,108],size:3};
 const LETTERS=['أ','ب','ج','د'];
 function layout(){
- return{count:60,blockSize:15,rights:[171,128,85,42],rowStart:20,rowStep:5.45,optionOffsets:[9,18,27,36],blockLeftOffset:40};
+ return{count:60,blockSize:15,rights:[171,128,85,42],rowStart:20,rowStep:5.45,optionOffsets:[9,18,27,36],blockLeftOffset:38,blockGap:2};
 }
 function answerPoints(index,total=60){
  const L=layout(),block=Math.floor(index/L.blockSize),row=index%L.blockSize,right=L.rights[block];
@@ -17,15 +17,12 @@ function svg(startNo=1,total=60,activeTotal=60){
  const L=layout(),blocks=4,active=Math.max(1,Math.min(MAX_QUESTIONS,Number(activeTotal)||Number(total)||60));
  let s='<svg class="omr-svg" viewBox="0 0 '+WIDTH+' '+HEIGHT+'" xmlns="http://www.w3.org/2000/svg" aria-label="إجابات الأسئلة">';
  s+='<rect x="2.5" y="2.5" width="3" height="3" rx=".3" fill="#111"/><rect x="174.5" y="2.5" width="3" height="3" rx=".3" fill="#111"/><rect x="2.5" y="106.5" width="3" height="3" rx=".3" fill="#111"/><rect x="174.5" y="106.5" width="3" height="3" rx=".3" fill="#111"/>';
- const headY=8,outerLeft=L.rights[blocks-1]-L.blockLeftOffset,outerRight=L.rights[0]+3,outerBottom=102;
- // connected-answer-grid: one continuous frame for 1–15 | 16–30 | 31–45 | 46–60.
- s+='<rect x="'+outerLeft+'" y="'+headY+'" width="'+(outerRight-outerLeft)+'" height="'+(outerBottom-headY)+'" rx="2" fill="none" stroke="#13888b" stroke-width=".55"/>';
- for(let b=1;b<blocks;b++){
-   const divider=L.rights[b-1]-L.blockLeftOffset;
-   s+='<line x1="'+divider+'" y1="'+headY+'" x2="'+divider+'" y2="'+outerBottom+'" stroke="#13888b" stroke-width=".55"/>';
- }
+ const headY=8,outerBottom=102;
+ // separated-answer-groups: 1–15 | 16–30 | 31–45 | 46–60.
+ // Frames stay independent with an equal ~2 mm visual gap; bubble coordinates do not move.
  for(let b=0;b<blocks;b++){
    const right=L.rights[b],left=right-L.blockLeftOffset;
+   s+='<rect x="'+left+'" y="'+headY+'" width="'+(right-left+3)+'" height="'+(outerBottom-headY)+'" rx="2" fill="none" stroke="#13888b" stroke-width=".55"/>';
    const pts=answerPoints(b*L.blockSize,60);
    pts.forEach((p,j)=>{
      s+='<rect x="'+(p.x-4.1)+'" y="9.3" width="8.2" height="7.1" rx="2.2" fill="#0c8184"/>';
@@ -41,5 +38,5 @@ function svg(startNo=1,total=60,activeTotal=60){
  }
  s+='</svg>';return s;
 }
-window.NafesOmrTemplate={version:6,width:WIDTH,height:HEIGHT,maxQuestions:MAX_QUESTIONS,markers:MARKERS,letters:LETTERS,layout,answerPoints,svg};
+window.NafesOmrTemplate={version:7,width:WIDTH,height:HEIGHT,maxQuestions:MAX_QUESTIONS,markers:MARKERS,letters:LETTERS,layout,answerPoints,svg};
 })();
