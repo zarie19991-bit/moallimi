@@ -73,3 +73,7 @@ console.log('PASS paper builder + print regression',JSON.stringify({
   optimized_objective_candidates:optimizedObjectiveNormalWork,
   objective_candidate_reduction_percent:objectiveReduction
 }));
+
+assert.match(css,/@media screen and \(max-width:900px\)/,'responsive scale must be screen-only and must never affect print preview');
+assert.match(css,/@media print\{[\s\S]*html,body,#pages,\.model-booklet,\.paper-page,\.page-inner\{[\s\S]*transform:none!important;[\s\S]*zoom:1!important;/,'print CSS must explicitly reset responsive transform and zoom');
+assert.doesNotMatch(css,/@media\(max-width:900px\)\{#pages\{transform-origin:top right;transform:scale\(\.7\)/,'unscoped mobile scale must never return');
