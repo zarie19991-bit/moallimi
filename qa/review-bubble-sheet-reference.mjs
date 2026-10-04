@@ -25,7 +25,7 @@ try{
   const audit=await page.evaluate(()=>{
     const svg=document.querySelector('.omr-svg');
     const groupRects=[...svg.querySelectorAll('rect')].filter(r=>Math.abs(Number(r.getAttribute('height'))-94)<0.01);
-    const darkRects=[...svg.querySelectorAll('rect')].filter(r=>r.getAttribute('fill')==='#0c8184');
+    const headerShapes=[...svg.querySelectorAll('path')].filter(p=>p.getAttribute('fill')==='#0c8184');
     const letters=[...svg.querySelectorAll('text')].filter(t=>['أ','ب','ج','د'].includes(t.textContent.trim()));
     const sorted=groupRects.map(r=>({x:Number(r.getAttribute('x')),w:Number(r.getAttribute('width'))})).sort((a,b)=>a.x-b.x);
     const gaps=[];
@@ -33,7 +33,7 @@ try{
     const containment=letters.map(t=>{
       const tb=t.getBBox();
       const tc=tb.x+tb.width/2;
-      const rc=darkRects.map(r=>({r,b:r.getBBox(),d:Math.abs((r.getBBox().x+r.getBBox().width/2)-tc)})).sort((a,b)=>a.d-b.d)[0];
+      const rc=headerShapes.map(r=>({r,b:r.getBBox(),d:Math.abs((r.getBBox().x+r.getBBox().width/2)-tc)})).sort((a,b)=>a.d-b.d)[0];
       const b=rc.b;
       return {
         letter:t.textContent.trim(),
@@ -45,7 +45,7 @@ try{
     return{
       group_count:groupRects.length,
       gaps,
-      header_rects:darkRects.length,
+      header_shapes:headerShapes.length,
       letters:letters.length,
       containment,
       printed_name:document.querySelector('.printed-student-name')?.textContent.trim()||'',
@@ -56,7 +56,7 @@ try{
 
   if(audit.group_count!==4)throw new Error('expected four answer groups '+JSON.stringify(audit));
   if(audit.gaps.length!==3||audit.gaps.some(g=>Math.abs(g-5.5)>0.15))throw new Error('group gaps are not equal 5.5mm '+JSON.stringify(audit.gaps));
-  if(audit.header_rects!==16||audit.letters!==16)throw new Error('expected 16 option headers '+JSON.stringify(audit));
+  if(audit.header_shapes!==16||audit.letters!==16)throw new Error('expected 16 rounded-top option headers '+JSON.stringify(audit));
   if(audit.containment.some(x=>!x.inside))throw new Error('Arabic option letter escaped its capsule '+JSON.stringify(audit.containment));
   if(audit.printed_name!=='محمد أحمد علي القحطاني')throw new Error('student name not printed correctly '+audit.printed_name);
   if(audit.visible_text.includes('يجب ألا يظهر اسم المدرسة')||audit.visible_text.includes('يجب ألا يظهر الفصل'))throw new Error('school/class dynamic data must remain blank');
