@@ -11,6 +11,7 @@ homepage-glass.css
 moallimi-brand.css
 platform-color-system.css
 moallimi-logo-final.webp
+moallimi-logo-complete.svg
 moallimi-logo-ui.png
 moallimi-brand-icon.webp
 moallimi-brand-icon-v2.webp
