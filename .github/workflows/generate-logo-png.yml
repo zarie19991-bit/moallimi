@@ -19,21 +19,28 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Render high-resolution PNG from canonical complete logo
+      - name: Render high-resolution PNG with the platform browser engine
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq webp
-          dwebp moallimi-logo-final.webp -o /tmp/moallimi-logo-source.png
+          cat > /tmp/logo-render.html <<'HTML'
+          <!doctype html>
+          <html><head><meta charset="utf-8"><style>
+          html,body{margin:0;width:2080px;height:1000px;overflow:hidden;background:transparent}
+          img{display:block;width:2080px;height:1000px;object-fit:contain;object-position:center}
+          </style></head>
+          <body><img src="file://${{ github.workspace }}/moallimi-logo-final.webp" alt=""></body></html>
+          HTML
+          google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
+            --window-size=2080,1000 --default-background-color=00000000 \
+            --virtual-time-budget=1500 \
+            --screenshot=moallimi-logo-complete-2x.png file:///tmp/logo-render.html
           python -m pip install --disable-pip-version-check --quiet pillow
           python - <<'PY'
           from PIL import Image
-          src=Image.open('/tmp/moallimi-logo-source.png').convert('RGBA')
-          assert src.width/src.height > 1.9, src.size
-          out=src.resize((2080,1000),Image.Resampling.LANCZOS)
-          out.save('moallimi-logo-complete-2x.png',optimize=True)
-          chk=Image.open('moallimi-logo-complete-2x.png')
-          assert chk.size == (2080,1000), chk.size
-          print('PNG',chk.size,chk.mode)
+          im=Image.open('moallimi-logo-complete-2x.png').convert('RGBA')
+          assert im.size == (2080,1000), im.size
+          alpha=im.getchannel('A')
+          assert alpha.getbbox() is not None, 'transparent/empty logo screenshot'
+          print('PNG',im.size,im.mode,'bbox',alpha.getbbox())
           PY
       - name: Add production asset and commit
         run: |
