@@ -145,3 +145,12 @@
    transform-origin:initial!important;
  }
 }
+
+
+/* Mixed paper header: the title strip already contains "اختبار نافس" and the
+   complete subject list, so the redundant upper "اختبار العلوم + ..." is omitted. */
+.exam-frame-head.no-exam-brand{grid-template-columns:1.25fr .7fr}
+.exam-frame-head.no-exam-brand .grade-box{justify-self:stretch}
+@media print{
+ .exam-frame-head.no-exam-brand{grid-template-columns:1.25fr .7fr!important}
+}
