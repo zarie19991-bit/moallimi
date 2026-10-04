@@ -19,7 +19,7 @@ function makeSheet(item,index,d){
  '<div class="sheet-title"><span>ورقة التظليل</span></div>'+
  '<div class="brand-row">'+
    '<div class="brand-spacer" aria-hidden="true"></div>'+
-   '<div class="sheet-logo-wrap"><img class="sheet-logo" src="moallimi-logo-final.webp?v=20261003-logo3" alt="شعار منصة معلّمي" width="520" height="250" decoding="sync" loading="eager"></div>'+
+   '<div class="sheet-logo-wrap" aria-hidden="true"></div>'+
    '<div class="qr" data-qr-box aria-label="رمز الورقة"></div>'+
  '</div>'+
  '<div class="exam-pill"><b>الاختبارات الوطنية</b><span>الصف الثالث متوسط</span></div>'+
