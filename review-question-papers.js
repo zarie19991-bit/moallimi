@@ -343,7 +343,29 @@ function pullPartialReadingGroup(page,next,candidate){
    return true;
  }
 
- // لم يتسع حتى النص مع سؤال واحد: أعد المجموعة كما كانت للصفحة التالية
+ // إن لم يتسع النص مع سؤال واحد، استخدم المساحة للنص كاملًا فقط،
+ // وتبدأ أسئلته في الصفحة التالية. هذا أفضل من ترك مساحة بيضاء كبيرة
+ // ولا يقسم النص ولا يصغر خطه.
+ if(wrap.children.length===1){
+   nextWrap.prepend(wrap.lastElementChild);
+   if(pageFits(page,-4)&&nextWrap.children.length){
+     candidate.dataset.splitReading='passage-only';
+     const notice=continuation.querySelector(':scope > .continued');
+     if(notice)notice.textContent='أسئلة النص في الصفحة السابقة';
+     // إذا كان النص وحده يتسع بالإيقاع الطبيعي، أعد المسافات الطبيعية
+     // حتى تستثمر الصفحة بصريًا ولا تصبح مضغوطة بلا حاجة.
+     if(!hadStrong)page.classList.remove('compact-page-strong');
+     if(!hadCompact)page.classList.remove('compact-page');
+     void page.offsetHeight;
+     if(!pageFits(page,-4)){
+       page.classList.add('compact-page','compact-page-strong');
+       void page.offsetHeight;
+     }
+     return true;
+   }
+ }
+
+ // لم يتسع حتى النص وحده: أعد المجموعة كما كانت للصفحة التالية
  // وأعد حالة الضغط السابقة فقط إذا لم نستفد منها.
  while(nextWrap.firstElementChild)wrap.append(nextWrap.firstElementChild);
  continuation.remove();
