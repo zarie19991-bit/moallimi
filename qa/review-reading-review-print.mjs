@@ -92,7 +92,10 @@ try{
           split:g.dataset.splitReading||'',
           has_passage:!!g.querySelector(':scope > .passage'),
           questions:g.querySelectorAll(':scope > .passage-questions > .question').length,
-          height:g.getBoundingClientRect().height
+          height:g.getBoundingClientRect().height,
+          passage_height:g.querySelector(':scope > .passage')?.getBoundingClientRect().height||0,
+          after_height:g.querySelector(':scope > .after-passage')?.getBoundingClientRect().height||0,
+          question_heights:[...g.querySelectorAll(':scope > .passage-questions > .question')].map(q=>q.getBoundingClientRect().height)
         }))
       };
     })
