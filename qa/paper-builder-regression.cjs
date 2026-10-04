@@ -19,6 +19,11 @@ assert.match(client,/function allocateIndicatorRows\(rows,target\)/,'indicator a
 assert.match(client,/المتاح في البنك/,'UI must distinguish bank availability from allocated exam questions');
 assert.doesNotMatch(client,/x\.count%5!==0\|\|x\.count<5/,'reading indicators must not be forced to five questions each');
 assert.match(client,/paper_review_builder:true/,'paper preview requests must carry the server-side fixed-60 guard');
+assert.match(client,/function readingIndicatorsForModel\(letter,total\)/,'reading indicators must rotate across models while keeping passage blocks');
+assert.match(client,/٤ نصوص × ٥ أسئلة/,'mixed 60-question paper must document four reading passages with five questions each');
+assert.match(printClient,/readingQuestions\.length\/5/,'print renderer must validate reading groups in mixed papers');
+assert.match(printClient,/قسم القراءة يجب أن يكون «نص ثم ٥ أسئلة»/,'mixed reading print errors must explain the five-question passage contract');
+
 
 assert.match(client,/teacher_preview_batch/,'paper builder must use batched preview generation');
 const best=client.slice(client.indexOf('async function bestCandidate'),client.indexOf('function validate'));
