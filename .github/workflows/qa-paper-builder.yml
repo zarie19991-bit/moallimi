@@ -15,6 +15,7 @@ on:
       - 'qa/review-question-paper-webkit.mjs'
       - 'qa/review-reading-review-print.mjs'
       - 'qa/review-mixed-paper-print.mjs'
+      - 'qa/review-bubble-sheet-reference.mjs'
       - '.github/workflows/qa-paper-builder.yml'
   workflow_dispatch:
 
@@ -36,6 +37,7 @@ jobs:
           node --check qa/review-question-paper-webkit.mjs
           node --check qa/review-reading-review-print.mjs
           node --check qa/review-mixed-paper-print.mjs
+          node --check qa/review-bubble-sheet-reference.mjs
       - name: Builder and print regression contract
         run: node qa/paper-builder-regression.cjs
       - name: Install browser drivers
@@ -65,6 +67,8 @@ jobs:
         run: node qa/review-reading-review-print.mjs
       - name: Mixed 60-question paper QA
         run: node qa/review-mixed-paper-print.mjs
+      - name: Bubble-sheet reference visual QA
+        run: node qa/review-bubble-sheet-reference.mjs
       - name: Upload print QA artifacts
         if: always()
         uses: actions/upload-artifact@v4
