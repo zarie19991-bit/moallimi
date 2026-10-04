@@ -322,6 +322,14 @@ function pullPartialReadingGroup(page,next,candidate){
  const hasPassage=!!candidate?.querySelector(':scope > .passage');
  if(!nextFlow||!wrap||!hasPassage||wrap.children.length<=1)return false;
 
+ // إذا لم تتسع المجموعة كاملة، أبقِ الضغط الرأسي الآمن أثناء التقسيم
+ // بدل الرجوع للمسافات الواسعة ثم ترك نصف الصفحة فارغًا.
+ const hadCompact=page.classList.contains('compact-page');
+ const hadStrong=page.classList.contains('compact-page-strong');
+ if(!hadCompact)page.classList.add('compact-page');
+ if(!hadStrong)page.classList.add('compact-page-strong');
+ void page.offsetHeight;
+
  const continuation=continuationGroupFrom(candidate);
  const nextWrap=continuation.querySelector('.passage-questions');
  nextFlow.prepend(continuation);
@@ -335,10 +343,14 @@ function pullPartialReadingGroup(page,next,candidate){
    return true;
  }
 
- // لم يتسع حتى النص مع سؤال واحد: أعد المجموعة كما كانت للصفحة التالية.
+ // لم يتسع حتى النص مع سؤال واحد: أعد المجموعة كما كانت للصفحة التالية
+ // وأعد حالة الضغط السابقة فقط إذا لم نستفد منها.
  while(nextWrap.firstElementChild)wrap.append(nextWrap.firstElementChild);
  continuation.remove();
  nextFlow.prepend(candidate);
+ if(!hadStrong)page.classList.remove('compact-page-strong');
+ if(!hadCompact)page.classList.remove('compact-page');
+ void page.offsetHeight;
  return false;
 }
 function pullContinuationQuestions(page,next,candidate){
@@ -346,6 +358,11 @@ function pullContinuationQuestions(page,next,candidate){
  const nextFlow=next?.querySelector('.questions-flow');
  const sourceWrap=candidate?.querySelector(':scope > .passage-questions');
  if(!flow||!nextFlow||!sourceWrap||!sourceWrap.children.length)return false;
+
+ // استثمر المساحة المتبقية قبل ترك صفحة متابعة شبه فارغة.
+ if(!page.classList.contains('compact-page'))page.classList.add('compact-page');
+ if(!page.classList.contains('compact-page-strong'))page.classList.add('compact-page-strong');
+ void page.offsetHeight;
 
  let targetGroup=flow.lastElementChild;
  let targetWrap=(targetGroup?.dataset.subject===candidate.dataset.subject)
