@@ -84,6 +84,7 @@ assert.match(css,/\.questions-flow\{flex:1;min-height:0;overflow:visible\}/,'que
 const bubbleSheetClient=fs.readFileSync('review-bubble-sheets.js','utf8');
 const omrTemplate=fs.readFileSync('review-omr-template.js','utf8');
 assert.doesNotMatch(bubbleSheetClient,/<img class="sheet-logo"/,'bubble sheet must not print the platform logo');
-assert.match(omrTemplate,/connected-answer-grid/,'OMR answer groups must use one connected outer frame');
-assert.match(omrTemplate,/for\(let b=1;b<blocks;b\+\+\)/,'OMR groups must share vertical dividers with no horizontal gaps');
-assert.match(omrTemplate,/version:6/,'OMR template version must advance after geometry-frame update');
+assert.match(omrTemplate,/separated-answer-groups/,'OMR answer groups must remain separate boxes');
+assert.match(omrTemplate,/blockLeftOffset:38,blockGap:2/,'OMR answer groups must keep a fixed visual gap without moving bubble coordinates');
+assert.doesNotMatch(omrTemplate,/connected-answer-grid/,'OMR answer groups must not be connected');
+assert.match(omrTemplate,/version:7/,'OMR template version must advance after separated-group geometry update');
