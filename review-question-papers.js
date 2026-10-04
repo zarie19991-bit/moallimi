@@ -137,7 +137,7 @@ function pageHeader(model,d,pageNo,totalPages,totalQuestions){
  const title=String(d.title||'اختبار نافس').trim();
  const readingOnly=subjects.length===1&&subjects[0]==='reading';
  const indicators=readingOnly?indicatorLabels(model,'reading'):[];
- const brand=readingOnly?'مراجعة مؤشرات نافس':'اختبار '+subjectText;
+ const brand=readingOnly?title:'اختبار '+subjectText;
  const strip=readingOnly
    ?'<div class="title-strip indicator-review-strip"><b>مؤشرات نافس - القراءة</b><small class="indicator-list">'+
       esc(indicators.length?indicators.join(' • '):'المؤشرات المستهدفة في هذا النموذج')+
@@ -236,6 +236,18 @@ function compactUntilFits(page){
  page.classList.add('compact-page-strong');
  void page.offsetHeight;
  return pageFits(page);
+}
+function tryCompactCandidate(page){
+ const hadCompact=page.classList.contains('compact-page');
+ const hadStrong=page.classList.contains('compact-page-strong');
+ if(!hadCompact){page.classList.add('compact-page');void page.offsetHeight;}
+ if(pageFits(page,-4))return true;
+ if(!hadStrong){page.classList.add('compact-page-strong');void page.offsetHeight;}
+ if(pageFits(page,-4))return true;
+ if(!hadStrong)page.classList.remove('compact-page-strong');
+ if(!hadCompact)page.classList.remove('compact-page');
+ void page.offsetHeight;
+ return false;
 }
 function repairOverflow(booklet){
  let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
@@ -368,6 +380,10 @@ function fillAvailableSpace(booklet){
      flow.append(candidate);
      if(pageFits(page,-4))continue;
 
+     // قبل إرسال المحتوى إلى صفحة جديدة، اضغط الإيقاع الرأسي فقط
+     // مع إبقاء حجم الخط 11pt. هذا يمنع الفراغات الكبيرة القابلة للاستفادة.
+     if(tryCompactCandidate(page))continue;
+
      // متابعة نص سبق تقسيمه: اسحب الأسئلة واحدًا واحدًا بدل إبقاء
      // بقية المجموعة ككتلة واحدة تترك فراغًا كبيرًا في الصفحة السابقة.
      if(candidate.dataset.subject==='reading'&&!candidate.querySelector(':scope > .passage')&&candidate.querySelectorAll(':scope > .passage-questions > .question').length){
@@ -451,6 +467,13 @@ function renderPages(){
 }
 $('modelFilter').addEventListener('change',renderPages);
 $('copyMode').addEventListener('change',renderPages);
+function unusedBottomSpace(page){
+ const flow=page?.querySelector('.questions-flow'),last=flow?.lastElementChild;
+ if(!flow)return 0;
+ if(!last)return Math.max(0,Math.round(flow.clientHeight));
+ const fr=flow.getBoundingClientRect(),lr=last.getBoundingClientRect();
+ return Math.max(0,Math.round(fr.bottom-lr.bottom));
+}
 function collectPrintMetrics(){
  const pages=[...document.querySelectorAll('.paper-page')];
  const details=pages.map((page,index)=>{
@@ -461,10 +484,16 @@ function collectPrintMetrics(){
      const st=getComputedStyle(el);
      return /(hidden|clip)/.test(st.overflow+st.overflowY+st.overflowX)&&(el.scrollHeight>el.clientHeight+1||el.scrollWidth>el.clientWidth+1);
    }).length;
-   return{page:index+1,overflow_y_px:overflowY,overflow_x_px:overflowX,hidden_text_nodes:hiddenText,unresolved:page.dataset.layoutUnresolved==='1'};
+   const booklet=page.parentElement?.classList.contains('model-booklet')?page.parentElement:null;
+   const bookletPages=booklet?[...booklet.querySelectorAll(':scope > .paper-page')]:[page];
+   const isFinalInBooklet=bookletPages.at(-1)===page;
+   const unusedBottom=unusedBottomSpace(page);
+   const largeGap=!isFinalInBooklet&&unusedBottom>140;
+   return{page:index+1,overflow_y_px:overflowY,overflow_x_px:overflowX,unused_bottom_px:unusedBottom,large_gap:largeGap,hidden_text_nodes:hiddenText,unresolved:page.dataset.layoutUnresolved==='1'};
  });
  const maxOverflow=Math.max(0,...details.map(x=>Math.max(x.overflow_y_px,x.overflow_x_px)));
- return{at:new Date().toISOString(),pages:pages.length,max_overflow_px:maxOverflow,details};
+ const maxNonFinalGap=Math.max(0,...details.filter(x=>!x.large_gap||x.unused_bottom_px).map(x=>x.unused_bottom_px||0));
+ return{at:new Date().toISOString(),pages:pages.length,max_overflow_px:maxOverflow,max_unused_bottom_px:maxNonFinalGap,details};
 }
 let printInProgress=false;
 function prepareExactPrint(){
@@ -475,10 +504,10 @@ function prepareExactPrint(){
  const metrics=collectPrintMetrics();
  metrics.layout_ms=Math.round(performance.now()-started);
  localStorage.setItem('nafes_question_paper_last_print_metrics',JSON.stringify(metrics));
- const bad=metrics.details.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2||x.hidden_text_nodes>0);
+ const bad=metrics.details.filter(x=>x.unresolved||x.overflow_y_px>2||x.overflow_x_px>2||x.hidden_text_nodes>0||x.large_gap);
  if(bad.length){
    document.documentElement.classList.remove('print-preparing');
-   $('screenMeta').textContent='تعذر فتح الطباعة لأن '+ar(bad.length)+' صفحة لم تستقر داخل A4. تم إيقاف الطباعة لحماية المحتوى من القص.';
+   $('screenMeta').textContent='تعذر فتح الطباعة لأن '+ar(bad.length)+' صفحة فيها قص أو فراغ كبير غير مبرر. أُوقف التصدير حتى تستقر الصفحة.';
    return false;
  }
  return true;
