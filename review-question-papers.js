@@ -147,15 +147,16 @@ function pageHeader(model,d,pageNo,totalPages,totalQuestions){
  const title=exportPaperTitle(d.title);
  const readingOnly=subjects.length===1&&subjects[0]==='reading';
  const indicators=readingOnly?indicatorLabels(model,'reading'):[];
- const brand=readingOnly?title:'اختبار '+subjectText;
+ const mixed=subjects.length>1;
+ const brand=readingOnly?title:(mixed?'':'اختبار '+subjectText);
  const strip=readingOnly
    ?'<div class="title-strip indicator-review-strip"><b>مؤشرات نافس - القراءة</b><small class="indicator-list">'+
       esc(indicators.length?indicators.join(' • '):'المؤشرات المستهدفة في هذا النموذج')+
      '</small></div>'
    :'<div class="title-strip"><b>'+esc(title)+'</b><small>المادة: '+esc(subjectText)+'</small></div>';
- return '<div class="exam-frame-head">'+
+ return '<div class="exam-frame-head'+(mixed?' no-exam-brand':'')+'">'+
  '<div class="official"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><b>إدارة تعليم نجران</b><b>مدرسة ابن سينا المتوسطة</b></div>'+
- '<div class="exam-brand">'+esc(brand)+'</div>'+
+ (brand?'<div class="exam-brand">'+esc(brand)+'</div>':'')+
  '<div class="grade-box"><b>ثالث متوسط</b><span>نموذج '+esc(model.model)+'</span></div>'+
  '</div>'+
  strip+
