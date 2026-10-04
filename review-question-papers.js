@@ -176,9 +176,12 @@ function onePage(model,d,groups,pageNo,totalPages,totalQuestions){
 function modelBooklet(model,d){
  const questions=paperOrderedQuestions(model.questions||[]),startNo=Number(d.question_start||DEFAULT_QUESTION_START),groups=groupsFromQuestions(questions,startNo);
  const subjects=(Array.isArray(d.subjects)&&d.subjects.length?d.subjects:[d.subject]).filter(Boolean).sort((a,b)=>paperSubjectRank(a)-paperSubjectRank(b));
- if(subjects.length===1&&subjects[0]==='reading'&&questions.length===20){
-   const bad=groups.length!==4||groups.some(g=>!g.context||g.questions.length!==5);
-   if(bad)return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>يجب أن يتكون من ٤ نصوص، وتحت كل نص ٥ أسئلة. أعد إنشاء النماذج من قسم الاختبار الآلي والتصحيح.</p></div></div></section>';
+ const readingQuestions=questions.filter(q=>questionSubject(q)==='reading');
+ if(readingQuestions.length){
+   const readingGroups=groups.filter(g=>g.subject==='reading');
+   const expectedGroups=readingQuestions.length/5;
+   const bad=!Number.isInteger(expectedGroups)||readingGroups.length!==expectedGroups||readingGroups.some(g=>!g.context||g.questions.length!==5);
+   if(bad)return '<section class="paper-page error-page"><div class="page-inner"><div class="layout-error"><h2>هذا النموذج غير صالح للطباعة</h2><p>قسم القراءة يجب أن يكون «نص ثم ٥ أسئلة» في جميع الاختبارات، بما فيها الاختبار المختلط. أعد إنشاء النماذج بعد تحديث توزيع القراءة.</p></div></div></section>';
  }
  const mode=subjects.length>1?'mixed':(subjects[0]||d.subject);
  const pages=paginateGroups(groups,mode);
