@@ -6,6 +6,14 @@ const printClient=fs.readFileSync('review-question-papers.js','utf8');
 const server=fs.readFileSync('supabase/functions/nafes-exam/assessments.ts','utf8');
 const css=fs.readFileSync('review-question-papers.css','utf8');
 
+const production=fs.readFileSync('production-files.txt','utf8').split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!x.startsWith('#'));
+for(const file of production){
+  if(!/\.(?:html|js|css)$/.test(file)||!fs.existsSync(file))continue;
+  const live=fs.readFileSync(file,'utf8');
+  assert.doesNotMatch(live,/مراجعة مؤشرات نافس/,file+' reintroduced the removed print heading');
+}
+
+
 assert.match(client,/teacher_preview_batch/,'paper builder must use batched preview generation');
 const best=client.slice(client.indexOf('async function bestCandidate'),client.indexOf('function validate'));
 assert.doesNotMatch(best,/teacher_preview'\s*,/,'bestCandidate must not return to sequential teacher_preview calls');
@@ -23,6 +31,12 @@ assert.match(css,/\.choices\{font-size:11pt!important/,'printed choices must be 
 assert.match(printClient,/removeAttribute\('data-layout-unresolved'\)/,'stale unresolved print state must be cleared before re-measurement');
 assert.match(printClient,/window\.print\(\)/,'print button must call the native print API');
 assert.doesNotMatch(printClient,/addEventListener\('afterprint',[\s\S]{0,240}renderPages\(\)/,'afterprint must not rebuild all pages and reintroduce layout gaps');
+assert.doesNotMatch(printClient,/مراجعة مؤشرات نافس/,'exported question papers must never contain the removed review heading');
+assert.match(printClient,/function tryCompactCandidate\(page\)/,'page packer must try vertical-rhythm compaction before moving content to another page');
+assert.match(printClient,/unused_bottom_px/,'print metrics must measure unused bottom space');
+assert.match(printClient,/large_gap/,'large non-final white gaps must be rejected before printing');
+assert.match(css,/gap-control contract/,'print CSS must keep the gap-control contract');
+assert.match(css,/compact-page-strong \.stem\{font-size:11pt!important;line-height:1\.28!important/,'gap control may tighten vertical rhythm but must preserve 11pt stems');
 
 assert.match(best,/initialCandidateCount=reading\?5:/,'reading builds must use a 5-candidate initial batch');
 assert.match(best,/refineCandidateCount=reading\?3:2/,'adaptive refinement batch must remain bounded');
