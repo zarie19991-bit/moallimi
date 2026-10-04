@@ -7,6 +7,7 @@ const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const labels={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
 const MAX_CROSS_MODEL_REPEATS=10;
+const PAPER_QUESTION_TARGET=60;
 function minimumRequiredRepeats(){
  if(!catalog)return 0;
  const modelCount=Number($('modelCount')?.value||5);
