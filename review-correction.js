@@ -94,7 +94,7 @@ function resetPaperReview(){
  const first=document.querySelector('.subject-check');if(first)first.checked=true;
  $('subject').value=selectedSubjects()[0]||'reading';
  $('className').value='';
- $('questionCount').value='15';
+ $('questionCount').value=String(PAPER_QUESTION_TARGET);
  $('modelCount').value='5';
  if($('bubbleNameMode'))$('bubbleNameMode').value='printed';
  $('knowledge').value='25';$('application').value='40';$('reasoning').value='35';
@@ -153,7 +153,7 @@ function cognitiveOf(q){
  return'unknown';
 }
 function updateLevelSummary(){
- const k=Number($('knowledge').value||0),a=Number($('application').value||0),r=Number($('reasoning').value||0),sum=k+a+r,q=Number($('questionCount').value||15);
+ const k=Number($('knowledge').value||0),a=Number($('application').value||0),r=Number($('reasoning').value||0),sum=k+a+r,q=PAPER_QUESTION_TARGET;
  const counts=[Math.round(q*k/100),Math.round(q*a/100),Math.max(0,q-Math.round(q*k/100)-Math.round(q*a/100))];
  $('levelSummary').textContent=(sum===100?'الهدف: ':'تنبيه: المجموع '+sum+'% — يجب أن يساوي 100%. ')+'معرفة '+counts[0]+' · تطبيق '+counts[1]+' · استدلال '+counts[2]+' من '+q+' سؤالًا.';
  $('buildModels').disabled=sum!==100;
@@ -198,7 +198,7 @@ function renderIndicators(){
      const readingMeta=subject==='reading'&&Number(i.passage_count||0)>0
        ?' · '+ar(i.passage_count)+' نصوص · أعلى سعة للنص '+ar(i.max_questions_per_passage||0)+' سؤالًا'
        :'';
-     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا'+readingMeta+'</small></span><input class="indicator-count" type="number" min="1" max="60" value="'+Math.max(1,Number(state.count||1))+'" '+(state.checked?'':'disabled')+' aria-label="عدد الأسئلة"></label>';
+     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'" data-available="'+Math.max(0,Number(i.available||0))+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا'+readingMeta+'</small></span><input class="indicator-count" type="number" min="0" max="60" value="'+Math.max(0,Number(state.count||0))+'" readonly '+(state.checked?'':'disabled')+' aria-label="الحصة المخصصة تلقائيًا من أصل 60 سؤالًا" title="يحددها النظام تلقائيًا من أصل 60 سؤالًا"></label>';
    }).join('');
    return '<section class="indicator-subject-group" data-indicator-subject="'+subject+'"><div class="indicator-subject-title"><b>'+labels[subject]+'</b><span>'+ar(items.length)+' مؤشرًا متاحًا</span></div><div class="indicator-subject-items">'+(rows||'<div class="archive-empty">لا توجد مؤشرات مطابقة للبحث في هذه المادة.</div>')+'</div></section>';
  }).join('');
@@ -206,72 +206,89 @@ function renderIndicators(){
  updateIndicatorSummary();
 }
 function subjectQuestionTargets(){
- const subjects=selectedSubjects(),total=Number($('questionCount').value||15);
+ const subjects=selectedSubjects(),total=PAPER_QUESTION_TARGET;
  if(total===60&&subjects.length===3&&['reading','math','science'].every(s=>subjects.includes(s))){
    return new Map([['reading',20],['math',20],['science',20]]);
  }
  return null;
 }
+function allocateIndicatorRows(rows,target){
+ const entries=rows.map(r=>({
+   row:r,
+   input:r.querySelector('.indicator-count'),
+   capacity:Math.max(0,Math.trunc(Number(r.dataset.available)||0)),
+   count:0
+ }));
+ let remaining=Math.max(0,Math.trunc(Number(target)||0));
+
+ // سؤال واحد على الأقل لكل مؤشر ما دام عدد المؤشرات يسمح بذلك.
+ for(const e of entries){
+   if(remaining<=0)break;
+   if(e.capacity<1)continue;
+   e.count=1;remaining--;
+ }
+
+ // وزع الباقي بالتساوي قدر الإمكان، ولا تتجاوز سعة البنك لأي مؤشر.
+ let guard=0,index=0;
+ while(remaining>0&&entries.length&&guard++<20000){
+   const e=entries[index%entries.length];
+   if(e.count<e.capacity){e.count++;remaining--;}
+   index++;
+   if(index%entries.length===0&&!entries.some(x=>x.count<x.capacity))break;
+ }
+
+ for(const e of entries){
+   if(e.input){e.input.disabled=false;e.input.value=String(e.count);}
+ }
+ return{
+   target,
+   allocated:target-remaining,
+   remaining,
+   zero_selected:entries.filter(e=>e.count===0).length,
+   capacity:entries.reduce((n,e)=>n+e.capacity,0)
+ };
+}
 function distributeIndicatorCounts(){
  const rows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
- if(!rows.length)return;
- const total=Number($('questionCount').value||15),targets=subjectQuestionTargets();
+ if(!rows.length){captureIndicatorState();updateIndicatorSummary();return;}
+ const targets=subjectQuestionTargets();
 
- // عند اختيار ٦٠ سؤالًا والمواد الثلاث: ٢٠ سؤالًا إلزاميًا لكل مادة.
  if(targets){
    for(const subject of selectedSubjects()){
      const subjectRows=rows.filter(r=>r.dataset.subject===subject);
-     if(!subjectRows.length)continue;
-     const target=Number(targets.get(subject)||0);
-     let used=0;
-     for(const r of subjectRows){
-       const step=subject==='reading'?5:1;
-       const x=r.querySelector('.indicator-count');
-       x.disabled=false;x.value=String(step);used+=step;
-     }
-     let remaining=target-used,guard=0,index=0;
-     while(remaining>0&&guard++<1000){
-       const r=subjectRows[index%subjectRows.length],step=subject==='reading'?5:1;
-       if(step<=remaining){
-         const x=r.querySelector('.indicator-count');
-         x.value=String(Number(x.value||0)+step);remaining-=step;
-       }
-       index++;
-       if(index>subjectRows.length*8&&remaining>0&&!subjectRows.some(()=> (subject==='reading'?5:1)<=remaining))break;
-     }
+     if(subjectRows.length)allocateIndicatorRows(subjectRows,Number(targets.get(subject)||0));
    }
-   captureIndicatorState();updateIndicatorSummary();return;
- }
-
- let used=0;
- for(const r of rows){
-   const step=r.dataset.subject==='reading'?5:1;
-   const x=r.querySelector('.indicator-count');x.disabled=false;x.value=String(step);used+=step;
- }
- let remaining=total-used,guard=0,index=0;
- while(remaining>0&&guard++<1000){
-   const r=rows[index%rows.length],step=r.dataset.subject==='reading'?5:1;
-   if(step<=remaining){
-     const x=r.querySelector('.indicator-count');x.value=String(Number(x.value||0)+step);remaining-=step;
-   }
-   index++;
-   if(index>rows.length*4&&remaining>0&&!rows.some(r=>(r.dataset.subject==='reading'?5:1)<=remaining))break;
+ }else{
+   allocateIndicatorRows(rows,PAPER_QUESTION_TARGET);
  }
  captureIndicatorState();
  updateIndicatorSummary();
 }
 function updateIndicatorSummary(){
  captureIndicatorState();
- const selected=getSelectedIndicators(),target=Number($('questionCount').value||15),targets=subjectQuestionTargets();
+ const target=PAPER_QUESTION_TARGET,targets=subjectQuestionTargets();
+ const checkedRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
+ const selected=getSelectedIndicators();
  document.querySelectorAll('.indicator-row').forEach(r=>r.classList.toggle('selected',r.querySelector('.indicator-check')?.checked));
  const total=selected.reduce((n,x)=>n+Number(x.count||0),0);
+ const availableTotal=checkedRows.reduce((n,r)=>n+Math.max(0,Number(r.dataset.available)||0),0);
+ const zeroSelected=checkedRows.filter(r=>Number(r.querySelector('.indicator-count')?.value||0)===0).length;
  const bySubject=selectedSubjects().map(subject=>{
    const rows=selected.filter(x=>x.subject===subject),n=rows.reduce((a,x)=>a+Number(x.count||0),0),quota=targets?.get(subject);
    return rows.length?labels[subject]+' '+ar(n)+(quota!=null?' من '+ar(quota):'')+' سؤالًا / '+ar(rows.length)+' مؤشر':''; 
  }).filter(Boolean);
- const readingBad=selected.some(x=>x.subject==='reading'&&(x.count<5||x.count%5!==0));
  const quotaBad=targets?[...targets].some(([subject,quota])=>selected.filter(x=>x.subject===subject).reduce((n,x)=>n+Number(x.count||0),0)!==quota):false;
- $('indicatorSummary').textContent='المحدد: '+ar(selected.length)+' مؤشر · مجموع الأسئلة: '+ar(total)+' من '+ar(target)+(bySubject.length?' · '+bySubject.join(' · '):'')+(targets?' · التوزيع المطلوب: القراءة ٢٠ · الرياضيات ٢٠ · العلوم ٢٠':'')+(readingBad?' · القراءة: العدد لكل مؤشر ٥ أو مضاعفاتها، والتوزيع على النصوص يتم تلقائيًا':'')+(quotaBad?' · يجب إكمال ٢٠ سؤالًا لكل مادة':'')+(selected.length&&total!==target?' · عدّل الأعداد حتى يساوي المجموع العدد الكلي':'');
+ const exact=total===target&&zeroSelected===0&&!quotaBad;
+ $('indicatorSummary').textContent=
+   'المؤشرات المختارة: '+ar(checkedRows.length)+
+   ' · المتاح في البنك: '+ar(availableTotal)+' سؤالًا'+
+   ' · سيُستخدم في الاختبار: '+ar(total)+' من '+ar(target)+
+   (bySubject.length?' · '+bySubject.join(' · '):'')+
+   (targets?' · التوزيع المطلوب: القراءة ٢٠ · الرياضيات ٢٠ · العلوم ٢٠':'')+
+   (zeroSelected?' · تنبيه: '+ar(zeroSelected)+' مؤشرًا مختارًا لم يحصل على سؤال لأن ٦٠ سؤالًا لا تكفي لتمثيل جميع المؤشرات؛ قلل عدد المؤشرات المختارة.':'')+
+   (quotaBad?' · يجب إكمال ٢٠ سؤالًا لكل مادة':'')+
+   (!exact&&checkedRows.length&&!zeroSelected?' · يعاد التوزيع تلقائيًا حتى يصبح المجموع ٦٠ سؤالًا بالضبط':'')+
+   (exact?' · المجموع مضبوط على ٦٠ سؤالًا بالضبط':'');
 }
 function getSelectedIndicators(){
  captureIndicatorState();
@@ -288,7 +305,7 @@ function configForModel(letter){
    const items=inds.filter(x=>x.subject===subject);
    return {subject,question_count:items.reduce((n,x)=>n+x.count,0),duration_minutes:45,calculator:subject==='math',model_no:1,indicators:items.map(x=>({key:x.key,count:x.count}))};
  }).filter(s=>s.question_count>0);
- return {kind:'multi_indicator',review_passage_mode:subjects.includes('reading'),grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections,count_mode:'per_indicator',cognitive_targets:{knowledge:Number($('knowledge').value||0),application:Number($('application').value||0),reasoning:Number($('reasoning').value||0)},settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
+ return {kind:'multi_indicator',paper_review_builder:true,review_passage_mode:subjects.includes('reading'),grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections,count_mode:'per_indicator',cognitive_targets:{knowledge:Number($('knowledge').value||0),application:Number($('application').value||0),reasoning:Number($('reasoning').value||0)},settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
 }
 function questionIds(d){
  return (d.sections||[]).flatMap(s=>(s.questions||[]).map(q=>String(q.id||q.question_id||q.question||'')));
@@ -487,11 +504,14 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
 function validate(){
  const inds=getSelectedIndicators(),subjects=selectedSubjects(),q=Number($('questionCount').value),sum=inds.reduce((n,x)=>n+x.count,0),stu=selectedStudents();
  if(!$('reviewTitle').value.trim())throw new Error('اكتب اسم الاختبار.');
- if(!Number.isInteger(q)||q<10||q>60)throw new Error('عدد أسئلة الاختبار يجب أن يكون عددًا صحيحًا من ١٠ إلى ٦٠.');
+ if(q!==PAPER_QUESTION_TARGET)throw new Error('عدد أسئلة الاختبار الورقي ثابت: ٦٠ سؤالًا.');
  if(!subjects.length)throw new Error('اختر مادة واحدة على الأقل.');
  if(!inds.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
  for(const subject of subjects)if(!inds.some(x=>x.subject===subject))throw new Error('اختر مؤشرًا واحدًا على الأقل من مادة '+labels[subject]+'.');
- if(sum!==q)throw new Error('مجموع أسئلة المؤشرات يجب أن يساوي '+q+' سؤالًا.');
+ const checkedRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
+ const zeroSelected=checkedRows.filter(r=>Number(r.querySelector('.indicator-count')?.value||0)===0);
+ if(zeroSelected.length)throw new Error('اخترت مؤشرات أكثر مما يمكن تمثيله داخل ٦٠ سؤالًا. قلل عدد المؤشرات المختارة حتى يحصل كل مؤشر على سؤال واحد على الأقل.');
+ if(sum!==PAPER_QUESTION_TARGET)throw new Error('مجموع أسئلة المؤشرات يجب أن يساوي ٦٠ سؤالًا بالضبط.');
  const targets=subjectQuestionTargets();
  if(targets){
    for(const [subject,quota] of targets){
@@ -499,8 +519,6 @@ function validate(){
      if(subjectTotal!==quota)throw new Error('عند اختيار ٦٠ سؤالًا للمواد الثلاث يجب أن تكون '+labels[subject]+' '+quota+' سؤالًا بالضبط.');
    }
  }
- const reading=inds.filter(x=>x.subject==='reading');
- if(reading.some(x=>x.count%5!==0||x.count<5))throw new Error('في القراءة: عدد أسئلة كل مؤشر يجب أن يكون ٥ أسئلة أو مضاعفاتها، ثم يوزعها النظام تلقائيًا على النصوص بحسب السعة الفعلية لكل نص.');
  const byKey=new Map((catalog?.indicators||[]).map(i=>[String(i.key),Number(i.available||0)]));
  for(const x of inds){
    const available=Number(byKey.get(String(x.key))||0);
@@ -519,7 +537,7 @@ function modelStats(m){
 function renderQuality(){
  const all=models.flatMap(m=>questionIds(m)),unique=new Set(all),dup=Math.max(0,all.length-unique.size),total=all.length;
  const unknown=models.reduce((n,m)=>n+modelStats(m).unknown,0);
- const expected=Number($('questionCount').value||0),badCount=models.filter(m=>modelQuestions(m).length!==expected).length;
+ const expected=PAPER_QUESTION_TARGET,badCount=models.filter(m=>modelQuestions(m).length!==expected).length;
  const cognitiveDeviation=models.length?Math.round(models.reduce((n,m)=>n+cognitiveScore(m),0)/models.length):0;
  const first=models[0],subjectCounts=first?(first.sections||[]).map(s=>labels[s.subject]+' '+ar((s.questions||[]).length)).join(' · '):'—';
  const badChoices=models.reduce((n,m)=>n+incompleteChoices(m).length,0);
@@ -581,7 +599,7 @@ async function buildModels(){
      server_ms:Math.round(buildPerf.server_ms),
      client_api_ms:Math.round(buildPerf.client_api_ms),
      models:count,
-     questions_per_model:Number($('questionCount').value||0),
+     questions_per_model:PAPER_QUESTION_TARGET,
      subjects:selectedSubjects(),
      model_ms:buildPerf.model_ms
    };
@@ -651,7 +669,7 @@ function restoreReviewPayload(payload){
  if($('subject'))$('subject').value=selectedSubjects()[0]||payload.subject||'reading';
  if($('className')&&[...$('className').options].some(o=>o.value===String(payload.class_name||'')))$('className').value=String(payload.class_name||'');
  renderStudents();
- if($('questionCount'))$('questionCount').value=String(Math.max(10,Math.min(60,Number(payload.question_count)||15)));
+ if($('questionCount'))$('questionCount').value=String(PAPER_QUESTION_TARGET);
  if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);
  if($('bubbleNameMode'))$('bubbleNameMode').value=payload.bubble_name_mode==='blank'?'blank':'printed';
  const ps=payload.paper_settings||{};
@@ -762,12 +780,12 @@ $('subjectChoices').addEventListener('change',e=>{
  if(document.querySelector('.indicator-check:checked'))distributeIndicatorCounts();
 });
 $('className').addEventListener('change',renderStudents);
-$('questionCount').addEventListener('input',()=>{updateIndicatorSummary();updateLevelSummary();});
-$('questionCount').addEventListener('change',()=>{const q=Math.trunc(Number($('questionCount').value)||15);$('questionCount').value=String(Math.max(10,Math.min(60,q)));distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
+$('questionCount').addEventListener('input',()=>{$('questionCount').value=String(PAPER_QUESTION_TARGET);distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
+$('questionCount').addEventListener('change',()=>{$('questionCount').value=String(PAPER_QUESTION_TARGET);distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
 ['knowledge','application','reasoning'].forEach(id=>$(id).addEventListener('input',updateLevelSummary));
 $('indicatorSearch').addEventListener('input',renderIndicators);
 $('indicators').addEventListener('change',e=>{if(e.target.matches('.indicator-check')){captureIndicatorState();distributeIndicatorCounts();updateIndicatorSummary();}});
-$('indicators').addEventListener('input',e=>{if(e.target.matches('.indicator-count')){captureIndicatorState();updateIndicatorSummary();}});
+$('indicators').addEventListener('input',e=>{if(e.target.matches('.indicator-count')){distributeIndicatorCounts();}});
 $('selectAllIndicators').onclick=()=>{[...document.querySelectorAll('.indicator-row .indicator-check')].forEach(x=>x.checked=true);captureIndicatorState();distributeIndicatorCounts();updateIndicatorSummary();};
 $('clearIndicators').onclick=()=>{document.querySelectorAll('.indicator-check').forEach(x=>x.checked=false);captureIndicatorState();updateIndicatorSummary();};
 $('selectAllStudents').onchange=e=>{document.querySelectorAll('.student-check').forEach(x=>x.checked=e.target.checked);$('studentCount').textContent=ar(selectedStudents().length)+' طالب محدد';};
