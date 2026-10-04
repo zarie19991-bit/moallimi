@@ -96,7 +96,7 @@ function renderLogin(error=''){
  if(!error&&params.get('session')==='expired')error='انتهت جلسة الدخول. سجّل الدخول مرة أخرى للمتابعة.';
  const root=$('#app');
  let role=params.get('student')==='1'?'student':'teacher';
- root.innerHTML=\`<div class="tx-login-shell">
+ root.innerHTML=`<div class="tx-login-shell">
    <section class="tx-login-story" aria-label="تعريف منصة تمكّن">
      <div class="tx-login-story-inner">
        <div class="tx-login-mark">ت</div>
@@ -104,9 +104,9 @@ function renderLogin(error=''){
        <h1>مِنَصَّةُ تَمَكُّن</h1>
        <p>ادخل، اعرف خطوتك التالية، وأنجز نشاطًا مناسبًا لمستواك دون التنقل بين صفحات متداخلة.</p>
        <div class="tx-login-benefits">
-         <div>\${icon('route','w-5 h-5')}<span><b>مسار واضح</b><small>الخطوة التالية تظهر أولًا.</small></span></div>
-         <div>\${icon('target','w-5 h-5')}<span><b>تدريب مخصص</b><small>العلاج والتعزيز والإثراء في أماكن مستقلة.</small></span></div>
-         <div>\${icon('trophy','w-5 h-5')}<span><b>إنجاز محسوس</b><small>تقدم وشارات مبنية على عمل حقيقي.</small></span></div>
+         <div>${icon('route','w-5 h-5')}<span><b>مسار واضح</b><small>الخطوة التالية تظهر أولًا.</small></span></div>
+         <div>${icon('target','w-5 h-5')}<span><b>تدريب مخصص</b><small>العلاج والتعزيز والإثراء في أماكن مستقلة.</small></span></div>
+         <div>${icon('trophy','w-5 h-5')}<span><b>إنجاز محسوس</b><small>تقدم وشارات مبنية على عمل حقيقي.</small></span></div>
        </div>
      </div>
    </section>
@@ -119,15 +119,15 @@ function renderLogin(error=''){
          <button id="studentTab" type="button" class="login-role" data-role="student" role="tab">الطالب</button>
        </div>
        <div id="loginFields"></div>
-       \${error?\`<div class="tx-login-error" role="alert">\${esc(error)}</div>\`:''}
+       ${error?`<div class="tx-login-error" role="alert">${esc(error)}</div>`:''}
        <details class="tx-login-demo">
          <summary>دخول تجريبي للمعاينة</summary>
          <div><p>لا تُحتسب نتائج الطالب التجريبي ضمن الطلاب الحقيقيين.</p><button id="demoLoginBtn" type="button">فتح المعاينة</button></div>
        </details>
-       <div class="tx-login-privacy">\${icon('shield-check','w-4 h-4')}<span>تُستخدم بيانات الدخول للتحقق من الحساب وعرض النتائج المرتبطة به فقط.</span></div>
+       <div class="tx-login-privacy">${icon('shield-check','w-4 h-4')}<span>تُستخدم بيانات الدخول للتحقق من الحساب وعرض النتائج المرتبطة به فقط.</span></div>
      </div>
    </section>
- </div>\`;
+ </div>`;
 
  const updateTabs=()=>{
    $$('.login-role').forEach(btn=>{
@@ -139,12 +139,12 @@ function renderLogin(error=''){
  const paint=()=>{
    const box=$('#loginFields');
    box.innerHTML=role==='teacher'?
-   \`<form id="loginForm" class="tx-login-form">
+   `<form id="loginForm" class="tx-login-form">
       <label for="teacherKey">مفتاح المعلم</label>
-      <div class="tx-login-input"><span>\${icon('key-round','w-4 h-4')}</span><input id="teacherKey" type="password" autocomplete="current-password" placeholder="أدخل مفتاح المعلم" required></div>
+      <div class="tx-login-input"><span>${icon('key-round','w-4 h-4')}</span><input id="teacherKey" type="password" autocomplete="current-password" placeholder="أدخل مفتاح المعلم" required></div>
       <button id="loginBtn" type="submit" class="tx-login-submit">فتح لوحة المعلم</button>
-    </form>\`:
-   \`<form id="loginForm" class="tx-login-form">
+    </form>`:
+   `<form id="loginForm" class="tx-login-form">
       <label for="studentName">الاسم الكامل</label>
       <input id="studentName" autocomplete="name" placeholder="انسخ الاسم كما هو في كشف المدرسة" required>
       <div class="tx-login-grid">
@@ -153,7 +153,7 @@ function renderLogin(error=''){
       </div>
       <small class="tx-login-help">نستخدم آخر ٣ أرقام فقط لمطابقة اسمك مع سجل المدرسة.</small>
       <button id="loginBtn" type="submit" class="tx-login-submit">ابدأ مساري</button>
-    </form>\`;
+    </form>`;
    refreshIcons();
    const form=$('#loginForm'),button=$('#loginBtn');
    form.onsubmit=async e=>{
