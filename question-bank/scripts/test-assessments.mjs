@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {normalizeConfig,permuteQuestion,randomFrom,gradeQuestions,publicQuestions,buildForms,cleanAnswers,questionKey,selectUnique} from '../../supabase/functions/nafes-exam/assessment-engine.ts';
-import {planReadingPassageAllocation} from '../../supabase/functions/nafes-exam/assessments.ts';
+import {planReadingPassageAllocation,sequenceLearningQuestions} from '../../supabase/functions/nafes-exam/assessments.ts';
 import analytics from '../../analysis-core.js';
 const q={id:'q1',subject:'math',indicator_key:'math:x:i1',indicator_text:'مهارة',question:'مسألة',context:'سياق',options:['نعم','لا','أحيانًا','لا يمكن'],correctIndex:0};
 test('shuffling retains exactly the correct answer and never produces -1',()=>{for(let n=0;n<80;n++){const mixed=permuteQuestion(q,randomFrom(String(n)));assert.equal(mixed.options[mixed.correctIndex],'نعم');assert.equal(gradeQuestions([mixed],{q1:mixed.correctIndex}).score,1);}});
@@ -21,6 +21,27 @@ test('adaptive reading passage allocation uses actual question capacity without 
   assert.deepEqual(planReadingPassageAllocation([15],10),[10]);
   assert.deepEqual(planReadingPassageAllocation([3,3],10),[]);
   assert.deepEqual(planReadingPassageAllocation([5,5,5],15),[5,5,5]);
+});
+test('pedagogical question sequence keeps indicators and progresses knowledge to application to reasoning',()=>{
+  const mk=(id,indicator,level,difficulty='medium',context='')=>({id,subject:'math',indicator_key:indicator,cognitive_level:level,difficulty,context,question:id,options:['أ','ب','ج','د'],correctIndex:0});
+  const raw=[
+    mk('a-r','math:x:i1','reasoning','hard'),
+    mk('b-a','math:x:i2','application','medium'),
+    mk('a-k','math:x:i1','knowledge','easy'),
+    mk('b-r','math:x:i2','reasoning','hard'),
+    mk('a-a','math:x:i1','application','medium'),
+    mk('b-k','math:x:i2','knowledge','easy')
+  ];
+  const ordered=sequenceLearningQuestions(raw,'math',[{key:'math:x:i1'},{key:'math:x:i2'}]);
+  assert.deepEqual(ordered.map(x=>x.id),['a-k','a-a','a-r','b-k','b-a','b-r']);
+  const cfg=normalizeConfig({...config,settings:{shuffle_questions:true}});
+  assert.equal(cfg.settings.question_sequence,'pedagogical_v1');
+  assert.equal(cfg.settings.shuffle_questions,false);
+});
+test('reading sequence preserves passage blocks and progresses cognitively inside each passage',()=>{
+  const q=(id,ctx,level)=>({id,subject:'reading',indicator_key:'reading:x:i1',cognitive_level:level,difficulty:'medium',context:ctx,question:id,options:['أ','ب','ج','د'],correctIndex:0});
+  const ordered=sequenceLearningQuestions([q('p1-r','نص 1','reasoning'),q('p2-a','نص 2','application'),q('p1-k','نص 1','knowledge'),q('p2-k','نص 2','knowledge')],'reading',[{key:'reading:x:i1'}]);
+  assert.deepEqual(ordered.map(x=>x.id),['p1-k','p1-r','p2-k','p2-a']);
 });
 test('per indicator counts and publication settings validate ranges and windows',()=>{const c=normalizeConfig({...config,count_mode:'per_indicator',sections:[{...config.sections[0],indicators:config.sections[0].indicators.map(i=>({...i,count:6}))}]});assert.equal(c.sections[0].question_count,12);assert.throws(()=>normalizeConfig({...config,settings:{opens_at:'2026-12-04',closes_at:'2026-12-03'}}));assert.throws(()=>normalizeConfig({...config,settings:{attempts:11}}));});
 test('question independence includes passage, data choices and image; option permutations are duplicates',()=>{assert.equal(questionKey(q),questionKey({...q,options:q.options.slice().reverse()}));assert.notEqual(questionKey(q),questionKey({...q,options:['1','2','3','4']}));assert.throws(()=>selectUnique([q,{...q,id:'q2',options:q.options.slice().reverse()}],2,'seed'));});
