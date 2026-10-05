@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#17324d">
 <title>رفع أوراق الطلاب وتصحيحها | معلّمي</title>
-<link rel="stylesheet" href="review-scan.css?v=20260930-2">
+<link rel="stylesheet" href="review-scan.css?v=20261005-editable1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -49,19 +49,27 @@
     </div>
   </section>
 
-  <section id="summarySection" class="hidden">
+  <section class="card journal-card">
+<h2>جلسات المراجعة المحفوظة</h2>
+<div class="actions"><select id="sessionPicker" aria-label="جلسة المراجعة"></select><button id="resumeSessionBtn" class="secondary" type="button">استئناف الجلسة</button><button id="retryUploadBtn" class="secondary hidden" type="button">إعادة استكمال الرفع</button><button id="journalExportBtn" class="secondary" type="button">تقرير الحالات والتكرار CSV</button></div>
+<p id="journalStatus" class="notice" role="status" aria-live="polite">اختر جلسة محفوظة أو ارفع ملفًا جديدًا.</p>
+<p id="duplicateLive" role="alert" aria-live="assertive"></p><details id="alertLog"></details>
+</section>
+<section id="summarySection" class="hidden">
     <div id="summaryCards" class="summary-grid"></div>
   </section>
 
   <section id="resultsSection" class="card hidden">
     <header class="section-head">
-      <div><h2>٢. مراجعة الأوراق</h2><p>الأوراق الواضحة تُصحح مباشرة. افتح فقط الحالات المعلّمة بالمراجعة.</p></div>
+      <div><h2>٢. مراجعة الأوراق</h2><p>تحقق من كل ورقة بالترتيب. يمكنك تعديل أي إجابة؛ يحفظ السجل القراءة الأصلية وتعديلاتك.</p></div>
       <div class="actions">
-        <button id="reviewNextBtn" class="secondary" type="button">فتح أول حالة تحتاج مراجعة</button>
+        <button id="reviewNextBtn" class="secondary" type="button">متابعة المراجعة</button>
         <button id="approveBtn" class="primary" type="button">اعتماد النتائج</button>
       </div>
     </header>
-    <div class="table-wrap">
+    <div class="review-toolbar"><strong id="sessionProgress"></strong><label><input id="alertFilter" type="checkbox"> عرض الأوراق ذات تنبيهات التكرار فقط</label></div>
+<div class="legend"><span class="state-blank">أحمر: غير محلول</span><span class="state-multiple">أصفر: متعدد الإجابات</span><span class="state-correct">أخضر: صحيح مؤكد</span><span>نص رمادي: خاطئ / قراءة غير مؤكدة</span></div>
+<div class="table-wrap">
       <table>
         <thead><tr><th>الطالب</th><th>النموذج</th><th>الدرجة</th><th>الحالة</th><th>الإجراء</th></tr></thead>
         <tbody id="resultsBody"></tbody>
@@ -75,25 +83,32 @@
   </section>
 </main>
 
-<div id="sheetModal" class="modal hidden" role="dialog" aria-modal="true">
+<div id="sheetModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="modal-card">
     <header><div><b id="modalTitle"></b><span id="modalSub"></span></div><button id="closeModal" type="button">×</button></header>
     <div class="modal-grid">
       <div class="scan-preview"><img id="scanImage" alt="صورة ورقة التظليل الممسوحة"></div>
       <div>
         <div id="manualAssignmentWrap" class="manual-assignment hidden"><label>تعذر قراءة QR — اختر الطالب:<select id="manualAssignment"></select></label></div>
-        <div id="answerEditor" class="answer-editor"></div>
+        <p id="sheetWarning" role="status"></p><p id="modalFeedback" role="status" aria-live="polite"></p><label class="edit-mode"><input id="editMode" type="checkbox"> تحديد أكثر من إجابة للسؤال (اختياري)</label><div id="answerEditor" class="answer-editor"></div>
       </div>
     </div>
-    <footer><button id="saveSheetBtn" class="primary" type="button">حفظ مراجعة الورقة</button></footer>
+    <details id="editHistoryDetails"><summary>سجل تعديلات الإجابات</summary><button id="loadEditHistoryBtn" class="secondary" type="button">عرض سجل التعديلات</button><div id="sheetEditHistory"></div></details>
+    <footer class="review-footer">
+<label><input id="verifiedCheck" type="checkbox"> تحققت من صورة الورقة وحالات الإجابات وتعديلاتي عليها.</label>
+<label id="duplicateConfirm" class="hidden"><input id="duplicateCheck" type="checkbox"> اطلعت على تنبيه تكرار الرفع؛ يبقى التنبيه محفوظًا في السجل.</label>
+<div class="actions"><button id="saveSheetBtn" class="primary" type="button">حفظ التحقق من الورقة</button><button id="nextSheetBtn" class="secondary" type="button" disabled>التالي</button><button id="finishReviewBtn" class="primary" type="button" disabled>تم المراجعة</button></div>
+</footer>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>\n<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
 <script src="review-omr-template.js?v=20261001-v3"></script>
 <script src="teacher-access.js?v=20260920-scope5"></script>
 <script src="review-draft-sync.js?v=20260930-2"></script>
-<script src="review-scan.js?v=20261003-omr-intelligence2"></script>
+<script src="review-scan-journal.js?v=20261005-editable1"></script>
+<script src="review-scan.js?v=20261005-editable1"></script>
 </body>
 </html>
