@@ -1,3 +1,4 @@
+import { handlePaperScan, reviewedScanPayload } from './paper-scan.ts';
 import { FRAMEWORK } from './framework.ts';
 import { hasCurrentReview, reviewedImage, REVIEW_VERSION } from './reviewed-bank.ts';
 import { type Row, SUBJECTS, THRESHOLDS, tidy, fail, hash, token, shuffle, randomFrom, normalizeConfig, questionKey, indicatorOf, selectUnique, buildForms, cleanAnswers, gradeSections, publicSections, permuteQuestion, normalizeArabicName, normalizeLast3Digits, verifyStudentIdentity } from './assessment-engine.ts';
@@ -1502,6 +1503,7 @@ async function teacherPaperReviewList(db:any,owner:Row){
 }
 
 async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
+  b=await reviewedScanPayload(db,b,owner);
   const reviewId=tidy(b.review_id,80);
   if(!/^R[A-Z0-9_-]{4,79}$/i.test(reviewId))fail('معرّف المراجعة الورقية غير صالح.');
   const title=tidy(b.title,160)||'اختبار ورقي';
@@ -1592,10 +1594,10 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     settings:{show_result:false,show_answers:false,show_indicator_result:true,show_correct_count:true,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:true,disable_print:true,disable_shortcuts:true,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,opens_at:null,closes_at:null,attempts:1,break_minutes:0,manual_closed:true}
   };
 
-  let assessment=must(await db.from('nafes_assessments').select('*').eq('owner_id',owner.id).contains('config',{paper_review_id:reviewId}).maybeSingle());
+  let assessment=must(await db.from('nafes_assessments').select('*').eq('owner_id',(b.review_owner_id||owner.id)).contains('config',{paper_review_id:reviewId}).maybeSingle());
   const assessmentSections=sectionForQuestions(firstModel.questions);
   if(!assessment){
-    assessment=must(await db.from('nafes_assessments').insert({owner_id:owner.id,status:'draft',kind:'multi_indicator',title,config,rendered_sections:assessmentSections}).select().single());
+    assessment=must(await db.from('nafes_assessments').insert({owner_id:(b.review_owner_id||owner.id),status:'draft',kind:'multi_indicator',title,config,rendered_sections:assessmentSections}).select().single());
   }else{
     assessment=must(await db.from('nafes_assessments').update({title,config,rendered_sections:assessmentSections}).eq('id',assessment.id).select().single());
   }
@@ -1620,8 +1622,8 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     const answers:Row={};
     const rawAnswers=Array.isArray(result.answers)?result.answers:[];
     for(let i=0;i<m.questions.length;i++){
-      const selected=Number(rawAnswers[i]?.selected);
-      if(Number.isInteger(selected)&&selected>=0&&selected<4)answers[m.questions[i].id]=selected;
+      const a=rawAnswers[i],selected=a?.selected;
+      if(['correct','incorrect'].includes(a?.state)&&a?.status==='clear'&&Number.isInteger(selected)&&selected>=0&&selected<4)answers[m.questions[i].id]=selected;
     }
     const graded=gradeSections(sections,answers);
     const attemptConfig={...config,paper_model:model};
@@ -1636,8 +1638,9 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
       answer_count:Math.max(0,Math.min(questionCount,Math.trunc(Number(rawOmr.answer_count)||0))),
       auto_accept:rawOmr.auto_accept===true
     };
-    const event={type:'paper_scan',at:submittedAt,review_id:reviewId,model,method:'omr',subjects,omr};
+    const event={type:'paper_scan',at:submittedAt,review_id:reviewId,model,method:'omr',subjects,omr,scan_session_id:b.session_id,scan_sheet_id:result.sheet_id,answer_states:rawAnswers.map((a:Row)=>({question:a.question,state:a.state,status:a.status,selected:a.selected,reviewed_manually:a.reviewed_manually===true}))};
     const existing=must(await db.from('nafes_assessment_attempts').select('*').eq('assessment_id',assessment.id).eq('student_id',student.id).order('attempt_no',{ascending:false}).limit(1).maybeSingle());
+    if(existing?.events?.some((e:Row)=>e.scan_sheet_id===result.sheet_id)){saved.push({id:existing.id,student_id:student.id,student_name:student.full_name,model,score:existing.score,total:existing.total,percent:existing.percent});continue;}
     const lastSection=sections[sections.length-1];
     const payload={
       assessment_id:assessment.id,student_id:student.id,student_name:student.full_name,student_no:student.national_id_last3,
@@ -1653,14 +1656,14 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     saved.push({id:row.id,student_id:student.id,student_name:student.full_name,model,score:graded.score,total:graded.total,percent:graded.percent});
   }
 
-  const existingReview=must(await db.from('nafes_paper_reviews').select('id,payload').eq('owner_id',owner.id).eq('review_id',reviewId).maybeSingle());
+  const existingReview=must(await db.from('nafes_paper_reviews').select('id,payload').eq('owner_id',(b.review_owner_id||owner.id)).eq('review_id',reviewId).maybeSingle());
   const baseReview=existingReview?.payload||{};
   const reviewPayload=validatePaperReviewPayload({
     ...baseReview,review_id:reviewId,title,subject,subjects,class_name:className,question_count:questionCount,
     model_count:models.length,models,answer_keys:answerKeys,indicator_counts:indicators,
     assignments:Array.isArray(baseReview.assignments)?baseReview.assignments:(Array.isArray(b.assignments)?b.assignments:[])
   },owner);
-  const reviewRow={owner_id:owner.id,review_id:reviewId,title,subject,subjects,class_name:className,payload:reviewPayload,updated_at:new Date().toISOString()};
+  const reviewRow={owner_id:(b.review_owner_id||owner.id),review_id:reviewId,title,subject,subjects,class_name:className,payload:reviewPayload,updated_at:new Date().toISOString()};
   if(existingReview)must(await db.from('nafes_paper_reviews').update(reviewRow).eq('id',existingReview.id));
   else must(await db.from('nafes_paper_reviews').insert(reviewRow));
 
@@ -1670,6 +1673,7 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
 export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(String(b.action).startsWith('assessment_'))return await studentAction(db,b);
  const owner=await teacher(db,req);
+ if(String(b.action).startsWith('teacher_scan_'))return await handlePaperScan(db,b,owner);
  if(b.action==='teacher_build_forms')fail('تم إيقاف قسم الاختبارات المحاكية. استخدم اختبارات المؤشرات.',400);
  if(b.action==='teacher_students_list')return await teacherStudentsList(db);
  if(b.action==='teacher_student_add'){assertMainAccount(owner);return await teacherStudentAdd(db,b);}

@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {classifyAnswer} from '../supabase/functions/nafes-exam/paper-scan.ts';
+const key={correct_index:0,indicator:'reading:test'};
+assert.equal(classifyAnswer({selected:null,status:'blank'},key,0).state,'blank');
+assert.equal(classifyAnswer({selected:0,status:'multiple',marked:[0,1]},key,0).correct,false);
+assert.equal(classifyAnswer({selected:0,status:'ambiguous'},key,0).state,'uncertain');
+assert.equal(classifyAnswer({selected:0,status:'manual'},key,0).state,'uncertain');
+assert.equal(classifyAnswer({selected:0,status:'clear'},key,0).state,'correct');
+assert.equal(classifyAnswer({selected:1,status:'clear'},key,0).state,'incorrect');
+assert.equal(classifyAnswer({selected:null,status:'clear'},key,0).state,'uncertain');
+assert.equal(classifyAnswer({selected:'0',status:'clear'},key,0).state,'uncertain');
+assert.equal(classifyAnswer({selected:0,status:'clear'},{},0).state,'uncertain');
+assert.equal(classifyAnswer({selected:0,status:'clear',marked:[0,1]},key,0).state,'multiple');
+console.log('PASS: 10 server classification cases including null, multiple, uncertain and invalid keys.');
