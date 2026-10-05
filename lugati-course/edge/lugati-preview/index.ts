@@ -108,7 +108,7 @@ async function answer(questionId:string,selectedIndex:number){
   };
 }
 
-const PAGE=String.raw\`<!doctype html>
+const PAGE=String.raw`<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -240,7 +240,7 @@ async function init(){
 }
 init();
 </script>
-</body></html>\`;
+</body></html>`;
 
 Deno.serve(async(req)=>{
   if(!authorized(req))return new Response("Preview link is invalid or expired.",{status:403,headers:{"Content-Type":"text/plain; charset=utf-8"}});
