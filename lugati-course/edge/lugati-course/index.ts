@@ -248,6 +248,22 @@ Deno.serve(async(req:Request)=>{
       return json({lesson:rec.lesson,blueprint:rec.blueprint});
     }
 
+    if(action==="lesson_content"){
+      const code=String(body.lesson_code||"").trim().toUpperCase();
+      const rec=await getLesson(code); if(!rec)return json({error:"lesson_not_found"},404);
+      if(account.role==="student"){
+        const a=await lessonAccess(account.id,code);
+        if(!a.allowed){await recordForced(account.id,rec.lesson.id,a.reason);return json({error:a.reason},403)}
+        if(!a.can_launch)return json({error:"content_not_ready"},409);
+      }
+      const {data:blocks,error}=await db.from("lesson_micro_blocks")
+        .select("point_key,block_order,block_type,title,body,payload,depth_note,remediation")
+        .eq("lesson_id",rec.lesson.id).eq("active",true)
+        .order("block_order",{ascending:true});
+      if(error)throw error;
+      return json({lesson:rec.lesson,blueprint:rec.blueprint,blocks:blocks||[]});
+    }
+
     if(action==="student_mastery_map"){
       if(account.role!=="student")return json({error:"forbidden"},403);
       const {data:points}=await db.from("student_point_mastery").select("lesson_id,point_key,status,correct_count,checked_count,wrong_count,mastered_at,updated_at").eq("student_id",account.id);
@@ -369,9 +385,12 @@ Deno.serve(async(req:Request)=>{
       const objectiveKeys=new Set((Array.isArray(bp.objectives)?bp.objectives:[]).filter((o:any)=>o?.core!==false).map((o:any)=>String(o.key)));
       const covered=new Set((qs||[]).filter(q=>q.objective_key).map(q=>String(q.objective_key)));
       const objectivesReady=scoring==="rubric"||[...objectiveKeys].every(k=>covered.has(k));
-      const ready=pointReady&&finalReady&&objectivesReady;
+      const {data:blocks}=await db.from("lesson_micro_blocks").select("point_key").eq("lesson_id",rec.lesson.id).eq("active",true);
+      const contentCounts=Object.fromEntries(points.map((p:any)=>[p.key,(blocks||[]).filter(b=>b.point_key===p.key).length]));
+      const contentReady=points.every((p:any)=>Number(contentCounts[p.key]||0)>=1);
+      const ready=pointReady&&finalReady&&objectivesReady&&contentReady;
       if(body.update===true)await db.from("lesson_blueprints").update({ready_for_publish:ready,updated_at:new Date().toISOString()}).eq("lesson_id",rec.lesson.id);
-      return json({ready,point_counts:counts,final:{count:finalCount,required:finalNeeded,ready:finalReady},objectives_ready:objectivesReady});
+      return json({ready,point_counts:counts,content_counts:contentCounts,content_ready:contentReady,final:{count:finalCount,required:finalNeeded,ready:finalReady},objectives_ready:objectivesReady});
     }
 
     if(action==="score_rubric"){
