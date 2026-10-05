@@ -1810,7 +1810,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
         fail(`المؤشر ${key} لا يجمع المعرفة والتطبيق والاستدلال في المسودة؛ أعد تكوينها قبل النشر.`,409);
       }
     }
-    if(section.subject==='reading'){
+    if(section.subject==='reading'&&t.config?.review_passage_mode===true){
       for(const count of readingContextCounts.values())if(count!==5)fail('بنية القراءة يجب أن تكون: نص واحد ثم خمسة أسئلة مرتبطة به.',409);
     }
     if((section.questions||[]).length>=8){
