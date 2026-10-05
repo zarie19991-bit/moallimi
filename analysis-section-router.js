@@ -55,35 +55,13 @@ function ensureAnalysisPrintSignatureCss(){
 }
 // Print geometry is owned by report-a4-flow-final.css, not runtime scaling.
 function enterAnalysisPrintMode(){
-  removeDuplicateMeasuredCount(document);
   ensureAnalysisPrintSignatureCss();
+  applySemesterToSheets(document);
+  removeDuplicateMeasuredCount(document);
 }
-// Keep related parts together only when their complete section fits A4.
-// Measure at the actual 190mm content width; large tables remain fragmentable.
-function keepPrintableSectionsTogether(){
-  const root=$('printRoot');
-  if(!root||!matchMedia('print').matches)return;
-  root.querySelectorAll('.sar-chart-card').forEach(card=>{
-    if(card.parentElement.classList.contains('sar-chart-group'))return;
-    const next=card.nextElementSibling;
-    if(!next?.classList.contains('sar-chart-card'))return;
-    const group=document.createElement('div');group.className='sar-chart-group';
-    card.before(group);group.append(card,next);
-  });
-  const width=root.style.getPropertyValue('width'),priority=root.style.getPropertyPriority('width');
-  root.style.setProperty('width','190mm','important');
-  const sections=[...root.querySelectorAll('.sar-chart-group,.sar-analysis-grid,.sar-chart-card,.sar-stats,.sar-achievement,.wr-focus,.wr-two,.wr-performance,.wr-remedial')];
-  sections.forEach(section=>section.classList.remove('print-keep-section'));
-  // Leave a little room for borders and rounding within the 277mm page area.
-  const maxHeight=270*96/25.4;
-  sections.forEach(section=>{
-    const style=getComputedStyle(section);
-    const height=section.getBoundingClientRect().height+parseFloat(style.marginTop||0)+parseFloat(style.marginBottom||0);
-    if(height>0&&height<=maxHeight)section.classList.add('print-keep-section');
-  });
-  if(width)root.style.setProperty('width',width,priority);else root.style.removeProperty('width');
-}
-addEventListener('beforeprint',keepPrintableSectionsTogether);
+// Print layout is CSS-only. Do not mutate or synchronously measure the DOM from
+// beforeprint; Chromium can stall while pagination and layout are both active.
+function keepPrintableSectionsTogether(){ return; }
 function bindAnalysisPrintFidelity(){
   ['printOverviewAnalysisBtn','printSubjectAnalysisBtn'].forEach(id=>$(id)?.addEventListener('click',enterAnalysisPrintMode,true));
 }
@@ -138,7 +116,7 @@ function install(){
     if(changed)queueMicrotask(()=>{applySemesterToSheets(document);removeDuplicateMeasuredCount(document);});
   });
   sheetObserver.observe(document.body,{childList:true,subtree:true});
-  addEventListener('beforeprint',()=>{applySemesterToSheets(document);removeDuplicateMeasuredCount(document);});
+  // No beforeprint DOM mutation. Required text cleanup is done before print is requested.
 
   $('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500));
   addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500)});
