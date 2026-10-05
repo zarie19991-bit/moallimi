@@ -75,7 +75,7 @@ function fill(id,subject){const el=$(id);if(!el)return;const rows=testsFor(subje
 function populate(){fill('analysisReadingTest','reading');fill('analysisMathTest','math');fill('analysisScienceTest','science');fill('analysisSubjectTest',$('subjectSelect')?.value||'reading');}
 function buildOverview(){const cls=$('overviewClass')?.value||'',ids={reading:$('analysisReadingTest')?.value,math:$('analysisMathTest')?.value,science:$('analysisScienceTest')?.value};const html=SUBJECTS.map(s=>ids[s]?sheet(s,ids[s],cls):'').filter(Boolean).join('');const host=$('overviewOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">لا توجد درجات محفوظة فعلية للاختبارات المختارة.</div>';return html;}
 function buildSubject(){const s=$('subjectSelect')?.value||'reading',id=$('analysisSubjectTest')?.value||'',cls=$('subjectClass')?.value||'',html=id?sheet(s,id,cls):'';const host=$('subjectOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">اختر اختبارًا لديه درجات محفوظة فعلية لهذه المادة.</div>';return html;}
-function printHtml(html){if(!html)return;const root=$('printRoot');root.innerHTML=html;root.setAttribute('aria-hidden','false');requestAnimationFrame(()=>window.print());}
+function printHtml(html){if(!html)return;const root=$('printRoot');root.innerHTML=html;root.setAttribute('aria-hidden','false');requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));}
 async function load(){
  if(loading||!T?.getKey?.())return;loading=true;
  try{
