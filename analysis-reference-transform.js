@@ -19,7 +19,7 @@ function init(){
   const host=$('subjectOfficialReport'),printBtn=$('printSubjectReportBtn');if(!host)return;
   const obs=new MutationObserver(()=>transform(host));obs.observe(host,{childList:true,subtree:true});
   transform(host);
-  if(printBtn)printBtn.onclick=()=>{transform(host);const sheet=host.querySelector('.official-analysis-sheet');if(!sheet)return;const root=$('printRoot');root.innerHTML=sheet.outerHTML;root.setAttribute('aria-hidden','false');transform(root);window.print()};
+  if(printBtn)printBtn.onclick=()=>{transform(host);const sheet=host.querySelector('.official-analysis-sheet');if(!sheet)return;const root=$('printRoot');root.innerHTML=sheet.outerHTML;root.setAttribute('aria-hidden','false');transform(root);requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()))};
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
