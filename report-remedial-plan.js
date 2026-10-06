@@ -65,7 +65,7 @@ function patch(){
 }
 function init(){
  const host=$('reportPreview');if(!host)return;
- new MutationObserver(()=>queueMicrotask(patch)).observe(host,{childList:true,subtree:true,characterData:true});
+ let patchPending=false;new MutationObserver(()=>{if(patchPending)return;patchPending=true;queueMicrotask(()=>{patchPending=false;patch()})}).observe(host,{childList:true});
  patch();
  const print=$('printReportBtn');if(print)print.onclick=()=>{patch();const pages=[...host.querySelectorAll('.weekly-report.report-sheet')];if(!pages.length)return;const root=$('printRoot');root.innerHTML=pages.map(p=>p.outerHTML).join('');cleanSchoolLogo(root);root.setAttribute('aria-hidden','false');window.print();};
  addEventListener('beforeprint',()=>{cleanSchoolLogo(host);cleanSchoolLogo($('printRoot'));});
