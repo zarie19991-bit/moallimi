@@ -332,10 +332,13 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
   const mixed=rankQuestionCandidates(candidates.filter(q=>curatedQuestionEligible(q,subject)),seed+'|curated-quality');
   const unique:Row[]=[];
   const localStems=new Set<string>();
+  const crossIndicatorStemReuse=new Set<string>();
   for(const q of mixed){
-    const ck=questionKey(q),sk=stemKey(q);
-    if(!sk||usedContent.has(ck)||usedStems.has(sk)||localStems.has(sk))continue;
-    localStems.add(sk);unique.push(q);
+    const ck=questionKey(q),sk=selectionStemKey(q,subject);
+    if(!sk||usedContent.has(ck)||localStems.has(sk))continue;
+    localStems.add(sk);
+    if(usedStems.has(sk))crossIndicatorStemReuse.add(String(q.id));
+    unique.push(q);
   }
   if(unique.length<count)fail(`لا توجد أسئلة محكَّمة ومتنوعة كافية لهذا المؤشر: المطلوب ${count} والمتاح بعد استبعاد الصياغات الضعيفة والمتكررة ${unique.length} فقط.`);
 
@@ -352,15 +355,21 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
     if(!desired)return 0;
     const basePool=unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id)));
     let taken=0;
-    for(const tier of [0,1,2,3,4,5]){
-      const pool=rankQuestionCandidates(basePool.filter(q=>qualityAuditTier(q)===tier),seed+'|'+level+'|tier'+tier);
-      for(const cap of [1,2,3,99]){
-        for(const q of pool){
+    // Prefer stems not used by earlier indicators. Only if that strict pass cannot
+    // satisfy the cognitive target do we admit a stem seen under another indicator.
+    for(const reuseCrossIndicatorStem of [false,true]){
+      for(const tier of [0,1,2,3,4,5]){
+        const stage=basePool.filter(q=>reuseCrossIndicatorStem||!crossIndicatorStemReuse.has(String(q.id)));
+        const pool=rankQuestionCandidates(stage.filter(q=>qualityAuditTier(q)===tier),seed+'|'+level+'|reuse'+Number(reuseCrossIndicatorStem)+'|tier'+tier);
+        for(const cap of [1,2,3,99]){
+          for(const q of pool){
+            if(taken>=desired)break;
+            if(pickedIds.has(String(q.id)))continue;
+            const family=stemFamilyKey(q);
+            if((familyCounts.get(family)||0)>=cap)continue;
+            add(q);taken++;
+          }
           if(taken>=desired)break;
-          if(pickedIds.has(String(q.id)))continue;
-          const family=stemFamilyKey(q);
-          if((familyCounts.get(family)||0)>=cap)continue;
-          add(q);taken++;
         }
         if(taken>=desired)break;
       }
@@ -371,10 +380,15 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
 
   for(const level of ['knowledge','application','reasoning']){
     const desired=Number(targets[level]||0),taken=takeLevel(level,desired);
-    if(taken<desired)fail(`لا توجد أسئلة سليمة كافية في مستوى ${level} لهذا المؤشر: المطلوب ${desired} والمتاح ${taken}. لن يكتمل النموذج على حساب التوازن المعرفي.`);
+    if(taken<desired){
+      const key=String(candidates[0]?.indicator_key||'');
+      fail(`لا توجد أسئلة سليمة كافية في مستوى ${level} لهذا المؤشر${key?' ('+key+')':''}: المطلوب ${desired} والمتاح ${taken}. لن يكتمل النموذج على حساب التوازن المعرفي.`);
+    }
   }
   if(picked.length<count){
-    const rest=rankQuestionCandidates(unique.filter(q=>!pickedIds.has(String(q.id))),seed+'|fallback-quality');
+    const strictRest=rankQuestionCandidates(unique.filter(q=>!pickedIds.has(String(q.id))&&!crossIndicatorStemReuse.has(String(q.id))),seed+'|fallback-quality-strict');
+    const reusedRest=rankQuestionCandidates(unique.filter(q=>!pickedIds.has(String(q.id))&&crossIndicatorStemReuse.has(String(q.id))),seed+'|fallback-quality-reuse');
+    const rest=[...strictRest,...reusedRest];
     for(const cap of [1,2,3,99]){
       for(const q of rest){
         if(picked.length>=count)break;
@@ -389,7 +403,7 @@ function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:s
   if(picked.length!==count)fail(`تعذر تكوين نموذج متوازن ومتنوّع لهذا المؤشر: المطلوب ${count} والمتاح بعد التحكيم ${picked.length}.`);
   const arranged=arrangeObjectiveQuestions(picked,seed+'|arrange');
   const balanced=rebalanceQuestionOptions(arranged,seed);
-  for(const q of balanced){usedContent.add(questionKey(q));usedStems.add(stemKey(q));}
+  for(const q of balanced){usedContent.add(questionKey(q));usedStems.add(selectionStemKey(q,subject));}
   return balanced;
 }
 function arrangeObjectiveQuestions(qs:Row[],seed:string):Row[]{
