@@ -93,6 +93,28 @@ async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
       for(const q of page||[])all.push(renderedCurated(q));
       if(!page||page.length<500)break;
     }
+    // Safe auto-completion: curated items remain the preferred source, but a
+    // preview must not fail merely because exclusions/regeneration exhausted one
+    // cognitive level. Supplement with currently-reviewed approved bank items
+    // for the exact same indicator. Selection below still enforces structure,
+    // cognitive level, uniqueness, distractor quality, and semantic audit.
+    if(!ids?.length){
+      const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];
+      for(let start=0;;start+=500){
+        let fallback=db.from('nafes_question_bank').select(BANK_COLUMNS)
+          .eq('grade_key','middle_3').eq('subject_key',subject).eq('is_active',true)
+          .eq('review_status','approved').lte('model_no',4).order('id');
+        if(scoped.length)fallback=fallback.in('outcome_code',[...new Set(scoped.map(i=>i!.outcome))]).in('indicator_index',[...new Set(scoped.map(i=>i!.indicator))]);
+        const page=must(await fallback.range(start,start+499));
+        for(const q of page||[]){
+          if(!hasCurrentReview(q))continue;
+          const item=rendered(q);
+          item.bank_source='reviewed_bank_fallback';
+          all.push(item);
+        }
+        if(!page||page.length<500)break;
+      }
+    }
     const audited=await attachQualityAudit(db,all);
     previewPoolCacheSet(cacheKey,audited);
     return audited;
