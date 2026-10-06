@@ -5,7 +5,7 @@ window.__NAFES_ANALYSIS_EXCLUSION_UI__=true;
 const T=window.NafesTeacher;
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let studentMap=new Map(),pendingRows=[],scheduled=false,refreshing=false;
+let studentMap=new Map(),pendingRows=[],scheduled=false,refreshing=false,tableObserver=null,bodyObserver=null;
 
 function boolValue(value){
   const v=String(value??'').trim().toLowerCase();
@@ -219,15 +219,33 @@ async function toggleAudit(){
     panel.innerHTML=events.length?`<table><thead><tr><th>الطالب</th><th>التغيير</th><th>المصدر</th><th>السبب</th><th>الوقت</th></tr></thead><tbody>${events.map(e=>{const st=studentMap.get(String(e.student_id));return`<tr><td>${esc(st?.full_name||e.student_id)}</td><td>${e.new_excluded?'استبعاد':'إعادة تضمين'}</td><td>${esc(e.source||'—')}</td><td>${esc(e.reason||'—')}</td><td>${esc(new Date(e.changed_at).toLocaleString('ar-SA'))}</td></tr>`}).join('')}</tbody></table>`:'<div style="padding:12px">لا توجد تغييرات مسجلة حتى الآن.</div>';
   }catch(e){panel.innerHTML=`<div style="padding:12px;color:#a32a2a">${esc(e.message)}</div>`;}
 }
+function observeStudentTable(){
+  const container=$('studentsTableContainer');
+  if(!container||tableObserver)return;
+  tableObserver=new MutationObserver(()=>schedule());
+  tableObserver.observe(container,{childList:true,subtree:false});
+}
 function schedule(){
   if(scheduled)return;scheduled=true;
-  queueMicrotask(()=>{scheduled=false;ensurePanel();annotateTable();});
+  queueMicrotask(()=>{scheduled=false;ensurePanel();observeStudentTable();annotateTable();});
 }
 function install(){
   ensureStyles();schedule();
-  new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});
+  bodyObserver=new MutationObserver(()=>{
+    if($('studentsModal')){
+      schedule();
+      if(bodyObserver){bodyObserver.disconnect();bodyObserver=null;}
+    }
+  });
+  bodyObserver.observe(document.body,{childList:true,subtree:false});
   document.addEventListener('click',e=>{
     if(e.target?.closest?.('#navStudentsBtn,.btn-quick-manage,[data-tab="manage"],#tabBtnManage'))setTimeout(()=>loadStudents(),0);
+  },true);
+  document.addEventListener('input',e=>{
+    if(['studentSearchInput'].includes(e.target?.id))setTimeout(schedule,0);
+  },true);
+  document.addEventListener('change',e=>{
+    if(['filterGradeSelect','filterClassSelect'].includes(e.target?.id))setTimeout(schedule,0);
   },true);
   addEventListener('nafes:auth-changed',()=>{studentMap.clear();setTimeout(()=>loadStudents(),50);});
 }
