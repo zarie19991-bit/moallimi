@@ -36,6 +36,7 @@ published-tests-drawer.js
 xlsx-vendor.js
 excel-engine.js
 students.js
+student-analysis-exclusion.js
 app.js
 
 # منصة لغتي — دخول مستقل وجلسة مصادقة حقيقية.
