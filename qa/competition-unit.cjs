@@ -27,6 +27,8 @@ const x=context.window.LugatiCompetition;
  assert.match(migration,/current_position >= 1 and current_position <= 40/);
  const source=fs.readFileSync(path.join(root,'supabase/functions/lugati-competition/index.ts'),'utf8');
  assert.match(source,/teacherLiveAttempts/);assert.match(source,/live_students/);assert.match(source,/status!=="in_progress"/);
+ assert.doesNotMatch(source,/نفدت الأسئلة غير المكررة لهذا المؤشر/);assert.doesNotMatch(source,/\.limit\(160\)/);assert.match(source,/fresh_then_least_used/);assert.match(source,/cycled_recent_free/);assert.match(source,/competition_question_selection/);assert.match(source,/demo_only!==true/);
+ assert.match(text,/تدوير الأسئلة تلقائي/);assert.match(text,/لا تحتاج إلى بدء موسم جديد لتجديد الأسئلة/);assert.match(text,/البنك ناقص/);
  const js=stripTypeScriptTypes(source,{mode:'strip'}).replace(/^import .*;\s*$/gm,'');
  const backend={createClient:()=>({}),Deno:{env:{get:()=>''},serve:()=>{}},console};vm.createContext(backend);vm.runInContext(js+';globalThis.check={safeCompetitionQuestion,validateIndicators};',backend);
  const q={question_text:'اختر الإجابة الصحيحة',options:['a','b','c','d'],correct_index:2};assert.equal(backend.check.safeCompetitionQuestion(q),true);
