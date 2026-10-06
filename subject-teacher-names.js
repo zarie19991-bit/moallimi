@@ -242,7 +242,7 @@ function schedule(){
 }
 function install(){
   applyAll();
-  new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});
+  const dashboard=document.getElementById('dashboard');if(dashboard)new MutationObserver(records=>{if(records.some(r=>[...r.addedNodes].some(n=>n.nodeType===1&&!n.closest?.('#subjectOfficialReport,#reportPreview,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot'))))schedule()}).observe(dashboard,{childList:true,subtree:true});
   document.addEventListener('change',e=>{
     if(['subjectSelect','reportSubjectSelect'].includes(e.target?.id))schedule();
   });
