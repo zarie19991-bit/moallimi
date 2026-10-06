@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
 const TEACHERS={reading:'زرعي شبير',math:'عبدالله العماري',science:'مليدان بالحارث'};
+const T=window.NafesTeacher;
 window.NafesSubjectTeachers=Object.freeze({...TEACHERS});
 const LABELS={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const KEYS=['reading','math','science'];
@@ -240,9 +241,26 @@ function schedule(){
   pending=true;
   queueMicrotask(applyAll);
 }
+async function loadTeacherDirectory(){
+  if(!T?.api)return;
+  try{
+    const data=await T.api('teacher_subject_teachers');
+    for(const key of KEYS){
+      const name=String(data?.primary?.[key]||'').trim();
+      if(name)TEACHERS[key]=name;
+    }
+    window.NafesSubjectTeachers=Object.freeze({...TEACHERS});
+    schedule();
+  }catch(error){
+    console.error('subject teacher directory load failed',error);
+  }
+}
 function install(){
   applyAll();
+  loadTeacherDirectory();
   const dashboard=document.getElementById('dashboard');if(dashboard)new MutationObserver(records=>{if(records.some(r=>[...r.addedNodes].some(n=>n.nodeType===1&&!n.closest?.('#subjectOfficialReport,#reportPreview,#overviewOfficialPreview,#subjectOfficialPreview,#printRoot'))))schedule()}).observe(dashboard,{childList:true,subtree:true});
+  addEventListener('nafes:auth-changed',()=>loadTeacherDirectory());
+  addEventListener('nafes:teacher-profile',()=>loadTeacherDirectory());
   document.addEventListener('change',e=>{
     if(['subjectSelect','reportSubjectSelect'].includes(e.target?.id))schedule();
   });
