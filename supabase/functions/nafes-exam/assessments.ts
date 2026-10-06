@@ -1819,9 +1819,32 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   return preview(must(await db.from('nafes_assessments').update({rendered_sections:sections}).eq('id',t.id).eq('status','draft').select().single()));
  }
  if(b.action==='teacher_publish') {
-  const t=await findDraft(db,b.draft_id,owner);
+  let t=await findDraft(db,b.draft_id,owner);
   const isSim=false;
   if(t.kind==='simulation'||t.config?.bank_source==='simulation_bank')fail('تم إيقاف قسم الاختبارات المحاكية.',400);
+
+  const needsCognitiveRepair=(t.rendered_sections||[]).some((section:Row)=>{
+    const states=new Map<string,{count:number;levels:Set<string>}>();
+    for(const q of section.questions||[]){
+      const key=String(q.indicator_key||indicatorOf(q));
+      const state=states.get(key)||{count:0,levels:new Set<string>()};
+      state.count++;
+      if(q.cognitive_level)state.levels.add(String(q.cognitive_level));
+      states.set(key,state);
+    }
+    return [...states.values()].some(state=>state.count>=3&&
+      (!state.levels.has('knowledge')||!state.levels.has('application')||!state.levels.has('reasoning')));
+  });
+  let autoRebalanced=false;
+  if(needsCognitiveRepair){
+    const rebuilt=await draftSections(db,t.config,true,[]);
+    t=must(await db.from('nafes_assessments')
+      .update({rendered_sections:rebuilt})
+      .eq('id',t.id).eq('status','draft')
+      .select().single());
+    autoRebalanced=true;
+  }
+
   const seenStems=new Set<string>();
   for(const section of t.rendered_sections){
     const familyCounts=new Map<string,number>();
@@ -1873,7 +1896,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   }
   const short_code=await codeFor(db);
   const saved=must(await db.from('nafes_assessments').update({status:'published',short_code,published_at:new Date().toISOString()}).eq('id',t.id).eq('status','draft').select().single());
-  return{id:saved.id,short_code,url:`${BASE}e.html?t=${short_code}`,title:saved.title};
+  return{id:saved.id,short_code,url:`${BASE}e.html?t=${short_code}`,title:saved.title,auto_rebalanced:autoRebalanced};
  }
  if(b.action==='teacher_shorten_legacy')fail('تم إيقاف مسار الاختبارات القديم. أنشئ الاختبار من قسم اختبارات المؤشرات الجديد.',410);
  if(b.action==='teacher_build_forms') {if(!SUBJECTS.includes(b.subject))fail('المادة غير صحيحة.');const pool=await fullPool(db,b.subject),expected=FRAMEWORK.filter(i=>i.subject===b.subject).length*30;if(pool.length!==expected)fail(`لم يكتمل البنك المراجع للمادة: ${pool.length} من ${expected}.`,409);const bank_hash=await hash(JSON.stringify(pool));const forms=buildForms(pool,b.subject);for(const f of forms){f.signature=await hash(f.signature);f.bank_hash=bank_hash;}const result=must(await db.rpc('replace_nafes_simulation_forms',{payload:forms}));return{ok:true,subject:b.subject,forms:60,question_slots:1800,unique_questions:new Set(forms.flatMap(f=>f.questions.map((q:Row)=>q.id))).size,result};}
