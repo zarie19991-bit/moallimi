@@ -1265,8 +1265,18 @@ async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:un
         if(s.fixed_model)candidates=candidates.filter(q=>q.model_no===s.fixed_model);
         const picked=(c.review_passage_mode===true&&s.subject==='reading')
           ?selectReadingPassageQuestions(candidates,i.count,token(8),used,usedStems)
-          :((s.subject==='math'||s.subject==='science')
-            ?selectCuratedIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems,levelPlan?.get(String(i.key)))
+          :((s.subject==='math'||s.subject==='science'||s.subject==='reading')
+            ?selectCuratedIndicatorQuestions(
+              candidates,
+              i.count,
+              s.subject,
+              token(8),
+              used,
+              usedStems,
+              s.subject==='reading'
+                ?levelTargets('reading',i.count,c.cognitive_targets||null)
+                :levelPlan?.get(String(i.key))
+            )
             :selectIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems));
         qs.push(...picked);
       }
@@ -1793,9 +1803,10 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
     ?(await simulationPool(db,old.subject,[old.indicator_key])).filter(q=>q.indicator_key===old.indicator_key)
     :(await fullPool(db,old.subject,[old.indicator_key])).filter(q=>q.indicator_key===old.indicator_key);
   const other=all.filter((x:Row)=>x.id!==old.id);
-  const usedContent=new Set(other.map(questionKey)),usedStems=new Set(other.map(stemKey));
-  let candidates=pool.filter(q=>!usedContent.has(questionKey(q))&&!usedStems.has(stemKey(q)));
-  if((old.subject==='math'||old.subject==='science')&&old.cognitive_level){
+  const usedContent=new Set(other.map(questionKey)),
+        usedStems=new Set(other.map((q:Row)=>selectionStemKey(q,String(q.subject||old.subject||''))));
+  let candidates=pool.filter(q=>!usedContent.has(questionKey(q))&&!usedStems.has(selectionStemKey(q,String(q.subject||old.subject||''))));
+  if(old.cognitive_level){
     const sameLevel=candidates.filter(q=>q.cognitive_level===old.cognitive_level);
     if(sameLevel.length)candidates=sameLevel;
   }
@@ -1818,7 +1829,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
     const readingContextCounts=new Map<string,number>();
     const answerPositionCounts=[0,0,0,0];
     for(const q of section.questions||[]){
-      const sk=stemKey(q);
+      const sk=selectionStemKey(q,section.subject);
       if(seenStems.has(sk))fail('توجد صياغة سؤال مكررة في المسودة؛ بدّل السؤال المكرر قبل النشر.',409);
       seenStems.add(sk);
       const indicatorKey=String(q.indicator_key||indicatorOf(q));
