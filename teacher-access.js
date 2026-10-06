@@ -9,7 +9,7 @@
   const ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
   const QA_ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-qa-teacher';
   const PROFILE_ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-teacher-profile';
-  const READ_ACTIONS = new Set(['teacher_data', 'teacher_students_list']);
+  const READ_ACTIONS = new Set(['teacher_data', 'teacher_students_list', 'teacher_subject_teachers']);
   const READ_CACHE_TTL = 15000;
   const SUBJECTS = new Set(['reading','math','science']);
   const readCache = new Map();
@@ -49,6 +49,11 @@
     const s = scope();
     if (s === 'all' || !data || typeof data !== 'object') return data;
     if (action === 'teacher_data') return { ...data, attempts: (data.attempts || []).filter(a => a?.source !== 'simulation').map(filterAttempt).filter(Boolean), tests: (data.tests || []).filter(t => t?.kind !== 'simulation' && (t.subjects || []).includes(s)), indicators: (data.indicators || []).filter(i => i.subject === s) };
+    if (action === 'teacher_subject_teachers') {
+      const teachers=(data.teachers||[]).filter(t=>t.subject_key===s);
+      const primary={}; if(data.primary?.[s]) primary[s]=data.primary[s];
+      return {...data,teachers,primary};
+    }
     if (action === 'teacher_catalog') {
       const tests = (data.tests || []).filter(t => t?.kind !== 'simulation' && (t.subjects || []).includes(s));
       const indicators = (data.indicators || []).filter(i => i.subject === s);
