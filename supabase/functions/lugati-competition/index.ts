@@ -104,27 +104,75 @@ function cleanCompetitionContext(v:any){
  if(/^(مراجعة جماعية للحل|موقف تقويمي جديد|تدريب جديد|سؤال تدريبي|نشاط تدريبي)\s*:/i.test(t))return "";
  return t;
 }
-async function pickCandidate(meta:any,ind:any,level:string,used:Set<string>,usedSeason:Set<string>,usedText:Set<string>){
- const {data,error}=await db.from("nafes_question_bank")
-  .select("id,subject_key,outcome_code,indicator_index,indicator_text,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,image")
-  .eq("is_active",true).eq("review_status","approved").eq("alignment_verified",true)
-  .eq("subject_key",meta.subject).eq("outcome_code",ind.outcome_code).eq("indicator_index",ind.indicator_index).eq("cognitive_level",level).limit(160);
- if(error)throw error;
+type QuestionUsage={count:number,lastUsedAt:number};
+function usageStat(q:any,usage:Map<string,QuestionUsage>){
+ const id=usage.get("id:"+String(q.id)),text=usage.get("text:"+compactText(q.question_text));
+ return {count:Math.max(Number(id?.count||0),Number(text?.count||0)),lastUsedAt:Math.max(Number(id?.lastUsedAt||0),Number(text?.lastUsedAt||0))};
+}
+function isRecentQuestion(q:any,recent:Set<string>){
+ return recent.has("id:"+String(q.id))||recent.has("text:"+compactText(q.question_text));
+}
+async function loadCompetitionCandidates(meta:any,ind:any,level:string){
+ const rows:any[]=[];const page=500;
+ for(let offset=0;offset<10000;offset+=page){
+   const {data,error}=await db.from("nafes_question_bank")
+    .select("id,subject_key,outcome_code,indicator_index,indicator_text,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,image")
+    .eq("is_active",true).eq("review_status","approved").eq("alignment_verified",true)
+    .eq("subject_key",meta.subject).eq("outcome_code",ind.outcome_code).eq("indicator_index",ind.indicator_index).eq("cognitive_level",level)
+    .order("id",{ascending:true}).range(offset,offset+page-1);
+   if(error)throw error;
+   rows.push(...(data||[]));
+   if((data||[]).length<page)break;
+ }
+ return rows;
+}
+async function pickCandidate(meta:any,ind:any,level:string,used:Set<string>,seasonUsage:Map<string,QuestionUsage>,recent:Set<string>,usedText:Set<string>,rotation:any){
+ const data=await loadCompetitionCandidates(meta,ind,level);
  const valid=(data||[]).filter((x:any)=>safeCompetitionQuestion(x)&&!used.has(String(x.id))&&!usedText.has(compactText(x.question_text)));
- if(!valid.length)throw Object.assign(new Error("لا توجد أسئلة سليمة كافية للمؤشر المختار في مستوى "+levelLabel(level)+"."),{status:409});
- const fresh=valid.filter((x:any)=>!usedSeason.has(String(x.id))&&!usedSeason.has(compactText(x.question_text)));if(!fresh.length)throw Object.assign(new Error("نفدت الأسئلة غير المكررة لهذا المؤشر. اختر مؤشرًا آخر أو ابدأ موسمًا جديدًا."),{status:409});const x=shuffle(fresh)[0];
+ if(!valid.length){
+   console.error("competition_question_selection",JSON.stringify({mode:"failed",arena_key:meta.key,subject_key:meta.subject,outcome_code:ind.outcome_code,indicator_index:Number(ind.indicator_index),cognitive_level:level,eligible_total:0}));
+   throw Object.assign(new Error("لا توجد أسئلة معتمدة وسليمة للمؤشر المختار في مستوى "+levelLabel(level)+". استكمل بنك هذا المؤشر أو اختر مؤشرًا آخر."),{status:409});
+ }
+ const fresh=valid.filter((x:any)=>usageStat(x,seasonUsage).count===0);
+ let mode="fresh",pool=fresh,x:any=null;
+ if(fresh.length){
+   x=shuffle(fresh)[0];
+ }else{
+   const recentFree=valid.filter((q:any)=>!isRecentQuestion(q,recent));
+   pool=recentFree.length?recentFree:valid;
+   mode=recentFree.length?"cycled_recent_free":"cycled";
+   x=shuffle(pool).sort((a:any,b:any)=>{
+     const ua=usageStat(a,seasonUsage),ub=usageStat(b,seasonUsage);
+     return ua.count-ub.count||ua.lastUsedAt-ub.lastUsedAt;
+   })[0];
+ }
+ rotation[mode]=(rotation[mode]||0)+1;
+ const stat=usageStat(x,seasonUsage);
+ console.info("competition_question_selection",JSON.stringify({
+   mode,arena_key:meta.key,subject_key:meta.subject,outcome_code:ind.outcome_code,indicator_index:Number(ind.indicator_index),
+   cognitive_level:level,eligible_total:valid.length,fresh_total:fresh.length,recent_free_total:valid.filter((q:any)=>!isRecentQuestion(q,recent)).length,
+   prior_use_count:stat.count
+ }));
  used.add(String(x.id));usedText.add(compactText(x.question_text));return x;
 }
 async function buildQuestions(meta:any,inds:any[],seasonId:string){
- const {data:rs,error:re}=await db.from("lugati_competition_rounds").select("id").eq("season_id",seasonId);if(re)throw re;
- const rids=(rs||[]).map((x:any)=>x.id),usedSeason=new Set<string>();
+ const {data:rs,error:re}=await db.from("lugati_competition_rounds").select("id,arena_key,status,created_at,game_config").eq("season_id",seasonId);if(re)throw re;
+ const eligibleRounds=(rs||[]).filter((x:any)=>x.status!=="cancelled"&&x?.game_config?.demo_only!==true);
+ const rids=eligibleRounds.map((x:any)=>x.id),seasonUsage=new Map<string,QuestionUsage>(),recent=new Set<string>();
+ const roundTime=new Map(eligibleRounds.map((x:any)=>[String(x.id),new Date(x.created_at||0).getTime()]));
+ const recentRoundIds=new Set(eligibleRounds.filter((x:any)=>x.arena_key===meta.key).sort((a:any,b:any)=>new Date(b.created_at||0).getTime()-new Date(a.created_at||0).getTime()).slice(0,2).map((x:any)=>String(x.id)));
+ const touch=(key:string,when:number)=>{if(!key)return;const s=seasonUsage.get(key)||{count:0,lastUsedAt:0};s.count++;s.lastUsedAt=Math.max(s.lastUsedAt,when||0);seasonUsage.set(key,s)};
  for(let offset=0;rids.length;offset+=1000){
-   const {data:u,error:ue}=await db.from("lugati_competition_round_questions").select("id,source_question_id,question_text").in("round_id",rids).order("id").range(offset,offset+999);
+   const {data:u,error:ue}=await db.from("lugati_competition_round_questions").select("id,round_id,source_question_id,question_text").in("round_id",rids).order("id").range(offset,offset+999);
    if(ue)throw ue;
-   for(const x of u||[]){if(x.source_question_id)usedSeason.add(String(x.source_question_id));usedSeason.add(compactText(x.question_text))}
+   for(const x of u||[]){
+     const when=roundTime.get(String(x.round_id))||0,idKey=x.source_question_id?"id:"+String(x.source_question_id):"",textKey="text:"+compactText(x.question_text);
+     if(idKey)touch(idKey,when);touch(textKey,when);
+     if(recentRoundIds.has(String(x.round_id))){if(idKey)recent.add(idKey);recent.add(textKey)}
+   }
    if((u||[]).length<1000)break;
  }
- const used=new Set<string>(),usedText=new Set<string>(),out:any[]=[];let pos=1;
+ const used=new Set<string>(),usedText=new Set<string>(),out:any[]=[],rotation:any={fresh:0,cycled_recent_free:0,cycled:0};let pos=1;
  const row=(x:any,stageNo:number,stageType:string,indicatorOrder:number,indicatorQuestionNo:number,isFinal:boolean)=>({
    position:pos++,source_question_id:x.id,subject_key:x.subject_key,outcome_code:x.outcome_code,indicator_index:Number(x.indicator_index),indicator_text:x.indicator_text,
    image:validImage(x.image)?x.image:null,cognitive_level:x.cognitive_level,context_text:cleanCompetitionContext(x.context_text),question_text:x.question_text,options:x.options,correct_index:Number(x.correct_index),
@@ -133,7 +181,7 @@ async function buildQuestions(meta:any,inds:any[],seasonId:string){
  for(let ii=0;ii<inds.length;ii++){
    const ind=inds[ii];
    for(let li=0;li<LEVELS.length;li++){
-     const x=await pickCandidate(meta,ind,LEVELS[li],used,usedSeason,usedText);
+     const x=await pickCandidate(meta,ind,LEVELS[li],used,seasonUsage,recent,usedText,rotation);
      out.push(row(x,ii+1,"indicator",ii+1,li+1,false));
    }
  }
@@ -143,12 +191,12 @@ async function buildQuestions(meta:any,inds:any[],seasonId:string){
    let picked:any=null,pickedOrder=0;
    for(let shift=0;shift<inds.length;shift++){
      const oi=(bi+shift)%inds.length,ind=inds[oi];
-     try{picked=await pickCandidate(meta,ind,bossLevels[bi%bossLevels.length],used,usedSeason,usedText);pickedOrder=oi+1;break}
+     try{picked=await pickCandidate(meta,ind,bossLevels[bi%bossLevels.length],used,seasonUsage,recent,usedText,rotation);pickedOrder=oi+1;break}
      catch(e){if(Number((e as any)?.status||0)!==409)throw e}
    }
    if(picked){bossCount++;out.push(row(picked,bossStage,"boss",pickedOrder,4,true))}
  }
- return{questions:out,boss_count:bossCount};
+ return{questions:out,boss_count:bossCount,rotation};
 }
 async function indicatorGuide(subject:string,outcome:string,index:number){
  const {data,error}=await db.from("lugati_pretest_templates")
@@ -197,11 +245,11 @@ async function createRound(req:Request,b:any,a:Access){
  if(closeAt&&closeAt<=openAt)throw Object.assign(new Error("وقت الإغلاق يجب أن يكون بعد وقت الفتح."),{status:400});
  const {count:roundCount,error:ce}=await db.from("lugati_competition_rounds").select("id",{count:"exact",head:true}).eq("season_id",s.id).eq("arena_key",key);if(ce)throw ce;
  const n=Number(roundCount||0)+1,title=tidy(b?.title)||(meta.label+" • التحدي "+n);
- const gameConfig={version:2,mode:"staged",indicator_count:inds.length,stage_count:inds.length+(built.boss_count?1:0),boss_count:built.boss_count,questions_per_indicator:3,powerups:{eliminate:1,hint:1,double:1},scoring:"accuracy_first_streak_bonus",demo_only:demoOnly};
+ const gameConfig={version:3,mode:"staged",indicator_count:inds.length,stage_count:inds.length+(built.boss_count?1:0),boss_count:built.boss_count,questions_per_indicator:3,powerups:{eliminate:1,hint:1,double:1},scoring:"accuracy_first_streak_bonus",demo_only:demoOnly,question_rotation:built.rotation,question_rotation_policy:"fresh_then_least_used"};
  const {data:r,error}=await db.from("lugati_competition_rounds").insert({season_id:s.id,arena_key:key,subject_key:meta.subject,reading_outcome_code:meta.outcome,title,
    selected_indicators:inds,question_count:count,status:"open",open_at:openAt.toISOString(),close_at:closeAt?closeAt.toISOString():null,opened_at:new Date().toISOString(),created_by:a.teacher_access_id,game_config:gameConfig}).select("*").single();if(error)throw error;
  const {error:qe}=await db.from("lugati_competition_round_questions").insert(questions.map((q:any)=>({...q,round_id:r.id})));if(qe){await db.from("lugati_competition_rounds").delete().eq("id",r.id);throw qe}
- return json(req,{ok:true,round:{...safeRound(r),effective_status:effectiveStatus(r)},question_count:count,stages:gameConfig.stage_count,boss_questions:built.boss_count});
+ return json(req,{ok:true,round:{...safeRound(r),effective_status:effectiveStatus(r)},question_count:count,stages:gameConfig.stage_count,boss_questions:built.boss_count,question_rotation:built.rotation});
 }
 async function closeRound(req:Request,b:any,a:Access){
  if(a.role!=="teacher")return json(req,{error:"هذه العملية للمعلم فقط."},403);const r=await getRound(tidy(b?.round_id));requireTeacherSubject(a,r.subject_key);
