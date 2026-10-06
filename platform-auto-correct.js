@@ -3,7 +3,7 @@
 
 const VERSION='internal-corrector-v1';
 const ARABIC='\u0621-\u064A\u066E-\u06D3';
-const UI_SKIP='script,style,pre,code,textarea,input,select,option,svg,canvas,.question,.semantic-question,.student-name,.questions-flow,.paper-page,.indicator p,.outcome-title,.data-table tbody,[data-no-autocorrect]';
+const UI_SKIP='script,style,pre,code,textarea,input,select,option,svg,canvas,.question,.semantic-question,.student-name,.questions-flow,.paper-page,.indicator p,.outcome-title,.data-table tbody,.report-sheet,.official-analysis-sheet,.nafes-absence-sheet,[data-no-autocorrect]';
 
 const wordFixes=[
   ['تغييوا','تغيبوا'],
@@ -168,7 +168,7 @@ function startUiAutoCorrect(){
     let count=0;
     for(const r of records)for(const n of r.addedNodes||[]){
       if(n.nodeType===Node.TEXT_NODE)count+=correctUiNode(n);
-      else if(n.nodeType===Node.ELEMENT_NODE)count+=correctUi(n);
+      else if(n.nodeType===Node.ELEMENT_NODE&&!n.matches?.(UI_SKIP)&&!n.closest?.(UI_SKIP))count+=correctUi(n);
     }
     if(count)window.dispatchEvent(new CustomEvent('moallimi:autocorrect',{detail:{count,version:VERSION}}));
   });
