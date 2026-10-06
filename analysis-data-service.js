@@ -50,7 +50,7 @@ async function rosterMap(force=false){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),ROSTER_TIMEOUT_MS);
   rosterPromise=(async()=>{
     try{
-      const response=await fetch(LITE_STUDENTS_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','x-teacher-key':teacherKey},body:JSON.stringify({include_archived:false}),cache:'no-store',signal:controller.signal});
+      const response=await fetch(LITE_STUDENTS_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','x-teacher-key':teacherKey},body:JSON.stringify({include_archived:false,analysis_only:true}),cache:'no-store',signal:controller.signal});
       const data=await response.json().catch(()=>({}));
       if(!response.ok||data?.error||!Array.isArray(data?.students))throw new Error(data?.error||'تعذر تحميل كشف الطلاب.');
       const map=new Map();
