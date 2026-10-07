@@ -35,7 +35,7 @@
       <p>يمكن أن يحتوي كل وجه A4 على ورقتي تظليل (أعلى وأسفل)، أو تكون كل ورقة تظليل ممسوحة وحدها.</p>
     </div>
     <label class="dropzone" id="dropzone">
-      <input id="fileInput" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">
+      <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,image/jpeg,image/png,image/tiff,application/pdf" multiple>
       <b>اختر PDF أو اسحبه هنا</b>
       <span>يفضل مسح واضح بدقة 200–300 dpi ومن دون قص حواف الورقة.</span>
     </label>
@@ -103,12 +103,13 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
 <script src="review-omr-template.js?v=20261001-v3"></script>
 <script src="teacher-access.js?v=20260920-scope5"></script>
 <script src="review-draft-sync.js?v=20260930-2"></script>
-<script src="review-scan-journal.js?v=20261005-editable1"></script>
-<script src="review-scan.js?v=20261005-editable1"></script>
+<script src="review-scan-journal.js?v=20261007-batch200"></script>
+<script src="review-scan.js?v=20261007-batch200"></script>
 </body>
 </html>
