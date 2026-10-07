@@ -12,7 +12,7 @@ const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكرر�
 function message(t,error=false){$('journalStatus').textContent=t;$('journalStatus').className='notice '+(error?'error':'');if($('modalFeedback')){$('modalFeedback').textContent=t;$('modalFeedback').className=error?'notice error':'notice';}}
 function firstPending(){return sheets.findIndex(s=>!s.reviewed_at);}
 function ready(){return session&&sheets.length===session.expected_count;}
-function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','applyManualAssignmentBtn'])if($(id))$(id).disabled=value;renderButtons();}
+function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','applyManualAssignmentBtn','rereadAllBtn'])if($(id))$(id).disabled=value;renderButtons();}
 function ensureSelectAll(){
  let box=$('selectAllSheets');
  if(!box){
@@ -93,6 +93,36 @@ async function recoverIdentity(sheetId){
    const r=await api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:assignment.student_id,answer_version:sheet.answer_version||0});
    sheets[i]=r.sheet;selected.delete(sheet.id);render();message('تمت استعادة اسم الطالب تلقائيًا من QR المحفوظ: '+assignment.student_name);
  }catch(e){message('تعذر استعادة الاسم تلقائيًا: '+e.message,true);}
+ finally{lock(false);}
+}
+async function rereadAllStrict(){
+ if(busy)return;
+ if(!confirm('سيعاد تحليل التظليل لكل ورقة ذات هوية مؤكدة بخوارزمية صارمة. أي إجابة غير مؤكدة لن تُحتسب تلقائيًا. هل تريد المتابعة؟'))return;
+ lock(true);
+ let processed=0,skippedIdentity=0,uncertainSheets=0,failed=0;
+ try{
+   const sr=await api('teacher_scan_sessions'),sessionsList=sr.sessions||[];
+   for(let si=0;si<sessionsList.length;si++){
+     const sid=sessionsList[si].id;
+     const lr=await api('teacher_scan_list',{session_id:sid}),list=lr.sheets||[];
+     for(let i=0;i<list.length;i++){
+       const sh=list[i],eff=effective(sh);
+       if(eff?.identity_valid!==true||!sh.student_id){skippedIdentity++;continue;}
+       try{
+         message('إعادة قراءة دقيقة: '+ar(processed+1)+' · الورقة '+ar(i+1)+' من '+ar(list.length)+' · الجلسة '+ar(si+1)+' من '+ar(sessionsList.length));
+         const im=await api('teacher_scan_image',{session_id:sid,sheet_id:sh.id});
+         const rr=await window.NafesScanReader.readStoredOmr(im.image_data,Number(eff.total||draft.question_count||0),Number(draft.question_start||1));
+         const saved=await api('teacher_scan_reclassify',{session_id:sid,sheet_id:sh.id,answer_version:sh.answer_version||0,answers:rr.answers,markers_ok:rr.markers_ok,marker_confidence:rr.marker_confidence});
+         processed++;if(Number(saved.unresolved||0)>0)uncertainSheets++;
+       }catch(e){failed++;}
+     }
+   }
+   reviewInventory=[];selected.clear();
+   if(session?.id){
+     const fresh=await api('teacher_scan_list',{session_id:session.id});session=fresh.session;sheets=fresh.sheets||[];render();
+   }
+   message('اكتملت إعادة القراءة الصارمة: '+ar(processed)+' ورقة أعيد تحليلها، '+ar(uncertainSheets)+' بها إجابات تحتاج مراجعة، '+ar(skippedIdentity)+' ورقة هويتها غير مؤكدة ولم تُحسب، '+ar(failed)+' تعذر تحليلها ولم تُمنح قراءة وهمية.');
+ }catch(e){message('تعذرت إعادة القراءة الشاملة: '+e.message,true);}
  finally{lock(false);}
 }
 async function assignIdentity(){
@@ -285,7 +315,7 @@ async function report(){
 }
 async function init(p){draft=p;clearInterval(poll);await sessions();await refreshAlerts();await refreshDeletionLog();poll=setInterval(()=>{if(!document.hidden&&!busy){refreshAlerts();refreshDeletionLog();}},10000);}
 $('answerEditor').onclick=e=>{const b=e.target.closest('[data-edit-question]');if(b&&!b.disabled)editAnswer(Number(b.dataset.editQuestion),b.dataset.choice);};
-$('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;
+$('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;$('rereadAllBtn').onclick=rereadAllStrict;
 $('loadEditHistoryBtn').onclick=editHistory;
 $('saveSheetBtn').onclick=verify;$('nextSheetBtn').onclick=()=>open(active+1);$('finishReviewBtn').onclick=finish;
 $('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>open(Math.max(0,firstPending()));
