@@ -123,7 +123,7 @@ async function transfer(){
  try{
  const r=await api('teacher_scan_start',{session_id:p.id,file_hash:p.fileHash,expected_count:p.data.length,...p.meta});session=r.session;
  const existing=await api('teacher_scan_list');sheets=existing.sheets;active=-1;
- const existingOrdinals=new Set(sheets.map(s=>s.ordinal)),chunkSize=12;
+ const existingOrdinals=new Set(sheets.map(s=>s.ordinal)),chunkSize=4;
  for(let i=0;i<p.data.length;i+=chunkSize){
    const chunk=[];
    for(let j=i;j<Math.min(p.data.length,i+chunkSize);j++){
