@@ -14,13 +14,26 @@ function firstPending(){return sheets.findIndex(s=>!s.reviewed_at);}
 function ready(){return session&&sheets.length===session.expected_count;}
 function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','applyManualAssignmentBtn'])if($(id))$(id).disabled=value;renderButtons();}
 function ensureSelectAll(){
- if($('selectAllSheets'))return;
- const toolbar=document.querySelector('.review-toolbar');if(!toolbar)return;
- const label=document.createElement('label');label.innerHTML='<input id="selectAllSheets" type="checkbox"> تحديد الكل';toolbar.appendChild(label);
- label.querySelector('input').addEventListener('change',e=>{
-   if(e.target.checked)sheets.forEach(x=>selected.add(x.id));else selected.clear();
-   render();
- });
+ let box=$('selectAllSheets');
+ if(!box){
+   const toolbar=document.querySelector('.review-toolbar');if(!toolbar)return;
+   const label=document.createElement('label');label.innerHTML='<input id="selectAllSheets" type="checkbox"> تحديد الكل';
+   toolbar.appendChild(label);box=label.querySelector('input');
+ }
+ if(box&&!box.dataset.bound){
+   box.dataset.bound='1';
+   box.addEventListener('change',()=>{
+     if(box.checked)sheets.forEach(x=>selected.add(String(x.id)));else selected.clear();
+     document.querySelectorAll('#resultsBody [data-select-sheet]').forEach(c=>{c.checked=box.checked;});
+     renderButtons();
+     message(box.checked?'تم تحديد جميع أوراق الجلسة: '+ar(sheets.length)+' ورقة.':'تم إلغاء تحديد جميع الأوراق.');
+   });
+ }
+ const btn=$('selectAllBtn');
+ if(btn&&!btn.dataset.bound){
+   btn.dataset.bound='1';
+   btn.addEventListener('click',toggleSelectAll);
+ }
 }
 function renderButtons(){
  const s=sheets[active];
@@ -28,7 +41,7 @@ function renderButtons(){
  $('nextSheetBtn').disabled=busy||!s?.reviewed_at||active>=sheets.length-1;
  $('finishReviewBtn').disabled=busy||!ready()||firstPending()>=0||!!session.completed_at;
  $('approveBtn').disabled=busy||!session?.completed_at||!sheets.some(s=>s.disposition==='verified');
- if($('deleteSelectedBtn'))$('deleteSelectedBtn').disabled=busy||selected.size===0;if($('selectAllBtn')){$('selectAllBtn').disabled=busy||!sheets.length;$('selectAllBtn').textContent=sheets.length&&selected.size===sheets.length?'إلغاء تحديد الكل':'تحديد الكل';}
+ if($('deleteSelectedBtn')){$('deleteSelectedBtn').disabled=busy||selected.size===0;$('deleteSelectedBtn').textContent=selected.size?'حذف التصحيحات المحددة ('+ar(selected.size)+')':'حذف التصحيحات المحددة';}if($('selectAllBtn')){$('selectAllBtn').disabled=busy||!sheets.length;$('selectAllBtn').textContent=sheets.length&&selected.size===sheets.length?'إلغاء تحديد الكل':'تحديد الكل';}
  if($('applyManualAssignmentBtn'))$('applyManualAssignmentBtn').disabled=busy||!s||effective(s).identity_valid===true||!!session?.completed_at||!$('manualAssignment')?.value;
  document.querySelectorAll('[data-edit-question]').forEach(b=>{b.disabled=busy||!ready()||!s||loadedImage!==s.id||!!session?.completed_at;});
  $('retryUploadBtn').classList.toggle('hidden',!pending);
@@ -108,10 +121,13 @@ async function refreshDeletionLog(){
 }
 function toggleSelectAll(){
  if(!sheets.length){message('لا توجد أوراق في الجلسة لتحديدها.',true);return;}
- const allSelected=sheets.every(x=>selected.has(x.id));
- if(allSelected)selected.clear();else sheets.forEach(x=>selected.add(x.id));
- render();
- message(allSelected?'تم إلغاء تحديد جميع الأوراق.':'تم تحديد جميع الأوراق: '+ar(sheets.length)+' ورقة.');
+ const allSelected=sheets.every(x=>selected.has(String(x.id))||selected.has(x.id));
+ selected.clear();
+ if(!allSelected)sheets.forEach(x=>selected.add(String(x.id)));
+ document.querySelectorAll('#resultsBody [data-select-sheet]').forEach(c=>{c.checked=!allSelected;});
+ if($('selectAllSheets')){$('selectAllSheets').checked=!allSelected;$('selectAllSheets').indeterminate=false;}
+ renderButtons();
+ message(allSelected?'تم إلغاء تحديد جميع الأوراق.':'تم تحديد جميع أوراق الجلسة: '+ar(sheets.length)+' ورقة.');
 }
 async function deleteCorrections(ids){
  const unique=[...new Set((ids||[]).filter(id=>sheets.some(s=>s.id===id)))];
@@ -245,7 +261,17 @@ $('resultsBody').onclick=e=>{
  const openBtn=e.target.closest('[data-open]');if(openBtn){open(Number(openBtn.dataset.open));return;}
  const recover=e.target.closest('[data-recover-identity]');if(recover){recoverIdentity(recover.dataset.recoverIdentity);return;} const del=e.target.closest('[data-delete-sheet]');if(del)deleteCorrections([del.dataset.deleteSheet]);
 };
-$('resultsBody').onchange=e=>{const c=e.target.closest('[data-select-sheet]');if(!c)return;c.checked?selected.add(c.dataset.selectSheet):selected.delete(c.dataset.selectSheet);renderButtons();};
+$('resultsBody').onchange=e=>{
+ const c=e.target.closest('[data-select-sheet]');if(!c)return;
+ c.checked?selected.add(String(c.dataset.selectSheet)):selected.delete(String(c.dataset.selectSheet));
+ if($('selectAllSheets')){
+   const checked=document.querySelectorAll('#resultsBody [data-select-sheet]:checked').length;
+   const total=document.querySelectorAll('#resultsBody [data-select-sheet]').length;
+   $('selectAllSheets').checked=total>0&&checked===total;
+   $('selectAllSheets').indeterminate=checked>0&&checked<total;
+ }
+ renderButtons();
+};
 $('deleteSelectedBtn').onclick=()=>deleteCorrections([...selected]);
 $('verifiedCheck').onchange=renderButtons;$('duplicateCheck').onchange=renderButtons;$('alertFilter').onchange=render;
 $('resumeSessionBtn').onclick=()=>resume($('sessionPicker').value);$('retryUploadBtn').onclick=()=>transfer().catch(()=>{});
