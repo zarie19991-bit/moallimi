@@ -22,7 +22,7 @@ function renderQualityReport(){
    ['الأوراق',sheets.length,''],['خطورة منخفضة',stats.low,'ok'],['خطورة متوسطة',stats.medium,'warn'],['خطورة مرتفعة',stats.high,'bad'],
    ['فشل المحاذاة',stats.markers,stats.markers?'bad':'ok'],['تحتاج مراجعة مركزة',stats.manual,stats.manual?'warn':'ok']
  ].map(([l,n,c])=>'<div class="summary '+c+'"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
- rows.sort((x,y)=>({high:0,medium:1,low:2}[x.risk]-{high:0,medium:1,low:2}[y.risk]||x.i-y.i);
+ rows.sort((x,y)=>(({high:0,medium:1,low:2}[x.risk]-{high:0,medium:1,low:2}[y.risk])||x.i-y.i));
  $('qualityBody').innerHTML=rows.map(({s,i,a,risk,v})=>{
    const reasons=(Array.isArray(v.reasons)&&v.reasons.length?v.reasons:(a.markers_ok?['لم تُسجل بعد بيانات تحقق كاملة لهذه القراءة']:['فشل تثبيت علامات المحاذاة'])).join('؛ ');
    return '<tr data-risk="'+risk+'"><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+ar(a.score)+' / '+ar(a.total)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+ar(Math.round(Number(v.quality_score||0)))+' / 100</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
