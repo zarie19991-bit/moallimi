@@ -119,6 +119,13 @@ function integralDark(d,threshold=158){
  return{ii,w,h,threshold};
 }
 function rectSum(I,x,y,w,h){const W=I.w+1,x1=Math.max(0,x),y1=Math.max(0,y),x2=Math.min(I.w,x+w),y2=Math.min(I.h,y+h);return I.ii[y2*W+x2]-I.ii[y1*W+x2]-I.ii[y2*W+x1]+I.ii[y1*W+x1];}
+function integralGray(d){
+ const w=d.width,h=d.height,ii=new Uint32Array((w+1)*(h+1));
+ for(let y=1;y<=h;y++){let row=0;for(let x=1;x<=w;x++){const i=((y-1)*w+(x-1))*4;row+=Math.round(d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114);ii[y*(w+1)+x]=ii[(y-1)*(w+1)+x]+row;}}
+ return{ii,w,h};
+}
+function rectMean(I,x,y,w,h){const x1=Math.max(0,Math.round(x)),y1=Math.max(0,Math.round(y)),x2=Math.min(I.w,Math.round(x+w)),y2=Math.min(I.h,Math.round(y+h)),n=Math.max(1,(x2-x1)*(y2-y1));return rectSum(I,x1,y1,x2-x1,y2-y1)/n;}
+
 function markerWorkCanvas(src){
  const maxW=1400;
  if(src.width<=maxW)return{canvas:src,sx:1,sy:1};
@@ -155,46 +162,43 @@ function markerCandidates(c){
  }
  return out;
 }
-function findTemplateSquare(I,zone,expectX,expectY){
- const sizes=[.007,.010,.013,.017,.022].map(f=>Math.max(7,Math.round(I.w*f)));
+function findTemplateSquare(G,zone,expectX,expectY){
+ const sizes=[.007,.010,.013,.017,.022].map(f=>Math.max(7,Math.round(G.w*f)));
  let best=null;
  for(const size of sizes){
    const half=Math.floor(size/2),step=Math.max(2,Math.floor(size/3));
-   const x0=Math.max(half,Math.floor(I.w*zone[0])),x1=Math.min(I.w-half,Math.ceil(I.w*zone[1]));
-   const y0=Math.max(half,Math.floor(I.h*zone[2])),y1=Math.min(I.h-half,Math.ceil(I.h*zone[3]));
+   const x0=Math.max(half,Math.floor(G.w*zone[0])),x1=Math.min(G.w-half,Math.ceil(G.w*zone[1]));
+   const y0=Math.max(half,Math.floor(G.h*zone[2])),y1=Math.min(G.h-half,Math.ceil(G.h*zone[3]));
    for(let y=y0;y<=y1;y+=step)for(let x=x0;x<=x1;x+=step){
-     const core=rectSum(I,x-half,y-half,size,size)/(size*size);
-     if(core<.58)continue;
-     const prox=Math.abs(x/I.w-expectX)*.55+Math.abs(y/I.h-expectY)*.8;
-     const score=core-prox;
-     if(!best||score>best.score)best={x,y,size,score,core};
+     const core=rectMean(G,x-half,y-half,size,size);
+     const outer=rectMean(G,x-size,y-size,size*2,size*2);
+     const contrast=outer-core;
+     if(contrast<12)continue;
+     const prox=Math.abs(x/G.w-expectX)*70+Math.abs(y/G.h-expectY)*95;
+     const score=contrast-prox;
+     if(!best||score>best.score)best={x,y,size,score,contrast,core};
    }
  }
  return best;
 }
 function detectTemplateMarkerSet(src){
- const prep=markerWorkCanvas(src),c=prep.canvas,d=imageData(c);
- const sample=[],step=Math.max(8,Math.floor(Math.min(c.width,c.height)/120));
- for(let y=0;y<Math.floor(c.height*.80);y+=step)for(let x=0;x<c.width;x+=step){
-   const i=(y*c.width+x)*4,g=d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114;
-   if(g>85)sample.push(g);
- }
- const paper=sample.length?median(sample):170,thr=Math.max(125,Math.min(170,paper-8)),I=integralDark(d,thr);
- const tl=findTemplateSquare(I,[.025,.16,.39,.53],.08,.46);
- const tr=findTemplateSquare(I,[.74,.93,.38,.52],.83,.45);
+ const prep=markerWorkCanvas(src),c=prep.canvas,d=imageData(c),G=integralGray(d);
+ const tl=findTemplateSquare(G,[.025,.17,.40,.51],.075,.46);
+ const tr=findTemplateSquare(G,[.74,.93,.39,.50],.825,.45);
  if(!tl||!tr)return null;
  const dx=tr.x-tl.x;if(dx<c.width*.55)return null;
  const target=(NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0])/(NafesOmrTemplate.markers.bl[1]-NafesOmrTemplate.markers.tl[1]);
  const dy=dx/target,by=((tl.y+tr.y)/2)+dy;
- const bl=findTemplateSquare(I,[Math.max(0,tl.x/c.width-.065),Math.min(.30,tl.x/c.width+.065),Math.max(.54,by/c.height-.075),Math.min(.88,by/c.height+.075)],tl.x/c.width,by/c.height);
- const br=findTemplateSquare(I,[Math.max(.65,tr.x/c.width-.07),Math.min(1,tr.x/c.width+.07),Math.max(.54,by/c.height-.075),Math.min(.88,by/c.height+.075)],tr.x/c.width,by/c.height);
+ const bl=findTemplateSquare(G,[Math.max(0,tl.x/c.width-.075),Math.min(.28,tl.x/c.width+.075),Math.max(.60,by/c.height-.085),Math.min(.82,by/c.height+.085)],tl.x/c.width,by/c.height);
+ const br=findTemplateSquare(G,[Math.max(.64,tr.x/c.width-.08),Math.min(1,tr.x/c.width+.08),Math.max(.60,by/c.height-.085),Math.min(.82,by/c.height+.085)],tr.x/c.width,by/c.height);
  if(!bl||!br)return null;
  const topDx=tr.x-tl.x,bottomDx=br.x-bl.x,leftDy=bl.y-tl.y,rightDy=br.y-tr.y;
  if(topDx<=0||bottomDx<=0||leftDy<=0||rightDy<=0)return null;
  const aspect=((topDx+bottomDx)/2)/((leftDy+rightDy)/2),aspectErr=Math.abs(Math.log(aspect/target));
- if(aspectErr>.42)return null;
- const scale=p=>({x:p.x*prep.sx,y:p.y*prep.sy,score:Math.max(.70,Math.min(1,p.core))});
- return{tl:scale(tl),tr:scale(tr),bl:scale(bl),br:scale(br)};
+ if(aspectErr>.38)return null;
+ const score=p=>Math.max(.70,Math.min(1,(p.contrast-10)/45));
+ const scale=p=>({x:p.x*prep.sx,y:p.y*prep.sy,score:score(p)});
+ return{tl:scale(tl),tr:scale(tr),bl:scale(bl),br:scale(br),detector:'template-contrast'};
 }
 function detectMarkerSets(src){
  const prep=markerWorkCanvas(src),c=prep.canvas,cands=markerCandidates(c),rows=[],T=NafesOmrTemplate.markers,target=(T.tr[0]-T.tl[0])/(T.bl[1]-T.tl[1]);
@@ -239,9 +243,16 @@ function detectMarkers(c){
 }
 function mapTemplate(markers,x,y){
  const T=NafesOmrTemplate.markers,u=(x-T.tl[0])/(T.tr[0]-T.tl[0]),v=(y-T.tl[1])/(T.bl[1]-T.tl[1]);
- const top={x:markers.tl.x+(markers.tr.x-markers.tl.x)*u,y:markers.tl.y+(markers.tr.y-markers.tl.y)*u};
- const bot={x:markers.bl.x+(markers.br.x-markers.bl.x)*u,y:markers.bl.y+(markers.br.y-markers.bl.y)*u};
- return{x:top.x+(bot.x-top.x)*v,y:top.y+(bot.y-top.y)*v};
+ const p0=markers.tl,p1=markers.tr,p2=markers.br,p3=markers.bl;
+ const dx1=p1.x-p2.x,dx2=p3.x-p2.x,dx3=p0.x-p1.x+p2.x-p3.x;
+ const dy1=p1.y-p2.y,dy2=p3.y-p2.y,dy3=p0.y-p1.y+p2.y-p3.y;
+ const den=dx1*dy2-dx2*dy1;
+ let g=0,h=0;
+ if(Math.abs(den)>1e-6){g=(dx3*dy2-dx2*dy3)/den;h=(dx1*dy3-dx3*dy1)/den;}
+ const a=p1.x-p0.x+g*p1.x,b=p3.x-p0.x+h*p3.x,c=p0.x;
+ const d=p1.y-p0.y+g*p1.y,e=p3.y-p0.y+h*p3.y,f=p0.y;
+ const z=g*u+h*v+1;
+ return{x:(a*u+b*v+c)/z,y:(d*u+e*v+f)/z};
 }
 function darknessAt(d,cx,cy,r,inner=0){
  const w=d.width,h=d.height;let sum=0,n=0,rr=r*r,ii=inner*inner;
@@ -260,35 +271,24 @@ function bubbleEvidence(d,cx,cy,r){
 }
 function readAnswers(c,markers,total,startNo){
  const span=(Math.hypot(markers.tr.x-markers.tl.x,markers.tr.y-markers.tl.y)+Math.hypot(markers.br.x-markers.bl.x,markers.br.y-markers.bl.y))/2;
- const radius=Math.max(3,span*(1.08/Math.max(1,NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0])));
- const raw=[],allFill=[];
+ const radius=Math.max(3.2,Math.min(7.2,span*.0082)),raw=[];
  for(let i=0;i<Math.min(total,NafesOmrTemplate.maxQuestions||60);i++){
-   const ev=NafesOmrTemplate.answerPoints(i,total).map(p=>{const m=mapTemplate(markers,p.x,p.y);return bubbleEvidence(markers.image,m.x,m.y,radius);});
-   raw.push(ev);allFill.push(...ev.map(x=>x.fill));
+   const vals=NafesOmrTemplate.answerPoints(i,total).map(p=>{const m=mapTemplate(markers,p.x,p.y);return darknessAt(markers.image,m.x,m.y,radius);});
+   raw.push(vals);
  }
- const base=median(allFill),clamp=v=>Math.max(0,Math.min(1,v));
- // Conservative fail-closed thresholds: an answer is "clear" only when the fill is strong
- // and clearly separated from every competing bubble.
- const filledThreshold=Math.max(.16,base+.105);
- const strongThreshold=Math.max(.23,base+.16);
- return raw.map((ev,i)=>{
-   const order=ev.map((e,j)=>({e,j,s:e.fill})).sort((a,b)=>b.s-a.s),top=order[0],second=order[1];
-   const separation=top.s-second.s;
-   const strong=top.s>=strongThreshold&&separation>=.095&&top.e.inner>=.27;
-   const possible=order.filter(x=>x.s>=filledThreshold&&x.e.inner>=.20);
-   const scores=ev.map(x=>Number(x.fill.toFixed(4)));
-   if(possible.length===0){
-     const confidence=clamp((filledThreshold-top.s)/.10);
-     return{question:startNo+i,selected:null,status:'blank',marked:[],scores,evidence:ev,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:filledThreshold,separation};
+ return raw.map((scores,i)=>{
+   const order=scores.map((s,j)=>({s,j})).sort((a,b)=>b.s-a.s),top=order[0],second=order[1];
+   const rowBase=median(scores),separation=top.s-second.s,signal=top.s-rowBase;
+   const marked=order.filter(x=>x.s>=rowBase+.055&&x.s>=.43).map(x=>x.j);
+   const clamp=v=>Math.max(0,Math.min(1,v));
+   if(top.s<.43||signal<.045){
+     return{question:startNo+i,selected:null,status:'blank',marked:[],scores,confidence:Number(clamp((.43-top.s)/.12+.45).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.43,separation};
    }
-   if(possible.length>1){
-     return{question:startNo+i,selected:top.j,status:'multiple',marked:possible.map(x=>x.j),scores,evidence:ev,confidence:Number(Math.min(.45,clamp(separation/.12)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:filledThreshold,separation};
+   if(marked.length>1||separation<.055){
+     return{question:startNo+i,selected:top.j,status:'multiple',marked:marked.length?marked:[top.j,second.j],scores,confidence:Number(Math.min(.49,clamp(separation/.08)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.43,separation};
    }
-   if(!strong){
-     return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,evidence:ev,confidence:Number(Math.min(.79,clamp((top.s-filledThreshold)/.14*.55+separation/.12*.45)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:filledThreshold,separation};
-   }
-   const confidence=clamp(.55*(top.s-strongThreshold)/.22+.45*separation/.18+.82);
-   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,evidence:ev,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:filledThreshold,separation};
+   const confidence=clamp(.80+(top.s-.43)*.35+separation*.75);
+   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.43,separation};
  });
 }
 function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,1400/c.width);o.width=Math.round(c.width*scale);o.height=Math.round(c.height*scale);o.getContext('2d').drawImage(c,0,0,o.width,o.height);const out=o.toDataURL('image/jpeg',.76);o.width=1;o.height=1;return out;}
