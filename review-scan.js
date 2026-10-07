@@ -323,31 +323,40 @@ function regionsForPage(c){
 async function processFile(){
  if(!files.length||!draft||processing||window.NafesScanJournal.isBusy())return;
  const inputFiles=[...files];processing=true;results=[];$('resultsSection').classList.add('hidden');$('approvedSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('processBtn').disabled=true;$('clearBtn').disabled=true;$('fileInput').disabled=true;
- let sourcePageCount=0;
+ let sourcePageCount=0,savedCount=0,streamStarted=false;
  try{
-   setProgress(2,'فحص الدفعة…');
+   setProgress(1,'تهيئة الحفظ المباشر…');
+   await window.NafesScanJournal.beginStream(inputFiles);streamStarted=true;
    for(let fi=0;fi<inputFiles.length;fi++){
      const inputFile=inputFiles[fi];
      for await(const page of sourcePages(inputFile)){
        sourcePageCount++;if(sourcePageCount>200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ صفحة.');
        const regs=regionsForPage(page.canvas);
        for(let ri=0;ri<regs.length;ri++){
-         if(results.length>=200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ ورقة/صفحة.');
-         const approx=Math.min(96,4+((fi+(page.pageNo/Math.max(1,page.total)))/inputFiles.length)*90);
-         setProgress(approx,'الملف '+ar(fi+1)+' من '+ar(inputFiles.length)+' · الصفحة '+ar(page.pageNo)+' من '+ar(page.total)+' · قراءة الورقة '+ar(ri+1));
+         if(savedCount>=200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ ورقة/صفحة.');
+         const approx=Math.min(96,3+((fi+(page.pageNo/Math.max(1,page.total)))/inputFiles.length)*90);
+         setProgress(approx,'الملف '+ar(fi+1)+' من '+ar(inputFiles.length)+' · الصفحة '+ar(page.pageNo)+' من '+ar(page.total)+' · قراءة وحفظ الورقة '+ar(savedCount+1));
          const r=await processRegion(regs[ri],sourcePageCount,ri+1);
-         delete r.sourceCanvas;results.push(r);
+         delete r.sourceCanvas;
+         await window.NafesScanJournal.appendStream(r,savedCount+1);
+         savedCount++;
+         delete r.fullImage;delete r.thumbnail;delete r.answers;delete r.evidence;
          if(regs[ri]!==page.canvas){try{regs[ri].width=1;regs[ri].height=1;}catch(_){}}
-         if((results.length%4)===0)await new Promise(res=>requestAnimationFrame(()=>res()));
+         await new Promise(res=>setTimeout(res,0));
        }
-       page.canvas.width=1;page.canvas.height=1;
-       await new Promise(res=>setTimeout(res,0));
+       try{page.canvas.width=1;page.canvas.height=1;}catch(_){}
+       await new Promise(res=>requestAnimationFrame(()=>res()));
      }
    }
-   if(!results.length)throw new Error('لم يتم العثور على أوراق قابلة للمعالجة.');
-   setProgress(98,'حفظ دفعة من '+ar(results.length)+' ورقة…');await window.NafesScanJournal.upload(results,inputFiles);for(const r of results){delete r.fullImage;}setProgress(100,'اكتمل الحفظ — '+ar(results.length)+' ورقة جاهزة للمراجعة');
- }catch(e){setProgress(0,'تعذر التحليل: '+e.message);}
- finally{processing=false;$('processBtn').disabled=!files.length;$('clearBtn').disabled=false;$('fileInput').disabled=false;}
+   if(!savedCount)throw new Error('لم يتم العثور على أوراق قابلة للمعالجة.');
+   setProgress(98,'تثبيت الدفعة…');
+   await window.NafesScanJournal.finalizeStream(savedCount);
+   setProgress(100,'اكتمل — تمت قراءة وحفظ '+ar(savedCount)+' ورقة دون الاحتفاظ بالدفعة في الذاكرة');
+ }catch(e){
+   setProgress(0,'توقف التحليل بعد حفظ '+ar(savedCount)+' ورقة: '+e.message+(streamStarted?' — الأوراق التي حُفظت لم تضِع.':''));
+ }finally{
+   results=[];processing=false;$('processBtn').disabled=!files.length;$('clearBtn').disabled=false;$('fileInput').disabled=false;
+ }
 }
 async function init(){
  draft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(null));if(!draft){$('noDraft').classList.remove('hidden');$('processBtn').disabled=true;return;}const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'},subs=(Array.isArray(draft.subjects)&&draft.subjects.length?draft.subjects:[draft.subject]).filter(Boolean);$('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+subs.map(x=>subjectNames[x]||x).join(' + ')+' · '+(draft.assignments?.length||0)+' طالب';
