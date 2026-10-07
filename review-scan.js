@@ -120,7 +120,7 @@ function integralDark(d){
 }
 function rectSum(I,x,y,w,h){const W=I.w+1,x1=Math.max(0,x),y1=Math.max(0,y),x2=Math.min(I.w,x+w),y2=Math.min(I.h,y+h);return I.ii[y2*W+x2]-I.ii[y1*W+x2]-I.ii[y2*W+x1]+I.ii[y1*W+x1];}
 function markerWorkCanvas(src){
- const maxW=960;
+ const maxW=1400;
  if(src.width<=maxW)return{canvas:src,sx:1,sy:1};
  const scale=maxW/src.width,c=document.createElement('canvas');
  c.width=Math.round(src.width*scale);c.height=Math.round(src.height*scale);
@@ -129,19 +129,19 @@ function markerWorkCanvas(src){
 }
 function markerCandidates(c){
  const d=imageData(c),I=integralDark(d),raw=[];
- const sizes=[.010,.014,.019,.026].map(f=>Math.max(7,Math.round(I.w*f)));
+ const sizes=[.007,.010,.013,.017,.022,.028].map(f=>Math.max(7,Math.round(I.w*f)));
  for(const size of sizes){
-   const half=Math.floor(size/2),step=Math.max(5,Math.floor(size*.85));
+   const half=Math.floor(size/2),step=Math.max(3,Math.floor(size/2));
    for(let y=half;y<I.h-half;y+=step)for(let x=half;x<I.w-half;x+=step){
      const score=rectSum(I,x-half,y-half,size,size)/(size*size);
-     if(score>=.72)raw.push({x,y,size,score});
+     if(score>=.70)raw.push({x,y,size,score});
    }
  }
  raw.sort((a,b)=>b.score-a.score);
  const out=[];
  for(const p of raw){
-   if(out.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<Math.max(p.size,q.size)*1.45))continue;
-   out.push(p);if(out.length>=80)break;
+   if(out.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<Math.max(p.size,q.size)*1.4))continue;
+   out.push(p);if(out.length>=140)break;
  }
  return out;
 }
@@ -156,9 +156,9 @@ function detectMarkerSets(src){
  for(let i=0;i<rows.length;i++)for(let j=i+1;j<rows.length;j++){
    let top=rows[i],bottom=rows[j];if(top.y>bottom.y){const t=top;top=bottom;bottom=t;}
    const dy=bottom.y-top.y;if(dy<c.height*.10)continue;
-   if(Math.abs(top.l.x-bottom.l.x)>c.width*.045||Math.abs(top.r.x-bottom.r.x)>c.width*.045)continue;
+   if(Math.abs(top.l.x-bottom.l.x)>c.width*.065||Math.abs(top.r.x-bottom.r.x)>c.width*.065)continue;
    const dx=(top.dx+bottom.dx)/2,aspect=dx/dy,aspectErr=Math.abs(Math.log(aspect/target));
-   if(aspectErr>.28)continue;
+   if(aspectErr>.36)continue;
    const area=(dx*dy)/(c.width*c.height);
    rects.push({top,bottom,score:area+(top.ink+bottom.ink)*.12-aspectErr*.35});
  }
