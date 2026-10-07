@@ -35,6 +35,10 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    return {ok:true,session:must(await db.from('nafes_scan_sessions').insert({id:b.session_id,review_pk:review.id,reviewer_id:owner.id,file_hash:b.file_hash,expected_count:b.expected_count,review_snapshot:review.payload}).select('id,review_pk,reviewer_id,file_hash,expected_count,created_at,completed_at').single())};
  }
  if(b.action==='teacher_scan_sessions')return {ok:true,sessions:must(await db.from('nafes_scan_sessions').select('id,review_pk,reviewer_id,file_hash,expected_count,created_at,completed_at').eq('review_pk',review.id).order('created_at',{ascending:false}).limit(100))};
+ if(b.action==='teacher_scan_deletion_log'){
+   const rows=must(await db.from('nafes_scan_deletions').select('*').eq('review_pk',review.id).order('deleted_at',{ascending:false}).limit(200));
+   return {ok:true,deletions:rows};
+ }
  if(b.action==='teacher_scan_alerts'){
    const after=Number(b.cursor||0);if(!Number.isInteger(after)||after<0)fail('مؤشر غير صالح.');
    const alerts=must(await db.from('nafes_scan_alerts').select('*,sheet:nafes_scan_sheets!sheet_id(student_id,snapshot,uploaded_at),original:nafes_scan_sheets!original_sheet_id(uploaded_at,session_id)').eq('review_pk',review.id).order('created_at',{ascending:false}).order('id').range(after,after+199));
@@ -62,6 +66,36 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  if(b.action==='teacher_scan_image'){
    const row=must(await db.from('nafes_scan_sheets').select('image_data').eq('session_id',session.id).eq('id',b.sheet_id).single());return {ok:true,...row};
+ }
+ if(b.action==='teacher_scan_assign_identity'){
+   if(!uuid(b.sheet_id)||!uuid(b.student_id)||!Number.isInteger(b.answer_version))fail('بيانات تعيين الطالب غير صالحة.');
+   const p=session.review_snapshot,assignment=(p.assignments||[]).find((a:Row)=>String(a.student_id)===String(b.student_id));
+   if(!assignment||!uuid(assignment.student_id))fail('الطالب غير موجود في قائمة أوراق هذا الاختبار.',404);
+   const key=(p.answer_keys||[]).find((k:Row)=>k.model===assignment.model)?.answers||[];
+   if(key.length!==p.question_count)fail('تعذر العثور على مفتاح نموذج الطالب.',409);
+   const row=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
+   if(!row)fail('ورقة غير موجودة.',404);
+   const current=row.effective_snapshot||row.snapshot,rawAnswers=Array.isArray(current?.answers)?current.answers:[];
+   const answers=Array.from({length:p.question_count},(_,i)=>{
+     const raw=rawAnswers[i]||{},normalized=raw.reviewed_manually===true
+       ?{...raw,status:Array.isArray(raw.marked)&&raw.marked.length>1?'multiple':Array.isArray(raw.marked)&&raw.marked.length===0?'blank':'clear'}
+       :raw;
+     return {...classifyAnswer(normalized,key[i]||{},i),reviewed_manually:raw.reviewed_manually===true};
+   });
+   const effective={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,identity_source:'manual',answers,
+     score:answers.filter((a:Row)=>a.correct).length,
+     counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0})};
+   const sheet=must(await db.rpc('nafes_scan_assign_identity',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_student:assignment.student_id,p_sheet_no:assignment.sheet_no,p_student_name:assignment.student_name,p_model:assignment.model,p_effective:effective,p_version:b.answer_version}));
+   return {ok:true,sheet};
+ }
+ if(b.action==='teacher_scan_delete'){
+   if(b.confirm!==true||!uuid(b.request_id)||!Array.isArray(b.sheet_ids)||!b.sheet_ids.length||b.sheet_ids.length>200||b.sheet_ids.some((x:any)=>!uuid(x)))fail('تأكيد الحذف أو البيانات غير صالحة.');
+   const reason=String(b.reason||'').trim();if(reason.length<3||reason.length>200)fail('اكتب سبب الحذف باختصار.');
+   const result=must(await db.rpc('nafes_scan_delete_corrections',{p_session:session.id,p_sheet_ids:b.sheet_ids,p_reviewer:owner.id,p_reason:reason,p_batch:b.request_id}));
+   if(result?.session_deleted)return {ok:true,...result,session:null,sheets:[]};
+   const refreshed=must(await db.from('nafes_scan_sessions').select('*').eq('id',session.id).single());
+   const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
+   return {ok:true,...result,session:publicSession(refreshed),sheets};
  }
  if(b.action==='teacher_scan_edit_answer'){
    if(!uuid(b.request_id)||!uuid(b.sheet_id)||!Number.isInteger(b.question)||!Number.isInteger(b.answer_version)||!Array.isArray(b.marked)||b.marked.length>4||b.marked.some((n:any)=>!Number.isInteger(n)||n<0||n>3))fail('بيانات تعديل الإجابة غير صالحة.');
