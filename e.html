@@ -1,4 +1,4 @@
-<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#065f46"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>اختبار نافس | معلّمي</title><link rel="stylesheet" href="e.css?v=20260914-type1"><link rel="stylesheet" href="stitch-platform-theme.css?v=20261004-cognitive1"><link rel="stylesheet" href="moallimi-brand.css?v=20261004-cognitive1">
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#065f46"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>اختبار نافس | معلّمي</title><link rel="stylesheet" href="e.css?v=20261007-growth1"><link rel="stylesheet" href="stitch-platform-theme.css?v=20261004-cognitive1"><link rel="stylesheet" href="moallimi-brand.css?v=20261004-cognitive1">
 </head><body class="page-exam">
 <header class="exam-top">
   <div class="brand"><img class="moallimi-logo-full" src="moallimi-logo-final.webp?v=20261004-cognitive1" alt="شعار منصة معلّمي"><div><small>منصة الاختبارات المدرسية</small></div></div>
@@ -7,13 +7,14 @@
 <main id="screen" class="exam-shell">
 <section id="intro" class="panel intro-panel">
   <div class="intro-badge">الاختبارات الوطنية المدرسية</div><h1 id="title">جارٍ تحميل الاختبار…</h1><div id="subjectPill" class="subject-pill"></div><p id="details" class="intro-details"></p><div id="sections" class="intro-sections"></div>
+  <div class="growth-purpose-note" role="note"><b>هدف الاختبار: أن نعرف ما أتقنته وما الذي سنطوره معًا.</b><span>الدرجة معلومة تساعدنا، لكن الأهم هو محاولتك الصادقة وتقدمك من محاولة إلى أخرى.</span></div>
   <div class="student-instructions-box security-notice" id="securityNotice"><b>تعليمات دخول الاختبار:</b><ul><li>أدخل اسمك الثلاثي أو الرباعي بدقة كما هو مدون في كشف المدرسة.</li><li>أدخل آخر ٣ أرقام من سجلك المدني (الهوية الوطنية) لتأكيد هويتك.</li><li>اختر فصلك كما هو في كشف المدرسة: أ أو ب أو ج أو د.</li><li>عند ضعف أو انقطاع الاتصال تُحفظ إجاباتك على الجهاز وتُعاد مزامنتها تلقائيًا عند عودة الاتصال. لا تغلق الصفحة أثناء محاولة التسليم إن أمكن.</li><li>تطبق إجراءات حماية الاختبار للحد من النسخ والتصوير قدر الإمكان فقط مع علامة مائية باسمك لضمان النزاهة.</li></ul></div>
   <p id="message" role="alert" class="intro-error-msg"></p>
   <form id="identity" class="entry-form" hidden>
     <div class="form-field"><label for="studentName">اسم الطالب الكامل *</label><input id="studentName" required autocomplete="name" maxlength="120" placeholder="مثال: عبد العزيز محمد الغامدي"></div>
     <div class="form-field"><label for="studentNo">آخر ٣ أرقام من الهوية الوطنية *</label><div class="id3-wrap"><input id="studentNo" required maxlength="3" inputmode="numeric" pattern="[0-9]{3}" placeholder="مثال: 456" autocomplete="off"><span class="id3-badge-hint">٣ أرقام فقط</span></div><small class="id3-helper-text">أدخل آخر ثلاثة أرقام فقط من سجلك المدني للتحقق من هوية الطالب.</small></div>
     <div class="form-field form-field-class" id="classFieldWrap"><label for="className">الفصل *</label><input id="className" required list="classOptions" maxlength="80" autocomplete="off" placeholder="اختر: أ أو ب أو ج أو د"><datalist id="classOptions"><option value="أ"><option value="ب"><option value="ج"><option value="د"></datalist><small class="id3-helper-text">اختر الفصل المطابق لكشف المدرسة.</small></div>
-    <button type="submit" class="btn-start-exam" id="startBtn">دخول الاختبار</button>
+    <button type="submit" class="btn-start-exam" id="startBtn">متابعة للاستعداد</button>
   </form>
 </section>
 <section id="player" class="panel exam-panel" hidden><div class="exam-head"><div><small id="sectionTitle"></small><h2 id="questionTitle"></h2></div><b class="timer" id="timer" aria-label="الوقت المتبقي"></b></div><div class="progress" id="progress"></div><div id="questions"></div><div class="nav exam-nav"><button id="prev">السابق</button><button id="review">مراجعة الإجابات</button><button id="next">التالي</button><button id="finish">تسليم القسم</button></div><button id="calcButton" hidden>آلة حاسبة</button><p id="playerError" role="alert"></p></section>
@@ -51,7 +52,7 @@
     return response;
   };
 })();
-</script><script src="exam-session-guard.js?v=20260917-1"></script><script src="e-player-demo-fix.js?v=20261007-reliability1"></script><script>
+</script><script src="exam-session-guard.js?v=20260917-1"></script><script src="e-player-demo-fix.js?v=20261007-growth1"></script><script>
 (()=>{
   let forcedClassCleared=false;
   const unlockClassField=()=>{
