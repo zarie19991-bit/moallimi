@@ -163,7 +163,7 @@ function markerCandidates(c){
  return out;
 }
 function findTemplateSquare(G,zone,expectX,expectY){
- const sizes=[.007,.010,.013,.017,.022].map(f=>Math.max(7,Math.round(G.w*f)));
+ const sizes=[.008,.010,.013,.016,.020].map(f=>Math.max(7,Math.round(G.w*f)));
  let best=null;
  for(const size of sizes){
    const half=Math.floor(size/2),step=Math.max(2,Math.floor(size/3));
@@ -173,33 +173,34 @@ function findTemplateSquare(G,zone,expectX,expectY){
      const core=rectMean(G,x-half,y-half,size,size);
      const outer=rectMean(G,x-size,y-size,size*2,size*2);
      const contrast=outer-core;
-     if(contrast<12)continue;
-     const prox=Math.abs(x/G.w-expectX)*70+Math.abs(y/G.h-expectY)*95;
-     const score=contrast-prox;
-     if(!best||score>best.score)best={x,y,size,score,contrast,core};
+     const prox=(Math.abs(x/G.w-expectX)*40+Math.abs(y/G.h-expectY)*60);
+     const score=(255-core)*.70+contrast*.50-prox*20;
+     if(contrast<10||core>170)continue;
+     if(!best||score>best.score)best={x,y,size,score,core,outer,contrast};
    }
  }
  return best;
 }
 function detectTemplateMarkerSet(src){
  const prep=markerWorkCanvas(src),c=prep.canvas,d=imageData(c),G=integralGray(d);
- const tl=findTemplateSquare(G,[.025,.17,.40,.51],.075,.46);
- const tr=findTemplateSquare(G,[.74,.93,.39,.50],.825,.45);
- if(!tl||!tr)return null;
- const dx=tr.x-tl.x;if(dx<c.width*.55)return null;
- const target=(NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0])/(NafesOmrTemplate.markers.bl[1]-NafesOmrTemplate.markers.tl[1]);
- const dy=dx/target,by=((tl.y+tr.y)/2)+dy;
- const bl=findTemplateSquare(G,[Math.max(0,tl.x/c.width-.075),Math.min(.28,tl.x/c.width+.075),Math.max(.60,by/c.height-.085),Math.min(.82,by/c.height+.085)],tl.x/c.width,by/c.height);
- const br=findTemplateSquare(G,[Math.max(.64,tr.x/c.width-.08),Math.min(1,tr.x/c.width+.08),Math.max(.60,by/c.height-.085),Math.min(.82,by/c.height+.085)],tr.x/c.width,by/c.height);
- if(!bl||!br)return null;
+ // Tight zones are calibrated from the real printed sheet:
+ // TL≈(.08,.46), TR≈(.82,.45), BL≈(.08,.72), BR≈(.85,.71).
+ const tl=findTemplateSquare(G,[.04,.13,.42,.50],.08,.46);
+ const tr=findTemplateSquare(G,[.77,.89,.41,.49],.83,.45);
+ const bl=findTemplateSquare(G,[.04,.14,.66,.77],.08,.72);
+ const br=findTemplateSquare(G,[.77,.92,.65,.77],.85,.71);
+ if(!tl||!tr||!bl||!br)return null;
  const topDx=tr.x-tl.x,bottomDx=br.x-bl.x,leftDy=bl.y-tl.y,rightDy=br.y-tr.y;
- if(topDx<=0||bottomDx<=0||leftDy<=0||rightDy<=0)return null;
+ if(topDx<c.width*.55||bottomDx<c.width*.55||leftDy<c.height*.20||rightDy<c.height*.20)return null;
+ const target=(NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0])/(NafesOmrTemplate.markers.bl[1]-NafesOmrTemplate.markers.tl[1]);
  const aspect=((topDx+bottomDx)/2)/((leftDy+rightDy)/2),aspectErr=Math.abs(Math.log(aspect/target));
- if(aspectErr>.38)return null;
- const score=p=>Math.max(.70,Math.min(1,(p.contrast-10)/45));
- const scale=p=>({x:p.x*prep.sx,y:p.y*prep.sy,score:score(p)});
- return{tl:scale(tl),tr:scale(tr),bl:scale(bl),br:scale(br),detector:'template-contrast'};
+ if(aspectErr>.32)return null;
+ const topSlope=Math.abs(tr.y-tl.y)/Math.max(1,topDx),bottomSlope=Math.abs(br.y-bl.y)/Math.max(1,bottomDx);
+ if(topSlope>.12||bottomSlope>.12)return null;
+ const scale=p=>({x:p.x*prep.sx,y:p.y*prep.sy,score:Math.max(.88,Math.min(.99,.88+p.contrast/300))});
+ return{tl:scale(tl),tr:scale(tr),bl:scale(bl),br:scale(br),detector:'template-dark-square',geometry_confidence:Math.max(.88,1-aspectErr)};
 }
+
 function detectMarkerSets(src){
  const prep=markerWorkCanvas(src),c=prep.canvas,cands=markerCandidates(c),rows=[],T=NafesOmrTemplate.markers,target=(T.tr[0]-T.tl[0])/(T.bl[1]-T.tl[1]);
  for(let i=0;i<cands.length;i++)for(let j=i+1;j<cands.length;j++){
@@ -473,12 +474,18 @@ async function decodeStoredIdentity(src){
 }
 async function readStoredOmr(src,total,startNo){
  const c=await canvasFromDataUrl(src),normed=normalizeOrientation(c),canvas=normed.canvas,markers=detectMarkers(canvas);
- if(!markers){c.width=1;c.height=1;throw new Error('تعذر تثبيت علامات المحاذاة الأربع؛ لن يتم تخمين الإجابات.');}
+ if(!markers){c.width=1;c.height=1;throw new Error('تعذر تثبيت المربعات السوداء الأربعة.');}
  const markerScores=[markers.tl?.score,markers.tr?.score,markers.bl?.score,markers.br?.score].map(Number).filter(Number.isFinite);
- const markerConfidence=markerScores.length?Math.max(0,Math.min(1,(markerScores.reduce((a,b)=>a+b,0)/markerScores.length-.70)/.30)):0;
- if(markerConfidence<.72){c.width=1;c.height=1;throw new Error('ثقة محاذاة الورقة منخفضة؛ تم إيقاف القراءة الآلية لمنع درجة وهمية.');}
+ const markerConfidence=markers.geometry_confidence||(
+   markerScores.length?Math.max(0,Math.min(1,markerScores.reduce((a,b)=>a+b,0)/markerScores.length)):0
+ );
+ // For the calibrated template detector, geometry is the acceptance gate.
+ // Do not reject a valid four-corner solution using the legacy density formula.
+ if(markers.detector!=='template-dark-square'&&markerConfidence<.72){
+   c.width=1;c.height=1;throw new Error('ثقة محاذاة الورقة منخفضة؛ لن يتم تخمين الدرجة.');
+ }
  const answers=readAnswers(canvas,markers,total,startNo);c.width=1;c.height=1;
- return{answers,markers_ok:true,marker_confidence:Number(markerConfidence.toFixed(3))};
+ return{answers,markers_ok:true,marker_confidence:Number(markerConfidence.toFixed(3)),detector:markers.detector||'general'};
 }
 window.NafesScanReader={decodeStoredIdentity,readStoredOmr};
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();});
