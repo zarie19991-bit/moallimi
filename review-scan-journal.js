@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id),ar=n=>new Intl.NumberFormat('ar-SA').for
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={blank:'غير محلول',multiple:'إجابات متعددة',correct:'صحيح مؤكد',incorrect:'إجابة خاطئة',uncertain:'قراءة غير مؤكدة'};
 const letters=['أ','ب','ج','د'];
-let draft=null,session=null,sheets=[],active=-1,busy=false,pending=null,alerts=[],imageCache=new Map(),poll=null,loadedImage=null;
+let draft=null,session=null,sheets=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
 const duplicate=s=>!!(s.duplicate_of||s.duplicate_legacy_at);
@@ -12,13 +12,15 @@ const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكرر�
 function message(t,error=false){$('journalStatus').textContent=t;$('journalStatus').className='notice '+(error?'error':'');if($('modalFeedback')){$('modalFeedback').textContent=t;$('modalFeedback').className=error?'notice error':'notice';}}
 function firstPending(){return sheets.findIndex(s=>!s.reviewed_at);}
 function ready(){return session&&sheets.length===session.expected_count;}
-function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn'])if($(id))$(id).disabled=value;renderButtons();}
+function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','applyManualAssignmentBtn'])if($(id))$(id).disabled=value;renderButtons();}
 function renderButtons(){
  const s=sheets[active];
  $('saveSheetBtn').disabled=busy||!ready()||!s||loadedImage!==s.id||!!s.reviewed_at||!$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
  $('nextSheetBtn').disabled=busy||!s?.reviewed_at||active>=sheets.length-1;
  $('finishReviewBtn').disabled=busy||!ready()||firstPending()>=0||!!session.completed_at;
  $('approveBtn').disabled=busy||!session?.completed_at||!sheets.some(s=>s.disposition==='verified');
+ if($('deleteSelectedBtn'))$('deleteSelectedBtn').disabled=busy||selected.size===0;
+ if($('applyManualAssignmentBtn'))$('applyManualAssignmentBtn').disabled=busy||!s||effective(s).identity_valid===true||!!session?.completed_at||!$('manualAssignment')?.value;
  document.querySelectorAll('[data-edit-question]').forEach(b=>{b.disabled=busy||!ready()||!s||loadedImage!==s.id||!!session?.completed_at;});
  $('retryUploadBtn').classList.toggle('hidden',!pending);
 }
@@ -27,7 +29,7 @@ function render(){
  const count=sheets.reduce((m,s)=>{for(const [k,v]of Object.entries(effective(s).counts))m[k]=(m[k]||0)+v;return m;},{});
  $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تمت مراجعتها',sheets.filter(s=>s.reviewed_at).length],['تنبيهات التكرار',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
  const only=$('alertFilter').checked;
- $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i})).filter(({s})=>!only||duplicate(s)).map(({s,i})=>'<tr><td>'+esc(s.snapshot.student_name)+'</td><td>'+esc(s.snapshot.model)+'</td><td>'+ar(effective(s).score)+' / '+ar(s.snapshot.total)+'</td><td>'+esc(status(s))+(duplicate(s)?' <strong class="duplicate-label">رفع مكرر</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button></td></tr>').join('')||'<tr><td colspan="5">لا توجد أوراق مطابقة.</td></tr>';
+ $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+ar(a.score)+' / '+ar(a.total)+'</td><td>'+esc(status(s))+(duplicate(s)?' <strong class="duplicate-label">رفع مكرر</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> <button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
  $('sessionProgress').textContent=session?(session.completed_at?'جلسة منتهية · ':'')+'تم التحقق من '+ar(sheets.filter(s=>s.reviewed_at).length)+' من '+ar(session.expected_count)+' ورقة':'';
  renderButtons();
 }
@@ -38,20 +40,67 @@ async function open(i){
  $('modalTitle').textContent=a.student_name+' — نموذج '+a.model;
  $('modalSub').textContent='الورقة '+ar(i+1)+' من '+ar(sheets.length)+' · الدرجة '+ar(a.score)+' / '+ar(a.total)+' · '+status(s)+' · رفع '+new Date(s.uploaded_at).toLocaleString('ar-SA');
  $('scanImage').removeAttribute('src');$('scanImage').alt='جارٍ تحميل الورقة كاملة…';
- $('manualAssignmentWrap').classList.add('hidden');
+ if(!a.identity_valid){
+   const used=new Set(sheets.filter(x=>x.id!==s.id&&x.student_id).map(x=>String(x.student_id)));
+   const options=(draft.assignments||[]).map(x=>'<option value="'+esc(x.student_id)+'" '+(used.has(String(x.student_id))?'disabled':'')+'>'+esc(x.student_name)+' — نموذج '+esc(x.model)+(used.has(String(x.student_id))?' (مرتبط بورقة أخرى)':'')+'</option>').join('');
+   $('manualAssignment').innerHTML='<option value="">اختر الطالب…</option>'+options;
+   $('manualAssignmentWrap').classList.remove('hidden');
+ }else $('manualAssignmentWrap').classList.add('hidden');
  $('answerEditor').innerHTML=a.answers.map(x=>{
    const original=s.snapshot.answers[x.question-1],originalText=original.marked.length?original.marked.map(j=>letters[j]).join(' + '):'فارغة';
    return '<div class="answer-row-edit state-'+x.state+'"><div><b>س '+ar(x.question)+'</b><small>'+labels[x.state]+' · '+(x.reviewed_manually?'معدلة يدويًا':'ثقة القراءة '+ar(Math.round(x.confidence*100))+'٪')+'</small>'+(x.reviewed_manually?'<small class="original-answer">القراءة الأصلية: '+esc(originalText)+' — '+labels[original.state]+'</small>':'')+'</div><div class="choice-buttons" aria-label="تعديل إجابة السؤال '+x.question+'">'+letters.map((l,j)=>'<button type="button" data-edit-question="'+x.question+'" data-choice="'+j+'" aria-pressed="'+x.marked.includes(j)+'" class="readonly-choice '+(x.marked.includes(j)?'selected':'')+'">'+l+'</button>').join('')+'<button type="button" data-edit-question="'+x.question+'" data-choice="blank" class="blank-choice" aria-pressed="'+(x.marked.length===0)+'">فارغة</button></div></div>';
  }).join('');
  $('sheetEditHistory').innerHTML='';$('editHistoryDetails').open=false;
  $('editMode').disabled=!!session?.completed_at;
- $('sheetWarning').textContent=!a.identity_valid?'تعذر تأكيد هوية الورقة من QR؛ ستُحفظ للمراجعة دون اعتماد درجة. أعد المسح بعد التحقق من الورقة.':!a.markers_ok||a.counts.uncertain?'توجد قراءة غير مؤكدة؛ يمكنك تعديل الإجابات بعد فحص الصورة، أو طلب إعادة المسح.':s.blocked_duplicate?'هذه نسخة مكررة؛ ستبقى في السجل ولن تُحتسب درجة إضافية.':duplicate(s)?'إعادة رفع بعد ورقة طلبت إعادة مسحها؛ يبقى تنبيه التكرار محفوظًا.':'';
+ $('sheetWarning').textContent=!a.identity_valid?'تعذر تأكيد هوية الورقة من QR. اختر الطالب من القائمة بعد مطابقة الاسم الظاهر على الورقة؛ لن تعتمد النتيجة قبل تأكيد الهوية.':!a.markers_ok||a.counts.uncertain?'توجد قراءة غير مؤكدة؛ يمكنك تعديل الإجابات بعد فحص الصورة، أو طلب إعادة المسح.':s.blocked_duplicate?'هذه نسخة مكررة؛ ستبقى في السجل ولن تُحتسب درجة إضافية.':duplicate(s)?'إعادة رفع بعد ورقة طلبت إعادة مسحها؛ يبقى تنبيه التكرار محفوظًا.':'';
  $('duplicateConfirm').classList.toggle('hidden',!duplicate(s));
  $('duplicateCheck').checked=!!s.reviewed_at;$('verifiedCheck').checked=!!s.reviewed_at;
  $('verifiedCheck').disabled=!!s.reviewed_at;$('duplicateCheck').disabled=!!s.reviewed_at;
  $('sheetModal').classList.remove('hidden');renderButtons();
  try{let src=imageCache.get(s.id);if(!src){const data=await api('teacher_scan_image',{sheet_id:s.id});src=data.image_data;if(imageCache.size>5)imageCache.delete(imageCache.keys().next().value);imageCache.set(s.id,src);}if(sheets[active]?.id===s.id){$('scanImage').onload=()=>{loadedImage=s.id;renderButtons();};$('scanImage').src=src;$('scanImage').alt='ورقة '+a.student_name+' كاملة — اضغط للتكبير';}}
  catch(e){message('تعذر تحميل الصورة: '+e.message,true);$('saveSheetBtn').disabled=true;}
+}
+async function assignIdentity(){
+ const sheet=sheets[active],studentId=$('manualAssignment')?.value;
+ if(busy||!sheet||!studentId||effective(sheet).identity_valid||session?.completed_at)return;
+ if(!confirm('سيتم ربط هذه الورقة بالطالب المحدد وإعادة احتساب الدرجة وفق نموذج الطالب. هل أنت متأكد؟'))return;
+ lock(true);
+ try{
+   const r=await api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:studentId,answer_version:sheet.answer_version||0});
+   sheets[active]=r.sheet;selected.delete(sheet.id);render();message('تم تأكيد اسم الطالب وإعادة ربط الإجابات بالنموذج الصحيح.');
+   await open(active);
+ }catch(e){message('تعذر تأكيد اسم الطالب: '+e.message,true);}
+ finally{lock(false);}
+}
+async function refreshDeletionLog(){
+ if(!draft)return;
+ try{
+   const r=await api('teacher_scan_deletion_log');deletions=r.deletions||[];
+   $('deleteLog').innerHTML=deletions.length?'<summary>سجل حذف التصحيحات — أحدث '+ar(deletions.length)+' عملية</summary><div class="alert-list">'+deletions.map(d=>'<p><b>'+esc(d.student_name||'ورقة بلا اسم')+'</b> · '+new Date(d.deleted_at).toLocaleString('ar-SA')+' · '+esc(d.reason)+' · '+(d.had_published_attempt?'حُذفت النتيجة المعتمدة المرتبطة أيضًا':'لا توجد نتيجة معتمدة مرتبطة')+' <small>رقم العملية: '+esc(d.batch_id)+'</small></p>').join('')+'</div>':'<summary>لا توجد عمليات حذف مسجلة</summary>';
+ }catch(e){message('تعذر تحميل سجل الحذف: '+e.message,true);}
+}
+async function deleteCorrections(ids){
+ const unique=[...new Set((ids||[]).filter(id=>sheets.some(s=>s.id===id)))];
+ if(!unique.length||busy)return;
+ const reason=prompt('اكتب سبب حذف التصحيح (مثال: رفع خاطئ أو ورقة مكررة):','رفع أو تصحيح غير صحيح');
+ if(reason===null)return;
+ if(reason.trim().length<3){message('لم يتم الحذف: سبب الحذف مطلوب.',true);return;}
+ const names=unique.map(id=>effective(sheets.find(s=>s.id===id)).student_name).join('، ');
+ if(!confirm('سيتم حذف '+ar(unique.length)+' تصحيح فعليًا، وإزالة أي نتيجة معتمدة مرتبطة به، مع الاحتفاظ بسجل تدقيق فقط.\n\n'+names+'\n\nهل تريد المتابعة؟'))return;
+ lock(true);
+ try{
+   const r=await api('teacher_scan_delete',{sheet_ids:unique,reason:reason.trim(),confirm:true,request_id:crypto.randomUUID()});
+   unique.forEach(id=>{selected.delete(id);imageCache.delete(id);});
+   $('sheetModal').classList.add('hidden');active=-1;
+   if(r.session_deleted){
+     session=null;sheets=[];$('resultsSection').classList.add('hidden');$('summarySection').classList.add('hidden');
+     message('تم حذف التصحيحات المحددة والجلسة الخالية. سُجلت العملية في سجل الحذف.');
+   }else{
+     session=r.session;sheets=r.sheets||[];render();message('تم حذف '+ar(r.deleted_count)+' تصحيح بأمان، وتحديث النتائج المرتبطة.');
+   }
+   await sessions();await refreshAlerts();await refreshDeletionLog();
+ }catch(e){message('تعذر حذف التصحيح: '+e.message,true);}
+ finally{lock(false);}
 }
 async function editAnswer(question,choice){
  const sheet=sheets[active];if(busy||!ready()||!sheet||loadedImage!==sheet.id||session.completed_at)return;
@@ -152,16 +201,22 @@ async function report(){
  download(rows,'تقرير-مراجعة-الأوراق.csv');
  }catch(e){message('تعذر استخراج التقرير: '+e.message,true);}
 }
-async function init(p){draft=p;clearInterval(poll);await sessions();await refreshAlerts();poll=setInterval(()=>{if(!document.hidden&&!busy)refreshAlerts();},10000);}
+async function init(p){draft=p;clearInterval(poll);await sessions();await refreshAlerts();await refreshDeletionLog();poll=setInterval(()=>{if(!document.hidden&&!busy){refreshAlerts();refreshDeletionLog();}},10000);}
 $('answerEditor').onclick=e=>{const b=e.target.closest('[data-edit-question]');if(b&&!b.disabled)editAnswer(Number(b.dataset.editQuestion),b.dataset.choice);};
+$('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;
 $('loadEditHistoryBtn').onclick=editHistory;
 $('saveSheetBtn').onclick=verify;$('nextSheetBtn').onclick=()=>open(active+1);$('finishReviewBtn').onclick=finish;
 $('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>open(Math.max(0,firstPending()));
-$('resultsBody').onclick=e=>{const b=e.target.closest('[data-open]');if(b)open(Number(b.dataset.open));};
+$('resultsBody').onclick=e=>{
+ const openBtn=e.target.closest('[data-open]');if(openBtn){open(Number(openBtn.dataset.open));return;}
+ const del=e.target.closest('[data-delete-sheet]');if(del)deleteCorrections([del.dataset.deleteSheet]);
+};
+$('resultsBody').onchange=e=>{const c=e.target.closest('[data-select-sheet]');if(!c)return;c.checked?selected.add(c.dataset.selectSheet):selected.delete(c.dataset.selectSheet);renderButtons();};
+$('deleteSelectedBtn').onclick=()=>deleteCorrections([...selected]);
 $('verifiedCheck').onchange=renderButtons;$('duplicateCheck').onchange=renderButtons;$('alertFilter').onchange=render;
 $('resumeSessionBtn').onclick=()=>resume($('sessionPicker').value);$('retryUploadBtn').onclick=()=>transfer().catch(()=>{});
 $('approveBtn').onclick=approve;$('journalExportBtn').onclick=report;$('exportBtn').onclick=report;
 $('scanImage').onclick=()=> $('scanImage').classList.toggle('zoomed');
-addEventListener('nafes:auth-changed',e=>{if(!e.detail.authenticated){clearInterval(poll);session=null;sheets=[];imageCache.clear();$('sheetModal').classList.add('hidden');$('resultsSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('alertLog').innerHTML='';}});
+addEventListener('nafes:auth-changed',e=>{if(!e.detail.authenticated){clearInterval(poll);session=null;sheets=[];selected.clear();imageCache.clear();$('sheetModal').classList.add('hidden');$('resultsSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('alertLog').innerHTML='';$('deleteLog').innerHTML='';}});
 window.NafesScanJournal={init,upload,isBusy:()=>busy};
 })();
