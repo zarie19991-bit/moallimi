@@ -278,7 +278,7 @@ async function streamHash(files){
 }
 async function beginStream(files){
  const fileHash=await streamHash(files),id=crypto.randomUUID();
- const r=await api('teacher_scan_start',{session_id:id,file_hash:fileHash,expected_count:200});
+ const r=await api('teacher_scan_start',{session_id:id,file_hash:fileHash,expected_count:1});
  session=r.session;sheets=[];active=-1;pending=null;imageCache.clear();render();
  return {session_id:id,file_hash:fileHash};
 }
