@@ -66,13 +66,19 @@ async function registerSheet(db:any,review:Row,session:Row,raw:Row){
 export async function handlePaperScan(db:any,b:Row,owner:Row){
  const review=await reviewFor(db,b,owner);
  if(b.action==='teacher_scan_start'){
-   const expectedPages=Number(b.expected_page_count),sourceFileCount=Number(b.source_file_count);
-   if(!uuid(b.session_id)||!/^([a-f0-9]{64})$/.test(b.file_hash)||!Number.isInteger(b.expected_count)||b.expected_count<1||b.expected_count>MAX_SCAN_SHEETS
-      ||!Number.isInteger(expectedPages)||expectedPages<1||expectedPages>MAX_SCAN_PAGES||!Number.isInteger(sourceFileCount)||sourceFileCount<1||sourceFileCount>MAX_SCAN_PAGES)fail('بيانات رفع الدفعة غير صالحة.');
-   const manifest=cleanManifest(b.batch_manifest,sourceFileCount,expectedPages);
+   const legacyBatch=b.expected_page_count==null&&b.source_file_count==null&&b.batch_manifest==null;
+   const expectedPages=legacyBatch?null:Number(b.expected_page_count),sourceFileCount=legacyBatch?null:Number(b.source_file_count);
+   const maxSheets=legacyBatch?300:MAX_SCAN_SHEETS;
+   if(!uuid(b.session_id)||!/^([a-f0-9]{64})$/.test(b.file_hash)||!Number.isInteger(b.expected_count)||b.expected_count<1||b.expected_count>maxSheets)fail('بيانات رفع الدفعة غير صالحة.');
+   let manifest:any[]=[];
+   if(!legacyBatch){
+     if(!Number.isInteger(expectedPages)||expectedPages<1||expectedPages>MAX_SCAN_PAGES||!Number.isInteger(sourceFileCount)||sourceFileCount<1||sourceFileCount>MAX_SCAN_PAGES)fail('بيانات رفع الدفعة غير صالحة.');
+     manifest=cleanManifest(b.batch_manifest,sourceFileCount,expectedPages);
+   }
    const old=must(await db.from('nafes_scan_sessions').select('*').eq('id',b.session_id).maybeSingle());
    if(old){
-     if(old.review_pk!==review.id||old.file_hash!==b.file_hash||old.expected_count!==b.expected_count||Number(old.expected_page_count)!==expectedPages||Number(old.source_file_count)!==sourceFileCount)fail('تعارض جلسة الرفع.',409);
+     const metadataConflict=!legacyBatch&&(Number(old.expected_page_count)!==expectedPages||Number(old.source_file_count)!==sourceFileCount);
+     if(old.review_pk!==review.id||old.file_hash!==b.file_hash||old.expected_count!==b.expected_count||metadataConflict)fail('تعارض جلسة الرفع.',409);
      return {ok:true,session:publicSession(old)};
    }
    return {ok:true,session:must(await db.from('nafes_scan_sessions').insert({id:b.session_id,review_pk:review.id,reviewer_id:owner.id,file_hash:b.file_hash,expected_count:b.expected_count,expected_page_count:expectedPages,source_file_count:sourceFileCount,batch_manifest:manifest,review_snapshot:review.payload}).select(sessionColumns).single())};
