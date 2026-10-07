@@ -124,7 +124,9 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
      marker_confidence:Math.max(0,Math.min(1,Number(b.marker_confidence)||0)),answers,
      score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
-     omr_policy:'strict_fail_closed_v2',unresolved_answers:uncertain};
+     omr_policy:'calibrated_homography_localfill_v3',omr_detector:String(b.detector||'').slice(0,64),
+     marker_points:b.marker_points&&typeof b.marker_points==='object'?b.marker_points:null,
+     unresolved_answers:uncertain};
    const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:next,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null}).eq('id',row.id).eq('session_id',session.id).eq('answer_version',b.answer_version).select(summaryColumns).maybeSingle());
    if(!updated)fail('تغيرت الورقة أثناء إعادة القراءة؛ أعد المحاولة.',409);
    await db.from('nafes_scan_sessions').update({completed_at:null}).eq('id',session.id);
