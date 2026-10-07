@@ -60,6 +60,22 @@ async function open(i){
  try{let src=imageCache.get(s.id);if(!src){const data=await api('teacher_scan_image',{sheet_id:s.id});src=data.image_data;if(imageCache.size>5)imageCache.delete(imageCache.keys().next().value);imageCache.set(s.id,src);}if(sheets[active]?.id===s.id){$('scanImage').onload=()=>{loadedImage=s.id;renderButtons();};$('scanImage').src=src;$('scanImage').alt='ورقة '+a.student_name+' كاملة — اضغط للتكبير';}}
  catch(e){message('تعذر تحميل الصورة: '+e.message,true);$('saveSheetBtn').disabled=true;}
 }
+async function recoverIdentity(sheetId){
+ const i=sheets.findIndex(x=>x.id===sheetId),sheet=sheets[i];if(i<0||!sheet||busy)return;
+ lock(true);
+ try{
+   let src=imageCache.get(sheet.id);
+   if(!src){const data=await api('teacher_scan_image',{sheet_id:sheet.id});src=data.image_data;imageCache.set(sheet.id,src);}
+   const q=await window.NafesScanReader?.decodeStoredIdentity?.(src);
+   if(!q)throw new Error('لم يتمكن القارئ المحسن من العثور على QR في الصورة المحفوظة.');
+   if(q.reviewId!==draft.review_id)throw new Error('رمز الورقة يعود إلى مراجعة مختلفة.');
+   const assignment=(draft.assignments||[]).find(a=>Number(a.sheet_no)===Number(q.sheetNo)&&String(a.model)===String(q.model));
+   if(!assignment)throw new Error('تمت قراءة QR لكن لم تتم مطابقة الطالب أو النموذج في هذه المراجعة.');
+   const r=await api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:assignment.student_id,answer_version:sheet.answer_version||0});
+   sheets[i]=r.sheet;selected.delete(sheet.id);render();message('تمت استعادة اسم الطالب تلقائيًا من QR المحفوظ: '+assignment.student_name);
+ }catch(e){message('تعذر استعادة الاسم تلقائيًا: '+e.message,true);}
+ finally{lock(false);}
+}
 async function assignIdentity(){
  const sheet=sheets[active],studentId=$('manualAssignment')?.value;
  if(busy||!sheet||!studentId||effective(sheet).identity_valid||session?.completed_at)return;
@@ -209,7 +225,7 @@ $('saveSheetBtn').onclick=verify;$('nextSheetBtn').onclick=()=>open(active+1);$(
 $('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>open(Math.max(0,firstPending()));
 $('resultsBody').onclick=e=>{
  const openBtn=e.target.closest('[data-open]');if(openBtn){open(Number(openBtn.dataset.open));return;}
- const del=e.target.closest('[data-delete-sheet]');if(del)deleteCorrections([del.dataset.deleteSheet]);
+ const recover=e.target.closest('[data-recover-identity]');if(recover){recoverIdentity(recover.dataset.recoverIdentity);return;} const del=e.target.closest('[data-delete-sheet]');if(del)deleteCorrections([del.dataset.deleteSheet]);
 };
 $('resultsBody').onchange=e=>{const c=e.target.closest('[data-select-sheet]');if(!c)return;c.checked?selected.add(c.dataset.selectSheet):selected.delete(c.dataset.selectSheet);renderButtons();};
 $('deleteSelectedBtn').onclick=()=>deleteCorrections([...selected]);
