@@ -173,33 +173,52 @@ function mapTemplate(markers,x,y){
  const bot={x:markers.bl.x+(markers.br.x-markers.bl.x)*u,y:markers.bl.y+(markers.br.y-markers.bl.y)*u};
  return{x:top.x+(bot.x-top.x)*v,y:top.y+(bot.y-top.y)*v};
 }
-function darknessAt(d,cx,cy,r){
- const w=d.width,h=d.height;let sum=0,n=0,rr=r*r;
+function darknessAt(d,cx,cy,r,inner=0){
+ const w=d.width,h=d.height;let sum=0,n=0,rr=r*r,ii=inner*inner;
  for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(let x=Math.floor(cx-r);x<=Math.ceil(cx+r);x++){
-   if(x<0||y<0||x>=w||y>=h)continue;const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>rr)continue;
+   if(x<0||y<0||x>=w||y>=h)continue;const dx=x-cx,dy=y-cy,dd=dx*dx+dy*dy;if(dd>rr||dd<ii)continue;
    const i=(y*w+x)*4,gray=d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114;sum+=(255-gray)/255;n++;
  }
  return n?sum/n:0;
 }
+function bubbleEvidence(d,cx,cy,r){
+ const inner=darknessAt(d,cx,cy,r*.62);
+ const ring=darknessAt(d,cx,cy,r*1.35,r*.82);
+ const local=darknessAt(d,cx,cy,r*1.85,r*1.42);
+ const fill=Math.max(0,inner-Math.max(local*.35,ring*.18));
+ return{inner,ring,local,fill};
+}
 function readAnswers(c,markers,total,startNo){
  const span=(Math.hypot(markers.tr.x-markers.tl.x,markers.tr.y-markers.tl.y)+Math.hypot(markers.br.x-markers.bl.x,markers.br.y-markers.bl.y))/2;
- const radius=Math.max(2.5,span*(1.08/Math.max(1,NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0]))),allScores=[],raw=[];
+ const radius=Math.max(3,span*(1.08/Math.max(1,NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0])));
+ const raw=[],allFill=[];
  for(let i=0;i<Math.min(total,NafesOmrTemplate.maxQuestions||60);i++){
-   const scores=NafesOmrTemplate.answerPoints(i,total).map(p=>{const m=mapTemplate(markers,p.x,p.y);return darknessAt(markers.image,m.x,m.y,radius);});
-   raw.push(scores);allScores.push(...scores);
+   const ev=NafesOmrTemplate.answerPoints(i,total).map(p=>{const m=mapTemplate(markers,p.x,p.y);return bubbleEvidence(markers.image,m.x,m.y,radius);});
+   raw.push(ev);allFill.push(...ev.map(x=>x.fill));
  }
- const base=median(allScores),threshold=Math.min(.34,Math.max(.12,base+.095)),clamp=v=>Math.max(0,Math.min(1,v));
- return raw.map((scores,i)=>{
-   const order=scores.map((s,j)=>({s,j})).sort((a,b)=>b.s-a.s),top=order[0],second=order[1];
-   const separation=Math.max(0,top.s-second.s),signal=top.s-threshold;
-   if(top.s<threshold){
-     const confidence=clamp((threshold-top.s)/.08);
-     return{question:startNo+i,selected:null,status:'blank',scores,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold,separation};
+ const base=median(allFill),clamp=v=>Math.max(0,Math.min(1,v));
+ // Conservative fail-closed thresholds: an answer is "clear" only when the fill is strong
+ // and clearly separated from every competing bubble.
+ const filledThreshold=Math.max(.16,base+.105);
+ const strongThreshold=Math.max(.23,base+.16);
+ return raw.map((ev,i)=>{
+   const order=ev.map((e,j)=>({e,j,s:e.fill})).sort((a,b)=>b.s-a.s),top=order[0],second=order[1];
+   const separation=top.s-second.s;
+   const strong=top.s>=strongThreshold&&separation>=.095&&top.e.inner>=.27;
+   const possible=order.filter(x=>x.s>=filledThreshold&&x.e.inner>=.20);
+   const scores=ev.map(x=>Number(x.fill.toFixed(4)));
+   if(possible.length===0){
+     const confidence=clamp((filledThreshold-top.s)/.10);
+     return{question:startNo+i,selected:null,status:'blank',marked:[],scores,evidence:ev,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:filledThreshold,separation};
    }
-   const confidence=clamp(.58*Math.max(0,signal)/.16+.42*separation/.10);
-   if(second.s>=Math.max(threshold*.92,top.s-.045))return{question:startNo+i,selected:top.j,status:'multiple',marked:order.filter(x=>x.s>=Math.max(threshold*.92,top.s-.045)).map(x=>x.j),scores,confidence:Number(Math.min(.49,confidence).toFixed(3)),topScore:top.s,secondScore:second.s,threshold,separation};
-   if(top.s<threshold+.045||confidence<.72)return{question:startNo+i,selected:top.j,status:'ambiguous',scores,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold,separation};
-   return{question:startNo+i,selected:top.j,status:'clear',scores,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold,separation};
+   if(possible.length>1){
+     return{question:startNo+i,selected:top.j,status:'multiple',marked:possible.map(x=>x.j),scores,evidence:ev,confidence:Number(Math.min(.45,clamp(separation/.12)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:filledThreshold,separation};
+   }
+   if(!strong){
+     return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,evidence:ev,confidence:Number(Math.min(.79,clamp((top.s-filledThreshold)/.14*.55+separation/.12*.45)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:filledThreshold,separation};
+   }
+   const confidence=clamp(.55*(top.s-strongThreshold)/.22+.45*separation/.18+.82);
+   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,evidence:ev,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:filledThreshold,separation};
  });
 }
 function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,1800/c.width);o.width=Math.round(c.width*scale);o.height=Math.round(c.height*scale);o.getContext('2d').drawImage(c,0,0,o.width,o.height);return o.toDataURL('image/jpeg',.85);}
@@ -212,8 +231,8 @@ function scoreResult(r){
  const manual=r.answers.filter(a=>a.status==='manual'||a.manualChanged===true).length;
  const low=r.answers.filter(a=>Number.isFinite(Number(a.originalConfidence??a.confidence))&&Number(a.originalConfidence??a.confidence)<.80).length;
  r.score=score;r.total=total;
- r.unresolved=r.answers.filter(a=>a.status==='multiple'||a.status==='ambiguous').length+(!r.qrValid?1:0);
- r.omr={confidence:Number(avg.toFixed(3)),min_clear_confidence:Number(minClear.toFixed(3)),marker_confidence:Number(r.markerConfidence||0),manual_answers:manual,low_confidence_answers:low,answer_count:r.answers.length,auto_accept:!!r.qrValid&&!!r.markersOk&&r.unresolved===0&&manual===0&&avg>=.95&&minClear>=.90};
+ r.unresolved=r.answers.filter(a=>a.status==='multiple'||a.status==='ambiguous').length+(!r.qrValid?1:0)+(Number(r.markerConfidence||0)<.72?1:0);
+ r.omr={confidence:Number(avg.toFixed(3)),min_clear_confidence:Number(minClear.toFixed(3)),marker_confidence:Number(r.markerConfidence||0),manual_answers:manual,low_confidence_answers:low,answer_count:r.answers.length,auto_accept:!!r.qrValid&&!!r.markersOk&&Number(r.markerConfidence||0)>=.85&&r.unresolved===0&&manual===0&&avg>=.97&&minClear>=.94};
  return r;
 }
 async function processRegion(c,pageNo,regionNo){
@@ -318,7 +337,16 @@ async function decodeStoredIdentity(src){
  const c=await canvasFromDataUrl(src),normed=normalizeOrientation(c),q=parseQr(normed.qr?.data||'');
  c.width=1;c.height=1;return q;
 }
-window.NafesScanReader={decodeStoredIdentity};
+async function readStoredOmr(src,total,startNo){
+ const c=await canvasFromDataUrl(src),normed=normalizeOrientation(c),canvas=normed.canvas,markers=detectMarkers(canvas);
+ if(!markers){c.width=1;c.height=1;throw new Error('تعذر تثبيت علامات المحاذاة الأربع؛ لن يتم تخمين الإجابات.');}
+ const markerScores=[markers.tl?.score,markers.tr?.score,markers.bl?.score,markers.br?.score].map(Number).filter(Number.isFinite);
+ const markerConfidence=markerScores.length?Math.max(0,Math.min(1,(markerScores.reduce((a,b)=>a+b,0)/markerScores.length-.70)/.30)):0;
+ if(markerConfidence<.72){c.width=1;c.height=1;throw new Error('ثقة محاذاة الورقة منخفضة؛ تم إيقاف القراءة الآلية لمنع درجة وهمية.');}
+ const answers=readAnswers(canvas,markers,total,startNo);c.width=1;c.height=1;
+ return{answers,markers_ok:true,marker_confidence:Number(markerConfidence.toFixed(3))};
+}
+window.NafesScanReader={decodeStoredIdentity,readStoredOmr};
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();});
 init();
 })();
