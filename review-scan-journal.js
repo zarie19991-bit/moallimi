@@ -4,12 +4,39 @@ const $=id=>document.getElementById(id),ar=n=>new Intl.NumberFormat('ar-SA').for
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={blank:'غير محلول',multiple:'إجابات متعددة',correct:'صحيح مؤكد',incorrect:'إجابة خاطئة',uncertain:'قراءة غير مؤكدة'};
 const letters=['أ','ب','ج','د'];
-const OMR_POLICY='calibrated_homography_localfill_v3';
+const OMR_POLICY='calibrated_homography_adaptive_v4';
 let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
 const duplicate=s=>!!(s.duplicate_of||s.duplicate_legacy_at);
 const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكررة':s.disposition==='requires_rescan'?'مراجَع — يلزم إعادة المسح':s.reviewed_at?'تم التحقق':'بانتظار التحقق';
+const riskOf=s=>{const a=effective(s),r=a?.omr_verification?.risk;return ['low','medium','high'].includes(r)?r:(!a?.markers_ok?'high':((a?.counts?.uncertain||0)+(a?.counts?.multiple||0)>0?'high':'medium'));};
+const riskLabel=r=>r==='low'?'منخفضة':r==='medium'?'متوسطة':'مرتفعة';
+function renderQualityReport(){
+ if(!$('qualitySection'))return;
+ if(!sheets.length){$('qualitySection').classList.add('hidden');return;}
+ $('qualitySection').classList.remove('hidden');
+ const stats={low:0,medium:0,high:0,markers:0,manual:0};
+ const rows=sheets.map((s,i)=>{const a=effective(s),risk=riskOf(s),v=a.omr_verification||{};stats[risk]++;if(!a.markers_ok)stats.markers++;if(risk!=='low')stats.manual++;return{s,i,a,risk,v};});
+ $('qualityCards').innerHTML=[
+   ['الأوراق',sheets.length,''],['خطورة منخفضة',stats.low,'ok'],['خطورة متوسطة',stats.medium,'warn'],['خطورة مرتفعة',stats.high,'bad'],
+   ['فشل المحاذاة',stats.markers,stats.markers?'bad':'ok'],['تحتاج مراجعة مركزة',stats.manual,stats.manual?'warn':'ok']
+ ].map(([l,n,c])=>'<div class="summary '+c+'"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
+ rows.sort((x,y)=>({high:0,medium:1,low:2}[x.risk]-{high:0,medium:1,low:2}[y.risk]||x.i-y.i);
+ $('qualityBody').innerHTML=rows.map(({s,i,a,risk,v})=>{
+   const reasons=(Array.isArray(v.reasons)&&v.reasons.length?v.reasons:(a.markers_ok?['لم تُسجل بعد بيانات تحقق كاملة لهذه القراءة']:['فشل تثبيت علامات المحاذاة'])).join('؛ ');
+   return '<tr data-risk="'+risk+'"><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+ar(a.score)+' / '+ar(a.total)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+ar(Math.round(Number(v.quality_score||0)))+' / 100</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
+ }).join('');
+}
+function exportQualityReport(){
+ const rows=[['الطالب','النموذج','الدرجة','الإجمالي','الخطورة','جودة القراءة','ثقة المحاذاة','المدى الضوئي','تفاوت الإضاءة','حدة الصورة','فارغ','متعدد','غير مؤكد','سبب المراجعة','سياسة القارئ']];
+ for(const s of sheets){const a=effective(s),v=a.omr_verification||{},q=a.image_quality||{},c=a.counts||{},risk=riskOf(s);rows.push([
+   a.student_name,a.model,a.score,a.total,riskLabel(risk),v.quality_score||0,a.marker_confidence||0,q.dynamic_range||'',q.illumination_range||'',q.sharpness||'',
+   c.blank||0,c.multiple||0,c.uncertain||0,(v.reasons||[]).join('؛ '),a.omr_policy||''
+ ]);}
+ download(rows,'تقرير-جودة-قراءة-التظليل.csv');
+}
+
 function message(t,error=false){$('journalStatus').textContent=t;$('journalStatus').className='notice '+(error?'error':'');if($('modalFeedback')){$('modalFeedback').textContent=t;$('modalFeedback').className=error?'notice error':'notice';}}
 function firstPending(){return sheets.findIndex(s=>!s.reviewed_at);}
 function ready(){return session&&sheets.length===session.expected_count;}
@@ -51,7 +78,7 @@ function render(){
  $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+ar(a.score)+' / '+ar(a.total)+'</td><td>'+esc(status(s))+(duplicate(s)?' <strong class="duplicate-label">رفع مكرر</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">إعادة قراءة الاسم</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
  $('sessionProgress').textContent=session?(session.completed_at?'جلسة منتهية · ':'')+'تم التحقق من '+ar(sheets.filter(s=>s.reviewed_at).length)+' من '+ar(session.expected_count)+' ورقة':'';
  if($('selectAllSheets')){$('selectAllSheets').checked=sheets.length>0&&selected.size===sheets.length;$('selectAllSheets').indeterminate=selected.size>0&&selected.size<sheets.length;}
- renderButtons();
+ renderQualityReport();renderButtons();
 }
 async function open(i){
  if(busy||!sheets[i])return;
@@ -72,7 +99,8 @@ async function open(i){
  }).join('');
  $('sheetEditHistory').innerHTML='';$('editHistoryDetails').open=false;
  $('editMode').disabled=!!session?.completed_at;
- $('sheetWarning').textContent=!a.identity_valid?'تعذر تأكيد هوية الورقة من QR. اختر الطالب من القائمة بعد مطابقة الاسم الظاهر على الورقة؛ لن تعتمد النتيجة قبل تأكيد الهوية.':!a.markers_ok||a.counts.uncertain?'توجد قراءة غير مؤكدة؛ يمكنك تعديل الإجابات بعد فحص الصورة، أو طلب إعادة المسح.':s.blocked_duplicate?'هذه نسخة مكررة؛ ستبقى في السجل ولن تُحتسب درجة إضافية.':duplicate(s)?'إعادة رفع بعد ورقة طلبت إعادة مسحها؛ يبقى تنبيه التكرار محفوظًا.':'';
+ const verificationReasons=Array.isArray(a.omr_verification?.reasons)?a.omr_verification.reasons:[];
+ $('sheetWarning').textContent=!a.identity_valid?'تعذر تأكيد هوية الورقة من QR. اختر الطالب من القائمة بعد مطابقة الاسم الظاهر على الورقة؛ لن تعتمد النتيجة قبل تأكيد الهوية.':verificationReasons.length?'تصنيف الخطورة: '+riskLabel(riskOf(s))+' — '+verificationReasons.join('؛ '):!a.markers_ok||a.counts.uncertain?'توجد قراءة غير مؤكدة؛ يمكنك تعديل الإجابات بعد فحص الصورة، أو طلب إعادة المسح.':s.blocked_duplicate?'هذه نسخة مكررة؛ ستبقى في السجل ولن تُحتسب درجة إضافية.':duplicate(s)?'إعادة رفع بعد ورقة طلبت إعادة مسحها؛ يبقى تنبيه التكرار محفوظًا.':'';
  $('duplicateConfirm').classList.toggle('hidden',!duplicate(s));
  $('duplicateCheck').checked=!!s.reviewed_at;$('verifiedCheck').checked=!!s.reviewed_at;
  $('verifiedCheck').disabled=!!s.reviewed_at;$('duplicateCheck').disabled=!!s.reviewed_at;
@@ -118,7 +146,8 @@ async function rereadAllStrict(options={}){
          const saved=await api('teacher_scan_reclassify',{
            session_id:sid,sheet_id:sh.id,answer_version:sh.answer_version||0,
            answers:rr.answers,markers_ok:rr.markers_ok,marker_confidence:rr.marker_confidence,
-           detector:rr.detector,marker_points:rr.marker_points
+           detector:rr.detector,marker_points:rr.marker_points,
+           image_quality:rr.image_quality,verification:rr.verification,calibration:rr.calibration
          });
          processed++;if(Number(saved.unresolved||0)>0)uncertainSheets++;
        }catch(e){
@@ -300,7 +329,7 @@ async function beginStream(files){
 }
 async function appendStream(x,ordinal){
  if(!session?.id)throw Error('جلسة الحفظ غير جاهزة.');
- const r=await api('teacher_scan_register',{sheet:{ordinal,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,markers_ok:x.markersOk,answers:x.answers,image_data:x.fullImage,page_no:x.pageNo,region_no:x.regionNo}});
+ const r=await api('teacher_scan_register',{sheet:{ordinal,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,markers_ok:x.markersOk,marker_confidence:x.markerConfidence,answers:x.answers,image_data:x.fullImage,page_no:x.pageNo,region_no:x.regionNo,detector:x.detector,marker_points:x.markerPoints,image_quality:x.imageQuality,verification:x.verification,calibration:x.calibration}});
  sheets.push(r.sheet);
  if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه فوري: تكرر رفع ورقة '+r.sheet.snapshot.student_name+'؛ سُجلت الحالة.';}
  return r.sheet;
@@ -329,7 +358,7 @@ async function transfer(){
  for(let i=0;i<p.data.length;i++){
    if(sheets.some(s=>s.ordinal===i+1))continue;
    const x=p.data[i];message('حفظ الورقة '+ar(i+1)+' من '+ar(p.data.length)+'…');
-   const r=await api('teacher_scan_register',{sheet:{ordinal:i+1,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,markers_ok:x.markersOk,answers:x.answers,image_data:x.fullImage||x.thumbnail,page_no:x.pageNo,region_no:x.regionNo}});
+   const r=await api('teacher_scan_register',{sheet:{ordinal:i+1,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,markers_ok:x.markersOk,marker_confidence:x.markerConfidence,answers:x.answers,image_data:x.fullImage||x.thumbnail,page_no:x.pageNo,region_no:x.regionNo,detector:x.detector,marker_points:x.markerPoints,image_quality:x.imageQuality,verification:x.verification,calibration:x.calibration}});
    sheets.push(r.sheet);render();
    if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه فوري: تكرر رفع ورقة '+r.sheet.snapshot.student_name+'؛ سُجلت الحالة في قسم المراجعة.';await refreshAlerts();}
  }
@@ -390,6 +419,8 @@ $('resultsBody').onchange=e=>{
  renderButtons();
 };
 $('deleteSelectedBtn').onclick=()=>deleteCorrections([...selected]);
+if($('qualityExportBtn'))$('qualityExportBtn').onclick=exportQualityReport;
+if($('qualityBody'))$('qualityBody').onclick=e=>{const b=e.target.closest('[data-quality-open]');if(b)open(Number(b.dataset.qualityOpen));};
 $('verifiedCheck').onchange=renderButtons;$('duplicateCheck').onchange=renderButtons;$('alertFilter').onchange=render;
 $('resumeSessionBtn').onclick=()=>resume($('sessionPicker').value);$('retryUploadBtn').onclick=()=>transfer().catch(()=>{});
 $('approveBtn').onclick=approve;$('journalExportBtn').onclick=report;$('exportBtn').onclick=report;
