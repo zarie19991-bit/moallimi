@@ -24,8 +24,8 @@ function renderButtons(){
 }
 function render(){
  $('resultsSection').classList.remove('hidden');$('summarySection').classList.remove('hidden');
- const count=sheets.reduce((m,s)=>{for(const [k,v]of Object.entries(effective(s).counts))m[k]=(m[k]||0)+v;return m;},{});
- $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تمت مراجعتها',sheets.filter(s=>s.reviewed_at).length],['تنبيهات التكرار',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
+ const count=sheets.reduce((m,s)=>{for(const [k,v]of Object.entries(effective(s).counts))m[k]=(m[k]||0)+v;return m;},{}),qualityAlerts=sheets.filter(s=>Number.isFinite(Number(effective(s).quality_score))&&Number(effective(s).quality_score)<70).length;
+ $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تمت مراجعتها',sheets.filter(s=>s.reviewed_at).length],['تنبيهات التكرار',sheets.filter(s=>duplicate(s)).length],['جودة تحتاج انتباه',qualityAlerts],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
  const only=$('alertFilter').checked;
  $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i})).filter(({s})=>!only||duplicate(s)).map(({s,i})=>'<tr><td>'+esc(s.snapshot.student_name)+'</td><td>'+esc(s.snapshot.model)+'</td><td>'+ar(effective(s).score)+' / '+ar(s.snapshot.total)+'</td><td>'+esc(status(s))+(duplicate(s)?' <strong class="duplicate-label">رفع مكرر</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button></td></tr>').join('')||'<tr><td colspan="5">لا توجد أوراق مطابقة.</td></tr>';
  $('sessionProgress').textContent=session?(session.completed_at?'جلسة منتهية · ':'')+'تم التحقق من '+ar(sheets.filter(s=>s.reviewed_at).length)+' من '+ar(session.expected_count)+' ورقة':'';
@@ -45,7 +45,8 @@ async function open(i){
  }).join('');
  $('sheetEditHistory').innerHTML='';$('editHistoryDetails').open=false;
  $('editMode').disabled=!!session?.completed_at;
- $('sheetWarning').textContent=!a.identity_valid?'تعذر تأكيد هوية الورقة من QR؛ ستُحفظ للمراجعة دون اعتماد درجة. أعد المسح بعد التحقق من الورقة.':!a.markers_ok||a.counts.uncertain?'توجد قراءة غير مؤكدة؛ يمكنك تعديل الإجابات بعد فحص الصورة، أو طلب إعادة المسح.':s.blocked_duplicate?'هذه نسخة مكررة؛ ستبقى في السجل ولن تُحتسب درجة إضافية.':duplicate(s)?'إعادة رفع بعد ورقة طلبت إعادة مسحها؛ يبقى تنبيه التكرار محفوظًا.':'';
+ const q=Number(a.quality_score),qualityCritical=Number.isFinite(q)&&q<35,qualityWarn=Number.isFinite(q)&&q>=35&&q<70;
+ $('sheetWarning').textContent=!a.identity_valid?'تعذر تأكيد هوية الورقة من QR؛ ستُحفظ للمراجعة دون اعتماد درجة. أعد المسح بعد التحقق من الورقة.':!a.markers_ok||a.counts.uncertain?'توجد قراءة غير مؤكدة؛ يمكنك تعديل الإجابات بعد فحص الصورة، أو طلب إعادة المسح.':qualityCritical?'جودة الصورة منخفضة جدًا ('+ar(q)+'٪)؛ يجب إعادة المسح قبل اعتماد النتيجة.':qualityWarn?'جودة الصورة متوسطة ('+ar(q)+'٪)؛ افحص الورقة بصريًا قبل حفظ التحقق.':s.blocked_duplicate?'هذه نسخة مكررة؛ ستبقى في السجل ولن تُحتسب درجة إضافية.':duplicate(s)?'إعادة رفع بعد ورقة طلبت إعادة مسحها؛ يبقى تنبيه التكرار محفوظًا.':'';
  $('duplicateConfirm').classList.toggle('hidden',!duplicate(s));
  $('duplicateCheck').checked=!!s.reviewed_at;$('verifiedCheck').checked=!!s.reviewed_at;
  $('verifiedCheck').disabled=!!s.reviewed_at;$('duplicateCheck').disabled=!!s.reviewed_at;
@@ -110,30 +111,40 @@ async function shaFiles(files){
  const bytes=await crypto.subtle.digest('SHA-256',enc.encode(parts.join('\n')));
  return [...new Uint8Array(bytes)].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
-async function upload(data,files){
+async function upload(data,batch){
  if(busy)throw Error('انتظر اكتمال العملية الحالية.');
  if(!data.length)throw Error('لم يتم التعرف على أي ورقة قابلة للمراجعة.');
- if(data.length>200)throw Error('الحد الأقصى ٢٠٠ صفحة/ورقة في الدفعة الواحدة.');
- const fileHash=await shaFiles(files);
- // Resume only an incomplete transfer of the same file. A completed transfer is a new upload event.
- const resumeUpload=session&&!ready()&&session.file_hash===fileHash&&session.expected_count===data.length;
+ if(data.length>400)throw Error('الحد الأقصى ٤٠٠ ورقة تظليل ناتجة من ٢٠٠ صفحة.');
+ const inputFiles=Array.from(batch?.files||[]),meta=batch?.batchMeta||{};
+ if(!inputFiles.length)throw Error('بيانات ملفات الدفعة غير متاحة.');
+ if(!Number.isInteger(meta.totalPages)||meta.totalPages<1||meta.totalPages>200)throw Error('عدد صفحات الدفعة غير صالح.');
+ const fileHash=await shaFiles(inputFiles);
+ const resumeUpload=session&&!ready()&&session.file_hash===fileHash&&session.expected_count===data.length&&Number(session.expected_page_count||meta.totalPages)===meta.totalPages;
  const id=resumeUpload?session.id:crypto.randomUUID();
- pending={data,fileHash,id};await transfer();
+ pending={data,fileHash,id,meta:{expected_page_count:meta.totalPages,source_file_count:meta.sourceFileCount||inputFiles.length,batch_manifest:meta.manifest||[]}};await transfer();
 }
 async function transfer(){
  if(!pending||busy)return;lock(true);const p=pending;
  try{
- const r=await api('teacher_scan_start',{session_id:p.id,file_hash:p.fileHash,expected_count:p.data.length});session=r.session;
+ const r=await api('teacher_scan_start',{session_id:p.id,file_hash:p.fileHash,expected_count:p.data.length,...p.meta});session=r.session;
  const existing=await api('teacher_scan_list');sheets=existing.sheets;active=-1;
- for(let i=0;i<p.data.length;i++){
-   if(sheets.some(s=>s.ordinal===i+1))continue;
-   const x=p.data[i];message('حفظ الورقة '+ar(i+1)+' من '+ar(p.data.length)+'…');
-   const r=await api('teacher_scan_register',{sheet:{ordinal:i+1,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,markers_ok:x.markersOk,answers:x.answers,image_data:x.fullImage||x.thumbnail,page_no:x.pageNo,region_no:x.regionNo}});
-   sheets.push(r.sheet);render();
-   if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه فوري: تكرر رفع ورقة '+r.sheet.snapshot.student_name+'؛ سُجلت الحالة في قسم المراجعة.';await refreshAlerts();}
+ const existingOrdinals=new Set(sheets.map(s=>s.ordinal)),chunkSize=4;
+ for(let i=0;i<p.data.length;i+=chunkSize){
+   const chunk=[];
+   for(let j=i;j<Math.min(p.data.length,i+chunkSize);j++){
+     if(existingOrdinals.has(j+1))continue;
+     const x=p.data[j];
+     chunk.push({ordinal:j+1,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,markers_ok:x.markersOk,answers:x.answers,image_data:x.fullImage||x.thumbnail,page_no:x.pageNo,region_no:x.regionNo,source_file_index:x.sourceFileIndex,source_file_name:x.sourceFileName,source_page_no:x.sourcePageNo,quality_score:x.quality?.score,quality_flags:x.quality?.flags||[]});
+   }
+   if(!chunk.length)continue;
+   message('حفظ دفعة الأوراق '+ar(i+1)+'–'+ar(Math.min(p.data.length,i+chunkSize))+' من '+ar(p.data.length)+'…');
+   const saved=await api('teacher_scan_register_batch',{sheets:chunk});
+   for(const sh of saved.sheets||[]){if(!existingOrdinals.has(sh.ordinal)){existingOrdinals.add(sh.ordinal);sheets.push(sh);}}
+   sheets.sort((x,y)=>x.ordinal-y.ordinal);render();
+   if((saved.sheets||[]).some(duplicate))await refreshAlerts();
  }
- pending=null;render();await sessions();await refreshAlerts();message('حُفظت الأوراق. يمكنك تعديل أي إجابة، ثم حفظ التحقق من الورقة والانتقال بالترتيب.');
- }catch(e){message('توقف الحفظ: '+e.message+' — تقدمك محفوظ؛ اضغط إعادة استكمال الرفع.',true);throw e;}
+ pending=null;render();await sessions();await refreshAlerts();message('حُفظت الدفعة كاملة. يمكنك تعديل أي إجابة، ثم حفظ التحقق من الورقة والانتقال بالترتيب.');
+ }catch(e){message('توقف حفظ الدفعة: '+e.message+' — تقدمك محفوظ؛ اضغط إعادة استكمال الرفع.',true);throw e;}
  finally{lock(false);}
 }
 async function approve(){
