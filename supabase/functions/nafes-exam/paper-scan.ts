@@ -5,6 +5,26 @@ const must=(r:any)=>{if(r.error)fail(r.error.message,400);return r.data;};
 const uuid=(v:any)=>/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(String(v));
 const publicSession=(s:Row)=>{const {review_snapshot,...out}=s;return out;};
 const summaryColumns='id,session_id,ordinal,student_id,sheet_no,snapshot,effective_snapshot,answer_version,duplicate_of,duplicate_legacy_at,blocked_duplicate,uploaded_at,reviewed_at,reviewed_by,disposition';
+const OMR_POLICY='calibrated_homography_adaptive_v4';
+const finite=(v:any,min:number,max:number,def=0)=>{const n=Number(v);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):def;};
+const compactImageQuality=(q:any)=>q&&typeof q==='object'?{
+ width:Math.max(0,Math.min(10000,Number(q.width)||0)),height:Math.max(0,Math.min(10000,Number(q.height)||0)),
+ mean:finite(q.mean,0,255),dynamic_range:finite(q.dynamic_range,0,255),illumination_range:finite(q.illumination_range,0,255),
+ sharpness:finite(q.sharpness,0,100000),shadow_ratio:finite(q.shadow_ratio,0,1),glare_ratio:finite(q.glare_ratio,0,1)
+}:null;
+const compactVerification=(v:any)=>v&&typeof v==='object'?{
+ risk:['low','medium','high'].includes(String(v.risk))?String(v.risk):'high',quality_score:finite(v.quality_score,0,100),
+ reasons:Array.isArray(v.reasons)?v.reasons.slice(0,12).map((x:any)=>String(x).slice(0,160)):[],
+ requires_manual_review:v.requires_manual_review===true,auto_accept:v.auto_accept===true,
+ counts:v.counts&&typeof v.counts==='object'?{
+   ambiguous:Math.max(0,Number(v.counts.ambiguous)||0),multiple:Math.max(0,Number(v.counts.multiple)||0),
+   blank:Math.max(0,Number(v.counts.blank)||0),low_margin:Math.max(0,Number(v.counts.low_margin)||0),clear:Math.max(0,Number(v.counts.clear)||0)
+ }:null
+}:null;
+const compactCalibration=(c:any)=>c&&typeof c==='object'?{
+ baseline:finite(c.baseline,-1,1),mad:finite(c.mad,0,1),possible:finite(c.possible,-1,1),definite:finite(c.definite,-1,1),separation:finite(c.separation,0,1)
+}:null;
+
 export function classifyAnswer(raw:Row,key:Row,index:number){
  const status=String(raw?.status||'ambiguous');
  const selected=Number.isInteger(raw?.selected)&&raw.selected>=0&&raw.selected<4?raw.selected:null;
@@ -46,6 +66,19 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  const {session}=await scanSession(db,b,owner);
  if(b.action==='teacher_scan_list')return {ok:true,session:publicSession(session),sheets:must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'))};
+ if(b.action==='teacher_scan_quality_report'){
+   const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
+   const items=rows.map((r:Row)=>{const x=r.effective_snapshot||r.snapshot||{},v=x.omr_verification||{};return{
+     id:r.id,ordinal:r.ordinal,student_name:x.student_name||'',model:x.model||'',score:x.score||0,total:x.total||0,
+     risk:v.risk||(!x.markers_ok?'high':'medium'),quality_score:Number(v.quality_score||0),reasons:Array.isArray(v.reasons)?v.reasons:[],
+     markers_ok:x.markers_ok===true,marker_confidence:Number(x.marker_confidence||0),counts:x.counts||{},image_quality:x.image_quality||null,
+     reviewed_at:r.reviewed_at,disposition:r.disposition
+   };});
+   const summary={total:items.length,low:items.filter((x:Row)=>x.risk==='low').length,medium:items.filter((x:Row)=>x.risk==='medium').length,high:items.filter((x:Row)=>x.risk==='high').length,
+     markers_failed:items.filter((x:Row)=>!x.markers_ok).length,needs_manual:items.filter((x:Row)=>x.risk!=='low').length};
+   return {ok:true,policy:OMR_POLICY,summary,items};
+ }
+
  if(b.action==='teacher_scan_finalize_upload'){
    const actual=Number(b.actual_count);
    if(!Number.isInteger(actual)||actual<1||actual>200)fail('عدد الأوراق النهائي غير صالح.');
@@ -67,8 +100,13 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const rawAnswers=Array.isArray(raw.answers)?raw.answers:[];
    const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(rawAnswers[i]||{},valid?(key[i]||{}):{},i));
    const identityValid=valid&&key.length===p.question_count;
-   const snapshot={student_name:identityValid?assignment.student_name:'غير معروف — يلزم إعادة المسح',model,identity_valid:identityValid,markers_ok:raw.markers_ok===true&&rawAnswers.length===p.question_count,answers,score:answers.filter(a=>a.correct).length,total:p.question_count,
-   counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),page_no:Number(raw.page_no)||1,region_no:Number(raw.region_no)||1};
+   const snapshot={student_name:identityValid?assignment.student_name:'غير معروف — يلزم إعادة المسح',model,identity_valid:identityValid,
+   markers_ok:raw.markers_ok===true&&rawAnswers.length===p.question_count,marker_confidence:finite(raw.marker_confidence,0,1),
+   answers,score:answers.filter(a=>a.correct).length,total:p.question_count,
+   counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
+   page_no:Number(raw.page_no)||1,region_no:Number(raw.region_no)||1,omr_policy:OMR_POLICY,
+   omr_detector:String(raw.detector||'').slice(0,64),marker_points:raw.marker_points&&typeof raw.marker_points==='object'?raw.marker_points:null,
+   image_quality:compactImageQuality(raw.image_quality),omr_verification:compactVerification(raw.verification),omr_calibration:compactCalibration(raw.calibration)};
    const legacy=identityValid?must(await db.from('nafes_assessment_attempts').select('submitted_at,events').eq('student_id',assignment.student_id).contains('config',{paper_review_id:review.review_id}).not('submitted_at','is',null).order('submitted_at').limit(20)):[];
    const legacyAt=(legacy||[]).find((x:Row)=>x.events?.some((e:Row)=>e.type==='paper_scan'&&e.review_id===review.review_id&&!e.scan_sheet_id))?.submitted_at||null;
    const sheet=must(await db.rpc('nafes_scan_register',{p_session:session.id,p_sheet:{ordinal:raw.ordinal,legacy_at:legacyAt,student_id:identityValid?assignment.student_id:null,sheet_no:identityValid?raw.sheet_no:null,image_hash:await hash(raw.image_data),image_data:raw.image_data,snapshot}}));
@@ -124,8 +162,9 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
      marker_confidence:Math.max(0,Math.min(1,Number(b.marker_confidence)||0)),answers,
      score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
-     omr_policy:'calibrated_homography_localfill_v3',omr_detector:String(b.detector||'').slice(0,64),
+     omr_policy:OMR_POLICY,omr_detector:String(b.detector||'').slice(0,64),
      marker_points:b.marker_points&&typeof b.marker_points==='object'?b.marker_points:null,
+     image_quality:compactImageQuality(b.image_quality),omr_verification:compactVerification(b.verification),omr_calibration:compactCalibration(b.calibration),
      unresolved_answers:uncertain};
    const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:next,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null}).eq('id',row.id).eq('session_id',session.id).eq('answer_version',b.answer_version).select(summaryColumns).maybeSingle());
    if(!updated)fail('تغيرت الورقة أثناء إعادة القراءة؛ أعد المحاولة.',409);
@@ -152,5 +191,5 @@ export async function reviewedScanPayload(db:any,b:Row,owner:Row){
  if(!session.completed_at)fail('اضغط «تم المراجعة» قبل اعتماد النتائج.',409);
  const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('disposition','verified').eq('blocked_duplicate',false).order('ordinal'));
  if(!sheets.length)fail('لا توجد أوراق قابلة للاعتماد؛ راجع تنبيهات التكرار وإعادة المسح.',409);
- return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length}};})};
+ return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length,policy:x.omr_policy||null,risk:x.omr_verification?.risk||null,quality_score:x.omr_verification?.quality_score||null}};})};
 }
