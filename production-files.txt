@@ -108,6 +108,7 @@ report-readability.css
 report-font-12.css
 analysis-core.js
 analysis-data-service.js
+delivery-health.js
 analysis.js
 analysis-all-subjects.js
 report-absentees.js
