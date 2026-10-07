@@ -271,6 +271,30 @@ async function shaFiles(files){
  const bytes=await crypto.subtle.digest('SHA-256',enc.encode(parts.join('\n')));
  return [...new Uint8Array(bytes)].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
+async function streamHash(files){
+ const enc=new TextEncoder(),meta=Array.from(files||[]).map(f=>[f.name,f.size,f.lastModified,f.type].join('|')).join('\n');
+ const bytes=await crypto.subtle.digest('SHA-256',enc.encode(meta));
+ return [...new Uint8Array(bytes)].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+async function beginStream(files){
+ const fileHash=await streamHash(files),id=crypto.randomUUID();
+ const r=await api('teacher_scan_start',{session_id:id,file_hash:fileHash,expected_count:200});
+ session=r.session;sheets=[];active=-1;pending=null;imageCache.clear();render();
+ return {session_id:id,file_hash:fileHash};
+}
+async function appendStream(x,ordinal){
+ if(!session?.id)throw Error('جلسة الحفظ غير جاهزة.');
+ const r=await api('teacher_scan_register',{sheet:{ordinal,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,markers_ok:x.markersOk,answers:x.answers,image_data:x.fullImage,page_no:x.pageNo,region_no:x.regionNo}});
+ sheets.push(r.sheet);
+ if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه فوري: تكرر رفع ورقة '+r.sheet.snapshot.student_name+'؛ سُجلت الحالة.';}
+ return r.sheet;
+}
+async function finalizeStream(actualCount){
+ if(!session?.id)throw Error('جلسة الحفظ غير جاهزة.');
+ const r=await api('teacher_scan_finalize_upload',{actual_count:actualCount});
+ session=r.session;sheets=r.sheets||[];render();await sessions();await refreshAlerts();
+ return r;
+}
 async function upload(data,files){
  if(busy)throw Error('انتظر اكتمال العملية الحالية.');
  if(!data.length)throw Error('لم يتم التعرف على أي ورقة قابلة للمراجعة.');
@@ -340,5 +364,5 @@ $('resumeSessionBtn').onclick=()=>resume($('sessionPicker').value);$('retryUploa
 $('approveBtn').onclick=approve;$('journalExportBtn').onclick=report;$('exportBtn').onclick=report;
 $('scanImage').onclick=()=> $('scanImage').classList.toggle('zoomed');
 addEventListener('nafes:auth-changed',e=>{if(!e.detail.authenticated){clearInterval(poll);session=null;sheets=[];selected.clear();imageCache.clear();$('sheetModal').classList.add('hidden');$('resultsSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('alertLog').innerHTML='';$('deleteLog').innerHTML='';}});
-window.NafesScanJournal={init,upload,isBusy:()=>busy,toggleSelectAll};
+window.NafesScanJournal={init,upload,isBusy:()=>busy,toggleSelectAll,beginStream,appendStream,finalizeStream};
 })();
