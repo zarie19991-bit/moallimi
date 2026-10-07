@@ -4,13 +4,106 @@ const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam', $
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ar=x=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:2}).format(x),names={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const sessionKey='nafes_session_'+code;let session;try{session=sessionStorage.getItem(sessionKey)||crypto.randomUUID();sessionStorage.setItem(sessionKey,session);}catch(_){session=crypto.randomUUID();}
-let info,state,access='',answers={},cursor=0,timer,saving=Promise.resolve(),saveDelay,active=false,lockRelease,locked=false,starting=false,lastEvent=0;
-const identityKey='nafes_student_identity_session', demoIdentityKey='nafes_demo_student_identity_v1', legacyIdentityKey='nafes_student_identity', resumeKey='nafes_attempt_'+code, resumeMarkerKey='nafes_attempt_marker_'+code, RESUME_MARKER_MAX_AGE=12*60*60*1000;
+let info,state,access='',answers={},cursor=0,timer,saving=Promise.resolve(),saveDelay,active=false,lockRelease,locked=false,starting=false,lastEvent=0,telemetryFlushing=false,finalRetrying=false;
+const identityKey='nafes_student_identity_session', demoIdentityKey='nafes_demo_student_identity_v1', legacyIdentityKey='nafes_student_identity', resumeKey='nafes_attempt_'+code, resumeMarkerKey='nafes_attempt_marker_'+code, draftKey='nafes_draft_v2_'+code, deliveryQueueKey='nafes_delivery_queue_v1_'+code, RESUME_MARKER_MAX_AGE=12*60*60*1000;
 try{localStorage.removeItem(legacyIdentityKey);}catch(_){}
 async function api(action,body={}){const ctrl=new AbortController(),timeout=setTimeout(()=>ctrl.abort(),30000);try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code,session_id:session,...body}),signal:ctrl.signal});const d=await r.json();if(!r.ok||d.error)throw new Error(d.error||'تعذر إتمام الطلب.');return d;}catch(e){throw new Error(e.name==='AbortError'?'تأخر الاتصال. آخر إجاباتك المحفوظة باقية؛ أعد المحاولة.':e.message);}finally{clearTimeout(timeout);}}
 function authBody(){return {attempt_id:state?.attempt_id,access_token:access,answers:{...answers},cursor};}
 async function claim(){const settings=info?.settings||{};if(settings.lock_session!==true||locked)return true;if(navigator.locks){let resolve;const p=new Promise(r=>resolve=r);navigator.locks.request('nafes:'+code+':'+session,{ifAvailable:true},async lock=>{if(!lock){resolve(false);return;}locked=true;resolve(true);await new Promise(r=>lockRelease=r);});if(!await p)throw new Error('هذا الاختبار مفتوح في تبويب آخر على الجهاز. أكمله هناك.');}return true;}
-function saveLocal(){try{if(state?.attempt_id&&access){sessionStorage.setItem(resumeKey,JSON.stringify({attempt_id:state.attempt_id,access_token:access}));localStorage.setItem(resumeMarkerKey,JSON.stringify({attempt_id:state.attempt_id,expires_at:state?.expires_at||'',saved_at:Date.now()}));}}catch(_){} }
+function readDraft(){
+ try{
+  const d=JSON.parse(localStorage.getItem(draftKey)||'null');
+  if(!d?.attempt_id)return null;
+  const stale=Date.now()-Number(d.saved_at||0)>RESUME_MARKER_MAX_AGE;
+  const expired=d.expires_at&&Date.now()>new Date(d.expires_at).getTime()+5*60*1000;
+  if(stale||expired){localStorage.removeItem(draftKey);return null;}
+  return d;
+ }catch(_){return null;}
+}
+function writeDraft(extra={}){
+ try{
+  if(!state?.attempt_id)return;
+  const old=readDraft()||{};
+  const record={
+    ...old,
+    attempt_id:state.attempt_id,
+    answers:{...answers},
+    cursor,
+    current_section:state.current_section||0,
+    expires_at:state.expires_at||old.expires_at||'',
+    server_version:state.version||old.server_version||0,
+    saved_at:Date.now(),
+    ...extra
+  };
+  localStorage.setItem(draftKey,JSON.stringify(record));
+ }catch(_){}
+}
+function clearDraft(){try{localStorage.removeItem(draftKey);}catch(_){}}
+function restoreDraft(){
+ const d=readDraft();
+ if(!d||!state?.attempt_id||d.attempt_id!==state.attempt_id)return null;
+ const localAnswers=d.answers&&typeof d.answers==='object'?d.answers:{};
+ const before=JSON.stringify(answers);
+ answers={...answers,...localAnswers};
+ if(Number(d.current_section)===Number(state.current_section)&&Number.isInteger(Number(d.cursor)))cursor=Math.max(0,Number(d.cursor));
+ if(JSON.stringify(answers)!==before)queueDeliveryEvent('draft_restored',{action_name:'local_restore'});
+ return d;
+}
+function readDeliveryQueue(){try{const q=JSON.parse(localStorage.getItem(deliveryQueueKey)||'[]');return Array.isArray(q)?q.slice(-100):[];}catch(_){return[];}}
+function writeDeliveryQueue(q){try{localStorage.setItem(deliveryQueueKey,JSON.stringify(q.slice(-100)));}catch(_){}}
+function queueDeliveryEvent(event_type,detail={}){
+ if(!state?.attempt_id||!access)return;
+ const q=readDeliveryQueue();
+ q.push({
+   client_event_id:crypto.randomUUID(),
+   attempt_id:state.attempt_id,
+   event_type,
+   occurred_at:new Date().toISOString(),
+   network_online:navigator.onLine,
+   action_name:String(detail.action_name||detail.action||'').slice(0,40)||null,
+   retry_count:Number.isFinite(Number(detail.retry_count??detail.attempt))?Number(detail.retry_count??detail.attempt):null,
+   status_code:Number.isFinite(Number(detail.status_code??detail.status))?Number(detail.status_code??detail.status):null,
+   latency_ms:Number.isFinite(Number(detail.latency_ms))?Number(detail.latency_ms):null
+ });
+ writeDeliveryQueue(q);
+ flushDeliveryEvents();
+}
+async function flushDeliveryEvents(){
+ if(telemetryFlushing||!access||!state?.attempt_id||!navigator.onLine)return;
+ telemetryFlushing=true;
+ try{
+  let q=readDeliveryQueue(),guard=0;
+  while(q.length&&guard<20&&access&&state?.attempt_id){
+   guard++;
+   const ev=q[0];
+   if(ev.attempt_id!==state.attempt_id){q.shift();writeDeliveryQueue(q);continue;}
+   try{
+    const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      action:'assessment_delivery_event',code,session_id:session,attempt_id:state.attempt_id,access_token:access,...ev
+    })});
+    if(!r.ok)break;
+    q.shift();writeDeliveryQueue(q);
+   }catch(_){break;}
+  }
+ }finally{telemetryFlushing=false;}
+}
+function markFinishIntent(){
+ writeDraft({finish_requested:true,finish_requested_at:Date.now()});
+ queueDeliveryEvent('submit_intent',{action_name:'assessment_finish'});
+}
+async function retryPendingFinish(){
+ const d=readDraft();
+ if(finalRetrying||!active||!navigator.onLine||!d?.finish_requested||d.attempt_id!==state?.attempt_id)return;
+ finalRetrying=true;
+ try{
+  $('saveState').textContent='جارٍ إعادة إرسال التسليم تلقائيًا…';
+  await save('assessment_finish');
+ }catch(_){
+  $('saveState').textContent='التسليم محفوظ على الجهاز وسيعاد تلقائيًا عند عودة الاتصال';
+ }finally{finalRetrying=false;}
+}
+
+function saveLocal(){try{if(state?.attempt_id&&access){sessionStorage.setItem(resumeKey,JSON.stringify({attempt_id:state.attempt_id,access_token:access}));localStorage.setItem(resumeMarkerKey,JSON.stringify({attempt_id:state.attempt_id,expires_at:state?.expires_at||'',saved_at:Date.now()}));writeDraft();}}catch(_){} }
 function clearResume(){try{sessionStorage.removeItem(resumeKey);localStorage.removeItem(resumeMarkerKey);}catch(_){} }
 function readResume(){try{const x=JSON.parse(sessionStorage.getItem(resumeKey)||'null');return x?.attempt_id&&x?.access_token?x:null;}catch(_){return null;}}
 function readResumeMarker(){try{const x=JSON.parse(localStorage.getItem(resumeMarkerKey)||'null');if(!x?.attempt_id)return null;const expired=x.expires_at&&Date.now()>new Date(x.expires_at).getTime(),stale=x.saved_at&&Date.now()-Number(x.saved_at)>RESUME_MARKER_MAX_AGE;if(expired||stale){localStorage.removeItem(resumeMarkerKey);return null}return x;}catch(_){return null;}}
@@ -42,7 +135,7 @@ function restoreIdentity(){try{
  }
  return !!demo;
 }catch(_){return false;} }
-async function resumeAttempt(){const saved=readResume();if(!saved)return false;try{await claim();access=saved.access_token;state={attempt_id:saved.attempt_id};const d=await api('assessment_resume',{attempt_id:saved.attempt_id,access_token:saved.access_token});state={...state,...d};access=d.access_token||access;answers=d.answers||{};cursor=d.cursor||0;saveLocal();if(state.submitted){showResult(state);}else{render();clearInterval(timer);timer=setInterval(tick,1000);}$('message').textContent='';return true;}catch(e){clearResume();lockRelease?.();locked=false;$('message').textContent='تعذر استعادة المحاولة السابقة تلقائيًا. تحقق من بياناتك ثم ادخل الاختبار مرة واحدة.';return false;}}
+async function resumeAttempt(){const saved=readResume();if(!saved)return false;try{await claim();access=saved.access_token;state={attempt_id:saved.attempt_id};const d=await api('assessment_resume',{attempt_id:saved.attempt_id,access_token:saved.access_token});state={...state,...d};access=d.access_token||access;answers=d.answers||{};cursor=d.cursor||0;const recoveredDraft=restoreDraft();saveLocal();if(state.submitted){showResult(state);}else{render();clearInterval(timer);timer=setInterval(tick,1000);if(recoveredDraft?.finish_requested)queueMicrotask(retryPendingFinish);}$('message').textContent='';return true;}catch(e){clearResume();lockRelease?.();locked=false;$('message').textContent='تعذر استعادة المحاولة السابقة تلقائيًا. تحقق من بياناتك ثم ادخل الاختبار مرة واحدة.';return false;}}
 async function startDemoDirect(){
  if(!/^\d{6}$/.test(demoAccessCode))return false;
  clearResume();
@@ -54,9 +147,10 @@ async function startDemoDirect(){
   access=state.access_token||'';
   answers=state.answers||{};
   cursor=state.cursor||0;
+  clearDraft();
   saveLocal();
   if(state.submitted)showResult(state);
-  else{render();clearInterval(timer);timer=setInterval(tick,1000);}
+  else{render();clearInterval(timer);timer=setInterval(tick,1000);if(recoveredDraft?.finish_requested)queueMicrotask(retryPendingFinish);}
   $('message').textContent='';
   return true;
  }catch(e){
@@ -65,7 +159,35 @@ async function startDemoDirect(){
   throw e;
  }
 }
-function save(action='assessment_save',extra={}){const payload={...authBody(),...extra};saving=saving.catch(()=>{}).then(async()=>{if(!active&&action!=='assessment_resume')return state;$('saveState').textContent='جارٍ الحفظ…';const d=await api(action,payload);state={...state,...d};if(d.submitted){answers=d.answers||answers;showResult(d);}else {if(d.current_section!==undefined&&(d.current_section!==currentSection||d.cursor!==cursor&&action==='assessment_advance')){answers=d.answers||answers;cursor=d.cursor||0;render();}}$('saveState').textContent='تم الحفظ';$('playerError').textContent='';return d;}).catch(e=>{$('saveState').textContent='لم يكتمل الحفظ';$('playerError').textContent=e.message;throw e;});return saving;}
+function save(action='assessment_save',extra={}){
+ writeDraft();
+ const payload={...authBody(),...extra};
+ saving=saving.catch(()=>{}).then(async()=>{
+  if(!active&&action!=='assessment_resume')return state;
+  $('saveState').textContent=action==='assessment_finish'?'جارٍ تأكيد التسليم مع الخادم…':'جارٍ الحفظ…';
+  const d=await api(action,payload);
+  state={...state,...d};
+  if(d.submitted){
+   answers=d.answers||answers;
+   showResult(d);
+  }else{
+   if(d.current_section!==undefined&&(d.current_section!==currentSection||d.cursor!==cursor&&action==='assessment_advance')){
+    answers=d.answers||answers;cursor=d.cursor||0;render();
+   }
+   writeDraft({server_version:d.version||state.version||0});
+  }
+  $('saveState').textContent='تم الحفظ';
+  $('playerError').textContent='';
+  flushDeliveryEvents();
+  return d;
+ }).catch(e=>{
+  writeDraft();
+  $('saveState').textContent=navigator.onLine?'لم يكتمل الحفظ — ستتم إعادة المحاولة تلقائيًا':'محفوظ على الجهاز — بانتظار الاتصال';
+  $('playerError').textContent=e.message;
+  throw e;
+ });
+ return saving;
+}
 let currentSection=0;
 function remaining(){const s=state.sections[state.current_section];return Math.min(new Date(state.expires_at).getTime(),new Date(state.section_started_at).getTime()+s.duration_minutes*60000)-Date.now();}
 function tick(){if(!active)return;const wait=new Date(state.section_started_at).getTime()-Date.now();if(wait>0){$('player').hidden=true;$('breakPanel').hidden=false;$('breakText').textContent=`يبدأ القسم التالي بعد ${ar(Math.ceil(wait/1000))} ثانية.`;return;}if(!$('breakPanel').hidden){$('breakPanel').hidden=true;$('player').hidden=false;render();}const left=remaining();$('timer').textContent=`${String(Math.max(0,Math.floor(left/60000))).padStart(2,'0')}:${String(Math.max(0,Math.floor(left/1000)%60)).padStart(2,'0')}`;if(left<=0){clearInterval(timer);save('assessment_advance').then(()=>{if(active){cursor=state.cursor||0;render();timer=setInterval(tick,1000);}}).catch(()=>{timer=setInterval(tick,1000);});}}
@@ -80,13 +202,14 @@ const normalizeDigits=str=>String(str??'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦
 function classSection(v){const raw=String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ').replace(/[إآا]/g,'أ');if(['أ','ب','ج','د'].includes(raw))return raw;const m=raw.match(/(?:^|[\s/\\\-()])([أبجد])(?:$|[\s/\\\-()])/);if(m)return m[1];const tail=raw.match(/(?:فصل|شعبة)?\s*([أبجد])$/);return tail?tail[1]:'';}
 function level(p){return p>=80?'متقن':p>=70?'قريب من الإتقان':p>=50?'يحتاج دعمًا':'غير متقن';}
 function showResult(d){
- active=false;clearInterval(timer);clearResume();clearIdentity();document.body.classList.remove('exam-active','no-copy','watermarked','print-blocked');
+ active=false;clearInterval(timer);clearResume();clearIdentity();clearDraft();document.body.classList.remove('exam-active','no-copy','watermarked','print-blocked');
  lockRelease?.();locked=false;$('intro').hidden=true;$('player').hidden=true;$('breakPanel').hidden=true;$('result').hidden=false;
  const percent=d.result_hidden?'':`<div class="result-score-box"><div class="score">${ar(d.percent)}٪</div><p class="score-sub">الدرجة الكلية: ${ar(d.score)} من ${ar(d.total)}</p></div>`;
  const secList=Array.isArray(d.section_scores)?d.section_scores:(d.sections?.map(s=>({subject:s.subject,score:s.score,total:s.total,percent:s.percent}))||[]);
  const secBreakdown=(secList.length>1)?`<div class="sections-breakdown-box" style="margin:16px 0;background:#f8fbf9;border:1px solid #d8ece4;border-radius:12px;padding:14px;"><h3 style="margin:0 0 10px;font-size:14px;color:#0f514c;">تفصيل نتائج المواد الدراسية</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;">${secList.map(s=>`<div style="background:#fff;border:1px solid #e1ede8;border-radius:10px;padding:10px;text-align:center;"><b style="color:#17324d;display:block;margin-bottom:4px;font-size:13px;">${esc(names[s.subject]||s.subject)}</b><div style="font-size:16px;font-weight:900;color:#0f514c;">${ar(s.percent!=null?s.percent:(s.total?(s.score/s.total)*100:0))}٪</div><small style="color:#687a83;font-size:11px;">الدرجة: ${ar(s.score)} من ${ar(s.total)}</small></div>`).join('')}</div></div>`:'';
+ const receipt=d.submission_receipt?.receipt_no?`<div style="margin:12px 0;padding:10px 12px;border-radius:10px;background:#eef8f4;border:1px solid #c6e2d7;color:#155d4f;font-weight:900">إيصال التسليم: ${esc(d.submission_receipt.receipt_no)} · ${esc(new Date(d.submission_receipt.submitted_at).toLocaleString('ar-SA'))}</div>`:'';
  const trainingLink=code?`<a class="custom-training-link" href="training.html?t=${encodeURIComponent(code)}"><span>🎯</span><span><b>تدريبك المخصص</b><small>تدريب مستقل مبني على مؤشرات نتيجتك</small></span></a>`:'';
- $('result').innerHTML=`<div class="completion-container"><div class="completion-badge">✓</div><h1>${d.completed_before?'سبق تسليم هذا الاختبار':'تم تسليم الاختبار بنجاح'}</h1><div class="completion-student-info"><b>${esc(d.student_name||state?.student_name||'')}</b><span>${esc(info?.title||state?.title||'اختبار نافس')}</span></div>${percent}${secBreakdown}<p class="completion-msg">${d.completed_before?'تم التحقق من بياناتك وعرض محاولتك المكتملة؛ لن تبدأ محاولة جديدة تلقائيًا.':(d.result_hidden?'حُفظت إجاباتك بنجاح في سجلات المعلم.':'تم حفظ نتيجة أدائك في الاختبار بنجاح.')}</p>${trainingLink}${d.correct_count!==undefined?`<div class="correct-summary">الإجابات الصحيحة: ${ar(d.correct_count)} من أصل ${ar(d.total||d.sections?.flatMap(s=>s.questions)?.length||15)}</div>`:''}${d.indicators?.length?`<div class="indicators-summary"><h3>المؤشرات المقاسة</h3><table><thead><tr><th>المؤشر</th><th>النسبة</th><th>المستوى</th></tr></thead><tbody>${d.indicators.map(i=>`<tr><td>${esc(i.text)}</td><td>${ar(i.percent)}٪</td><td>${level(i.percent)}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
+ $('result').innerHTML=`<div class="completion-container"><div class="completion-badge">✓</div><h1>${d.completed_before?'سبق تسليم هذا الاختبار':'تم تسليم الاختبار بنجاح'}</h1><div class="completion-student-info"><b>${esc(d.student_name||state?.student_name||'')}</b><span>${esc(info?.title||state?.title||'اختبار نافس')}</span></div>${percent}${secBreakdown}${receipt}<p class="completion-msg">${d.completed_before?'تم التحقق من بياناتك وعرض محاولتك المكتملة؛ لن تبدأ محاولة جديدة تلقائيًا.':(d.result_hidden?'حُفظت إجاباتك بنجاح في سجلات المعلم.':'تم حفظ نتيجة أدائك في الاختبار بنجاح.')}</p>${trainingLink}${d.correct_count!==undefined?`<div class="correct-summary">الإجابات الصحيحة: ${ar(d.correct_count)} من أصل ${ar(d.total||d.sections?.flatMap(s=>s.questions)?.length||15)}</div>`:''}${d.indicators?.length?`<div class="indicators-summary"><h3>المؤشرات المقاسة</h3><table><thead><tr><th>المؤشر</th><th>النسبة</th><th>المستوى</th></tr></thead><tbody>${d.indicators.map(i=>`<tr><td>${esc(i.text)}</td><td>${ar(i.percent)}٪</td><td>${level(i.percent)}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
  $('saveState').textContent='تم تسليم المحاولة وحفظها';
 }
 $('identity').onsubmit=async e=>{
@@ -102,6 +225,7 @@ $('identity').onsubmit=async e=>{
   await claim();
   state=await api('assessment_start',{student_name:name,student_no:no,national_id_last3:no,class_name:cls});
   access=state.access_token||'';answers=state.answers||{};cursor=state.cursor||0;
+  const recoveredDraft=restoreDraft();
   try{sessionStorage.setItem(identityKey,JSON.stringify({name,class:cls}));}catch(_){}
   saveLocal();
   if(state.submitted)showResult(state);
@@ -110,18 +234,21 @@ $('identity').onsubmit=async e=>{
  finally{btn.disabled=false;starting=false;}
 };
 $('studentNo')?.addEventListener('input',e=>{e.target.value=normalizeDigits(e.target.value).replace(/\D/g,'').slice(0,3);});
-$('questions').onchange=e=>{if(!e.target.matches('input[type=radio]'))return;const id=e.target.closest('[data-question]').dataset.question;answers[id]=Number(e.target.value);e.target.closest('.choices').querySelectorAll('.choice').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked));clearTimeout(saveDelay);saveDelay=setTimeout(()=>save().catch(()=>{}),350);$('progress').querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('answered',answers[state.sections[currentSection].questions[Number(b.dataset.go)].id]!==undefined));};
+$('questions').onchange=e=>{if(!e.target.matches('input[type=radio]'))return;const id=e.target.closest('[data-question]').dataset.question;answers[id]=Number(e.target.value);writeDraft();e.target.closest('.choices').querySelectorAll('.choice').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked));clearTimeout(saveDelay);saveDelay=setTimeout(()=>save().catch(()=>{}),350);$('progress').querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('answered',answers[state.sections[currentSection].questions[Number(b.dataset.go)].id]!==undefined));};
 async function navigate(n){if(!active)return;clearTimeout(saveDelay);const prior=cursor;cursor=n;try{await save();render();$('questions').scrollIntoView({behavior:'smooth',block:'start'});}catch(_){cursor=prior;}}
 $('next').onclick=()=>navigate(cursor+1);$('prev').onclick=()=>navigate(cursor-1);$('progress').onclick=e=>{const b=e.target.closest('[data-go]');if(b&&state.settings.allow_back)navigate(Number(b.dataset.go));};
 $('review').onclick=()=>{const s=state.sections[currentSection];const unanswered=s.questions.map((q,i)=>answers[q.id]===undefined?i:null).filter(i=>i!==null);if(unanswered.length){if(confirm(`لم تجب عن ${ar(unanswered.length)} سؤالًا. الانتقال إلى أول سؤال دون إجابة؟`))navigate(unanswered[0]);}else alert('أجبت عن جميع أسئلة القسم. يمكنك تسليمه.');};
-$('finish').onclick=async()=>{const remaining=state.sections[currentSection].questions.filter(q=>answers[q.id]===undefined).length;if(!confirm(`${remaining?`بقي ${ar(remaining)} سؤالًا دون إجابة. `:''}هل تريد تسليم ${currentSection===state.sections.length-1?'الاختبار':'هذا القسم والانتقال للتالي'}؟`))return;$('finish').disabled=true;try{await save(currentSection===state.sections.length-1?'assessment_finish':'assessment_advance');cursor=state.cursor||0;if(active)render();}catch(_){}finally{$('finish').disabled=false;}};
+$('finish').onclick=async()=>{const remaining=state.sections[currentSection].questions.filter(q=>answers[q.id]===undefined).length;if(!confirm(`${remaining?`بقي ${ar(remaining)} سؤالًا دون إجابة. `:''}هل تريد تسليم ${currentSection===state.sections.length-1?'الاختبار':'هذا القسم والانتقال للتالي'}؟`))return;const finalSection=currentSection===state.sections.length-1;if(finalSection)markFinishIntent();$('finish').disabled=true;try{await save(finalSection?'assessment_finish':'assessment_advance');cursor=state.cursor||0;if(active)render();}catch(_){if(finalSection)setTimeout(retryPendingFinish,4000);}finally{$('finish').disabled=false;}};
 function event(type){if(!active||!state.settings.log_visibility||Date.now()-lastEvent<500)return;lastEvent=Date.now();save('assessment_event',{event:{type}}).catch(()=>{});}
 for(const type of ['copy','cut','dragstart','selectstart'])document.addEventListener(type,e=>{if(active&&!state.settings.allow_copy&&e.target.closest('#questions')){e.preventDefault();event('copy_blocked');}});
 document.addEventListener('contextmenu',e=>{if(active&&state.settings.disable_right_click){e.preventDefault();event('copy_blocked');}});
 document.addEventListener('keydown',e=>{if(!active)return;const key=e.key.toLowerCase();if((e.ctrlKey||e.metaKey)&&((state.settings.disable_shortcuts&&['c','x','s','a'].includes(key))||(state.settings.disable_print&&key==='p'))){e.preventDefault();event(key==='p'?'print_blocked':'copy_blocked');}});
 document.addEventListener('visibilitychange',()=>event(document.hidden?'hidden':'visible'));addEventListener('beforeprint',()=>{if(active&&state.settings.disable_print)event('print_blocked');});
-addEventListener('pagehide',()=>{if(active){navigator.sendBeacon(EDGE,new Blob([JSON.stringify({action:'assessment_event',code,session_id:session,...authBody(),event:{type:'page_leave'}})],{type:'application/json'}));}lockRelease?.();});
-setInterval(()=>{if(active)save().catch(()=>{});},15000);setInterval(watermark,10000);
+addEventListener('pagehide',()=>{if(active){writeDraft();navigator.sendBeacon(EDGE,new Blob([JSON.stringify({action:'assessment_event',code,session_id:session,...authBody(),event:{type:'page_leave'}})],{type:'application/json'}));}lockRelease?.();});
+addEventListener('offline',()=>{if(active){writeDraft();queueDeliveryEvent('offline',{action_name:'network'});$('saveState').textContent='محفوظ على الجهاز — الاتصال منقطع';}});
+addEventListener('online',()=>{if(active){queueDeliveryEvent('online',{action_name:'network'});$('saveState').textContent='عاد الاتصال — جارٍ المزامنة…';flushDeliveryEvents();save().catch(()=>{});retryPendingFinish();}});
+addEventListener('nafes:edge-retry',event=>{if(!active)return;const d=event.detail||{};if(d.phase==='retry')queueDeliveryEvent('retry',d);else if(d.phase==='recovered')queueDeliveryEvent('recovered',d);else if(d.phase==='failed')queueDeliveryEvent('request_failed',d);});
+setInterval(()=>{if(active)save().catch(()=>{});},15000);setInterval(()=>{if(active&&readDraft()?.finish_requested)retryPendingFinish();},10000);setInterval(watermark,10000);
 $('calcButton').onclick=()=>$('calculator').showModal();$('calcClose').onclick=()=>$('calculator').close();$('calcGo').onclick=()=>{const a=Number($('calcA').value),b=Number($('calcB').value),op=$('calcOp').value;const v=op==='+'?a+b:op==='−'?a-b:op==='×'?a*b:b===0?NaN:a/b;$('calcResult').textContent=Number.isFinite(v)?ar(v):'لا يمكن القسمة على صفر';};
 (async()=>{try{
  info=await api('assessment_info');
