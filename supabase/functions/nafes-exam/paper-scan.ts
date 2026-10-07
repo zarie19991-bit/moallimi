@@ -29,7 +29,7 @@ export async function scanSession(db:any,b:Row,owner:Row){
 export async function handlePaperScan(db:any,b:Row,owner:Row){
  const review=await reviewFor(db,b,owner);
  if(b.action==='teacher_scan_start'){
-   if(!uuid(b.session_id)||!/^([a-f0-9]{64})$/.test(b.file_hash)||!Number.isInteger(b.expected_count)||b.expected_count<1||b.expected_count>300)fail('بيانات رفع غير صالحة.');
+   if(!uuid(b.session_id)||!/^([a-f0-9]{64})$/.test(b.file_hash)||!Number.isInteger(b.expected_count)||b.expected_count<1||b.expected_count>200)fail('بيانات رفع غير صالحة.');
    const old=must(await db.from('nafes_scan_sessions').select('*').eq('id',b.session_id).maybeSingle());
    if(old){if(old.review_pk!==review.id||old.file_hash!==b.file_hash||old.expected_count!==b.expected_count)fail('تعارض جلسة الرفع.',409);return {ok:true,session:publicSession(old)};}
    return {ok:true,session:must(await db.from('nafes_scan_sessions').insert({id:b.session_id,review_pk:review.id,reviewer_id:owner.id,file_hash:b.file_hash,expected_count:b.expected_count,review_snapshot:review.payload}).select('id,review_pk,reviewer_id,file_hash,expected_count,created_at,completed_at').single())};
