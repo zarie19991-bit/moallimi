@@ -59,19 +59,38 @@ function thresholdCanvas(src,threshold=176){
  g.putImageData(out,0,0);return o;
 }
 function qrDecode(c){
- const attempts=[],push=x=>{if(x&&x.width>40&&x.height>40)attempts.push(x);};
- const full=scaledCanvas(c,1800);push(full);
- const h=full.height,w=full.width;
- // First target the exact QR zone used by the printed OMR template.
- for(const q of qrTemplateCrops(full)){push(q);push(thresholdCanvas(q,145));push(thresholdCanvas(q,170));push(thresholdCanvas(q,200));}
- // Then fall back to wider header/corner scans for legacy layouts.
- push(cropCanvas(full,0,0,w,Math.min(h,Math.round(h*.42))));
- push(cropCanvas(full,0,0,Math.round(w*.55),Math.min(h,Math.round(h*.42))));
- push(cropCanvas(full,Math.round(w*.45),0,Math.round(w*.55),Math.min(h,Math.round(h*.42))));
- push(cropCanvas(full,0,Math.round(h*.58),w,Math.round(h*.42)));
- push(thresholdCanvas(full,150));push(thresholdCanvas(full,175));push(thresholdCanvas(full,205));
- for(const a of attempts){const q=qrDecodeOnce(a);if(q)return q;}
- return null;
+ const full=scaledCanvas(c,1600),owned=[];
+ const tryOne=x=>{
+   if(!x||x.width<40||x.height<40)return null;
+   const q=qrDecodeOnce(x);return q;
+ };
+ const useCrop=(x,y,w,h,scale=0)=>{
+   const c=cropCanvas(full,x,y,w,h);owned.push(c);
+   if(scale>0){const z=resizeCanvas(c,scale);owned.push(z);return z;}
+   return c;
+ };
+ let q=tryOne(full);
+ if(!q){
+   const h=full.height,w=full.width;
+   // Fast path for the current OMR template: QR in the upper-left header.
+   const specs=[
+     [0,0,.30,.23,900],
+     [0,0,.24,.20,1100],
+     [.01,.01,.20,.18,1200]
+   ];
+   for(const [xf,yf,wf,hf,target] of specs){
+     const c=useCrop(Math.round(w*xf),Math.round(h*yf),Math.round(w*wf),Math.round(h*hf),target);
+     q=tryOne(c);
+     if(!q){
+       const t=thresholdCanvas(c,175);owned.push(t);q=tryOne(t);
+     }
+     if(q)break;
+   }
+   // Wider header fallback only if exact-zone attempts fail.
+   if(!q)q=tryOne(useCrop(0,0,w,Math.min(h,Math.round(h*.38))));
+ }
+ for(const c of owned){try{c.width=1;c.height=1;}catch(_){}}
+ return q;
 }
 function parseQr(raw){
  const m=String(raw||'').match(/^MR(2|3|4)\|([^|]+)\|(\d+)\|(.+)$/);if(!m)return null;
@@ -221,8 +240,8 @@ function readAnswers(c,markers,total,startNo){
    return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,evidence:ev,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:filledThreshold,separation};
  });
 }
-function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,1800/c.width);o.width=Math.round(c.width*scale);o.height=Math.round(c.height*scale);o.getContext('2d').drawImage(c,0,0,o.width,o.height);return o.toDataURL('image/jpeg',.85);}
-function thumb(c){const w=520,h=Math.round(c.height*w/c.width),o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(c,0,0,w,h);return o.toDataURL('image/jpeg',.68);}
+function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,1400/c.width);o.width=Math.round(c.width*scale);o.height=Math.round(c.height*scale);o.getContext('2d').drawImage(c,0,0,o.width,o.height);const out=o.toDataURL('image/jpeg',.76);o.width=1;o.height=1;return out;}
+function thumb(c){const w=Math.min(420,c.width),h=Math.round(c.height*w/c.width),o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(c,0,0,w,h);const out=o.toDataURL('image/jpeg',.58);o.width=1;o.height=1;return out;}
 function scoreResult(r){
  const key=keyForModel(r.model),start=Number(draft.question_start||1);let score=0,total=Math.min(Number(draft.question_count||20),key.length||20);
  r.answers.forEach((a,i)=>{const k=key[i];a.correctIndex=k?Number(k.correct_index):null;a.indicator=k?.indicator||'';a.correct=a.status==='clear'&&a.selected!==null&&a.correctIndex!==null&&Number(a.selected)===Number(a.correctIndex);if(a.correct)score++;});
@@ -235,18 +254,32 @@ function scoreResult(r){
  r.omr={confidence:Number(avg.toFixed(3)),min_clear_confidence:Number(minClear.toFixed(3)),marker_confidence:Number(r.markerConfidence||0),manual_answers:manual,low_confidence_answers:low,answer_count:r.answers.length,auto_accept:!!r.qrValid&&!!r.markersOk&&Number(r.markerConfidence||0)>=.85&&r.unresolved===0&&manual===0&&avg>=.97&&minClear>=.94};
  return r;
 }
+function normalizeWorkCanvas(src,maxW=2200){
+ if(src.width<=maxW)return src;
+ const scale=maxW/src.width,c=document.createElement('canvas');
+ c.width=Math.max(1,Math.round(src.width*scale));c.height=Math.max(1,Math.round(src.height*scale));
+ c.getContext('2d',{willReadFrequently:true}).drawImage(src,0,0,c.width,c.height);
+ return c;
+}
 async function processRegion(c,pageNo,regionNo){
- const normed=normalizeOrientation(c),canvas=normed.canvas,qrRaw=normed.qr?.data||'',q=parseQr(qrRaw);
+ const work=normalizeWorkCanvas(c),normed=normalizeOrientation(work),canvas=normed.canvas,qrRaw=normed.qr?.data||'',q=parseQr(qrRaw);
  const assignment=q&&q.reviewId===draft.review_id?assignmentBySheet(q.sheetNo):null,qrValid=!!assignment&&q.model===assignment.model,model=assignment?.model||q?.model||'';
  const markers=detectMarkers(canvas),answers=markers?readAnswers(canvas,markers,Number(draft.question_count||20),Number(draft.question_start||1)):[];
  const markerScores=markers?[markers.tl?.score,markers.tr?.score,markers.bl?.score,markers.br?.score].map(Number).filter(Number.isFinite):[];
  const markerConfidence=markerScores.length?Math.max(0,Math.min(1,(markerScores.reduce((s,x)=>s+x,0)/markerScores.length-.70)/.30)):0;
- const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,markerConfidence:Number(markerConfidence.toFixed(3)),answers,thumbnail:thumb(canvas),fullImage:fullImage(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),sourceCanvas:canvas};
+ const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,markerConfidence:Number(markerConfidence.toFixed(3)),answers,fullImage:fullImage(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),sourceCanvas:canvas};
  if(!markers){r.unresolved++;r.error='تعذر تحديد علامات المحاذاة في ورقة التظليل.';}
  if(markers&&answers.length)scoreResult(r);return r;
 }
 async function canvasFromImage(file){
- const bmp=await createImageBitmap(file),c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;c.getContext('2d',{willReadFrequently:true}).drawImage(bmp,0,0);return c;
+ let bmp;
+ try{bmp=await createImageBitmap(file,{resizeWidth:2200,resizeQuality:'high'});}
+ catch(_){bmp=await createImageBitmap(file);}
+ const scale=Math.min(1,2200/bmp.width),c=document.createElement('canvas');
+ c.width=Math.max(1,Math.round(bmp.width*scale));c.height=Math.max(1,Math.round(bmp.height*scale));
+ c.getContext('2d',{willReadFrequently:true}).drawImage(bmp,0,0,c.width,c.height);
+ try{bmp.close();}catch(_){}
+ return c;
 }
 function isTiff(file){return /\.tiff?$/i.test(file.name)||file.type==='image/tiff';}
 async function* sourcePages(file){
@@ -304,13 +337,15 @@ async function processFile(){
          setProgress(approx,'الملف '+ar(fi+1)+' من '+ar(inputFiles.length)+' · الصفحة '+ar(page.pageNo)+' من '+ar(page.total)+' · قراءة الورقة '+ar(ri+1));
          const r=await processRegion(regs[ri],sourcePageCount,ri+1);
          delete r.sourceCanvas;results.push(r);
+         if(regs[ri]!==page.canvas){try{regs[ri].width=1;regs[ri].height=1;}catch(_){}}
+         if((results.length%4)===0)await new Promise(res=>requestAnimationFrame(()=>res()));
        }
        page.canvas.width=1;page.canvas.height=1;
        await new Promise(res=>setTimeout(res,0));
      }
    }
    if(!results.length)throw new Error('لم يتم العثور على أوراق قابلة للمعالجة.');
-   setProgress(98,'حفظ دفعة من '+ar(results.length)+' ورقة…');await window.NafesScanJournal.upload(results,inputFiles);setProgress(100,'اكتمل الحفظ — '+ar(results.length)+' ورقة جاهزة للمراجعة');
+   setProgress(98,'حفظ دفعة من '+ar(results.length)+' ورقة…');await window.NafesScanJournal.upload(results,inputFiles);for(const r of results){delete r.fullImage;}setProgress(100,'اكتمل الحفظ — '+ar(results.length)+' ورقة جاهزة للمراجعة');
  }catch(e){setProgress(0,'تعذر التحليل: '+e.message);}
  finally{processing=false;$('processBtn').disabled=!files.length;$('clearBtn').disabled=false;$('fileInput').disabled=false;}
 }
