@@ -185,10 +185,10 @@ function detectTemplateMarkerSet(src){
  const prep=markerWorkCanvas(src),c=prep.canvas,d=imageData(c),G=integralGray(d);
  // Tight zones are calibrated from the real printed sheet:
  // TL≈(.08,.46), TR≈(.82,.45), BL≈(.08,.72), BR≈(.85,.71).
- const tl=findTemplateSquare(G,[.04,.13,.42,.50],.08,.46);
- const tr=findTemplateSquare(G,[.77,.89,.41,.49],.83,.45);
- const bl=findTemplateSquare(G,[.04,.14,.66,.77],.08,.72);
- const br=findTemplateSquare(G,[.77,.92,.65,.77],.85,.71);
+ const tl=findTemplateSquare(G,[.04,.13,.42,.50],.079,.461);
+ const tr=findTemplateSquare(G,[.77,.89,.41,.49],.823,.449);
+ const bl=findTemplateSquare(G,[.04,.14,.66,.77],.082,.720);
+ const br=findTemplateSquare(G,[.77,.92,.65,.77],.847,.708);
  if(!tl||!tr||!bl||!br)return null;
  const topDx=tr.x-tl.x,bottomDx=br.x-bl.x,leftDy=bl.y-tl.y,rightDy=br.y-tr.y;
  if(topDx<c.width*.55||bottomDx<c.width*.55||leftDy<c.height*.20||rightDy<c.height*.20)return null;
@@ -198,7 +198,7 @@ function detectTemplateMarkerSet(src){
  const topSlope=Math.abs(tr.y-tl.y)/Math.max(1,topDx),bottomSlope=Math.abs(br.y-bl.y)/Math.max(1,bottomDx);
  if(topSlope>.12||bottomSlope>.12)return null;
  const scale=p=>({x:p.x*prep.sx,y:p.y*prep.sy,score:Math.max(.88,Math.min(.99,.88+p.contrast/300))});
- return{tl:scale(tl),tr:scale(tr),bl:scale(bl),br:scale(br),detector:'template-dark-square',geometry_confidence:Math.max(.88,1-aspectErr)};
+ return{tl:scale(tl),tr:scale(tr),bl:scale(bl),br:scale(br),detector:'template-dark-square-v2',geometry_confidence:Math.max(.90,1-aspectErr)};
 }
 
 function detectMarkerSets(src){
@@ -321,6 +321,17 @@ function readAnswers(c,markers,total,startNo){
    return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,evidence,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.030,separation};
  });
 }
+function validateOmrRead(answers,total){
+ const rows=Array.isArray(answers)?answers:[];
+ if(rows.length!==Number(total||0))return{ok:false,reason:'عدد الإجابات المقروءة لا يطابق عدد أسئلة الاختبار.'};
+ const clear=rows.filter(a=>a.status==='clear').length;
+ const blanks=rows.filter(a=>a.status==='blank').length;
+ const bad=rows.filter(a=>a.status==='multiple'||a.status==='ambiguous').length;
+ if(clear+blanks+bad!==rows.length)return{ok:false,reason:'حالات القراءة غير مكتملة.'};
+ // Do not reject legitimately blank papers; only reject impossible/non-finite evidence.
+ if(rows.some(a=>!Array.isArray(a.scores)||a.scores.length!==4||a.scores.some(x=>!Number.isFinite(Number(x)))))return{ok:false,reason:'بيانات قياس التظليل غير صالحة.'};
+ return{ok:true,clear,blanks,bad};
+}
 function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,1400/c.width);o.width=Math.round(c.width*scale);o.height=Math.round(c.height*scale);o.getContext('2d').drawImage(c,0,0,o.width,o.height);const out=o.toDataURL('image/jpeg',.76);o.width=1;o.height=1;return out;}
 function thumb(c){const w=Math.min(420,c.width),h=Math.round(c.height*w/c.width),o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(c,0,0,w,h);const out=o.toDataURL('image/jpeg',.58);o.width=1;o.height=1;return out;}
 function scoreResult(r){
@@ -345,12 +356,12 @@ function normalizeWorkCanvas(src,maxW=2200){
 async function processRegion(c,pageNo,regionNo){
  const work=normalizeWorkCanvas(c),normed=normalizeOrientation(work),canvas=normed.canvas,qrRaw=normed.qr?.data||'',q=parseQr(qrRaw);
  const assignment=q&&q.reviewId===draft.review_id?assignmentBySheet(q.sheetNo):null,qrValid=!!assignment&&q.model===assignment.model,model=assignment?.model||q?.model||'';
- const markers=detectMarkers(canvas),answers=markers?readAnswers(canvas,markers,Number(draft.question_count||20),Number(draft.question_start||1)):[];
+ const markers=detectMarkers(canvas),answers=markers?readAnswers(canvas,markers,Number(draft.question_count||20),Number(draft.question_start||1)):[],omrValidation=markers?validateOmrRead(answers,Number(draft.question_count||20)):{ok:false};
  const markerScores=markers?[markers.tl?.score,markers.tr?.score,markers.bl?.score,markers.br?.score].map(Number).filter(Number.isFinite):[];
  const markerConfidence=markerScores.length?Math.max(0,Math.min(1,(markerScores.reduce((s,x)=>s+x,0)/markerScores.length-.70)/.30)):0;
  const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,markerConfidence:Number(markerConfidence.toFixed(3)),answers,fullImage:fullImage(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),sourceCanvas:canvas};
  if(!markers){r.unresolved++;r.error='تعذر تحديد علامات المحاذاة في ورقة التظليل.';}
- if(markers&&answers.length)scoreResult(r);return r;
+ if(markers&&answers.length&&omrValidation.ok)scoreResult(r);else if(markers&&!omrValidation.ok){r.unresolved++;r.error=omrValidation.reason||'تعذر التحقق من قراءة التظليل.';}return r;
 }
 async function canvasFromImage(file){
  let bmp;
@@ -476,14 +487,15 @@ async function readStoredOmr(src,total,startNo){
  const c=await canvasFromDataUrl(src),canvas=c.height>=c.width?c:rotateCanvas(c,90),markers=detectTemplateMarkerSet(canvas);
  if(!markers){c.width=1;c.height=1;throw new Error('لم تُعثر هندسة القالب على المربعات الأربع في مواضعها الصحيحة.');}
  const data={...markers,image:imageData(canvas)};
- const answers=readAnswers(canvas,data,total,startNo);
+ const answers=readAnswers(canvas,data,total,startNo),validation=validateOmrRead(answers,total);
+ if(!validation.ok){c.width=1;c.height=1;throw new Error(validation.reason);}
  const markerConfidence=Number(markers.geometry_confidence||.9);
  c.width=1;c.height=1;
  return{
    answers,
    markers_ok:true,
    marker_confidence:Number(markerConfidence.toFixed(3)),
-   detector:'template-dark-square',
+   detector:'template-dark-square-v2',
    marker_points:{
      tl:[Number(markers.tl.x.toFixed(1)),Number(markers.tl.y.toFixed(1))],
      tr:[Number(markers.tr.x.toFixed(1)),Number(markers.tr.y.toFixed(1))],
