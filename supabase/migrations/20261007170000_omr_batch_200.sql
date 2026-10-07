@@ -76,7 +76,7 @@ begin
       or (
         effective ? 'quality_score'
         and nullif(effective->>'quality_score','') is not null
-        and (effective->>'quality_score')::numeric < 50
+        and (effective->>'quality_score')::numeric < 35
       )
     then 'requires_rescan'
     else 'verified'
