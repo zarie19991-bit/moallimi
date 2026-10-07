@@ -99,7 +99,7 @@ async function rereadAllStrict(){
  if(busy)return;
  if(!confirm('سيعاد تحليل التظليل لكل ورقة ذات هوية مؤكدة بخوارزمية صارمة. أي إجابة غير مؤكدة لن تُحتسب تلقائيًا. هل تريد المتابعة؟'))return;
  lock(true);
- let processed=0,skippedIdentity=0,uncertainSheets=0,failed=0;
+ let processed=0,skippedIdentity=0,uncertainSheets=0,failed=0,failSamples=[];
  try{
    const sr=await api('teacher_scan_sessions'),sessionsList=sr.sessions||[];
    for(let si=0;si<sessionsList.length;si++){
@@ -114,14 +114,14 @@ async function rereadAllStrict(){
          const rr=await window.NafesScanReader.readStoredOmr(im.image_data,Number(eff.total||draft.question_count||0),Number(draft.question_start||1));
          const saved=await api('teacher_scan_reclassify',{session_id:sid,sheet_id:sh.id,answer_version:sh.answer_version||0,answers:rr.answers,markers_ok:rr.markers_ok,marker_confidence:rr.marker_confidence});
          processed++;if(Number(saved.unresolved||0)>0)uncertainSheets++;
-       }catch(e){failed++;}
+       }catch(e){failed++;if(failSamples.length<8)failSamples.push((eff?.student_name||('ورقة '+(i+1)))+': '+(e?.message||String(e)));}
      }
    }
    reviewInventory=[];selected.clear();
    if(session?.id){
      const fresh=await api('teacher_scan_list',{session_id:session.id});session=fresh.session;sheets=fresh.sheets||[];render();
    }
-   message('اكتملت إعادة القراءة الصارمة: '+ar(processed)+' ورقة أعيد تحليلها، '+ar(uncertainSheets)+' بها إجابات تحتاج مراجعة، '+ar(skippedIdentity)+' ورقة هويتها غير مؤكدة ولم تُحسب، '+ar(failed)+' تعذر تحليلها ولم تُمنح قراءة وهمية.');
+   message('اكتملت إعادة القراءة: '+ar(processed)+' من '+ar(processed+failed+skippedIdentity)+' ورقة. نجح '+ar(processed)+'، فشل '+ar(failed)+'، هوية غير مؤكدة '+ar(skippedIdentity)+(failSamples.length?' · أمثلة الفشل: '+failSamples.join(' | '):''),failed>0);
  }catch(e){message('تعذرت إعادة القراءة الشاملة: '+e.message,true);}
  finally{lock(false);}
 }
