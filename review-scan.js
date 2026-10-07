@@ -19,8 +19,38 @@ function rotateCanvas(src,deg){
  g.translate(c.width/2,c.height/2);g.rotate(rad*Math.PI/180);g.drawImage(src,-src.width/2,-src.height/2);return c;
 }
 function imageData(c){return c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,c.width,c.height);}
+function qrDecodeOnce(c){
+ if(typeof jsQR!=='function')return null;
+ const d=imageData(c),q=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});
+ return q?{data:q.data,location:q.location}:null;
+}
+function scaledCanvas(src,maxW=1200){
+ if(src.width<=maxW)return src;
+ const scale=maxW/src.width,c=document.createElement('canvas');c.width=Math.max(1,Math.round(src.width*scale));c.height=Math.max(1,Math.round(src.height*scale));
+ c.getContext('2d',{willReadFrequently:true}).drawImage(src,0,0,c.width,c.height);return c;
+}
+function thresholdCanvas(src,threshold=176){
+ const base=scaledCanvas(src,1200),d=imageData(base),o=document.createElement('canvas');o.width=base.width;o.height=base.height;
+ const g=o.getContext('2d',{willReadFrequently:true}),out=g.createImageData(o.width,o.height);
+ for(let i=0;i<d.data.length;i+=4){
+   const gray=d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114,v=gray<threshold?0:255;
+   out.data[i]=out.data[i+1]=out.data[i+2]=v;out.data[i+3]=255;
+ }
+ g.putImageData(out,0,0);return o;
+}
 function qrDecode(c){
- if(typeof jsQR!=='function')return null;const d=imageData(c);const q=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});return q?{data:q.data,location:q.location}:null;
+ const attempts=[],push=x=>{if(x&&x.width>40&&x.height>40)attempts.push(x);};
+ const full=scaledCanvas(c,1500);push(full);
+ const h=full.height,w=full.width;
+ // QR is printed in the header; try the full header and both header corners first.
+ push(cropCanvas(full,0,0,w,Math.min(h,Math.round(h*.42))));
+ push(cropCanvas(full,0,0,Math.round(w*.55),Math.min(h,Math.round(h*.42))));
+ push(cropCanvas(full,Math.round(w*.45),0,Math.round(w*.55),Math.min(h,Math.round(h*.42))));
+ // Handle 180-degree scans without relying on a first successful decode.
+ push(cropCanvas(full,0,Math.round(h*.58),w,Math.round(h*.42)));
+ push(thresholdCanvas(full,165));push(thresholdCanvas(full,195));
+ for(const a of attempts){const q=qrDecodeOnce(a);if(q)return q;}
+ return null;
 }
 function parseQr(raw){
  const m=String(raw||'').match(/^MR(2|3|4)\|([^|]+)\|(\d+)\|(.+)$/);if(!m)return null;
@@ -205,11 +235,16 @@ function regionsForPage(c){
  let page=c,sets=detectMarkerSets(page);
  if(!sets.length&&c.width>c.height){page=rotateCanvas(c,90);sets=detectMarkerSets(page);}
  if(sets.length){
-   const ordered=[...sets].sort((a,b)=>Math.min(a.tl.y,a.tr.y)-Math.min(b.tl.y,b.tr.y));
+   const ordered=[...sets].sort((a,b)=>((a.tl.y+a.bl.y+a.tr.y+a.br.y)/4)-((b.tl.y+b.bl.y+b.tr.y+b.br.y)/4));
    if(ordered.length===1)return[page];
-   return ordered.slice(0,2).map(m=>cropAroundMarkers(page,m));
+   // Split by sheet bands, not around the OMR box. This preserves each sheet header and its QR.
+   const centers=ordered.slice(0,2).map(m=>(m.tl.y+m.bl.y+m.tr.y+m.br.y)/4);
+   const split=Math.max(1,Math.min(page.height-1,Math.round((centers[0]+centers[1])/2)));
+   return[
+     cropCanvas(page,0,0,page.width,split),
+     cropCanvas(page,0,split,page.width,page.height-split)
+   ];
  }
- const portrait=page.height/page.width>1.18;if(!portrait)return[page];
  return[page];
 }
 async function processFile(){
