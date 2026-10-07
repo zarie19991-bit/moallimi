@@ -120,7 +120,7 @@ function integralDark(d){
 }
 function rectSum(I,x,y,w,h){const W=I.w+1,x1=Math.max(0,x),y1=Math.max(0,y),x2=Math.min(I.w,x+w),y2=Math.min(I.h,y+h);return I.ii[y2*W+x2]-I.ii[y1*W+x2]-I.ii[y2*W+x1]+I.ii[y1*W+x1];}
 function markerWorkCanvas(src){
- const maxW=1400;
+ const maxW=960;
  if(src.width<=maxW)return{canvas:src,sx:1,sy:1};
  const scale=maxW/src.width,c=document.createElement('canvas');
  c.width=Math.round(src.width*scale);c.height=Math.round(src.height*scale);
@@ -129,9 +129,9 @@ function markerWorkCanvas(src){
 }
 function markerCandidates(c){
  const d=imageData(c),I=integralDark(d),raw=[];
- const sizes=[.007,.010,.013,.017,.022,.028].map(f=>Math.max(7,Math.round(I.w*f)));
+ const sizes=[.010,.014,.019,.026].map(f=>Math.max(7,Math.round(I.w*f)));
  for(const size of sizes){
-   const half=Math.floor(size/2),step=Math.max(3,Math.floor(size/2));
+   const half=Math.floor(size/2),step=Math.max(5,Math.floor(size*.85));
    for(let y=half;y<I.h-half;y+=step)for(let x=half;x<I.w-half;x+=step){
      const score=rectSum(I,x-half,y-half,size,size)/(size*size);
      if(score>=.72)raw.push({x,y,size,score});
@@ -140,8 +140,8 @@ function markerCandidates(c){
  raw.sort((a,b)=>b.score-a.score);
  const out=[];
  for(const p of raw){
-   if(out.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<Math.max(p.size,q.size)*1.4))continue;
-   out.push(p);if(out.length>=120)break;
+   if(out.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<Math.max(p.size,q.size)*1.45))continue;
+   out.push(p);if(out.length>=80)break;
  }
  return out;
 }
@@ -305,27 +305,34 @@ function cropAroundMarkers(c,m){
  return cropCanvas(c,x,y,x2-x,y2-y);
 }
 function regionsForPage(c){
- let page=c,sets=detectMarkerSets(page);
- if(!sets.length&&c.width>c.height){page=rotateCanvas(c,90);sets=detectMarkerSets(page);}
- if(sets.length){
+ let page=c;
+ if(c.width>c.height)page=rotateCanvas(c,90);
+ const ratio=page.height/Math.max(1,page.width);
+ // Normal phone/PDF portrait scans contain one full OMR sheet. Avoid a second expensive
+ // full-page marker pass; processRegion will do the precise marker read once.
+ if(ratio>=1.18&&ratio<=1.70)return[page];
+ const sets=detectMarkerSets(page);
+ if(sets.length>1){
    const ordered=[...sets].sort((a,b)=>((a.tl.y+a.bl.y+a.tr.y+a.br.y)/4)-((b.tl.y+b.bl.y+b.tr.y+b.br.y)/4));
-   if(ordered.length===1)return[page];
-   // Split by sheet bands, not around the OMR box. This preserves each sheet header and its QR.
    const centers=ordered.slice(0,2).map(m=>(m.tl.y+m.bl.y+m.tr.y+m.br.y)/4);
    const split=Math.max(1,Math.min(page.height-1,Math.round((centers[0]+centers[1])/2)));
-   return[
-     cropCanvas(page,0,0,page.width,split),
-     cropCanvas(page,0,split,page.width,page.height-split)
-   ];
+   return[cropCanvas(page,0,0,page.width,split),cropCanvas(page,0,split,page.width,page.height-split)];
  }
  return[page];
 }
 async function processFile(){
  if(!files.length||!draft||processing||window.NafesScanJournal.isBusy())return;
  const inputFiles=[...files];processing=true;results=[];$('resultsSection').classList.add('hidden');$('approvedSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('processBtn').disabled=true;$('clearBtn').disabled=true;$('fileInput').disabled=true;
- let sourcePageCount=0,savedCount=0,streamStarted=false;
+ let sourcePageCount=0,queuedCount=0,savedCount=0,streamStarted=false,inflight=[];
+ const cleanupResult=r=>{delete r.fullImage;delete r.thumbnail;delete r.answers;delete r.evidence;};
+ const submit=(r,ordinal)=>{
+   const p=window.NafesScanJournal.appendStream(r,ordinal).then(()=>{savedCount++;}).finally(()=>cleanupResult(r));
+   inflight.push(p);
+   p.finally(()=>{inflight=inflight.filter(x=>x!==p);});
+   return p;
+ };
  try{
-   setProgress(1,'تهيئة الحفظ المباشر…');
+   setProgress(1,'تهيئة القراءة السريعة والحفظ المباشر…');
    await window.NafesScanJournal.beginStream(inputFiles);streamStarted=true;
    for(let fi=0;fi<inputFiles.length;fi++){
      const inputFile=inputFiles[fi];
@@ -333,29 +340,31 @@ async function processFile(){
        sourcePageCount++;if(sourcePageCount>200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ صفحة.');
        const regs=regionsForPage(page.canvas);
        for(let ri=0;ri<regs.length;ri++){
-         if(savedCount>=200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ ورقة/صفحة.');
+         if(queuedCount>=200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ ورقة/صفحة.');
+         while(inflight.length>=2)await Promise.race(inflight);
          const approx=Math.min(96,3+((fi+(page.pageNo/Math.max(1,page.total)))/inputFiles.length)*90);
-         setProgress(approx,'الملف '+ar(fi+1)+' من '+ar(inputFiles.length)+' · الصفحة '+ar(page.pageNo)+' من '+ar(page.total)+' · قراءة وحفظ الورقة '+ar(savedCount+1));
+         setProgress(approx,'الملف '+ar(fi+1)+' من '+ar(inputFiles.length)+' · الصفحة '+ar(page.pageNo)+' من '+ar(page.total)+' · قراءة '+ar(queuedCount+1)+' · محفوظ '+ar(savedCount));
          const r=await processRegion(regs[ri],sourcePageCount,ri+1);
          delete r.sourceCanvas;
-         await window.NafesScanJournal.appendStream(r,savedCount+1);
-         savedCount++;
-         delete r.fullImage;delete r.thumbnail;delete r.answers;delete r.evidence;
+         queuedCount++;
+         submit(r,queuedCount);
          if(regs[ri]!==page.canvas){try{regs[ri].width=1;regs[ri].height=1;}catch(_){}}
-         await new Promise(res=>setTimeout(res,0));
+         if((queuedCount%3)===0)await new Promise(res=>setTimeout(res,0));
        }
        try{page.canvas.width=1;page.canvas.height=1;}catch(_){}
        await new Promise(res=>requestAnimationFrame(()=>res()));
      }
    }
-   if(!savedCount)throw new Error('لم يتم العثور على أوراق قابلة للمعالجة.');
-   setProgress(98,'تثبيت الدفعة…');
+   if(!queuedCount)throw new Error('لم يتم العثور على أوراق قابلة للمعالجة.');
+   if(inflight.length)await Promise.all(inflight);
+   setProgress(98,'تثبيت '+ar(savedCount)+' ورقة…');
    await window.NafesScanJournal.finalizeStream(savedCount);
-   setProgress(100,'اكتمل — تمت قراءة وحفظ '+ar(savedCount)+' ورقة دون الاحتفاظ بالدفعة في الذاكرة');
+   setProgress(100,'اكتمل — تمت قراءة وحفظ '+ar(savedCount)+' ورقة');
  }catch(e){
-   setProgress(0,'توقف التحليل بعد حفظ '+ar(savedCount)+' ورقة: '+e.message+(streamStarted?' — الأوراق التي حُفظت لم تضِع.':''));
+   try{if(inflight.length)await Promise.allSettled(inflight);}catch(_){}
+   setProgress(0,'توقف التحليل بعد حفظ '+ar(savedCount)+' من '+ar(queuedCount)+' ورقة: '+e.message+(streamStarted?' — المحفوظ لا يضيع.':''));
  }finally{
-   results=[];processing=false;$('processBtn').disabled=!files.length;$('clearBtn').disabled=false;$('fileInput').disabled=false;
+   results=[];inflight=[];processing=false;$('processBtn').disabled=!files.length;$('clearBtn').disabled=false;$('fileInput').disabled=false;
  }
 }
 async function init(){
