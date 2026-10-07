@@ -3,7 +3,7 @@
 const $=id=>document.getElementById(id);
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const letters=['أ','ب','ج','د'];
-let draft=null,file=null,results=[],processing=false;
+let draft=null,files=[],results=[],processing=false;
 
 function keyForModel(model){return draft?.answer_keys?.find(x=>x.model===model)?.answers||[];}
 function assignmentBySheet(no){return draft?.assignments?.find(x=>Number(x.sheet_no)===Number(no))||null;}
@@ -178,12 +178,21 @@ async function processRegion(c,pageNo,regionNo){
 async function canvasFromImage(file){
  const bmp=await createImageBitmap(file),c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;c.getContext('2d',{willReadFrequently:true}).drawImage(bmp,0,0);return c;
 }
+function isTiff(file){return /\.tiff?$/i.test(file.name)||file.type==='image/tiff';}
 async function* sourcePages(file){
  if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')){
    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
-   try{for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),v=p.getViewport({scale:2}),c=document.createElement('canvas');c.width=Math.round(v.width);c.height=Math.round(v.height);await p.render({canvasContext:c.getContext('2d',{willReadFrequently:true}),viewport:v}).promise;yield {canvas:c,pageNo:n,total:pdf.numPages};p.cleanup();c.width=1;c.height=1;}}
+   try{for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),v=p.getViewport({scale:2}),c=document.createElement('canvas');c.width=Math.round(v.width);c.height=Math.round(v.height);await p.render({canvasContext:c.getContext('2d',{willReadFrequently:true}),viewport:v}).promise;yield {canvas:c,pageNo:n,total:pdf.numPages};p.cleanup();}}
    finally{await pdf.destroy();}
+ }else if(isTiff(file)){
+   if(!window.UTIF)throw Error('تعذر تحميل قارئ TIFF.');
+   const buf=await file.arrayBuffer(),ifds=UTIF.decode(buf);UTIF.decodeImages(buf,ifds);
+   for(let n=0;n<ifds.length;n++){
+     const rgba=UTIF.toRGBA8(ifds[n]),c=document.createElement('canvas');c.width=ifds[n].width;c.height=ifds[n].height;
+     const g=c.getContext('2d',{willReadFrequently:true}),img=g.createImageData(c.width,c.height);img.data.set(rgba);g.putImageData(img,0,0);
+     yield {canvas:c,pageNo:n+1,total:ifds.length};
+   }
  }else yield {canvas:await canvasFromImage(file),pageNo:1,total:1};
 }
 function cropAroundMarkers(c,m){
@@ -204,33 +213,45 @@ function regionsForPage(c){
  return[page];
 }
 async function processFile(){
- if(!file||!draft||processing||window.NafesScanJournal.isBusy())return;
- const inputFile=file;processing=true;results=[];$('resultsSection').classList.add('hidden');$('approvedSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('processBtn').disabled=true;$('clearBtn').disabled=true;$('fileInput').disabled=true;
+ if(!files.length||!draft||processing||window.NafesScanJournal.isBusy())return;
+ const inputFiles=[...files];processing=true;results=[];$('resultsSection').classList.add('hidden');$('approvedSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('processBtn').disabled=true;$('clearBtn').disabled=true;$('fileInput').disabled=true;
+ let sourcePageCount=0;
  try{
-   setProgress(3,'قراءة الملف…');
-   for await(const page of sourcePages(inputFile)){
-     const regs=regionsForPage(page.canvas);
-     for(let ri=0;ri<regs.length;ri++){
-       setProgress(5+90*(page.pageNo-1)/page.total,'الصفحة '+ar(page.pageNo)+' من '+ar(page.total)+' — قراءة الورقة '+ar(ri+1));
-       const r=await processRegion(regs[ri],page.pageNo,ri+1);
-       delete r.sourceCanvas;results.push(r);
-       if(results.length>300)throw new Error('الحد الأقصى ٣٠٠ ورقة في الجلسة.');
+   setProgress(2,'فحص الدفعة…');
+   for(let fi=0;fi<inputFiles.length;fi++){
+     const inputFile=inputFiles[fi];
+     for await(const page of sourcePages(inputFile)){
+       sourcePageCount++;if(sourcePageCount>200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ صفحة.');
+       const regs=regionsForPage(page.canvas);
+       for(let ri=0;ri<regs.length;ri++){
+         if(results.length>=200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ ورقة/صفحة.');
+         const approx=Math.min(96,4+((fi+(page.pageNo/Math.max(1,page.total)))/inputFiles.length)*90);
+         setProgress(approx,'الملف '+ar(fi+1)+' من '+ar(inputFiles.length)+' · الصفحة '+ar(page.pageNo)+' من '+ar(page.total)+' · قراءة الورقة '+ar(ri+1));
+         const r=await processRegion(regs[ri],sourcePageCount,ri+1);
+         delete r.sourceCanvas;results.push(r);
+       }
+       page.canvas.width=1;page.canvas.height=1;
        await new Promise(res=>setTimeout(res,0));
      }
    }
-   // Unreadable pages remain in the review queue; identity is never inferred from order.
-   setProgress(98,'حفظ أوراق المراجعة…');await window.NafesScanJournal.upload(results,inputFile);setProgress(100,'اكتمل الحفظ — راجع الأوراق بالترتيب');
+   if(!results.length)throw new Error('لم يتم العثور على أوراق قابلة للمعالجة.');
+   setProgress(98,'حفظ دفعة من '+ar(results.length)+' ورقة…');await window.NafesScanJournal.upload(results,inputFiles);setProgress(100,'اكتمل الحفظ — '+ar(results.length)+' ورقة جاهزة للمراجعة');
  }catch(e){setProgress(0,'تعذر التحليل: '+e.message);}
- finally{processing=false;$('processBtn').disabled=!file;$('clearBtn').disabled=false;$('fileInput').disabled=false;}
+ finally{processing=false;$('processBtn').disabled=!files.length;$('clearBtn').disabled=false;$('fileInput').disabled=false;}
 }
 async function init(){
  draft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(null));if(!draft){$('noDraft').classList.remove('hidden');$('processBtn').disabled=true;return;}const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'},subs=(Array.isArray(draft.subjects)&&draft.subjects.length?draft.subjects:[draft.subject]).filter(Boolean);$('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+subs.map(x=>subjectNames[x]||x).join(' + ')+' · '+(draft.assignments?.length||0)+' طالب';
  if(!NafesTeacher?.getKey())NafesTeacher.requireKey('أدخل مفتاح المعلم لرفع أوراق الطلاب وتصحيحها.');
  try{await window.NafesScanJournal.init(draft);}catch(e){setProgress(0,'تعذر تحميل جلسات المراجعة: '+e.message);}
 }
-$('fileInput').addEventListener('change',e=>{file=e.target.files?.[0]||null;$('processBtn').disabled=!file;$('dropzone').querySelector('b').textContent=file?file.name:'اختر PDF أو اسحبه هنا';});
-$('processBtn').onclick=processFile;$('clearBtn').onclick=()=>{file=null;$('fileInput').value='';$('processBtn').disabled=true;$('dropzone').querySelector('b').textContent='اختر PDF أو اسحبه هنا';$('progressWrap').classList.add('hidden');};
-['dragenter','dragover'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{e.preventDefault();$('dropzone').classList.add('drag');}));['dragleave','drop'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{$('dropzone').classList.remove('drag');if(ev==='drop'){e.preventDefault();if(processing||window.NafesScanJournal.isBusy())return;file=e.dataTransfer.files?.[0]||null;$('processBtn').disabled=!file;$('dropzone').querySelector('b').textContent=file?file.name:'اختر PDF أو اسحبه هنا';}}));
+function setFiles(list){
+ files=Array.from(list||[]).filter(f=>/\.(pdf|jpe?g|png|tiff?)$/i.test(f.name)||['application/pdf','image/jpeg','image/png','image/tiff'].includes(f.type));
+ $('processBtn').disabled=!files.length;
+ $('dropzone').querySelector('b').textContent=files.length?(files.length===1?files[0].name:ar(files.length)+' ملفات في الدفعة'):'اختر PDF أو صورًا متعددة أو اسحبها هنا';
+}
+$('fileInput').addEventListener('change',e=>setFiles(e.target.files));
+$('processBtn').onclick=processFile;$('clearBtn').onclick=()=>{files=[];$('fileInput').value='';$('processBtn').disabled=true;$('dropzone').querySelector('b').textContent='اختر PDF أو صورًا متعددة أو اسحبها هنا';$('progressWrap').classList.add('hidden');};
+['dragenter','dragover'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{e.preventDefault();$('dropzone').classList.add('drag');}));['dragleave','drop'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{$('dropzone').classList.remove('drag');if(ev==='drop'){e.preventDefault();if(processing||window.NafesScanJournal.isBusy())return;setFiles(e.dataTransfer.files);}}));
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();});
 init();
 })();
