@@ -150,7 +150,7 @@ async function startDemoDirect(){
   clearDraft();
   saveLocal();
   if(state.submitted)showResult(state);
-  else{render();clearInterval(timer);timer=setInterval(tick,1000);if(recoveredDraft?.finish_requested)queueMicrotask(retryPendingFinish);}
+  else{render();clearInterval(timer);timer=setInterval(tick,1000);}
   $('message').textContent='';
   return true;
  }catch(e){
@@ -229,7 +229,7 @@ $('identity').onsubmit=async e=>{
   try{sessionStorage.setItem(identityKey,JSON.stringify({name,class:cls}));}catch(_){}
   saveLocal();
   if(state.submitted)showResult(state);
-  else{render();clearInterval(timer);timer=setInterval(tick,1000);}
+  else{render();clearInterval(timer);timer=setInterval(tick,1000);if(recoveredDraft?.finish_requested)queueMicrotask(retryPendingFinish);}
  }catch(e){$('message').textContent=e.message;lockRelease?.();locked=false;}
  finally{btn.disabled=false;starting=false;}
 };
