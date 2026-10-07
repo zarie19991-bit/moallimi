@@ -36,17 +36,31 @@ function writeDraft(extra={}){
     ...extra
   };
   localStorage.setItem(draftKey,JSON.stringify(record));
+  window.NafesDurableStore?.put(draftKey,record).catch(()=>{});
  }catch(_){}
 }
-function clearDraft(){try{localStorage.removeItem(draftKey);}catch(_){}}
-function restoreDraft(){
- const d=readDraft();
+function clearDraft(){try{localStorage.removeItem(draftKey);}catch(_){}window.NafesDurableStore?.remove(draftKey).catch(()=>{});}
+async function readDurableDraft(){
+ const local=readDraft();
+ if(local)return local;
+ try{
+  const d=await window.NafesDurableStore?.get(draftKey);
+  if(!d?.attempt_id)return null;
+  const stale=Date.now()-Number(d.saved_at||0)>RESUME_MARKER_MAX_AGE;
+  const expired=d.expires_at&&Date.now()>new Date(d.expires_at).getTime()+5*60*1000;
+  if(stale||expired){window.NafesDurableStore?.remove(draftKey).catch(()=>{});return null;}
+  try{localStorage.setItem(draftKey,JSON.stringify(d));}catch(_){}
+  return d;
+ }catch(_){return null;}
+}
+async function restoreDraft(){
+ const d=await readDurableDraft();
  if(!d||!state?.attempt_id||d.attempt_id!==state.attempt_id)return null;
  const localAnswers=d.answers&&typeof d.answers==='object'?d.answers:{};
  const before=JSON.stringify(answers);
  answers={...answers,...localAnswers};
  if(Number(d.current_section)===Number(state.current_section)&&Number.isInteger(Number(d.cursor)))cursor=Math.max(0,Number(d.cursor));
- if(JSON.stringify(answers)!==before)queueDeliveryEvent('draft_restored',{action_name:'local_restore'});
+ if(JSON.stringify(answers)!==before)queueDeliveryEvent('draft_restored',{action_name:'indexeddb_restore'});
  return d;
 }
 function readDeliveryQueue(){try{const q=JSON.parse(localStorage.getItem(deliveryQueueKey)||'[]');return Array.isArray(q)?q.slice(-100):[];}catch(_){return[];}}
@@ -135,7 +149,7 @@ function restoreIdentity(){try{
  }
  return !!demo;
 }catch(_){return false;} }
-async function resumeAttempt(){const saved=readResume();if(!saved)return false;try{await claim();access=saved.access_token;state={attempt_id:saved.attempt_id};const d=await api('assessment_resume',{attempt_id:saved.attempt_id,access_token:saved.access_token});state={...state,...d};access=d.access_token||access;answers=d.answers||{};cursor=d.cursor||0;const recoveredDraft=restoreDraft();saveLocal();if(state.submitted){showResult(state);}else{render();clearInterval(timer);timer=setInterval(tick,1000);if(recoveredDraft?.finish_requested)queueMicrotask(retryPendingFinish);}$('message').textContent='';return true;}catch(e){clearResume();lockRelease?.();locked=false;$('message').textContent='تعذر استعادة المحاولة السابقة تلقائيًا. تحقق من بياناتك ثم ادخل الاختبار مرة واحدة.';return false;}}
+async function resumeAttempt(){const saved=readResume();if(!saved)return false;try{await claim();access=saved.access_token;state={attempt_id:saved.attempt_id};const d=await api('assessment_resume',{attempt_id:saved.attempt_id,access_token:saved.access_token});state={...state,...d};access=d.access_token||access;answers=d.answers||{};cursor=d.cursor||0;const recoveredDraft=await restoreDraft();saveLocal();if(state.submitted){showResult(state);}else{render();clearInterval(timer);timer=setInterval(tick,1000);if(recoveredDraft?.finish_requested)queueMicrotask(retryPendingFinish);}$('message').textContent='';return true;}catch(e){clearResume();lockRelease?.();locked=false;$('message').textContent='تعذر استعادة المحاولة السابقة تلقائيًا. تحقق من بياناتك ثم ادخل الاختبار مرة واحدة.';return false;}}
 async function startDemoDirect(){
  if(!/^\d{6}$/.test(demoAccessCode))return false;
  clearResume();
@@ -225,7 +239,7 @@ $('identity').onsubmit=async e=>{
   await claim();
   state=await api('assessment_start',{student_name:name,student_no:no,national_id_last3:no,class_name:cls});
   access=state.access_token||'';answers=state.answers||{};cursor=state.cursor||0;
-  const recoveredDraft=restoreDraft();
+  const recoveredDraft=await restoreDraft();
   try{sessionStorage.setItem(identityKey,JSON.stringify({name,class:cls}));}catch(_){}
   saveLocal();
   if(state.submitted)showResult(state);
