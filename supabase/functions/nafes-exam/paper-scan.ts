@@ -31,7 +31,9 @@ export function classifyAnswer(raw:Row,key:Row,index:number){
  const correctIndex=Number.isInteger(key?.correct_index)&&key.correct_index>=0&&key.correct_index<4?key.correct_index:null;
  const marked=Array.isArray(raw?.marked)?[...new Set(raw.marked.filter((x:any)=>Number.isInteger(x)&&x>=0&&x<4))]:selected===null?[]:[selected];
  const state=status==='multiple'||marked.length>1?'multiple':status==='blank'?'blank':status!=='clear'||selected===null||correctIndex===null?'uncertain':selected===correctIndex?'correct':'incorrect';
- return {question:index+1,selected,marked,status,state,correct_index:correctIndex,correct:state==='correct',indicator:String(key?.indicator||''),confidence:Math.max(0,Math.min(1,Number(raw?.confidence)||0))};
+ const scores=Array.isArray(raw?.scores)?raw.scores.slice(0,4).map((x:any)=>finite(x,-1,1)):null;
+ return {question:index+1,selected,marked,status,state,correct_index:correctIndex,correct:state==='correct',indicator:String(key?.indicator||''),confidence:Math.max(0,Math.min(1,Number(raw?.confidence)||0)),
+   scores,top_score:finite(raw?.topScore,-1,1),second_score:finite(raw?.secondScore,-1,1),separation:finite(raw?.separation,0,2),threshold:finite(raw?.threshold,-1,1)};
 }
 async function reviewFor(db:any,b:Row,owner:Row){
  let q=db.from('nafes_paper_reviews').select('*').eq('review_id',String(b.review_id||''));
