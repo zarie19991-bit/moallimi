@@ -113,10 +113,10 @@ function normalizeOrientation(c){
  }
  return{canvas:out,qr};
 }
-function integralDark(d){
+function integralDark(d,threshold=158){
  const w=d.width,h=d.height,ii=new Uint32Array((w+1)*(h+1));
- for(let y=1;y<=h;y++){let row=0;for(let x=1;x<=w;x++){const i=((y-1)*w+(x-1))*4;const gray=(d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114);row+=gray<105?1:0;ii[y*(w+1)+x]=ii[(y-1)*(w+1)+x]+row;}}
- return{ii,w,h};
+ for(let y=1;y<=h;y++){let row=0;for(let x=1;x<=w;x++){const i=((y-1)*w+(x-1))*4;const gray=(d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114);row+=gray<threshold?1:0;ii[y*(w+1)+x]=ii[(y-1)*(w+1)+x]+row;}}
+ return{ii,w,h,threshold};
 }
 function rectSum(I,x,y,w,h){const W=I.w+1,x1=Math.max(0,x),y1=Math.max(0,y),x2=Math.min(I.w,x+w),y2=Math.min(I.h,y+h);return I.ii[y2*W+x2]-I.ii[y1*W+x2]-I.ii[y2*W+x1]+I.ii[y1*W+x1];}
 function markerWorkCanvas(src){
@@ -128,13 +128,23 @@ function markerWorkCanvas(src){
  return{canvas:c,sx:src.width/c.width,sy:src.height/c.height};
 }
 function markerCandidates(c){
- const d=imageData(c),I=integralDark(d),raw=[];
+ const d=imageData(c);
+ // Phone photos flatten black ink into gray. Estimate paper brightness from the upper half
+ // and use a relative threshold, clamped to a safe range, instead of assuming pure black.
+ const sample=[];
+ const step=Math.max(8,Math.floor(Math.min(c.width,c.height)/120));
+ for(let y=0;y<Math.floor(c.height*.78);y+=step)for(let x=0;x<c.width;x+=step){
+   const i=(y*c.width+x)*4,g=d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114;
+   if(g>90)sample.push(g);
+ }
+ const paper=sample.length?median(sample):190,inkThreshold=Math.max(140,Math.min(175,paper-10));
+ const I=integralDark(d,inkThreshold),raw=[];
  const sizes=[.007,.010,.013,.017,.022,.028].map(f=>Math.max(7,Math.round(I.w*f)));
  for(const size of sizes){
    const half=Math.floor(size/2),step=Math.max(3,Math.floor(size/2));
    for(let y=half;y<I.h-half;y+=step)for(let x=half;x<I.w-half;x+=step){
      const score=rectSum(I,x-half,y-half,size,size)/(size*size);
-     if(score>=.70)raw.push({x,y,size,score});
+     if(score>=.62)raw.push({x,y,size,score});
    }
  }
  raw.sort((a,b)=>b.score-a.score);
