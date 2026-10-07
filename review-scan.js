@@ -155,6 +155,47 @@ function markerCandidates(c){
  }
  return out;
 }
+function findTemplateSquare(I,zone,expectX,expectY){
+ const sizes=[.007,.010,.013,.017,.022].map(f=>Math.max(7,Math.round(I.w*f)));
+ let best=null;
+ for(const size of sizes){
+   const half=Math.floor(size/2),step=Math.max(2,Math.floor(size/3));
+   const x0=Math.max(half,Math.floor(I.w*zone[0])),x1=Math.min(I.w-half,Math.ceil(I.w*zone[1]));
+   const y0=Math.max(half,Math.floor(I.h*zone[2])),y1=Math.min(I.h-half,Math.ceil(I.h*zone[3]));
+   for(let y=y0;y<=y1;y+=step)for(let x=x0;x<=x1;x+=step){
+     const core=rectSum(I,x-half,y-half,size,size)/(size*size);
+     if(core<.58)continue;
+     const prox=Math.abs(x/I.w-expectX)*.55+Math.abs(y/I.h-expectY)*.8;
+     const score=core-prox;
+     if(!best||score>best.score)best={x,y,size,score,core};
+   }
+ }
+ return best;
+}
+function detectTemplateMarkerSet(src){
+ const prep=markerWorkCanvas(src),c=prep.canvas,d=imageData(c);
+ const sample=[],step=Math.max(8,Math.floor(Math.min(c.width,c.height)/120));
+ for(let y=0;y<Math.floor(c.height*.80);y+=step)for(let x=0;x<c.width;x+=step){
+   const i=(y*c.width+x)*4,g=d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114;
+   if(g>85)sample.push(g);
+ }
+ const paper=sample.length?median(sample):170,thr=Math.max(125,Math.min(170,paper-8)),I=integralDark(d,thr);
+ const tl=findTemplateSquare(I,[.025,.16,.39,.53],.08,.46);
+ const tr=findTemplateSquare(I,[.74,.93,.38,.52],.83,.45);
+ if(!tl||!tr)return null;
+ const dx=tr.x-tl.x;if(dx<c.width*.55)return null;
+ const target=(NafesOmrTemplate.markers.tr[0]-NafesOmrTemplate.markers.tl[0])/(NafesOmrTemplate.markers.bl[1]-NafesOmrTemplate.markers.tl[1]);
+ const dy=dx/target,by=((tl.y+tr.y)/2)+dy;
+ const bl=findTemplateSquare(I,[Math.max(0,tl.x/c.width-.065),Math.min(.30,tl.x/c.width+.065),Math.max(.54,by/c.height-.075),Math.min(.88,by/c.height+.075)],tl.x/c.width,by/c.height);
+ const br=findTemplateSquare(I,[Math.max(.65,tr.x/c.width-.07),Math.min(1,tr.x/c.width+.07),Math.max(.54,by/c.height-.075),Math.min(.88,by/c.height+.075)],tr.x/c.width,by/c.height);
+ if(!bl||!br)return null;
+ const topDx=tr.x-tl.x,bottomDx=br.x-bl.x,leftDy=bl.y-tl.y,rightDy=br.y-tr.y;
+ if(topDx<=0||bottomDx<=0||leftDy<=0||rightDy<=0)return null;
+ const aspect=((topDx+bottomDx)/2)/((leftDy+rightDy)/2),aspectErr=Math.abs(Math.log(aspect/target));
+ if(aspectErr>.42)return null;
+ const scale=p=>({x:p.x*prep.sx,y:p.y*prep.sy,score:Math.max(.70,Math.min(1,p.core))});
+ return{tl:scale(tl),tr:scale(tr),bl:scale(bl),br:scale(br)};
+}
 function detectMarkerSets(src){
  const prep=markerWorkCanvas(src),c=prep.canvas,cands=markerCandidates(c),rows=[],T=NafesOmrTemplate.markers,target=(T.tr[0]-T.tl[0])/(T.bl[1]-T.tl[1]);
  for(let i=0;i<cands.length;i++)for(let j=i+1;j<cands.length;j++){
@@ -193,7 +234,7 @@ function detectMarkerSets(src){
  })).sort((a,b)=>Math.min(a.tl.y,a.tr.y)-Math.min(b.tl.y,b.tr.y)||Math.min(a.tl.x,a.bl.x)-Math.min(b.tl.x,b.bl.x));
 }
 function detectMarkers(c){
- const pts=detectMarkerSets(c)[0];if(!pts)return null;
+ const pts=detectTemplateMarkerSet(c)||detectMarkerSets(c)[0];if(!pts)return null;
  return{...pts,image:imageData(c)};
 }
 function mapTemplate(markers,x,y){
