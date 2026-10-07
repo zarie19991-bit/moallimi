@@ -9,7 +9,7 @@
   const ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
   const QA_ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-qa-teacher';
   const PROFILE_ENDPOINT = 'https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-teacher-profile';
-  const READ_ACTIONS = new Set(['teacher_data', 'teacher_students_list', 'teacher_subject_teachers']);
+  const READ_ACTIONS = new Set(['teacher_data', 'teacher_students_list', 'teacher_subject_teachers', 'teacher_delivery_health']);
   const READ_CACHE_TTL = 15000;
   const SUBJECTS = new Set(['reading','math','science']);
   const readCache = new Map();
