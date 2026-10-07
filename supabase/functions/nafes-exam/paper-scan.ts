@@ -46,6 +46,15 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  const {session}=await scanSession(db,b,owner);
  if(b.action==='teacher_scan_list')return {ok:true,session:publicSession(session),sheets:must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'))};
+ if(b.action==='teacher_scan_finalize_upload'){
+   const actual=Number(b.actual_count);
+   if(!Number.isInteger(actual)||actual<1||actual>200)fail('عدد الأوراق النهائي غير صالح.');
+   const rows=must(await db.from('nafes_scan_sheets').select('id,ordinal').eq('session_id',session.id).order('ordinal'));
+   if(rows.length!==actual)fail('عدد الأوراق المحفوظة لا يطابق العدد النهائي.',409);
+   if(rows.some((r:Row,i:number)=>Number(r.ordinal)!==i+1))fail('ترتيب الأوراق المحفوظة غير متسلسل.',409);
+   const updated=must(await db.from('nafes_scan_sessions').update({expected_count:actual,completed_at:null}).eq('id',session.id).select('*').single());
+   return {ok:true,session:publicSession(updated),sheets:must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'))};
+ }
  if(b.action==='teacher_scan_register'){
    const raw=b.sheet||{},p=session.review_snapshot;
    if(!Number.isInteger(raw.ordinal)||raw.ordinal<1||raw.ordinal>session.expected_count)fail('رقم الورقة غير صالح.');
