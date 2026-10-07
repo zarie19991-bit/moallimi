@@ -52,3 +52,46 @@ body.no-copy #questions,body.no-copy #questionCard{-webkit-user-select:none;user
   #player .choice .text{font-size:15px!important;line-height:1.8!important}
   #watermark{grid-template-columns:repeat(2,1fr)}
 }
+
+
+/* Student growth + academic integrity gate */
+.growth-purpose-note{
+  margin:16px 0 18px;padding:16px 18px;border-radius:18px;background:#eef8f4;border:1px solid #cfe8de;
+  color:#173f37;display:grid;gap:6px;line-height:1.8
+}
+.growth-purpose-note b{font-size:17px}
+.growth-purpose-note span{font-size:14px;color:#4b665f}
+.pre-exam-gate[hidden]{display:none!important}
+.pre-exam-gate{position:fixed;inset:0;z-index:1000;background:rgba(12,31,36,.58);display:grid;place-items:center;padding:18px}
+.pre-exam-card{width:min(720px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:26px;padding:28px;border:1px solid #d9ebe4;box-shadow:0 24px 70px rgba(9,35,31,.24)}
+.pre-exam-kicker{display:inline-flex;align-items:center;gap:8px;padding:6px 11px;border-radius:999px;background:#eef8f4;color:#14624f;font-size:13px;font-weight:700}
+.pre-exam-card h2{margin:14px 0 8px;font-size:27px!important;color:#163b34}
+.pre-exam-message{font-size:19px;line-height:1.9;font-weight:700;color:#183c36;margin:0 0 12px}
+.pre-exam-tip{margin:0 0 18px;padding:11px 13px;border-radius:14px;background:#f6faf8;color:#4a635d;font-size:14px;line-height:1.8}
+.readiness-label{display:block;margin:18px 0 9px;font-weight:800;color:#234b43}
+.readiness-choices{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.readiness-choice{border:1px solid #cdded8;background:#fff;color:#24473f;border-radius:14px;min-height:48px;font-weight:700;cursor:pointer}
+.readiness-choice.is-selected{border-color:#17745d;background:#eaf7f2;color:#0d5d49;box-shadow:0 0 0 2px rgba(23,116,93,.08)}
+.integrity-box{margin-top:18px;padding:15px 16px;border:1px solid #d8e7e2;border-radius:16px;background:#fbfdfc;display:flex;gap:11px;align-items:flex-start;line-height:1.8;color:#314e47}
+.integrity-box input{width:20px;height:20px;margin-top:4px;accent-color:#146b55;flex:0 0 auto}
+.integrity-box b{display:block;color:#173f37}
+.pre-exam-actions{display:flex;gap:10px;margin-top:20px}
+.pre-exam-actions button{min-height:50px;border-radius:14px;font-weight:800;padding:0 18px}
+.pre-exam-start{background:#126b54;color:#fff;border:0;flex:1}
+.pre-exam-start:disabled{opacity:.45;cursor:not-allowed}
+.pre-exam-edit{background:#fff;color:#31574e;border:1px solid #cbded7}
+.growth-feedback-card{margin:16px 0 18px;padding:18px 20px;border-radius:18px;border:1px solid #cee5dc;background:#f3faf7;text-align:right}
+.growth-feedback-card .growth-label{font-size:13px;font-weight:800;color:#2b6858;margin-bottom:6px}
+.growth-feedback-card h2{font-size:21px!important;margin:0 0 7px!important;color:#173e35}
+.growth-feedback-card p{margin:0;line-height:1.9;color:#385950;font-size:15px}
+.growth-feedback-card strong{color:#0d604b}
+.growth-feedback-card.growth-reinforcement{background:#fffaf0;border-color:#eadcb7}
+.growth-feedback-card.growth-enrichment{background:#f1f7ff;border-color:#cfdef1}
+@media(max-width:640px){
+  .pre-exam-card{padding:20px 16px;border-radius:20px}
+  .pre-exam-card h2{font-size:23px!important}
+  .pre-exam-message{font-size:17px}
+  .readiness-choices{grid-template-columns:1fr}
+  .pre-exam-actions{flex-direction:column}
+  .pre-exam-edit{order:2}
+}
