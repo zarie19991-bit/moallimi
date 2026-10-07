@@ -59,6 +59,23 @@
     <div id="summaryCards" class="summary-grid"></div>
   </section>
 
+  <section id="qualitySection" class="card hidden">
+    <header class="section-head">
+      <div>
+        <h2>تقرير التحقق قبل المراجعة</h2>
+        <p>يصنف النظام الأوراق حسب خطورة القراءة ويعرض سبب الشك قبل أي اعتماد يدوي. الهدف التشغيلي للدقة 99.5% ولا يُعد متحققًا إلا بعد اختبار مرجعي موثق.</p>
+      </div>
+      <div class="actions"><button id="qualityExportBtn" class="secondary" type="button">تصدير تقرير الجودة CSV</button></div>
+    </header>
+    <div id="qualityCards" class="summary-grid"></div>
+    <div class="table-wrap quality-table-wrap">
+      <table>
+        <thead><tr><th>الطالب</th><th>النموذج</th><th>الدرجة الحالية</th><th>الخطورة</th><th>جودة القراءة</th><th>سبب المراجعة</th><th>الإجراء</th></tr></thead>
+        <tbody id="qualityBody"></tbody>
+      </table>
+    </div>
+  </section>
+
   <section id="resultsSection" class="card hidden">
     <header class="section-head">
       <div><h2>٢. مراجعة الأوراق</h2><p>تحقق من كل ورقة بالترتيب. يمكنك تعديل أي إجابة؛ يحفظ السجل القراءة الأصلية وتعديلاتك.</p></div>
@@ -109,7 +126,7 @@
 <script src="review-omr-template.js?v=20261001-v3"></script>
 <script src="teacher-access.js?v=20260920-scope5"></script>
 <script src="review-draft-sync.js?v=20260930-2"></script>
-<script src="review-scan-journal.js?v=20261007-autocal21"></script>
-<script src="review-scan.js?v=20261007-autocal21"></script>
+<script src="review-scan-journal.js?v=20261007-quality22"></script>
+<script src="review-scan.js?v=20261007-quality22"></script>
 </body>
 </html>
