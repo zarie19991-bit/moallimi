@@ -57,7 +57,8 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  if(b.action==='teacher_scan_register'){
    const raw=b.sheet||{},p=session.review_snapshot;
-   if(!Number.isInteger(raw.ordinal)||raw.ordinal<1||raw.ordinal>session.expected_count)fail('رقم الورقة غير صالح.');
+   if(!Number.isInteger(raw.ordinal)||raw.ordinal<1||raw.ordinal>200)fail('رقم الورقة غير صالح.');
+   if(raw.ordinal>session.expected_count)must(await db.from('nafes_scan_sessions').update({expected_count:raw.ordinal,completed_at:null}).eq('id',session.id).select('id').single());
    if(typeof raw.image_data!=='string'||raw.image_data.length>2000000||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(raw.image_data))fail('صورة الورقة غير صالحة أو كبيرة جدًا.');
    const assignment=(p.assignments||[]).find((a:Row)=>Number(a.sheet_no)===raw.sheet_no);
    const valid=!!assignment&&uuid(assignment.student_id)&&raw.qr_valid===true&&raw.model===assignment.model;
