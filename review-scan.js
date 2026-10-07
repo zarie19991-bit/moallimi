@@ -287,6 +287,17 @@ function setFiles(list){
 $('fileInput').addEventListener('change',e=>setFiles(e.target.files));
 $('processBtn').onclick=processFile;$('clearBtn').onclick=()=>{files=[];$('fileInput').value='';$('processBtn').disabled=true;$('dropzone').querySelector('b').textContent='اختر PDF أو صورًا متعددة أو اسحبها هنا';$('progressWrap').classList.add('hidden');};
 ['dragenter','dragover'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{e.preventDefault();$('dropzone').classList.add('drag');}));['dragleave','drop'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{$('dropzone').classList.remove('drag');if(ev==='drop'){e.preventDefault();if(processing||window.NafesScanJournal.isBusy())return;setFiles(e.dataTransfer.files);}}));
+async function canvasFromDataUrl(src){
+ const img=new Image();img.decoding='async';
+ await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('تعذر فتح صورة الورقة المحفوظة.'));img.src=src;});
+ const c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
+ c.getContext('2d',{willReadFrequently:true}).drawImage(img,0,0);return c;
+}
+async function decodeStoredIdentity(src){
+ const c=await canvasFromDataUrl(src),normed=normalizeOrientation(c),q=parseQr(normed.qr?.data||'');
+ c.width=1;c.height=1;return q;
+}
+window.NafesScanReader={decodeStoredIdentity};
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();});
 init();
 })();
