@@ -4,6 +4,7 @@ const $=id=>document.getElementById(id),ar=n=>new Intl.NumberFormat('ar-SA').for
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={blank:'غير محلول',multiple:'إجابات متعددة',correct:'صحيح مؤكد',incorrect:'إجابة خاطئة',uncertain:'قراءة غير مؤكدة'};
 const letters=['أ','ب','ج','د'];
+const OMR_POLICY='calibrated_homography_localfill_v3';
 let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
@@ -95,11 +96,12 @@ async function recoverIdentity(sheetId){
  }catch(e){message('تعذر استعادة الاسم تلقائيًا: '+e.message,true);}
  finally{lock(false);}
 }
-async function rereadAllStrict(){
+async function rereadAllStrict(options={}){
  if(busy)return;
- if(!confirm('سيعاد تحليل التظليل لكل ورقة ذات هوية مؤكدة بخوارزمية صارمة. أي إجابة غير مؤكدة لن تُحتسب تلقائيًا. هل تريد المتابعة؟'))return;
+ const auto=options.auto===true,onlyStale=options.onlyStale===true;
+ if(!auto&&!confirm('سيعاد تحليل التظليل لكل ورقة ذات هوية مؤكدة بالقارئ المُعاير على نموذج الورقة الفعلي. هل تريد المتابعة؟'))return;
  lock(true);
- let processed=0,skippedIdentity=0,uncertainSheets=0,failed=0,failSamples=[];
+ let processed=0,alreadyCurrent=0,skippedIdentity=0,uncertainSheets=0,failed=0,failSamples=[];
  try{
    const sr=await api('teacher_scan_sessions'),sessionsList=sr.sessions||[];
    for(let si=0;si<sessionsList.length;si++){
@@ -108,21 +110,35 @@ async function rereadAllStrict(){
      for(let i=0;i<list.length;i++){
        const sh=list[i],eff=effective(sh);
        if(eff?.identity_valid!==true||!sh.student_id){skippedIdentity++;continue;}
+       if(onlyStale&&eff?.omr_policy===OMR_POLICY){alreadyCurrent++;continue;}
        try{
-         message('إعادة قراءة دقيقة: '+ar(processed+1)+' · الورقة '+ar(i+1)+' من '+ar(list.length)+' · الجلسة '+ar(si+1)+' من '+ar(sessionsList.length));
+         message('تطبيق قارئ التظليل المُعاير: '+ar(processed+failed+1)+' · الورقة '+ar(i+1)+' من '+ar(list.length)+' · الجلسة '+ar(si+1)+' من '+ar(sessionsList.length));
          const im=await api('teacher_scan_image',{session_id:sid,sheet_id:sh.id});
          const rr=await window.NafesScanReader.readStoredOmr(im.image_data,Number(eff.total||draft.question_count||0),Number(draft.question_start||1));
-         const saved=await api('teacher_scan_reclassify',{session_id:sid,sheet_id:sh.id,answer_version:sh.answer_version||0,answers:rr.answers,markers_ok:rr.markers_ok,marker_confidence:rr.marker_confidence});
+         const saved=await api('teacher_scan_reclassify',{
+           session_id:sid,sheet_id:sh.id,answer_version:sh.answer_version||0,
+           answers:rr.answers,markers_ok:rr.markers_ok,marker_confidence:rr.marker_confidence,
+           detector:rr.detector,marker_points:rr.marker_points
+         });
          processed++;if(Number(saved.unresolved||0)>0)uncertainSheets++;
-       }catch(e){failed++;if(failSamples.length<8)failSamples.push((eff?.student_name||('ورقة '+(i+1)))+': '+(e?.message||String(e)));}
+       }catch(e){
+         failed++;
+         if(failSamples.length<8)failSamples.push((eff?.student_name||('ورقة '+(i+1)))+': '+(e?.message||String(e)));
+       }
+       if(((processed+failed)%5)===0)await new Promise(res=>setTimeout(res,0));
      }
    }
    reviewInventory=[];selected.clear();
    if(session?.id){
      const fresh=await api('teacher_scan_list',{session_id:session.id});session=fresh.session;sheets=fresh.sheets||[];render();
    }
-   message('اكتملت إعادة القراءة: '+ar(processed)+' من '+ar(processed+failed+skippedIdentity)+' ورقة. نجح '+ar(processed)+'، فشل '+ar(failed)+'، هوية غير مؤكدة '+ar(skippedIdentity)+(failSamples.length?' · أمثلة الفشل: '+failSamples.join(' | '):''),failed>0);
- }catch(e){message('تعذرت إعادة القراءة الشاملة: '+e.message,true);}
+   const totalTried=processed+failed;
+   message('نتيجة تطبيق قارئ التظليل: نجح '+ar(processed)+' من '+ar(totalTried)+' ورقة أُعيدت قراءتها'+
+     (alreadyCurrent?' · '+ar(alreadyCurrent)+' محدثة سابقًا':'')+
+     ' · '+ar(skippedIdentity)+' هوية غير مؤكدة'+
+     (uncertainSheets?' · '+ar(uncertainSheets)+' بها حالات تحتاج مراجعة':'')+
+     (failSamples.length?' · أسباب فشل: '+failSamples.join(' | '):''),failed>0);
+ }catch(e){message('تعذر تطبيق قارئ التظليل: '+e.message,true);}
  finally{lock(false);}
 }
 async function assignIdentity(){
@@ -337,9 +353,24 @@ async function report(){
  download(rows,'تقرير-مراجعة-الأوراق.csv');
  }catch(e){message('تعذر استخراج التقرير: '+e.message,true);}
 }
-async function init(p){draft=p;clearInterval(poll);await sessions();await refreshAlerts();await refreshDeletionLog();poll=setInterval(()=>{if(!document.hidden&&!busy){refreshAlerts();refreshDeletionLog();}},10000);}
+async function init(p){
+ draft=p;clearInterval(poll);
+ const sr=await api('teacher_scan_sessions');
+ $('sessionPicker').innerHTML='<option value="">اختر جلسة محفوظة…</option>'+(sr.sessions||[]).map(x=>'<option value="'+x.id+'">'+new Date(x.created_at).toLocaleString('ar-SA')+' · '+ar(x.expected_count)+' ورقة · '+(x.completed_at?'منتهية':'مفتوحة')+'</option>').join('');
+ if((sr.sessions||[]).length){
+   const latest=sr.sessions[0];session={id:latest.id};
+   const lr=await api('teacher_scan_list',{session_id:latest.id});session=lr.session;sheets=lr.sheets||[];active=-1;imageCache.clear();render();
+   const stale=sheets.filter(sh=>{const e=effective(sh);return e?.identity_valid===true&&sh.student_id&&e?.omr_policy!==OMR_POLICY;}).length;
+   if(stale){
+     message('يوجد '+ar(stale)+' ورقة تحتاج تطبيق قارئ التظليل المُعاير؛ سيبدأ التحديث تلقائيًا.');
+     setTimeout(()=>rereadAllStrict({auto:true,onlyStale:true}),150);
+   }else message('قارئ التظليل المُعاير مطبق على جميع الأوراق ذات الهوية المؤكدة.');
+ }
+ await refreshAlerts();await refreshDeletionLog();
+ poll=setInterval(()=>{if(!document.hidden&&!busy){refreshAlerts();refreshDeletionLog();}},10000);
+}
 $('answerEditor').onclick=e=>{const b=e.target.closest('[data-edit-question]');if(b&&!b.disabled)editAnswer(Number(b.dataset.editQuestion),b.dataset.choice);};
-$('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;$('rereadAllBtn').onclick=rereadAllStrict;
+$('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;$('rereadAllBtn').onclick=()=>rereadAllStrict({auto:false,onlyStale:false});
 $('loadEditHistoryBtn').onclick=editHistory;
 $('saveSheetBtn').onclick=verify;$('nextSheetBtn').onclick=()=>open(active+1);$('finishReviewBtn').onclick=finish;
 $('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>open(Math.max(0,firstPending()));
