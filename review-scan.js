@@ -29,6 +29,26 @@ function scaledCanvas(src,maxW=1200){
  const scale=maxW/src.width,c=document.createElement('canvas');c.width=Math.max(1,Math.round(src.width*scale));c.height=Math.max(1,Math.round(src.height*scale));
  c.getContext('2d',{willReadFrequently:true}).drawImage(src,0,0,c.width,c.height);return c;
 }
+function resizeCanvas(src,targetW=1000){
+ const scale=targetW/src.width,c=document.createElement('canvas');
+ c.width=Math.max(1,Math.round(src.width*scale));c.height=Math.max(1,Math.round(src.height*scale));
+ const g=c.getContext('2d',{willReadFrequently:true});g.imageSmoothingEnabled=false;g.drawImage(src,0,0,c.width,c.height);return c;
+}
+function qrTemplateCrops(src){
+ const w=src.width,h=src.height,out=[];
+ // Current printed template: QR sits in the upper-left header block.
+ const specs=[
+   [0,0,.34,.25],
+   [0,0,.28,.22],
+   [0,.02,.24,.20],
+   [.01,.01,.20,.18]
+ ];
+ for(const [xf,yf,wf,hf] of specs){
+   const c=cropCanvas(src,Math.round(w*xf),Math.round(h*yf),Math.round(w*wf),Math.round(h*hf));
+   out.push(resizeCanvas(c,900),resizeCanvas(c,1400));
+ }
+ return out;
+}
 function thresholdCanvas(src,threshold=176){
  const base=scaledCanvas(src,1200),d=imageData(base),o=document.createElement('canvas');o.width=base.width;o.height=base.height;
  const g=o.getContext('2d',{willReadFrequently:true}),out=g.createImageData(o.width,o.height);
@@ -40,15 +60,16 @@ function thresholdCanvas(src,threshold=176){
 }
 function qrDecode(c){
  const attempts=[],push=x=>{if(x&&x.width>40&&x.height>40)attempts.push(x);};
- const full=scaledCanvas(c,1500);push(full);
+ const full=scaledCanvas(c,1800);push(full);
  const h=full.height,w=full.width;
- // QR is printed in the header; try the full header and both header corners first.
+ // First target the exact QR zone used by the printed OMR template.
+ for(const q of qrTemplateCrops(full)){push(q);push(thresholdCanvas(q,145));push(thresholdCanvas(q,170));push(thresholdCanvas(q,200));}
+ // Then fall back to wider header/corner scans for legacy layouts.
  push(cropCanvas(full,0,0,w,Math.min(h,Math.round(h*.42))));
  push(cropCanvas(full,0,0,Math.round(w*.55),Math.min(h,Math.round(h*.42))));
  push(cropCanvas(full,Math.round(w*.45),0,Math.round(w*.55),Math.min(h,Math.round(h*.42))));
- // Handle 180-degree scans without relying on a first successful decode.
  push(cropCanvas(full,0,Math.round(h*.58),w,Math.round(h*.42)));
- push(thresholdCanvas(full,165));push(thresholdCanvas(full,195));
+ push(thresholdCanvas(full,150));push(thresholdCanvas(full,175));push(thresholdCanvas(full,205));
  for(const a of attempts){const q=qrDecodeOnce(a);if(q)return q;}
  return null;
 }
