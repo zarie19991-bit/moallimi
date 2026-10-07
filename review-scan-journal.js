@@ -100,12 +100,21 @@ async function resume(id){
  try{session={id};const r=await api('teacher_scan_list');session=r.session;sheets=r.sheets;active=-1;pending=null;imageCache.clear();render();message(ready()?'استُعيدت حالة المراجعة المحفوظة.':'الرفع غير مكتمل. أعد اختيار الملف الأصلي واضغط إعادة استكمال الرفع.');await refreshAlerts();}
  catch(e){message(e.message,true);}finally{lock(false);}
 }
-async function sha(file){const bytes=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());return [...new Uint8Array(bytes)].map(v=>v.toString(16).padStart(2,'0')).join('');}
-async function upload(data,file){
+async function shaFiles(files){
+ const list=Array.from(files||[]);if(!list.length)throw Error('لم يتم اختيار ملفات.');
+ const enc=new TextEncoder(),parts=[];
+ for(const file of list){
+   const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
+   parts.push(file.name+'|'+file.size+'|'+file.lastModified+'|'+[...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,'0')).join(''));
+ }
+ const bytes=await crypto.subtle.digest('SHA-256',enc.encode(parts.join('\n')));
+ return [...new Uint8Array(bytes)].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+async function upload(data,files){
  if(busy)throw Error('انتظر اكتمال العملية الحالية.');
  if(!data.length)throw Error('لم يتم التعرف على أي ورقة قابلة للمراجعة.');
- if(data.length>300)throw Error('الحد الأقصى ٣٠٠ ورقة في الجلسة.');
- const fileHash=await sha(file);
+ if(data.length>200)throw Error('الحد الأقصى ٢٠٠ صفحة/ورقة في الدفعة الواحدة.');
+ const fileHash=await shaFiles(files);
  // Resume only an incomplete transfer of the same file. A completed transfer is a new upload event.
  const resumeUpload=session&&!ready()&&session.file_hash===fileHash&&session.expected_count===data.length;
  const id=resumeUpload?session.id:crypto.randomUUID();
