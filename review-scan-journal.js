@@ -106,6 +106,13 @@ async function refreshDeletionLog(){
    $('deleteLog').innerHTML=deletions.length?'<summary>سجل حذف التصحيحات — أحدث '+ar(deletions.length)+' عملية</summary><div class="alert-list">'+deletions.map(d=>'<p><b>'+esc(d.student_name||'ورقة بلا اسم')+'</b> · '+new Date(d.deleted_at).toLocaleString('ar-SA')+' · '+esc(d.reason)+' · '+(d.had_published_attempt?'حُذفت النتيجة المعتمدة المرتبطة أيضًا':'لا توجد نتيجة معتمدة مرتبطة')+' <small>رقم العملية: '+esc(d.batch_id)+'</small></p>').join('')+'</div>':'<summary>لا توجد عمليات حذف مسجلة</summary>';
  }catch(e){message('تعذر تحميل سجل الحذف: '+e.message,true);}
 }
+function toggleSelectAll(){
+ if(!sheets.length){message('لا توجد أوراق في الجلسة لتحديدها.',true);return;}
+ const allSelected=sheets.every(x=>selected.has(x.id));
+ if(allSelected)selected.clear();else sheets.forEach(x=>selected.add(x.id));
+ render();
+ message(allSelected?'تم إلغاء تحديد جميع الأوراق.':'تم تحديد جميع الأوراق: '+ar(sheets.length)+' ورقة.');
+}
 async function deleteCorrections(ids){
  const unique=[...new Set((ids||[]).filter(id=>sheets.some(s=>s.id===id)))];
  if(!unique.length||busy)return;
@@ -239,17 +246,12 @@ $('resultsBody').onclick=e=>{
  const recover=e.target.closest('[data-recover-identity]');if(recover){recoverIdentity(recover.dataset.recoverIdentity);return;} const del=e.target.closest('[data-delete-sheet]');if(del)deleteCorrections([del.dataset.deleteSheet]);
 };
 $('resultsBody').onchange=e=>{const c=e.target.closest('[data-select-sheet]');if(!c)return;c.checked?selected.add(c.dataset.selectSheet):selected.delete(c.dataset.selectSheet);renderButtons();};
-$('selectAllBtn').onclick=()=>{
- const allSelected=sheets.length>0&&selected.size===sheets.length;
- if(allSelected){selected.clear();$('selectAllBtn').textContent='تحديد الكل';}
- else{sheets.forEach(x=>selected.add(x.id));$('selectAllBtn').textContent='إلغاء تحديد الكل';}
- render();
-};
+const selectAllButton=$('selectAllBtn');if(selectAllButton)selectAllButton.addEventListener('click',toggleSelectAll);
 $('deleteSelectedBtn').onclick=()=>deleteCorrections([...selected]);
 $('verifiedCheck').onchange=renderButtons;$('duplicateCheck').onchange=renderButtons;$('alertFilter').onchange=render;
 $('resumeSessionBtn').onclick=()=>resume($('sessionPicker').value);$('retryUploadBtn').onclick=()=>transfer().catch(()=>{});
 $('approveBtn').onclick=approve;$('journalExportBtn').onclick=report;$('exportBtn').onclick=report;
 $('scanImage').onclick=()=> $('scanImage').classList.toggle('zoomed');
 addEventListener('nafes:auth-changed',e=>{if(!e.detail.authenticated){clearInterval(poll);session=null;sheets=[];selected.clear();imageCache.clear();$('sheetModal').classList.add('hidden');$('resultsSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('alertLog').innerHTML='';$('deleteLog').innerHTML='';}});
-window.NafesScanJournal={init,upload,isBusy:()=>busy};
+window.NafesScanJournal={init,upload,isBusy:()=>busy,toggleSelectAll};
 })();
