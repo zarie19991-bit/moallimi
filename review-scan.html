@@ -19,8 +19,8 @@
   <section class="hero">
     <div>
       <span class="eyebrow">التصحيح الورقي الآلي</span>
-      <h1>ارفع ملف PDF واحدًا للفصل كاملًا</h1>
-      <p>تقرأ المنصة QR لكل طالب، وتحدد النموذج، ثم تقرأ التظليل وتعرض الحالات غير الواضحة قبل اعتماد النتيجة.</p>
+      <h1>ارفع دفعة واحدة حتى ٢٠٠ صفحة</h1>
+      <p>تقبل المنصة PDF وصور JPEG وPNG وTIFF ضمن دفعة واحدة، وتقرأ QR والنموذج والتظليل، ثم تعزل الحالات منخفضة الجودة أو غير الواضحة قبل اعتماد النتيجة.</p>
     </div>
     <div class="hero-badge"><b>MR2</b><span>نموذج التظليل الحالي</span></div>
   </section>
@@ -35,10 +35,11 @@
       <p>يمكن أن يحتوي كل وجه A4 على ورقتي تظليل (أعلى وأسفل)، أو تكون كل ورقة تظليل ممسوحة وحدها.</p>
     </div>
     <label class="dropzone" id="dropzone">
-      <input id="fileInput" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">
-      <b>اختر PDF أو اسحبه هنا</b>
-      <span>يفضل مسح واضح بدقة 200–300 dpi ومن دون قص حواف الورقة.</span>
+      <input id="fileInput" type="file" multiple accept="application/pdf,image/png,image/jpeg,image/tiff,.tif,.tiff">
+      <b>اختر ملفات الدفعة أو اسحبها هنا</b>
+      <span>حتى ٢٠٠ صفحة في الدفعة؛ يفضل مسح واضح بدقة 200–300 dpi ومن دون قص حواف الورقة.</span>
     </label>
+    <p id="batchMeta" class="notice" role="status" aria-live="polite">لم تُحدد دفعة بعد.</p>
     <div class="actions">
       <button id="processBtn" class="primary" type="button" disabled>بدء القراءة والتصحيح</button>
       <button id="clearBtn" class="secondary" type="button">مسح الملف</button>
@@ -104,11 +105,13 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
 
 <script src="review-omr-template.js?v=20261001-v3"></script>
 <script src="teacher-access.js?v=20260920-scope5"></script>
 <script src="review-draft-sync.js?v=20260930-2"></script>
-<script src="review-scan-journal.js?v=20261005-editable1"></script>
-<script src="review-scan.js?v=20261005-editable1"></script>
+<script src="review-scan-journal.js?v=20261007-batch200"></script>
+<script src="review-scan.js?v=20261007-batch200"></script>
 </body>
 </html>
