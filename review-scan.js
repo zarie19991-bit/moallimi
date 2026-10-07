@@ -29,6 +29,64 @@ function scaledCanvas(src,maxW=1200){
  const scale=maxW/src.width,c=document.createElement('canvas');c.width=Math.max(1,Math.round(src.width*scale));c.height=Math.max(1,Math.round(src.height*scale));
  c.getContext('2d',{willReadFrequently:true}).drawImage(src,0,0,c.width,c.height);return c;
 }
+function percentile(a,p){if(!a.length)return 0;const b=[...a].sort((x,y)=>x-y),i=Math.max(0,Math.min(b.length-1,Math.round((b.length-1)*p)));return b[i];}
+function imageQualityMetrics(src){
+ const c=scaledCanvas(src,640),d=imageData(c),w=d.width,h=d.height,vals=[],tiles=Array.from({length:16},()=>({sum:0,n:0}));
+ const step=Math.max(1,Math.floor(Math.min(w,h)/260));
+ let edgeSum=0,edgeSq=0,edgeN=0,shadow=0,glare=0;
+ const gray=(x,y)=>{const i=(y*w+x)*4;return d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114;};
+ for(let y=1;y<h-1;y+=step)for(let x=1;x<w-1;x+=step){
+   const g=gray(x,y);vals.push(g);if(g<55)shadow++;if(g>245)glare++;
+   const tx=Math.min(3,Math.floor(x/w*4)),ty=Math.min(3,Math.floor(y/h*4)),t=tiles[ty*4+tx];t.sum+=g;t.n++;
+   const lap=4*g-gray(x-1,y)-gray(x+1,y)-gray(x,y-1)-gray(x,y+1);edgeSum+=lap;edgeSq+=lap*lap;edgeN++;
+ }
+ const tileMeans=tiles.filter(t=>t.n).map(t=>t.sum/t.n),mean=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
+ const sharpness=edgeN?Math.max(0,edgeSq/edgeN-Math.pow(edgeSum/edgeN,2)):0;
+ return{
+   width:src.width,height:src.height,mean:Number(mean.toFixed(1)),
+   dynamic_range:Number((percentile(vals,.95)-percentile(vals,.05)).toFixed(1)),
+   illumination_range:Number((Math.max(...tileMeans)-Math.min(...tileMeans)).toFixed(1)),
+   sharpness:Number(sharpness.toFixed(1)),
+   shadow_ratio:Number((shadow/Math.max(1,vals.length)).toFixed(4)),
+   glare_ratio:Number((glare/Math.max(1,vals.length)).toFixed(4))
+ };
+}
+function robustBubbleCalibration(raw){
+ const vals=raw.flat().map(x=>Number(x.score)).filter(Number.isFinite),base=median(vals),mad=median(vals.map(x=>Math.abs(x-base)));
+ const possible=Math.max(.012,Math.min(.032,base+Math.max(.018,mad*2.4)));
+ const definite=Math.max(.025,Math.min(.052,base+Math.max(.028,mad*3.5)));
+ const separation=Math.max(.020,Math.min(.042,Math.max(.024,mad*2.2)));
+ return{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(separation.toFixed(4))};
+}
+function assessOmrQuality({canvas,markers,markerConfidence,answers,identityValid=true}){
+ const image=imageQualityMetrics(canvas),rows=Array.isArray(answers)?answers:[],cal=rows.omrCalibration||null;
+ const ambiguous=rows.filter(a=>a.status==='ambiguous').length,multiple=rows.filter(a=>a.status==='multiple').length,blanks=rows.filter(a=>a.status==='blank').length;
+ const lowMargin=rows.filter(a=>a.status==='clear'&&Number(a.separation)<Math.max(.026,(cal?.separation||.024)*1.15)).length;
+ const reasons=[];let risk='low',penalty=0;
+ const elevate=(level,reason,p)=>{if(level==='high'||(level==='medium'&&risk==='low'))risk=level;reasons.push(reason);penalty+=p;};
+ if(!identityValid)elevate('high','هوية الورقة غير مؤكدة',35);
+ if(!markers)elevate('high','فشل تثبيت مربعات المحاذاة الأربعة',50);
+ else if(markerConfidence<.88)elevate('high','ثقة المحاذاة الهندسية منخفضة',35);
+ else if(markerConfidence<.93)elevate('medium','ثقة المحاذاة أقل من المستوى المثالي',12);
+ if(image.dynamic_range<45)elevate('high','المدى الضوئي للصورة ضعيف',25);
+ else if(image.dynamic_range<65)elevate('medium','التباين العام منخفض',8);
+ if(image.illumination_range>105)elevate('high','الإضاءة غير متجانسة بشدة',25);
+ else if(image.illumination_range>70)elevate('medium','الإضاءة غير متجانسة',10);
+ if(image.sharpness<6)elevate('high','الصورة ضبابية بدرجة تعيق القراءة',30);
+ else if(image.sharpness<12)elevate('medium','حدة الصورة منخفضة',10);
+ if(image.glare_ratio>.08)elevate('medium','انعكاس ضوئي مرتفع',8);
+ if(ambiguous||multiple)elevate('high','توجد '+(ambiguous+multiple)+' إجابة غير حاسمة/متعددة',Math.min(35,(ambiguous+multiple)*5));
+ if(lowMargin)elevate('medium','فارق ضعيف بين الخيار الأول والثاني في '+lowMargin+' سؤال',Math.min(20,lowMargin*2));
+ if(rows.length&&blanks/rows.length>.85)elevate('medium','نسبة الإجابات الفارغة مرتفعة جدًا وتحتاج تحققًا',8);
+ const score=Math.max(0,Math.min(100,100-penalty));
+ return{
+   risk,quality_score:score,reasons:[...new Set(reasons)],
+   requires_manual_review:risk!=='low',auto_accept:risk==='low'&&identityValid&&!!markers,
+   counts:{ambiguous,multiple,blank:blanks,low_margin:lowMargin,clear:rows.filter(a=>a.status==='clear').length},
+   image,marker_confidence:Number(markerConfidence||0),calibration:cal
+ };
+}
+
 function resizeCanvas(src,targetW=1000){
  const scale=targetW/src.width,c=document.createElement('canvas');
  c.width=Math.max(1,Math.round(src.width*scale));c.height=Math.max(1,Math.round(src.height*scale));
@@ -297,29 +355,26 @@ function readAnswers(c,markers,total,startNo){
    });
    raw.push(ev);
  }
- const clamp=v=>Math.max(0,Math.min(1,v));
- return raw.map((ev,i)=>{
-   const order=ev.map((e,j)=>({e,j,s:e.score})).sort((a,b)=>b.s-a.s),top=order[0],second=order[1];
-   const separation=top.s-second.s;
-   // These thresholds are based on the real photographed sheet calibration:
-   // filled centers separate strongly from local ring/background; blank circles stay near/below zero.
-   const definite=order.filter(x=>x.s>=.030);
-   const possible=order.filter(x=>x.s>=.018);
+ const cal=robustBubbleCalibration(raw),clamp=v=>Math.max(0,Math.min(1,v));
+ const out=raw.map((ev,i)=>{
+   const order=ev.map((e,j)=>({e,j,s:e.score})).sort((a,b)=>b.s-a.s),top=order[0],second=order[1],separation=top.s-second.s;
+   const definite=order.filter(x=>x.s>=cal.definite),possible=order.filter(x=>x.s>=cal.possible);
    const scores=ev.map(x=>Number(x.score.toFixed(4)));
    const evidence=ev.map(x=>({score:Number(x.score.toFixed(4)),center:Number(x.center.toFixed(1)),ring:Number(x.ring.toFixed(1)),x:Number(x.x.toFixed(1)),y:Number(x.y.toFixed(1))}));
-   if(top.s<.018){
-     const confidence=clamp((.018-top.s)/.05+.72);
-     return{question:startNo+i,selected:null,status:'blank',marked:[],scores,evidence,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.018,separation};
+   if(top.s<cal.possible){
+     const confidence=clamp(.86+(cal.possible-top.s)*1.6);
+     return{question:startNo+i,selected:null,status:'blank',marked:[],scores,evidence,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:cal.possible,separation};
    }
    if(definite.length>1){
-     return{question:startNo+i,selected:top.j,status:'multiple',marked:definite.map(x=>x.j),scores,evidence,confidence:Number(Math.min(.49,clamp(separation/.05)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.030,separation};
+     return{question:startNo+i,selected:top.j,status:'multiple',marked:definite.map(x=>x.j),scores,evidence,confidence:Number(Math.min(.49,clamp(separation/Math.max(.01,cal.separation))).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:cal.definite,separation};
    }
-   if(possible.length>1||top.s<.030||separation<.028){
-     return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,evidence,confidence:Number(Math.min(.79,clamp(.45+(top.s-.018)*8+separation*4)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.030,separation};
+   if(possible.length>1||top.s<cal.definite||separation<cal.separation){
+     return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,evidence,confidence:Number(Math.min(.79,clamp(.50+(top.s-cal.possible)*6+separation*4)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:cal.definite,separation};
    }
-   const confidence=clamp(.90+(top.s-.030)*.7+separation*.45);
-   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,evidence,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.030,separation};
+   const confidence=clamp(.94+(top.s-cal.definite)*.45+separation*.30);
+   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,evidence,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:cal.definite,separation};
  });
+ out.omrCalibration=cal;return out;
 }
 function validateOmrRead(answers,total){
  const rows=Array.isArray(answers)?answers:[];
@@ -335,15 +390,16 @@ function validateOmrRead(answers,total){
 function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,1400/c.width);o.width=Math.round(c.width*scale);o.height=Math.round(c.height*scale);o.getContext('2d').drawImage(c,0,0,o.width,o.height);const out=o.toDataURL('image/jpeg',.76);o.width=1;o.height=1;return out;}
 function thumb(c){const w=Math.min(420,c.width),h=Math.round(c.height*w/c.width),o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(c,0,0,w,h);const out=o.toDataURL('image/jpeg',.58);o.width=1;o.height=1;return out;}
 function scoreResult(r){
- const key=keyForModel(r.model),start=Number(draft.question_start||1);let score=0,total=Math.min(Number(draft.question_count||20),key.length||20);
+ const key=keyForModel(r.model);let score=0,total=Math.min(Number(draft.question_count||20),key.length||20);
  r.answers.forEach((a,i)=>{const k=key[i];a.correctIndex=k?Number(k.correct_index):null;a.indicator=k?.indicator||'';a.correct=a.status==='clear'&&a.selected!==null&&a.correctIndex!==null&&Number(a.selected)===Number(a.correctIndex);if(a.correct)score++;});
  const confs=r.answers.map(a=>Number(a.originalConfidence??a.confidence)).filter(Number.isFinite),clearConfs=r.answers.filter(a=>a.status==='clear'||a.status==='manual').map(a=>Number(a.originalConfidence??a.confidence)).filter(Number.isFinite);
  const avg=confs.length?confs.reduce((s,x)=>s+x,0)/confs.length:0,minClear=clearConfs.length?Math.min(...clearConfs):0;
  const manual=r.answers.filter(a=>a.status==='manual'||a.manualChanged===true).length;
  const low=r.answers.filter(a=>Number.isFinite(Number(a.originalConfidence??a.confidence))&&Number(a.originalConfidence??a.confidence)<.80).length;
  r.score=score;r.total=total;
- r.unresolved=r.answers.filter(a=>a.status==='multiple'||a.status==='ambiguous').length+(!r.qrValid?1:0)+(Number(r.markerConfidence||0)<.72?1:0);
- r.omr={confidence:Number(avg.toFixed(3)),min_clear_confidence:Number(minClear.toFixed(3)),marker_confidence:Number(r.markerConfidence||0),manual_answers:manual,low_confidence_answers:low,answer_count:r.answers.length,auto_accept:!!r.qrValid&&!!r.markersOk&&Number(r.markerConfidence||0)>=.85&&r.unresolved===0&&manual===0&&avg>=.97&&minClear>=.94};
+ r.unresolved=r.answers.filter(a=>a.status==='multiple'||a.status==='ambiguous').length+(!r.qrValid?1:0)+(Number(r.markerConfidence||0)<.88?1:0);
+ const verifiedAuto=!!r.verification?.auto_accept&&r.unresolved===0&&manual===0;
+ r.omr={confidence:Number(avg.toFixed(3)),min_clear_confidence:Number(minClear.toFixed(3)),marker_confidence:Number(r.markerConfidence||0),manual_answers:manual,low_confidence_answers:low,answer_count:r.answers.length,auto_accept:verifiedAuto,quality_score:Number(r.verification?.quality_score||0),risk:r.verification?.risk||'high'};
  return r;
 }
 function normalizeWorkCanvas(src,maxW=2200){
@@ -358,10 +414,14 @@ async function processRegion(c,pageNo,regionNo){
  const assignment=q&&q.reviewId===draft.review_id?assignmentBySheet(q.sheetNo):null,qrValid=!!assignment&&q.model===assignment.model,model=assignment?.model||q?.model||'';
  const markers=detectMarkers(canvas),answers=markers?readAnswers(canvas,markers,Number(draft.question_count||20),Number(draft.question_start||1)):[],omrValidation=markers?validateOmrRead(answers,Number(draft.question_count||20)):{ok:false};
  const markerScores=markers?[markers.tl?.score,markers.tr?.score,markers.bl?.score,markers.br?.score].map(Number).filter(Number.isFinite):[];
- const markerConfidence=markerScores.length?Math.max(0,Math.min(1,(markerScores.reduce((s,x)=>s+x,0)/markerScores.length-.70)/.30)):0;
- const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,markerConfidence:Number(markerConfidence.toFixed(3)),answers,fullImage:fullImage(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),sourceCanvas:canvas};
+ const markerConfidence=markers?Number(markers.geometry_confidence||(markerScores.length?markerScores.reduce((a,b)=>a+b,0)/markerScores.length:0)):0;
+ const verification=assessOmrQuality({canvas,markers,markerConfidence,answers,identityValid:qrValid});
+ const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,markerConfidence:Number(markerConfidence.toFixed(3)),answers,fullImage:fullImage(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),sourceCanvas:canvas,
+   detector:markers?.detector||'',markerPoints:markers?{tl:[markers.tl.x,markers.tl.y],tr:[markers.tr.x,markers.tr.y],bl:[markers.bl.x,markers.bl.y],br:[markers.br.x,markers.br.y]}:null,
+   imageQuality:verification.image,verification,calibration:answers.omrCalibration||null};
  if(!markers){r.unresolved++;r.error='تعذر تحديد علامات المحاذاة في ورقة التظليل.';}
- if(markers&&answers.length&&omrValidation.ok)scoreResult(r);else if(markers&&!omrValidation.ok){r.unresolved++;r.error=omrValidation.reason||'تعذر التحقق من قراءة التظليل.';}return r;
+ if(markers&&answers.length&&omrValidation.ok)scoreResult(r);else if(markers&&!omrValidation.ok){r.unresolved++;r.error=omrValidation.reason||'تعذر التحقق من قراءة التظليل.';}
+ return r;
 }
 async function canvasFromImage(file){
  let bmp;
@@ -489,22 +549,27 @@ async function readStoredOmr(src,total,startNo){
  const data={...markers,image:imageData(canvas)};
  const answers=readAnswers(canvas,data,total,startNo),validation=validateOmrRead(answers,total);
  if(!validation.ok){c.width=1;c.height=1;throw new Error(validation.reason);}
- const markerConfidence=Number(markers.geometry_confidence||.9);
- c.width=1;c.height=1;
- return{
-   answers,
-   markers_ok:true,
-   marker_confidence:Number(markerConfidence.toFixed(3)),
-   detector:'template-dark-square-v2',
-   marker_points:{
-     tl:[Number(markers.tl.x.toFixed(1)),Number(markers.tl.y.toFixed(1))],
-     tr:[Number(markers.tr.x.toFixed(1)),Number(markers.tr.y.toFixed(1))],
-     bl:[Number(markers.bl.x.toFixed(1)),Number(markers.bl.y.toFixed(1))],
-     br:[Number(markers.br.x.toFixed(1)),Number(markers.br.y.toFixed(1))]
-   }
+ const markerConfidence=Number(markers.geometry_confidence||.9),verification=assessOmrQuality({canvas,markers,markerConfidence,answers,identityValid:true});
+ const out={
+   answers,markers_ok:true,marker_confidence:Number(markerConfidence.toFixed(3)),detector:markers.detector||'template-dark-square-v2',
+   marker_points:{tl:[Number(markers.tl.x.toFixed(1)),Number(markers.tl.y.toFixed(1))],tr:[Number(markers.tr.x.toFixed(1)),Number(markers.tr.y.toFixed(1))],bl:[Number(markers.bl.x.toFixed(1)),Number(markers.bl.y.toFixed(1))],br:[Number(markers.br.x.toFixed(1)),Number(markers.br.y.toFixed(1))]},
+   image_quality:verification.image,verification,calibration:answers.omrCalibration||null
  };
+ c.width=1;c.height=1;return out;
 }
-window.NafesScanReader={decodeStoredIdentity,readStoredOmr};
+function benchmarkOmr(samples){
+ let questions=0,exact=0,tp=0,fp=0,fn=0;
+ for(const sample of samples||[]){
+   const got=sample?.answers||[],expected=sample?.expected||[];
+   for(let i=0;i<Math.min(got.length,expected.length);i++){
+     questions++;const g=got[i]?.status==='clear'?got[i].selected:null,e=Number.isInteger(expected[i])?expected[i]:null;
+     if(g===e)exact++;if(e!==null&&g===e)tp++;else{if(g!==null)fp++;if(e!==null)fn++;}
+   }
+ }
+ const precision=tp/Math.max(1,tp+fp),recall=tp/Math.max(1,tp+fn),f1=2*precision*recall/Math.max(.000001,precision+recall);
+ return{questions,accuracy:questions?exact/questions:0,precision,recall,f1,target_met:questions>=100&&exact/questions>=.995};
+}
+window.NafesScanReader={decodeStoredIdentity,readStoredOmr,benchmarkOmr};
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();});
 init();
 })();
