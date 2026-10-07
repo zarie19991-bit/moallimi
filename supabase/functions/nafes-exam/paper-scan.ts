@@ -1,9 +1,11 @@
 // Auth is performed by handleAssessments before invoking this module.
 import { fail, hash } from './assessment-engine.ts';
 type Row=Record<string,any>;
+const MAX_SCAN_PAGES=200,MAX_SCAN_SHEETS=400,MAX_REGISTER_BATCH=20;
 const must=(r:any)=>{if(r.error)fail(r.error.message,400);return r.data;};
 const uuid=(v:any)=>/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(String(v));
 const publicSession=(s:Row)=>{const {review_snapshot,...out}=s;return out;};
+const sessionColumns='id,review_pk,reviewer_id,file_hash,expected_count,expected_page_count,source_file_count,batch_manifest,created_at,completed_at';
 const summaryColumns='id,session_id,ordinal,student_id,sheet_no,snapshot,effective_snapshot,answer_version,duplicate_of,duplicate_legacy_at,blocked_duplicate,uploaded_at,reviewed_at,reviewed_by,disposition';
 export function classifyAnswer(raw:Row,key:Row,index:number){
  const status=String(raw?.status||'ambiguous');
@@ -26,15 +28,62 @@ export async function scanSession(db:any,b:Row,owner:Row){
  if(!session)fail('جلسة المراجعة غير موجودة.',404);
  return {review,session};
 }
+function cleanManifest(value:any,sourceFileCount:number,expectedPages:number){
+ if(!Array.isArray(value)||value.length!==sourceFileCount)fail('بيانات ملفات الدفعة غير مكتملة.');
+ let total=0;
+ const manifest=value.map((x:any,i:number)=>{
+   const pages=Number(x?.pages),size=Number(x?.size);
+   if(!Number.isInteger(pages)||pages<1||pages>MAX_SCAN_PAGES||!Number.isFinite(size)||size<0)fail('بيانات ملف في الدفعة غير صالحة.');
+   total+=pages;
+   return {index:i+1,name:String(x?.name||'').slice(0,180),size,type:String(x?.type||'').slice(0,80),pages};
+ });
+ if(total!==expectedPages)fail('عدد صفحات بيان الدفعة لا يطابق العدد المتوقع.');
+ return manifest;
+}
+async function registerSheet(db:any,review:Row,session:Row,raw:Row){
+ const p=session.review_snapshot;
+ if(!Number.isInteger(raw.ordinal)||raw.ordinal<1||raw.ordinal>session.expected_count)fail('رقم الورقة غير صالح.');
+ if(typeof raw.image_data!=='string'||raw.image_data.length>2000000||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(raw.image_data))fail('صورة الورقة غير صالحة أو كبيرة جدًا.');
+ const assignment=(p.assignments||[]).find((a:Row)=>Number(a.sheet_no)===raw.sheet_no);
+ const valid=!!assignment&&uuid(assignment.student_id)&&raw.qr_valid===true&&raw.model===assignment.model;
+ const model=valid?assignment.model:String(raw.model||'').slice(0,12);
+ const key=(p.answer_keys||[]).find((k:Row)=>k.model===model)?.answers||[];
+ const rawAnswers=Array.isArray(raw.answers)?raw.answers:[];
+ const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(rawAnswers[i]||{},valid?(key[i]||{}):{},i));
+ const identityValid=valid&&key.length===p.question_count;
+ const qualityRaw=Number(raw.quality_score),qualityScore=Number.isFinite(qualityRaw)?Math.max(0,Math.min(100,Math.round(qualityRaw))):null;
+ const qualityFlags=Array.isArray(raw.quality_flags)?raw.quality_flags.slice(0,8).map((x:any)=>String(x).slice(0,40)):[];
+ const sourceFileIndex=Number(raw.source_file_index),sourcePageNo=Number(raw.source_page_no);
+ const snapshot={student_name:identityValid?assignment.student_name:'غير معروف — يلزم إعادة المسح',model,identity_valid:identityValid,markers_ok:raw.markers_ok===true&&rawAnswers.length===p.question_count,answers,score:answers.filter(a=>a.correct).length,total:p.question_count,
+ counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
+ page_no:Number(raw.page_no)||1,region_no:Number(raw.region_no)||1,
+ source_file_index:Number.isInteger(sourceFileIndex)&&sourceFileIndex>0?sourceFileIndex:null,source_file_name:String(raw.source_file_name||'').slice(0,180),
+ source_page_no:Number.isInteger(sourcePageNo)&&sourcePageNo>0?sourcePageNo:null,quality_score:qualityScore,quality_flags:qualityFlags};
+ const legacy=identityValid?must(await db.from('nafes_assessment_attempts').select('submitted_at,events').eq('student_id',assignment.student_id).contains('config',{paper_review_id:review.review_id}).not('submitted_at','is',null).order('submitted_at').limit(20)):[];
+ const legacyAt=(legacy||[]).find((x:Row)=>x.events?.some((e:Row)=>e.type==='paper_scan'&&e.review_id===review.review_id&&!e.scan_sheet_id))?.submitted_at||null;
+ return must(await db.rpc('nafes_scan_register',{p_session:session.id,p_sheet:{ordinal:raw.ordinal,legacy_at:legacyAt,student_id:identityValid?assignment.student_id:null,sheet_no:identityValid?raw.sheet_no:null,image_hash:await hash(raw.image_data),image_data:raw.image_data,snapshot}}));
+}
 export async function handlePaperScan(db:any,b:Row,owner:Row){
  const review=await reviewFor(db,b,owner);
  if(b.action==='teacher_scan_start'){
-   if(!uuid(b.session_id)||!/^([a-f0-9]{64})$/.test(b.file_hash)||!Number.isInteger(b.expected_count)||b.expected_count<1||b.expected_count>200)fail('بيانات رفع غير صالحة.');
+   const legacyBatch=b.expected_page_count==null&&b.source_file_count==null&&b.batch_manifest==null;
+   const expectedPages=legacyBatch?null:Number(b.expected_page_count),sourceFileCount=legacyBatch?null:Number(b.source_file_count);
+   const maxSheets=legacyBatch?200:MAX_SCAN_SHEETS;
+   if(!uuid(b.session_id)||!/^([a-f0-9]{64})$/.test(b.file_hash)||!Number.isInteger(b.expected_count)||b.expected_count<1||b.expected_count>maxSheets)fail('بيانات رفع الدفعة غير صالحة.');
+   let manifest:any[]=[];
+   if(!legacyBatch){
+     if(!Number.isInteger(expectedPages)||expectedPages<1||expectedPages>MAX_SCAN_PAGES||!Number.isInteger(sourceFileCount)||sourceFileCount<1||sourceFileCount>MAX_SCAN_PAGES)fail('بيانات رفع الدفعة غير صالحة.');
+     manifest=cleanManifest(b.batch_manifest,sourceFileCount,expectedPages);
+   }
    const old=must(await db.from('nafes_scan_sessions').select('*').eq('id',b.session_id).maybeSingle());
-   if(old){if(old.review_pk!==review.id||old.file_hash!==b.file_hash||old.expected_count!==b.expected_count)fail('تعارض جلسة الرفع.',409);return {ok:true,session:publicSession(old)};}
-   return {ok:true,session:must(await db.from('nafes_scan_sessions').insert({id:b.session_id,review_pk:review.id,reviewer_id:owner.id,file_hash:b.file_hash,expected_count:b.expected_count,review_snapshot:review.payload}).select('id,review_pk,reviewer_id,file_hash,expected_count,created_at,completed_at').single())};
+   if(old){
+     const metadataConflict=!legacyBatch&&(Number(old.expected_page_count)!==expectedPages||Number(old.source_file_count)!==sourceFileCount);
+     if(old.review_pk!==review.id||old.file_hash!==b.file_hash||old.expected_count!==b.expected_count||metadataConflict)fail('تعارض جلسة الرفع.',409);
+     return {ok:true,session:publicSession(old)};
+   }
+   return {ok:true,session:must(await db.from('nafes_scan_sessions').insert({id:b.session_id,review_pk:review.id,reviewer_id:owner.id,file_hash:b.file_hash,expected_count:b.expected_count,expected_page_count:expectedPages,source_file_count:sourceFileCount,batch_manifest:manifest,review_snapshot:review.payload}).select(sessionColumns).single())};
  }
- if(b.action==='teacher_scan_sessions')return {ok:true,sessions:must(await db.from('nafes_scan_sessions').select('id,review_pk,reviewer_id,file_hash,expected_count,created_at,completed_at').eq('review_pk',review.id).order('created_at',{ascending:false}).limit(100))};
+ if(b.action==='teacher_scan_sessions')return {ok:true,sessions:must(await db.from('nafes_scan_sessions').select(sessionColumns).eq('review_pk',review.id).order('created_at',{ascending:false}).limit(100))};
  if(b.action==='teacher_scan_alerts'){
    const after=Number(b.cursor||0);if(!Number.isInteger(after)||after<0)fail('مؤشر غير صالح.');
    const alerts=must(await db.from('nafes_scan_alerts').select('*,sheet:nafes_scan_sheets!sheet_id(student_id,snapshot,uploaded_at),original:nafes_scan_sheets!original_sheet_id(uploaded_at,session_id)').eq('review_pk',review.id).order('created_at',{ascending:false}).order('id').range(after,after+199));
@@ -42,23 +91,14 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  const {session}=await scanSession(db,b,owner);
  if(b.action==='teacher_scan_list')return {ok:true,session:publicSession(session),sheets:must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'))};
- if(b.action==='teacher_scan_register'){
-   const raw=b.sheet||{},p=session.review_snapshot;
-   if(!Number.isInteger(raw.ordinal)||raw.ordinal<1||raw.ordinal>session.expected_count)fail('رقم الورقة غير صالح.');
-   if(typeof raw.image_data!=='string'||raw.image_data.length>2000000||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(raw.image_data))fail('صورة الورقة غير صالحة أو كبيرة جدًا.');
-   const assignment=(p.assignments||[]).find((a:Row)=>Number(a.sheet_no)===raw.sheet_no);
-   const valid=!!assignment&&uuid(assignment.student_id)&&raw.qr_valid===true&&raw.model===assignment.model;
-   const model=valid?assignment.model:String(raw.model||'').slice(0,12);
-   const key=(p.answer_keys||[]).find((k:Row)=>k.model===model)?.answers||[];
-   const rawAnswers=Array.isArray(raw.answers)?raw.answers:[];
-   const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(rawAnswers[i]||{},valid?(key[i]||{}):{},i));
-   const identityValid=valid&&key.length===p.question_count;
-   const snapshot={student_name:identityValid?assignment.student_name:'غير معروف — يلزم إعادة المسح',model,identity_valid:identityValid,markers_ok:raw.markers_ok===true&&rawAnswers.length===p.question_count,answers,score:answers.filter(a=>a.correct).length,total:p.question_count,
-   counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),page_no:Number(raw.page_no)||1,region_no:Number(raw.region_no)||1};
-   const legacy=identityValid?must(await db.from('nafes_assessment_attempts').select('submitted_at,events').eq('student_id',assignment.student_id).contains('config',{paper_review_id:review.review_id}).not('submitted_at','is',null).order('submitted_at').limit(20)):[];
-   const legacyAt=(legacy||[]).find((x:Row)=>x.events?.some((e:Row)=>e.type==='paper_scan'&&e.review_id===review.review_id&&!e.scan_sheet_id))?.submitted_at||null;
-   const sheet=must(await db.rpc('nafes_scan_register',{p_session:session.id,p_sheet:{ordinal:raw.ordinal,legacy_at:legacyAt,student_id:identityValid?assignment.student_id:null,sheet_no:identityValid?raw.sheet_no:null,image_hash:await hash(raw.image_data),image_data:raw.image_data,snapshot}}));
-   return {ok:true,sheet};
+ if(b.action==='teacher_scan_register')return {ok:true,sheet:await registerSheet(db,review,session,b.sheet||{})};
+ if(b.action==='teacher_scan_register_batch'){
+   const raw=Array.isArray(b.sheets)?b.sheets:[];
+   if(!raw.length||raw.length>MAX_REGISTER_BATCH)fail('حجم دفعة الحفظ غير صالح.');
+   const ordinals=raw.map((x:Row)=>x?.ordinal);
+   if(new Set(ordinals).size!==ordinals.length)fail('توجد أرقام أوراق مكررة داخل دفعة الحفظ.');
+   const sheets=[];for(const row of raw)sheets.push(await registerSheet(db,review,session,row));
+   return {ok:true,sheets};
  }
  if(b.action==='teacher_scan_image'){
    const row=must(await db.from('nafes_scan_sheets').select('image_data').eq('session_id',session.id).eq('id',b.sheet_id).single());return {ok:true,...row};
@@ -83,5 +123,5 @@ export async function reviewedScanPayload(db:any,b:Row,owner:Row){
  if(!session.completed_at)fail('اضغط «تم المراجعة» قبل اعتماد النتائج.',409);
  const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('disposition','verified').eq('blocked_duplicate',false).order('ordinal'));
  if(!sheets.length)fail('لا توجد أوراق قابلة للاعتماد؛ راجع تنبيهات التكرار وإعادة المسح.',409);
- return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length}};})};
+ return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length,quality_score:x.quality_score??null,quality_flags:x.quality_flags||[]}};})};
 }
