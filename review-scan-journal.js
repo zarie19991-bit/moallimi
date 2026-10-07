@@ -28,7 +28,7 @@ function renderButtons(){
  $('nextSheetBtn').disabled=busy||!s?.reviewed_at||active>=sheets.length-1;
  $('finishReviewBtn').disabled=busy||!ready()||firstPending()>=0||!!session.completed_at;
  $('approveBtn').disabled=busy||!session?.completed_at||!sheets.some(s=>s.disposition==='verified');
- if($('deleteSelectedBtn'))$('deleteSelectedBtn').disabled=busy||selected.size===0;
+ if($('deleteSelectedBtn'))$('deleteSelectedBtn').disabled=busy||selected.size===0;if($('selectAllBtn')){$('selectAllBtn').disabled=busy||!sheets.length;$('selectAllBtn').textContent=sheets.length&&selected.size===sheets.length?'إلغاء تحديد الكل':'تحديد الكل';}
  if($('applyManualAssignmentBtn'))$('applyManualAssignmentBtn').disabled=busy||!s||effective(s).identity_valid===true||!!session?.completed_at||!$('manualAssignment')?.value;
  document.querySelectorAll('[data-edit-question]').forEach(b=>{b.disabled=busy||!ready()||!s||loadedImage!==s.id||!!session?.completed_at;});
  $('retryUploadBtn').classList.toggle('hidden',!pending);
@@ -239,6 +239,12 @@ $('resultsBody').onclick=e=>{
  const recover=e.target.closest('[data-recover-identity]');if(recover){recoverIdentity(recover.dataset.recoverIdentity);return;} const del=e.target.closest('[data-delete-sheet]');if(del)deleteCorrections([del.dataset.deleteSheet]);
 };
 $('resultsBody').onchange=e=>{const c=e.target.closest('[data-select-sheet]');if(!c)return;c.checked?selected.add(c.dataset.selectSheet):selected.delete(c.dataset.selectSheet);renderButtons();};
+$('selectAllBtn').onclick=()=>{
+ const allSelected=sheets.length>0&&selected.size===sheets.length;
+ if(allSelected){selected.clear();$('selectAllBtn').textContent='تحديد الكل';}
+ else{sheets.forEach(x=>selected.add(x.id));$('selectAllBtn').textContent='إلغاء تحديد الكل';}
+ render();
+};
 $('deleteSelectedBtn').onclick=()=>deleteCorrections([...selected]);
 $('verifiedCheck').onchange=renderButtons;$('duplicateCheck').onchange=renderButtons;$('alertFilter').onchange=render;
 $('resumeSessionBtn').onclick=()=>resume($('sessionPicker').value);$('retryUploadBtn').onclick=()=>transfer().catch(()=>{});
