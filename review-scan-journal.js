@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id),ar=n=>new Intl.NumberFormat('ar-SA').for
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={blank:'غير محلول',multiple:'إجابات متعددة',correct:'صحيح مؤكد',incorrect:'إجابة خاطئة',uncertain:'قراءة غير مؤكدة'};
 const letters=['أ','ب','ج','د'];
-let draft=null,session=null,sheets=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
+let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
 const duplicate=s=>!!(s.duplicate_of||s.duplicate_legacy_at);
@@ -22,12 +22,7 @@ function ensureSelectAll(){
  }
  if(box&&!box.dataset.bound){
    box.dataset.bound='1';
-   box.addEventListener('change',()=>{
-     if(box.checked)sheets.forEach(x=>selected.add(String(x.id)));else selected.clear();
-     document.querySelectorAll('#resultsBody [data-select-sheet]').forEach(c=>{c.checked=box.checked;});
-     renderButtons();
-     message(box.checked?'تم تحديد جميع أوراق الجلسة: '+ar(sheets.length)+' ورقة.':'تم إلغاء تحديد جميع الأوراق.');
-   });
+   box.addEventListener('change',()=>toggleSelectAll());
  }
  const btn=$('selectAllBtn');
  if(btn&&!btn.dataset.bound){
@@ -119,34 +114,71 @@ async function refreshDeletionLog(){
    $('deleteLog').innerHTML=deletions.length?'<summary>سجل حذف التصحيحات — أحدث '+ar(deletions.length)+' عملية</summary><div class="alert-list">'+deletions.map(d=>'<p><b>'+esc(d.student_name||'ورقة بلا اسم')+'</b> · '+new Date(d.deleted_at).toLocaleString('ar-SA')+' · '+esc(d.reason)+' · '+(d.had_published_attempt?'حُذفت النتيجة المعتمدة المرتبطة أيضًا':'لا توجد نتيجة معتمدة مرتبطة')+' <small>رقم العملية: '+esc(d.batch_id)+'</small></p>').join('')+'</div>':'<summary>لا توجد عمليات حذف مسجلة</summary>';
  }catch(e){message('تعذر تحميل سجل الحذف: '+e.message,true);}
 }
-function toggleSelectAll(){
- if(!sheets.length){message('لا توجد أوراق في الجلسة لتحديدها.',true);return;}
- const allSelected=sheets.every(x=>selected.has(String(x.id))||selected.has(x.id));
- selected.clear();
- if(!allSelected)sheets.forEach(x=>selected.add(String(x.id)));
- document.querySelectorAll('#resultsBody [data-select-sheet]').forEach(c=>{c.checked=!allSelected;});
- if($('selectAllSheets')){$('selectAllSheets').checked=!allSelected;$('selectAllSheets').indeterminate=false;}
- renderButtons();
- message(allSelected?'تم إلغاء تحديد جميع الأوراق.':'تم تحديد جميع أوراق الجلسة: '+ar(sheets.length)+' ورقة.');
+async function loadReviewInventory(){
+ const sr=await api('teacher_scan_sessions'),all=[];
+ for(const se of sr.sessions||[]){
+   const r=await api('teacher_scan_list',{session_id:se.id});
+   for(const sh of r.sheets||[])all.push(sh);
+ }
+ reviewInventory=all;return all;
+}
+async function toggleSelectAll(){
+ if(busy)return;
+ lock(true);
+ try{
+   const all=await loadReviewInventory();
+   if(!all.length){selected.clear();message('لا توجد تصحيحات في هذا الاختبار.',true);return;}
+   const allSelected=all.every(x=>selected.has(String(x.id)));
+   selected.clear();
+   if(!allSelected)all.forEach(x=>selected.add(String(x.id)));
+   document.querySelectorAll('#resultsBody [data-select-sheet]').forEach(c=>{c.checked=!allSelected;});
+   if($('selectAllSheets')){$('selectAllSheets').checked=!allSelected;$('selectAllSheets').indeterminate=false;}
+   renderButtons();
+   const sessionCount=new Set(all.map(x=>x.session_id)).size;
+   message(allSelected?'تم إلغاء تحديد جميع الأوراق.':'تم تحديد جميع التصحيحات: '+ar(all.length)+' ورقة عبر '+ar(sessionCount)+' جلسة.');
+ }catch(e){message('تعذر تحديد جميع التصحيحات: '+e.message,true);}
+ finally{lock(false);}
 }
 async function deleteCorrections(ids){
- const unique=[...new Set((ids||[]).filter(id=>sheets.some(s=>s.id===id)))];
+ let source=reviewInventory.length?reviewInventory:sheets;
+ const wanted=[...new Set((ids||[]).map(String))];
+ if(wanted.some(id=>!source.some(s=>String(s.id)===id))){
+   try{source=await loadReviewInventory();}catch(_){}
+ }
+ const unique=wanted.filter(id=>source.some(s=>String(s.id)===id));
  if(!unique.length||busy)return;
  const reason=prompt('اكتب سبب حذف التصحيح (مثال: رفع خاطئ أو ورقة مكررة):','رفع أو تصحيح غير صحيح');
  if(reason===null)return;
  if(reason.trim().length<3){message('لم يتم الحذف: سبب الحذف مطلوب.',true);return;}
- const names=unique.map(id=>effective(sheets.find(s=>s.id===id)).student_name).join('، ');
+ const names=unique.slice(0,12).map(id=>effective(source.find(s=>String(s.id)===id)).student_name).join('، ')+(unique.length>12?' …':'');
  if(!confirm('سيتم حذف '+ar(unique.length)+' تصحيح فعليًا، وإزالة أي نتيجة معتمدة مرتبطة به، مع الاحتفاظ بسجل تدقيق فقط.\n\n'+names+'\n\nهل تريد المتابعة؟'))return;
  lock(true);
  try{
-   const r=await api('teacher_scan_delete',{sheet_ids:unique,reason:reason.trim(),confirm:true,request_id:crypto.randomUUID()});
-   unique.forEach(id=>{selected.delete(id);imageCache.delete(id);});
+   const groups=new Map();
+   for(const id of unique){
+     const sh=source.find(x=>String(x.id)===id),sid=String(sh?.session_id||session?.id||'');
+     if(!sid)continue;
+     if(!groups.has(sid))groups.set(sid,[]);
+     groups.get(sid).push(id);
+   }
+   let deleted=0,currentResult=null;
+   for(const [sid,group] of groups){
+     const r=await api('teacher_scan_delete',{session_id:sid,sheet_ids:group,reason:reason.trim(),confirm:true,request_id:crypto.randomUUID()});
+     deleted+=Number(r.deleted_count||0);
+     if(session?.id===sid)currentResult=r;
+   }
+   unique.forEach(id=>{selected.delete(String(id));imageCache.delete(String(id));});
+   reviewInventory=reviewInventory.filter(x=>!unique.includes(String(x.id)));
    $('sheetModal').classList.add('hidden');active=-1;
-   if(r.session_deleted){
+   const sr=await api('teacher_scan_sessions');
+   if(!(sr.sessions||[]).length){
      session=null;sheets=[];$('resultsSection').classList.add('hidden');$('summarySection').classList.add('hidden');
-     message('تم حذف التصحيحات المحددة والجلسة الخالية. سُجلت العملية في سجل الحذف.');
+     message('تم حذف جميع التصحيحات في الاختبار: '+ar(deleted)+' ورقة.');
    }else{
-     session=r.session;sheets=r.sheets||[];render();message('تم حذف '+ar(r.deleted_count)+' تصحيح بأمان، وتحديث النتائج المرتبطة.');
+     const keep=(sr.sessions||[]).find(x=>x.id===session?.id)||(sr.sessions||[])[0];
+     session={id:keep.id};
+     const rr=await api('teacher_scan_list',{session_id:keep.id});session=rr.session;sheets=rr.sheets;render();
+     message('تم حذف '+ar(deleted)+' تصحيح عبر جميع الجلسات المحددة.');
    }
    await sessions();await refreshAlerts();await refreshDeletionLog();
  }catch(e){message('تعذر حذف التصحيح: '+e.message,true);}
