@@ -201,6 +201,42 @@ async function inspectBatch(input){
  for(let i=0;i<input.length;i++){const file=input[i],pages=await pageCount(file);totalPages+=pages;manifest.push({index:i+1,name:file.name,size:file.size,type:file.type||'',pages});if(totalPages>MAX_BATCH_PAGES)throw Error('الدفعة تحتوي '+ar(totalPages)+' صفحة؛ الحد الأقصى '+ar(MAX_BATCH_PAGES)+' صفحة.');}
  return{totalPages,sourceFileCount:input.length,manifest};
 }
+function scanWorkerDraft(){return JSON.parse(JSON.stringify({review_id:draft.review_id,question_count:draft.question_count,question_start:draft.question_start,assignments:draft.assignments||[],answer_keys:draft.answer_keys||[]}));}
+function createScanPool(){
+ if(typeof Worker!=='function'||typeof OffscreenCanvas!=='function'||typeof createImageBitmap!=='function')return null;
+ const count=Math.max(2,Math.min(4,Math.max(1,(navigator.hardwareConcurrency||4)-1))),units=[],queue=[];let seq=0,closed=false;
+ const pump=()=>{
+   if(closed)return;
+   const live=units.filter(u=>!u.dead);
+   if(!live.length){while(queue.length)queue.shift().reject(new Error('تعذر تشغيل المعالجة المتوازية.'));return;}
+   for(const u of live){
+     if(u.busy||!queue.length)continue;
+     const job=queue.shift();u.busy=true;u.current=job;
+     u.worker.postMessage({type:'process',taskId:job.id,pageNo:job.pageNo,bitmap:job.bitmap},[job.bitmap]);
+   }
+ };
+ for(let i=0;i<count;i++){
+   const worker=new Worker('review-scan-worker.js?v=20261007-pool1'),u={worker,busy:false,dead:false,current:null};units.push(u);
+   worker.onmessage=e=>{const m=e.data||{};if(m.type==='ready')return;if(!u.current)return;const job=u.current;u.current=null;u.busy=false;if(m.type==='result')job.resolve(m.results||[]);else job.reject(new Error(m.error||'فشل عامل المعالجة.'));pump();};
+   worker.onerror=()=>{u.dead=true;if(u.current){u.current.reject(new Error('تعذر تشغيل عامل المعالجة.'));u.current=null;}u.busy=false;try{worker.terminate();}catch{}pump();};
+   worker.postMessage({type:'init',draft:scanWorkerDraft()});
+ }
+ return{
+   size:count,
+   alive:()=>units.some(u=>!u.dead),
+   async run(canvas,pageNo){if(closed||!units.some(u=>!u.dead))throw new Error('المعالجة المتوازية غير متاحة.');const bitmap=await createImageBitmap(canvas);return new Promise((resolve,reject)=>{queue.push({id:++seq,pageNo,bitmap,resolve,reject});pump();});},
+   close(){closed=true;for(const u of units)try{u.worker.terminate();}catch{}while(queue.length)queue.shift().reject(new Error('أُغلقت المعالجة.'));}
+ };
+}
+function blobToDataUrl(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error||new Error('تعذر تحويل صورة المراجعة.'));r.readAsDataURL(blob);});}
+async function hydrateWorkerResults(items,meta){
+ return Promise.all((items||[]).map(async r=>{r.fullImage=await blobToDataUrl(r.fullBlob);r.thumbnail=await blobToDataUrl(r.thumbBlob);delete r.fullBlob;delete r.thumbBlob;r.sourceFileIndex=meta.sourceFileIndex;r.sourceFileName=meta.sourceFileName;r.sourcePageNo=meta.sourcePageNo;return r;}));
+}
+async function processPageMain(canvas,pageNo,meta){
+ const out=[],regs=regionsForPage(canvas);
+ for(let ri=0;ri<regs.length;ri++){const r=await processRegion(regs[ri],pageNo,ri+1);r.sourceFileIndex=meta.sourceFileIndex;r.sourceFileName=meta.sourceFileName;r.sourcePageNo=meta.sourcePageNo;delete r.sourceCanvas;out.push(r);}
+ return out;
+}
 async function* sourcePages(file){
  if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')){
    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -237,32 +273,43 @@ function regionsForPage(c){
 async function processFile(){
  if(!files.length||!draft||processing||window.NafesScanJournal.isBusy())return;
  const inputFiles=[...files];processing=true;results=[];$('resultsSection').classList.add('hidden');$('approvedSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('processBtn').disabled=true;$('clearBtn').disabled=true;$('fileInput').disabled=true;
- let sourcePageCount=0;
+ let sourcePageCount=0,completedPages=0,pool=null,jobs=[];
+ const append=arr=>{for(const r of arr){if(results.length>=MAX_BATCH_SHEETS)throw new Error('نتج أكثر من '+ar(MAX_BATCH_SHEETS)+' ورقة تظليل من الدفعة.');results.push(r);}results.sort((a,b)=>a.pageNo-b.pageNo||a.regionNo-b.regionNo);};
+ const flush=async()=>{
+   if(!jobs.length)return;
+   const current=jobs;jobs=[];
+   const groups=await Promise.all(current.map(async j=>{
+     try{if(!pool||!pool.alive())throw new Error('worker unavailable');return await hydrateWorkerResults(await j.promise,j.meta);}
+     catch{return await processPageMain(j.canvas,j.pageNo,j.meta);}
+     finally{completedPages++;setProgress(Math.min(96,4+(completedPages/Math.max(1,batchMeta.totalPages))*90),'اكتملت قراءة '+ar(completedPages)+' من '+ar(batchMeta.totalPages)+' صفحة');}
+   }));
+   for(const g of groups)append(g);
+   for(const j of current){j.canvas.width=1;j.canvas.height=1;}
+ };
  try{
    batchMeta=await inspectBatch(inputFiles);$('batchMeta').textContent='الدفعة: '+ar(batchMeta.sourceFileCount)+' ملف · '+ar(batchMeta.totalPages)+' صفحة.';
-   setProgress(2,'فحص الدفعة…');
+   pool=createScanPool();setProgress(2,pool?'بدء المعالجة المتوازية…':'بدء المعالجة المتوافقة…');
    for(let fi=0;fi<inputFiles.length;fi++){
      const inputFile=inputFiles[fi];
      for await(const page of sourcePages(inputFile)){
        sourcePageCount++;if(sourcePageCount>MAX_BATCH_PAGES)throw new Error('تجاوزت الدفعة الحد الأقصى: '+ar(MAX_BATCH_PAGES)+' صفحة.');
-       const regs=regionsForPage(page.canvas);
-       for(let ri=0;ri<regs.length;ri++){
-         if(results.length>=MAX_BATCH_SHEETS)throw new Error('نتج أكثر من '+ar(MAX_BATCH_SHEETS)+' ورقة تظليل من الدفعة.');
-         const approx=Math.min(96,4+(sourcePageCount/Math.max(1,batchMeta.totalPages))*90);
-         setProgress(approx,'الصفحة '+ar(sourcePageCount)+' من '+ar(batchMeta.totalPages)+' · '+inputFile.name+' · ورقة '+ar(ri+1));
-         const r=await processRegion(regs[ri],sourcePageCount,ri+1);
-         r.sourceFileIndex=fi+1;r.sourceFileName=inputFile.name;r.sourcePageNo=page.pageNo;
-         delete r.sourceCanvas;results.push(r);
+       const meta={sourceFileIndex:fi+1,sourceFileName:inputFile.name,sourcePageNo:page.pageNo};
+       if(pool&&pool.alive()){
+         jobs.push({canvas:page.canvas,pageNo:sourcePageCount,meta,promise:pool.run(page.canvas,sourcePageCount)});
+         if(jobs.length>=pool.size)await flush();
+       }else{
+         append(await processPageMain(page.canvas,sourcePageCount,meta));completedPages++;page.canvas.width=1;page.canvas.height=1;
+         setProgress(Math.min(96,4+(completedPages/Math.max(1,batchMeta.totalPages))*90),'اكتملت قراءة '+ar(completedPages)+' من '+ar(batchMeta.totalPages)+' صفحة');
+         await new Promise(res=>setTimeout(res,0));
        }
-       page.canvas.width=1;page.canvas.height=1;
-       if(results.length%4===0)await new Promise(res=>setTimeout(res,0));
      }
    }
+   await flush();
    if(sourcePageCount!==batchMeta.totalPages)throw new Error('عدم تطابق عدد الصفحات: المتوقع '+ar(batchMeta.totalPages)+' والمعالج '+ar(sourcePageCount)+'.');
    if(!results.length)throw new Error('لم يتم العثور على أوراق قابلة للمعالجة.');
    setProgress(98,'حفظ دفعة من '+ar(results.length)+' ورقة…');await window.NafesScanJournal.upload(results,{files:inputFiles,batchMeta});setProgress(100,'اكتمل الحفظ — '+ar(sourcePageCount)+' صفحة · '+ar(results.length)+' ورقة جاهزة للمراجعة');
  }catch(e){setProgress(0,'تعذر التحليل: '+e.message);}
- finally{processing=false;$('processBtn').disabled=!files.length;$('clearBtn').disabled=false;$('fileInput').disabled=false;}
+ finally{pool?.close();processing=false;$('processBtn').disabled=!files.length;$('clearBtn').disabled=false;$('fileInput').disabled=false;}
 }
 async function init(){
  draft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(null));if(!draft){$('noDraft').classList.remove('hidden');$('processBtn').disabled=true;return;}const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'},subs=(Array.isArray(draft.subjects)&&draft.subjects.length?draft.subjects:[draft.subject]).filter(Boolean);$('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+subs.map(x=>subjectNames[x]||x).join(' + ')+' · '+(draft.assignments?.length||0)+' طالب';
