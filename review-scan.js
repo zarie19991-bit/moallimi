@@ -239,7 +239,7 @@ function detectMarkerSets(src){
  })).sort((a,b)=>Math.min(a.tl.y,a.tr.y)-Math.min(b.tl.y,b.tr.y)||Math.min(a.tl.x,a.bl.x)-Math.min(b.tl.x,b.bl.x));
 }
 function detectMarkers(c){
- const pts=detectTemplateMarkerSet(c)||detectMarkerSets(c)[0];if(!pts)return null;
+ const pts=detectTemplateMarkerSet(c);if(!pts)return null;
  return{...pts,image:imageData(c)};
 }
 function mapTemplate(markers,x,y){
@@ -473,19 +473,24 @@ async function decodeStoredIdentity(src){
  c.width=1;c.height=1;return q;
 }
 async function readStoredOmr(src,total,startNo){
- const c=await canvasFromDataUrl(src),normed=normalizeOrientation(c),canvas=normed.canvas,markers=detectMarkers(canvas);
- if(!markers){c.width=1;c.height=1;throw new Error('تعذر تثبيت المربعات السوداء الأربعة.');}
- const markerScores=[markers.tl?.score,markers.tr?.score,markers.bl?.score,markers.br?.score].map(Number).filter(Number.isFinite);
- const markerConfidence=markers.geometry_confidence||(
-   markerScores.length?Math.max(0,Math.min(1,markerScores.reduce((a,b)=>a+b,0)/markerScores.length)):0
- );
- // For the calibrated template detector, geometry is the acceptance gate.
- // Do not reject a valid four-corner solution using the legacy density formula.
- if(markers.detector!=='template-dark-square'&&markerConfidence<.72){
-   c.width=1;c.height=1;throw new Error('ثقة محاذاة الورقة منخفضة؛ لن يتم تخمين الدرجة.');
- }
- const answers=readAnswers(canvas,markers,total,startNo);c.width=1;c.height=1;
- return{answers,markers_ok:true,marker_confidence:Number(markerConfidence.toFixed(3)),detector:markers.detector||'general'};
+ const c=await canvasFromDataUrl(src),canvas=c.height>=c.width?c:rotateCanvas(c,90),markers=detectTemplateMarkerSet(canvas);
+ if(!markers){c.width=1;c.height=1;throw new Error('لم تُعثر هندسة القالب على المربعات الأربع في مواضعها الصحيحة.');}
+ const data={...markers,image:imageData(canvas)};
+ const answers=readAnswers(canvas,data,total,startNo);
+ const markerConfidence=Number(markers.geometry_confidence||.9);
+ c.width=1;c.height=1;
+ return{
+   answers,
+   markers_ok:true,
+   marker_confidence:Number(markerConfidence.toFixed(3)),
+   detector:'template-dark-square',
+   marker_points:{
+     tl:[Number(markers.tl.x.toFixed(1)),Number(markers.tl.y.toFixed(1))],
+     tr:[Number(markers.tr.x.toFixed(1)),Number(markers.tr.y.toFixed(1))],
+     bl:[Number(markers.bl.x.toFixed(1)),Number(markers.bl.y.toFixed(1))],
+     br:[Number(markers.br.x.toFixed(1)),Number(markers.br.y.toFixed(1))]
+   }
+ };
 }
 window.NafesScanReader={decodeStoredIdentity,readStoredOmr};
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();});
