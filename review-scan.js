@@ -262,6 +262,23 @@ function darknessAt(d,cx,cy,r,inner=0){
  }
  return n?sum/n:0;
 }
+function grayMeanAt(d,cx,cy,r,inner=0){
+ const w=d.width,h=d.height;let sum=0,n=0,rr=r*r,ii=inner*inner;
+ for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(let x=Math.floor(cx-r);x<=Math.ceil(cx+r);x++){
+   if(x<0||y<0||x>=w||y>=h)continue;
+   const dx=x-cx,dy=y-cy,dd=dx*dx+dy*dy;if(dd>rr||dd<ii)continue;
+   const i=(y*w+x)*4;sum+=d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114;n++;
+ }
+ return n?sum/n:255;
+}
+function bubbleFillScore(d,cx,cy,r){
+ // Use only the center of the bubble, avoiding the printed ring itself.
+ const center=grayMeanAt(d,cx,cy,r*.55);
+ // Local paper/outline reference. This automatically compensates for shadows and uneven light.
+ const ring=grayMeanAt(d,cx,cy,r*1.55,r*1.05);
+ return{score:(ring-center)/255,center,ring};
+}
+
 function bubbleEvidence(d,cx,cy,r){
  const inner=darknessAt(d,cx,cy,r*.62);
  const ring=darknessAt(d,cx,cy,r*1.35,r*.82);
@@ -271,24 +288,36 @@ function bubbleEvidence(d,cx,cy,r){
 }
 function readAnswers(c,markers,total,startNo){
  const span=(Math.hypot(markers.tr.x-markers.tl.x,markers.tr.y-markers.tl.y)+Math.hypot(markers.br.x-markers.bl.x,markers.br.y-markers.bl.y))/2;
- const radius=Math.max(3.2,Math.min(7.2,span*.0082)),raw=[];
+ const radius=Math.max(3.2,Math.min(7.5,span*.0082)),raw=[];
  for(let i=0;i<Math.min(total,NafesOmrTemplate.maxQuestions||60);i++){
-   const vals=NafesOmrTemplate.answerPoints(i,total).map(p=>{const m=mapTemplate(markers,p.x,p.y);return darknessAt(markers.image,m.x,m.y,radius);});
-   raw.push(vals);
+   const ev=NafesOmrTemplate.answerPoints(i,total).map(p=>{
+     const m=mapTemplate(markers,p.x,p.y),z=bubbleFillScore(markers.image,m.x,m.y,radius);
+     return{...z,x:m.x,y:m.y};
+   });
+   raw.push(ev);
  }
- return raw.map((scores,i)=>{
-   const order=scores.map((s,j)=>({s,j})).sort((a,b)=>b.s-a.s),top=order[0],second=order[1];
-   const rowBase=median(scores),separation=top.s-second.s,signal=top.s-rowBase;
-   const marked=order.filter(x=>x.s>=rowBase+.055&&x.s>=.43).map(x=>x.j);
-   const clamp=v=>Math.max(0,Math.min(1,v));
-   if(top.s<.43||signal<.045){
-     return{question:startNo+i,selected:null,status:'blank',marked:[],scores,confidence:Number(clamp((.43-top.s)/.12+.45).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.43,separation};
+ const clamp=v=>Math.max(0,Math.min(1,v));
+ return raw.map((ev,i)=>{
+   const order=ev.map((e,j)=>({e,j,s:e.score})).sort((a,b)=>b.s-a.s),top=order[0],second=order[1];
+   const separation=top.s-second.s;
+   // These thresholds are based on the real photographed sheet calibration:
+   // filled centers separate strongly from local ring/background; blank circles stay near/below zero.
+   const definite=order.filter(x=>x.s>=.030);
+   const possible=order.filter(x=>x.s>=.018);
+   const scores=ev.map(x=>Number(x.score.toFixed(4)));
+   const evidence=ev.map(x=>({score:Number(x.score.toFixed(4)),center:Number(x.center.toFixed(1)),ring:Number(x.ring.toFixed(1)),x:Number(x.x.toFixed(1)),y:Number(x.y.toFixed(1))}));
+   if(top.s<.018){
+     const confidence=clamp((.018-top.s)/.05+.72);
+     return{question:startNo+i,selected:null,status:'blank',marked:[],scores,evidence,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.018,separation};
    }
-   if(marked.length>1||separation<.055){
-     return{question:startNo+i,selected:top.j,status:'multiple',marked:marked.length?marked:[top.j,second.j],scores,confidence:Number(Math.min(.49,clamp(separation/.08)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.43,separation};
+   if(definite.length>1){
+     return{question:startNo+i,selected:top.j,status:'multiple',marked:definite.map(x=>x.j),scores,evidence,confidence:Number(Math.min(.49,clamp(separation/.05)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.030,separation};
    }
-   const confidence=clamp(.80+(top.s-.43)*.35+separation*.75);
-   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.43,separation};
+   if(possible.length>1||top.s<.030||separation<.028){
+     return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,evidence,confidence:Number(Math.min(.79,clamp(.45+(top.s-.018)*8+separation*4)).toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.030,separation};
+   }
+   const confidence=clamp(.90+(top.s-.030)*.7+separation*.45);
+   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,evidence,confidence:Number(confidence.toFixed(3)),topScore:top.s,secondScore:second.s,threshold:.030,separation};
  });
 }
 function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,1400/c.width);o.width=Math.round(c.width*scale);o.height=Math.round(c.height*scale);o.getContext('2d').drawImage(c,0,0,o.width,o.height);const out=o.toDataURL('image/jpeg',.76);o.width=1;o.height=1;return out;}
