@@ -37,8 +37,9 @@
     <label class="dropzone" id="dropzone">
       <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,image/jpeg,image/png,image/tiff,application/pdf" multiple>
       <b>اختر PDF أو صورًا متعددة أو اسحبها هنا</b>
-      <span>يفضل مسح واضح بدقة 200–300 dpi ومن دون قص حواف الورقة.</span>
+      <span>يفضل مسح واضح بدقة 200–300 dpi ومن دون قص حواف الورقة. تتحقق المنصة من العدد قبل بدء التصحيح.</span>
     </label>
+    <p id="batchMeta" class="notice" role="status" aria-live="polite">لم تُحدد دفعة بعد.</p>
     <div class="actions">
       <button id="processBtn" class="primary" type="button" disabled>بدء القراءة والتصحيح</button>
       <button id="clearBtn" class="secondary" type="button">مسح الدفعة</button>
@@ -103,13 +104,14 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
 <script src="review-omr-template.js?v=20261001-v3"></script>
 <script src="teacher-access.js?v=20260920-scope5"></script>
 <script src="review-draft-sync.js?v=20260930-2"></script>
-<script src="review-scan-journal.js?v=20261007-batch200"></script>
-<script src="review-scan.js?v=20261007-batch200"></script>
+<script src="review-scan-journal.js?v=20261007-batch200q"></script>
+<script src="review-scan.js?v=20261007-batch200q"></script>
 </body>
 </html>
