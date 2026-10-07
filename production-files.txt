@@ -86,6 +86,7 @@ create.html
 create.css
 simulation-catalog-route.js
 question-media.js
+exam-durable-store.js
 create.js
 test-management.js
 

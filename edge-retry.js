@@ -38,7 +38,8 @@ window.fetch=async function(input,init={}){
   for(let attempt=0;attempt<maxAttempts;attempt++){
     try{
       response=await nativeFetch(input,init);
-      if(!RETRYABLE.has(response.status)){
+      const retryable=RETRYABLE.has(response.status)||(response.status===409&&CRITICAL.has(action));
+      if(!retryable){
         if(attempt>0&&!telemetry)emit('recovered',{
           action,attempt:attempt+1,status:response.status,
           latency_ms:Math.round(performance.now()-started)
