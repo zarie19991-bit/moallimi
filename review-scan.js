@@ -304,9 +304,10 @@ function cropAroundMarkers(c,m){
  const x=Math.max(0,left-dx*.10),y=Math.max(0,top-dy*.78),x2=Math.min(c.width,right+dx*.10),y2=Math.min(c.height,bottom+dy*.55);
  return cropCanvas(c,x,y,x2-x,y2-y);
 }
-function regionsForPage(c){
+function regionsForPage(c,forceSingle=false){
  let page=c;
  if(c.width>c.height)page=rotateCanvas(c,90);
+ if(forceSingle)return[page];
  const ratio=page.height/Math.max(1,page.width);
  // Normal phone/PDF portrait scans contain one full OMR sheet. Avoid a second expensive
  // full-page marker pass; processRegion will do the precise marker read once.
@@ -335,10 +336,10 @@ async function processFile(){
    setProgress(1,'تهيئة القراءة السريعة والحفظ المباشر…');
    await window.NafesScanJournal.beginStream(inputFiles);streamStarted=true;
    for(let fi=0;fi<inputFiles.length;fi++){
-     const inputFile=inputFiles[fi];
+     const inputFile=inputFiles[fi],standaloneImage=!(inputFile.type==='application/pdf'||inputFile.name.toLowerCase().endsWith('.pdf')||isTiff(inputFile));
      for await(const page of sourcePages(inputFile)){
        sourcePageCount++;if(sourcePageCount>200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ صفحة.');
-       const regs=regionsForPage(page.canvas);
+       const regs=regionsForPage(page.canvas,standaloneImage);
        for(let ri=0;ri<regs.length;ri++){
          if(queuedCount>=200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ ورقة/صفحة.');
          while(inflight.length>=2)await Promise.race(inflight);
