@@ -246,7 +246,6 @@ $('resultsBody').onclick=e=>{
  const recover=e.target.closest('[data-recover-identity]');if(recover){recoverIdentity(recover.dataset.recoverIdentity);return;} const del=e.target.closest('[data-delete-sheet]');if(del)deleteCorrections([del.dataset.deleteSheet]);
 };
 $('resultsBody').onchange=e=>{const c=e.target.closest('[data-select-sheet]');if(!c)return;c.checked?selected.add(c.dataset.selectSheet):selected.delete(c.dataset.selectSheet);renderButtons();};
-const selectAllButton=$('selectAllBtn');if(selectAllButton)selectAllButton.addEventListener('click',toggleSelectAll);
 $('deleteSelectedBtn').onclick=()=>deleteCorrections([...selected]);
 $('verifiedCheck').onchange=renderButtons;$('duplicateCheck').onchange=renderButtons;$('alertFilter').onchange=render;
 $('resumeSessionBtn').onclick=()=>resume($('sessionPicker').value);$('retryUploadBtn').onclick=()=>transfer().catch(()=>{});
