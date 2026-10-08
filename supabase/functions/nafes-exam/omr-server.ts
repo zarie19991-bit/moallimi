@@ -1,6 +1,6 @@
 import jpeg from "npm:jpeg-js@0.4.4";
 
-type GrayImage={width:number;height:number;gray:Uint8Array};
+type GrayImage={width:number;height:number;gray:Uint8Array;rgba:Uint8Array};
 type Point={x:number;y:number;score?:number};
 const median=(a:number[])=>{if(!a.length)return 0;const b=[...a].sort((x,y)=>x-y),n=b.length;return n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2;};
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
@@ -11,14 +11,18 @@ function decodeDataUrl(src:string):GrayImage{
  const bin=atob(m[1]),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
  const d:any=jpeg.decode(bytes,{useTArray:true,formatAsRGBA:true});
  if(!d?.width||!d?.height||!d?.data)throw new Error('تعذر فك ترميز صورة الورقة.');
- const g=new Uint8Array(d.width*d.height);
- for(let i=0,j=0;i<d.data.length;i+=4,j++)g[j]=Math.round(d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114);
- return d.width<=d.height?{width:d.width,height:d.height,gray:g}:rotate90({width:d.width,height:d.height,gray:g});
+ const rgba=new Uint8Array(d.data),g=new Uint8Array(d.width*d.height);
+ for(let i=0,j=0;i<rgba.length;i+=4,j++)g[j]=Math.round(rgba[i]*.299+rgba[i+1]*.587+rgba[i+2]*.114);
+ return d.width<=d.height?{width:d.width,height:d.height,gray:g,rgba}:rotate90({width:d.width,height:d.height,gray:g,rgba});
 }
 function rotate90(im:GrayImage):GrayImage{
- const out=new Uint8Array(im.width*im.height),nw=im.height,nh=im.width;
- for(let y=0;y<im.height;y++)for(let x=0;x<im.width;x++){const nx=im.height-1-y,ny=x;out[ny*nw+nx]=im.gray[y*im.width+x];}
- return{width:nw,height:nh,gray:out};
+ const nw=im.height,nh=im.width,outG=new Uint8Array(im.width*im.height),outRgba=new Uint8Array(im.width*im.height*4);
+ for(let y=0;y<im.height;y++)for(let x=0;x<im.width;x++){
+   const nx=im.height-1-y,ny=x,src=y*im.width+x,dst=ny*nw+nx;
+   outG[dst]=im.gray[src];
+   const si=src*4,di=dst*4;outRgba[di]=im.rgba[si];outRgba[di+1]=im.rgba[si+1];outRgba[di+2]=im.rgba[si+2];outRgba[di+3]=im.rgba[si+3];
+ }
+ return{width:nw,height:nh,gray:outG,rgba:outRgba};
 }
 function integral(im:GrayImage){
  const W=im.width+1,H=im.height+1,ii=new Uint32Array(W*H);
@@ -114,7 +118,7 @@ function detectMarkers(im:GrayImage){
  return{
    tl:best.tl,tr:best.tr,bl:best.bl,br:best.br,
    confidence:Math.max(.90,Math.min(.995,1-best.aspectErr)),
-   detector:'otsu-quad-geometry-v6',threshold
+   detector:'otsu-quad-blue-v7',threshold
  };
 }
 function mapPoint(m:any,x:number,y:number){
@@ -131,18 +135,50 @@ function meanAt(im:GrayImage,cx:number,cy:number,r:number,inner=0){
  }return n?sum/n:255;
 }
 function fillScore(im:GrayImage,cx:number,cy:number,r:number){const center=meanAt(im,cx,cy,r*.55),ring=meanAt(im,cx,cy,r*1.55,r*1.05);return{score:(ring-center)/255,center,ring};}
+function blueInkAt(im:GrayImage,cx:number,cy:number,r:number){
+ let hit=0,weighted=0,n=0,rr=r*r;
+ for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(let x=Math.floor(cx-r);x<=Math.ceil(cx+r);x++){
+   if(x<0||y<0||x>=im.width||y>=im.height)continue;
+   const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>rr)continue;
+   const p=(y*im.width+x)*4,R=im.rgba[p],G=im.rgba[p+1],B=im.rgba[p+2];
+   const chroma=Math.max(R,G,B)-Math.min(R,G,B),blueDom=B-Math.max(R,G),mean=(R+G+B)/3;
+   if(chroma>=22&&blueDom>=8&&mean<225){hit++;weighted+=Math.min(1,(blueDom-6)/70);}
+   n++;
+ }
+ return{density:n?hit/n:0,weighted:n?weighted/n:0};
+}
+function bestBlueInk(im:GrayImage,cx:number,cy:number,r:number){
+ const shift=Math.max(1.5,Math.min(4,r*.45));let best={density:0,weighted:0,x:cx,y:cy};
+ for(const dy of [-shift,0,shift])for(const dx of [-shift,0,shift]){
+   const z=blueInkAt(im,cx+dx,cy+dy,r*.95),score=z.density*.70+z.weighted*.30;
+   const bestScore=best.density*.70+best.weighted*.30;
+   if(score>bestScore)best={...z,x:cx+dx,y:cy+dy};
+ }
+ return best;
+}
+
 
 export function readOmrJpeg(src:string,total:number,startNo=1){
  const im=decodeDataUrl(src),m=detectMarkers(im),topSpan=Math.hypot(m.tr.x-m.tl.x,m.tr.y-m.tl.y),bottomSpan=Math.hypot(m.br.x-m.bl.x,m.br.y-m.bl.y),radius=clamp(((topSpan+bottomSpan)/2)*.0082,3.2,7.5);
  const rights=[171,128,85,42],offs=[7.5,15.5,23.5,31.5],raw:any[]=[];
  for(let i=0;i<Math.min(total,60);i++){const block=Math.floor(i/15),row=i%15,y=20+row*5.45,right=rights[block],ev=[];
-  for(const off of offs){const p=mapPoint(m,right-off,y),z=fillScore(im,p.x,p.y,radius);ev.push({...z,x:p.x,y:p.y});}raw.push(ev);
+  for(const off of offs){
+   const p=mapPoint(m,right-off,y),z=fillScore(im,p.x,p.y,radius),blue=bestBlueInk(im,p.x,p.y,radius);
+   ev.push({...z,blueDensity:blue.density,blueWeighted:blue.weighted,blueX:blue.x,blueY:blue.y,x:p.x,y:p.y});
+  }raw.push(ev);
  }
  if(raw.length!==total)throw new Error('عدد أسئلة القالب لا يطابق الاختبار.');
  const vals=raw.flat().map((x:any)=>Number(x.score)),base=median(vals),mad=median(vals.map((x:number)=>Math.abs(x-base))),possible=clamp(base+Math.max(.018,mad*2.4),.012,.032),definite=clamp(base+Math.max(.028,mad*3.5),.025,.052),sepThr=clamp(Math.max(.024,mad*2.2),.020,.042);
  const answers=raw.map((ev:any[],i:number)=>{
-  const order=ev.map((e:any,j:number)=>({j,s:e.score})).sort((a:any,b:any)=>b.s-a.s),top=order[0],second=order[1],sep=top.s-second.s;
+  const blueOrder=ev.map((e:any,j:number)=>({j,s:e.blueDensity,w:e.blueWeighted})).sort((a:any,b:any)=>(b.s+b.w*.45)-(a.s+a.w*.45));
+  const blueTop=blueOrder[0],blueSecond=blueOrder[1],blueSignal=blueTop.s+blueTop.w*.45,blueSecondSignal=blueSecond.s+blueSecond.w*.45,blueSep=blueSignal-blueSecondSignal;
+  const hasBlue=blueSignal>=.020;
+  const strongBlue=blueSignal>=.034&&blueSep>=.010;
+  const multipleBlue=blueSecondSignal>=.024&&blueSecondSignal/Math.max(.001,blueSignal)>=.58;
+
+  const grayOrder=ev.map((e:any,j:number)=>({j,s:e.score})).sort((a:any,b:any)=>b.s-a.s),top=grayOrder[0],second=grayOrder[1],sep=top.s-second.s;
   const scores=ev.map((x:any)=>Number(x.score.toFixed(4)));
+  const blueScores=ev.map((x:any)=>Number((x.blueDensity+x.blueWeighted*.45).toFixed(4)));
   const rowBase=median(scores),lift=top.s-rowBase;
   const relativeClear=sep>=Math.max(.055,sepThr*1.15)&&lift>=.075;
   const relativeStrong=sep>=.12&&lift>=.12;
@@ -150,20 +186,30 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   const strongSecond=top.s>=definite&&second.s>=definite&&ratio>=.55;
   const weakCompetition=top.s>=possible&&second.s>=possible&&ratio>=.42;
 
-  // Blank only when no option separates from the other three.
+  if(hasBlue){
+    if(multipleBlue){
+      const marked=blueOrder.filter((x:any)=>(x.s+x.w*.45)>=.024&&(x.s+x.w*.45)/Math.max(.001,blueSignal)>=.58).map((x:any)=>x.j);
+      return{question:startNo+i,selected:blueTop.j,status:'multiple',marked,scores,blueScores,reader:'blue',confidence:.45,topScore:blueSignal,secondScore:blueSecondSignal,threshold:.020,separation:blueSep};
+    }
+    if(strongBlue){
+      return{question:startNo+i,selected:blueTop.j,status:'clear',marked:[blueTop.j],scores,blueScores,reader:'blue',confidence:Math.min(1,.94+blueSep*.8+blueSignal*.25),topScore:blueSignal,secondScore:blueSecondSignal,threshold:.020,separation:blueSep};
+    }
+    return{question:startNo+i,selected:blueTop.j,status:'ambiguous',marked:[blueTop.j],scores,blueScores,reader:'blue',confidence:.72,topScore:blueSignal,secondScore:blueSecondSignal,threshold:.020,separation:blueSep};
+  }
+
   if(!relativeClear&&top.s<possible){
-    return{question:startNo+i,selected:null,status:'blank',marked:[],scores,confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
+    return{question:startNo+i,selected:null,status:'blank',marked:[],scores,blueScores,reader:'gray',confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
   }
   if(strongSecond&&sep<.060){
-    return{question:startNo+i,selected:top.j,status:'multiple',marked:order.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+    return{question:startNo+i,selected:top.j,status:'multiple',marked:grayOrder.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,blueScores,reader:'gray',confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
   }
   if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear))){
-    return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+    return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
   }
-  return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-geometry-v6'),
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-blue-v7'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
