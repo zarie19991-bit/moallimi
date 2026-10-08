@@ -2,6 +2,7 @@
 'use strict';
 const $=id=>document.getElementById(id),form=$('builder'),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),ar=x=>new Intl.NumberFormat('ar-SA').format(x),names={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 let catalog=null,draft=null,configAtPreview=null,busy=false,initialized=false;
+const indicatorSelections=new Map();
 function clearQuestionPreview(){
  draft=null;configAtPreview=null;
  $('previewQuestions').innerHTML='';
@@ -10,12 +11,9 @@ function clearQuestionPreview(){
  $('previewPanel').classList.add('hidden');
  $('publish').disabled=true;
 }
-function chooseSingleSubject(row){
- if(!row?.querySelector('.enabled')?.checked)return;
- rows().forEach(r=>{if(r!==row)r.querySelector('.enabled').checked=false;});
-}
 function resetAfterPublish(){
  clearQuestionPreview();
+ indicatorSelections.clear();
  document.querySelectorAll('.indicator-check').forEach(x=>x.checked=false);
  document.querySelectorAll('.indicator-search').forEach(x=>x.value='');
  selectPanels();
@@ -63,7 +61,8 @@ function panelIndicatorMarkup(i,n,old){
 }
 function selectPanels(){
  if(!catalog)return;
- const selected=new Map([...document.querySelectorAll('.indicator-option')].map(x=>[x.querySelector('.indicator-check').value,{checked:x.querySelector('.indicator-check').checked,count:x.querySelector('.indicator-count')?.value||5}]));
+ document.querySelectorAll('.indicator-option').forEach(x=>indicatorSelections.set(x.querySelector('.indicator-check').value,{checked:x.querySelector('.indicator-check').checked,count:x.querySelector('.indicator-count')?.value||5}));
+ const selected=indicatorSelections;
  if(isFull()){
    const s=simulationSummary();$('selectionPanels').innerHTML=`<section class="selection-panel"><h3>المحاكاة الشاملة</h3><p class="selection-summary">تستخدم بنك المحاكاة المستقل فقط: القراءة ٢٠ سؤالًا، الرياضيات ٢٥ سؤالًا، العلوم ٢٠ سؤالًا. الرصيد الحالي: قراءة ${ar(s.reading||0)} · رياضيات ${ar(s.math||0)} · علوم ${ar(s.science||0)}.</p></section>`;toggleCounts();return;
  }
@@ -108,7 +107,6 @@ $('copyLink').onclick=async()=>{try{await navigator.clipboard.writeText($('creat
 for(const [id,method]of [['downloadQr','download'],['printQr','print']])$(id).onclick=()=>{try{NafesQR[method]($('qr'),method==='print'?$('createdSummary').textContent:'nafes-qr.png');}catch(e){$('previewError').textContent=e.message;}};
 let previousType='custom';document.querySelectorAll('[name=testType]').forEach(x=>x.onchange=()=>{if(!x.checked)return;const p=previousType;previousType='custom';applyTypeDefaults(p);});
 rows().forEach(r=>r.querySelector('.enabled').onchange=()=>{
-  chooseSingleSubject(r);
   clearQuestionPreview();
   selectPanels();
 });
@@ -132,7 +130,7 @@ async function load(){if(!NafesTeacher.getKey()){NafesTeacher.requireKey();$('ca
  if(scope==='all'){
    rows().forEach(r=>{r.hidden=false;r.style.display='';r.querySelector('.enabled').disabled=false;});
    const checked=rows().filter(r=>r.querySelector('.enabled').checked);
-   if(checked.length!==1){rows().forEach((r,i)=>r.querySelector('.enabled').checked=i===0);}
+   if(!checked.length){rows()[0].querySelector('.enabled').checked=true;}
  }
  const p=new URLSearchParams(location.search);if(!initialized){if(p.has('s')&&p.has('o')&&p.has('i'))document.querySelector('[name=testType][value=custom]').checked=true;previousType=kind();applyTypeDefaults();if(p.has('s')){rows().forEach(r=>r.querySelector('.enabled').checked=r.dataset.subject===p.get('s'));selectPanels();const key=`${p.get('s')}:${p.get('o')}:i${Number(p.get('i'))}`;const input=[...document.querySelectorAll('.indicator-check')].find(x=>x.value===key);if(input){input.checked=true;if(p.get('m')){$('fixedModel').value=p.get('m');input.closest('label').querySelector('.indicator-count').value=15;const row=rows().find(r=>r.dataset.subject===p.get('s'));row.querySelector('.count').value=15;}}const entry=(catalog.indicators||[]).find(i=>i.key===key);if(entry)$('testTitle').value=`اختبار ${names[entry.subject]} — المؤشر ${p.get('i')}`;}initialized=true;}else selectPanels();$('catalogState').textContent=`بنك اختبارات المؤشرات: ${ar((catalog.indicators||[]).length)} مؤشرًا متاحًا بحسب صلاحية الحساب`;await loadPublished();}catch(e){$('catalogState').textContent=e.message;}}
 $('publishedList').onclick=async e=>{const b=e.target.closest('[data-share-code]');if(!b)return;const url='https://zarie19991-bit.github.io/moallimi/e.html?t='+b.dataset.shareCode;try{$('createdLink').value=url;$('openLink').href=url;$('createdSummary').textContent=b.closest('article').querySelector('b').textContent;$('created').classList.remove('hidden');await NafesQR.render($('qr'),url);$('created').scrollIntoView({behavior:'smooth'});}catch(e){$('formError').textContent=e.message;}};
