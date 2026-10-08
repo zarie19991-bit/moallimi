@@ -204,14 +204,15 @@ function levelTargets(subject:string,count:number,custom?:Row|null){
   for(let i=0;i<raw.length&&left>0;i++,left--)raw[i].count++;
   return Object.fromEntries(raw.map(x=>[x.level,x.count])) as Record<string,number>;
 }
-function rebalanceQuestionOptions(qs:Row[],seed:string):Row[]{
+export function rebalanceQuestionOptions(qs:Row[],seed:string):Row[]{
   const rnd=randomFrom(seed+'|answer-balance');
   const shift=Math.floor(rnd()*4);
+  const targets=shuffle(qs.map((_,i)=>(i+shift)%4),rnd);
   return qs.map((q,i)=>{
     const options=Array.isArray(q.options)?q.options.map(String):[];
     const ci=Number(q.correctIndex);
-    if(options.length!==4||!Number.isInteger(ci)||ci<0||ci>3)return q;
-    const target=(i+shift)%4;
+    if(options.length!==4||new Set(options).size!==4||!Number.isInteger(ci)||ci<0||ci>3)fail('خيارات السؤال أو مفتاح إجابته غير صالح؛ أعد تكوين المسودة.',409);
+    const target=targets[i];
     if(target===ci)return q;
     const correct=options[ci],d=options.filter((_,idx)=>idx!==ci);
     const next=target===0?[correct,d[0],d[1],d[2]]
@@ -1284,7 +1285,7 @@ async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:un
       qs=sequenceLearningQuestions(qs,s.subject,s.indicators||[]);
     }
 
-    sections.push({...s,questions:qs});
+    sections.push({...s,questions:rebalanceQuestionOptions(qs,token(8))});
   }
   return sections;
 }
@@ -1292,6 +1293,15 @@ async function codeFor(db:any) {for(let n=0;n<6;n++){const chars='ABCDEFGHJKLMNP
 async function assessment(db:any,code:unknown) {if(!/^[A-Z2-9]{8}$/.test(String(code||'')))fail('رمز الاختبار غير صالح.',404);const t=must(await db.from('nafes_assessments').select('*').eq('short_code',code).eq('status','published').maybeSingle());if(!t)fail('رابط الاختبار غير موجود.',404);return t;}
 function studentInfo(t:Row) {const c=t.config;return{id:t.id,code:t.short_code,title:t.title,kind:t.kind,class_name:c.class_name,term:c.term||c.academic_term||'',academic_term:c.academic_term||c.term||'',school_name:c.school_name,teacher_name:c.teacher_name,grade_key:'middle_3',identity_mode:c.identity_mode,settings:c.settings,sections:(c.sections||[]).map((s:Row)=>({subject:s.subject,question_count:s.question_count,duration_minutes:s.duration_minutes,calculator:s.calculator})),ready:true,...(t.kind==='legacy'?{legacy_url:new URL(`exam.html?s=${t.legacy_target.subject}&o=${t.legacy_target.outcome}&i=${t.legacy_target.indicator}&m=${t.legacy_target.model}`,BASE).href}:{})};}
 const snapshotKey=(q:Row)=>JSON.stringify([q.id,q.context||null,q.question,q.options,q.correctIndex,q.explanation||null,q.indicator_key,q.indicator_text,q.cognitive_level,q.difficulty,q.model_no,q.question_no,q.image?.url||null,q.image?.alt||null]);
+export function matchesBankSnapshot(bank:Row,draft:Row):boolean {
+  if(!bank||!draft)return false;
+  const a=bank.options,b=draft.options;
+  if(!Array.isArray(a)||!Array.isArray(b)||a.length!==4||b.length!==4||new Set(a).size!==4||new Set(b).size!==4)return false;
+  if(!Number.isInteger(bank.correctIndex)||bank.correctIndex<0||bank.correctIndex>3||!Number.isInteger(draft.correctIndex)||draft.correctIndex<0||draft.correctIndex>3)return false;
+  if(a[bank.correctIndex]!==b[draft.correctIndex]||JSON.stringify([...a].sort())!==JSON.stringify([...b].sort()))return false;
+  // Only presentation order may differ; all reviewed content and the correct answer must match.
+  return snapshotKey(bank)===snapshotKey({...draft,options:a,correctIndex:bank.correctIndex});
+}
 const flat=(a:Row)=>(a.rendered_sections||[]).flatMap((s:Row)=>s.questions||[]);
 async function finish(db:any,a:Row,answers=a.answers) {if(a.submitted_at)return a;const result=gradeSections(a.rendered_sections,answers);const end=new Date(Math.min(Date.now(),new Date(a.expires_at).getTime())).toISOString();const r=must(await db.from('nafes_assessment_attempts').update({answers,...result,submitted_at:end,version:a.version+1}).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select().maybeSingle());return r||must(await db.from('nafes_assessment_attempts').select('*').eq('id',a.id).single());}
 function attemptResponse(a:Row) {const c=a.config,s=c.settings;const response:Row={attempt_id:a.id,submitted:!!a.submitted_at,expires_at:a.expires_at,started_at:a.started_at,section_started_at:a.section_started_at,current_section:a.section_index,cursor:a.cursor,version:a.version,answers:a.answers,sections:publicSections(a.rendered_sections),settings:s,student_name:a.student_name,demo_mode:a.is_demo===true};if(a.submitted_at){if(s.show_result)Object.assign(response,{score:a.score,total:a.total,percent:a.percent,section_scores:a.section_scores});else response.result_hidden=true;if(s.show_correct_count)response.correct_count=a.score;if(s.show_indicator_result){const groups=new Map<string,Row[]>();for(const q of flat(a)){const key=indicatorOf(q),g=groups.get(key)||[];g.push(q);groups.set(key,g);}response.indicators=[...groups].map(([key,qs])=>({key,text:qs[0].indicator_text,...gradeSections([{subject:qs[0].subject,questions:qs}],a.answers)}));}if(s.show_answers)response.review=flat(a).map(q=>({id:q.id,correct_index:q.correctIndex,explanation:q.explanation,indicator_text:q.indicator_text}));}return response;}
@@ -1818,7 +1828,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   const replacement=(old.subject==='math'||old.subject==='science')
     ?selectCuratedIndicatorQuestions(candidates,1,old.subject,token(8),usedContent,usedStems)[0]
     :selectIndicatorQuestions(candidates,1,old.subject,token(8),usedContent,usedStems)[0];
-  for(const s of sections)s.questions=s.questions.map((q:Row)=>q.id===old.id?replacement:q);
+  for(const s of sections)if(s.questions.some((q:Row)=>q.id===old.id))s.questions=rebalanceQuestionOptions(s.questions.map((q:Row)=>q.id===old.id?replacement:q),token(8));
   return preview(must(await db.from('nafes_assessments').update({rendered_sections:sections}).eq('id',t.id).eq('status','draft').select().single()));
  }
  if(b.action==='teacher_publish') {
@@ -1886,19 +1896,19 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
     if(section.subject==='reading'&&t.config?.review_passage_mode===true){
       for(const count of readingContextCounts.values())if(count!==5)fail('بنية القراءة يجب أن تكون: نص واحد ثم خمسة أسئلة مرتبطة به.',409);
     }
-    if((section.questions||[]).length>=8){
-      const max=Math.max(...answerPositionCounts),min=Math.min(...answerPositionCounts);
-      if(min===0||max-min>Math.max(3,Math.ceil((section.questions||[]).length*0.25)))fail('توزيع مواقع الإجابات الصحيحة غير متوازن؛ أعد تكوين المسودة قبل النشر.',409);
-    }
     const qIds=section.questions.map((q:Row)=>q.id);
     const pool=isSim
       ?await simulationPool(db,section.subject,undefined,qIds)
       :await fullPool(db,section.subject,undefined,qIds);
     const current=new Map(pool.map(q=>[q.id,q]));
-    if(section.questions.some((q:Row)=>!current.has(q.id)||snapshotKey(current.get(q.id)!)!==snapshotKey(q)))fail('تغير البنك بعد المعاينة؛ أعد تكوين المسودة قبل نشرها.',409);
+    if(section.questions.some((q:Row)=>!matchesBankSnapshot(current.get(q.id)!,q)))fail('تغير البنك بعد المعاينة؛ أعد تكوين المسودة قبل نشرها.',409);
+    if(Math.max(...answerPositionCounts)-Math.min(...answerPositionCounts)>1){
+      section.questions=rebalanceQuestionOptions(section.questions,token(8));
+      autoRebalanced=true;
+    }
   }
   const short_code=await codeFor(db);
-  const saved=must(await db.from('nafes_assessments').update({status:'published',short_code,published_at:new Date().toISOString()}).eq('id',t.id).eq('status','draft').select().single());
+  const saved=must(await db.from('nafes_assessments').update({status:'published',short_code,published_at:new Date().toISOString(),rendered_sections:t.rendered_sections}).eq('id',t.id).eq('status','draft').select().single());
   return{id:saved.id,short_code,url:`${BASE}e.html?t=${short_code}`,title:saved.title,auto_rebalanced:autoRebalanced};
  }
  if(b.action==='teacher_shorten_legacy')fail('تم إيقاف مسار الاختبارات القديم. أنشئ الاختبار من قسم اختبارات المؤشرات الجديد.',410);
