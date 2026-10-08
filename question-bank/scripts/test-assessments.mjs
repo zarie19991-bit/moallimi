@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {normalizeConfig,permuteQuestion,randomFrom,gradeQuestions,publicQuestions,buildForms,cleanAnswers,questionKey,selectUnique} from '../../supabase/functions/nafes-exam/assessment-engine.ts';
-import {planReadingPassageAllocation,sequenceLearningQuestions} from '../../supabase/functions/nafes-exam/assessments.ts';
+import {planReadingPassageAllocation,sequenceLearningQuestions,rebalanceQuestionOptions,matchesBankSnapshot,handleAssessments} from '../../supabase/functions/nafes-exam/assessments.ts';
 import analytics from '../../analysis-core.js';
 const q={id:'q1',subject:'math',indicator_key:'math:x:i1',indicator_text:'مهارة',question:'مسألة',context:'سياق',options:['نعم','لا','أحيانًا','لا يمكن'],correctIndex:0};
 test('shuffling retains exactly the correct answer and never produces -1',()=>{for(let n=0;n<80;n++){const mixed=permuteQuestion(q,randomFrom(String(n)));assert.equal(mixed.options[mixed.correctIndex],'نعم');assert.equal(gradeQuestions([mixed],{q1:mixed.correctIndex}).score,1);}});
@@ -73,3 +73,57 @@ test('analytics preserves all attempts, compares common skills and clears suppor
 test('unmeasured and historically invalid records cannot create fake zero mastery',()=>{const bad=attempt('1',0,'math:x:i1','مفتاح غير صالح');assert.equal(analytics.measure(bad).percent,null);assert.equal(analytics.savedPercent(bad),0);assert.equal(analytics.levelFor(null).key,'unmeasured');assert.equal(analytics.indicatorSummary([bad],[{key:'math:y:i2',subject:'math',text:'لم يقس'}])[0].percent,null);});
 test('test filter compares prior tests with the same skills without losing selected test count',()=>{const xs=[attempt('1',40),attempt('2',70)];const r=analytics.studentRows(xs,{test:'test2'})[0];assert.equal(r.history.length,1);assert.equal(r.trend.delta,30);});
 test('question analysis separates equal stems with different data fingerprints',()=>{const a=attempt('1',60),b=attempt('2',80);a.questions=[{...a.questions[0],question:'أي قائمة؟',question_fingerprint:'abc'}];b.questions=[{...b.questions[0],question:'أي قائمة؟',question_fingerprint:'def'}];assert.equal(analytics.questionSummary([a,b]).length,2);});
+
+
+test('answer slots balance complete sections for every size 1 to 60 without changing content',()=>{
+ for(let n=1;n<=60;n++)for(let seed=0;seed<8;seed++){
+  const original=Array.from({length:n},(_,i)=>({...q,id:'q'+i,correctIndex:i%4,context:'passage'+Math.floor(i/5),cognitive_level:['knowledge','application','reasoning'][i%3]}));
+  const before=JSON.stringify(original),out=rebalanceQuestionOptions(original,String(seed));
+  const counts=[0,0,0,0];
+  out.forEach((item,i)=>{counts[item.correctIndex]++;assert(matchesBankSnapshot(original[i],item));assert.equal(item.id,original[i].id);assert.equal(item.context,original[i].context);assert.equal(item.cognitive_level,original[i].cognitive_level);});
+  assert(Math.max(...counts)-Math.min(...counts)<=1);
+  assert.equal(JSON.stringify(original),before);
+ }
+});
+test('bank snapshot accepts permutations but rejects content or answer tampering',()=>{
+ const out=rebalanceQuestionOptions(Array.from({length:20},(_,i)=>({...q,id:'q'+i})),'test');
+ for(const item of out){
+  const bank={...q,id:item.id};assert(matchesBankSnapshot(bank,item));
+  assert(!matchesBankSnapshot(bank,{...item,correctIndex:(item.correctIndex+1)%4}));
+  assert(!matchesBankSnapshot(bank,{...item,options:item.options.map((x,i)=>i===0?'changed':x)}));
+  assert(!matchesBankSnapshot(bank,{...item,options:[item.options[0],item.options[0],item.options[2],item.options[3]]}));
+  for(const field of ['question','context','explanation','indicator_key','cognitive_level','id'])assert(!matchesBankSnapshot(bank,{...item,[field]:'changed'}));
+ }
+ assert(!matchesBankSnapshot(undefined,q));
+ assert.throws(()=>rebalanceQuestionOptions([{...q,correctIndex:-1}],'bad'));
+});
+test('combining one-question indicators is balanced as a complete section',()=>{
+ const singles=Array.from({length:20},(_,i)=>({...q,id:'i'+i,indicator_key:'math:indicator'+i,correctIndex:0}));
+ const out=rebalanceQuestionOptions(singles,'mixed');
+ assert.deepEqual([0,1,2,3].map(ci=>out.filter(x=>x.correctIndex===ci).length),[5,5,5,5]);
+ assert.deepEqual(out.map(x=>x.indicator_key),singles.map(x=>x.indicator_key));
+ const replacement=out.map((x,i)=>i===7?{...q,id:'replacement'}:x);
+ const rebalanced=rebalanceQuestionOptions(replacement,'replacement');
+ assert.deepEqual([0,1,2,3].map(ci=>rebalanced.filter(x=>x.correctIndex===ci).length),[5,5,5,5]);
+});
+
+
+test('publishing repairs an existing unbalanced draft atomically and rejects tampered answers',async()=>{
+ const bank=Array.from({length:20},(_,i)=>({id:'q'+i,subject_key:'math',outcome_code:'outcome',indicator_index:i+1,indicator_key:'math:outcome:i'+(i+1),indicator_text:'مهارة '+i,model_no:1,question_no:i+1,context_text:null,question_text:'سؤال مستقل رقم '+i,options:['صحيح','بديل أول','بديل ثان','بديل ثالث'],correct_index:0,explanation:'تفسير',cognitive_level:'knowledge',difficulty:'medium',quality_version:'math-curated-v4',image:null}));
+ const questions=bank.map(x=>({id:x.id,subject:'math',outcome:x.outcome_code,indicator:x.indicator_index,indicator_key:x.indicator_key,indicator_text:x.indicator_text,model_no:x.model_no,question_no:x.question_no,context:null,question:x.question_text,options:[...x.options],correctIndex:0,explanation:x.explanation,cognitive_level:x.cognitive_level,difficulty:x.difficulty,image:null}));
+ const id='00000000-0000-4000-8000-000000000001';
+ const run=async(tamper)=>{
+  const draft={id,status:'draft',kind:'multi_indicator',title:'اختبار',config:{},rendered_sections:[{subject:'math',questions:structuredClone(questions)}]};
+  if(tamper)draft.rendered_sections[0].questions[0].correctIndex=1;
+  const writes=[];
+  const db={from(table){let payload=null,byCode=false;const query={select(){return this;},eq(k){if(k==='short_code')byCode=true;return this;},in(){return this;},order(){return this;},range(){return Promise.resolve({data:bank,error:null});},update(p){payload=p;return this;},maybeSingle(){return Promise.resolve({data:table==='nafes_teacher_access'?{id:'owner',subject_scope:'all'}:byCode?null:draft,error:null});},single(){writes.push(payload);return Promise.resolve({data:{...draft,...payload},error:null});}};return query;}};
+  const req=new Request('https://test.invalid',{headers:{'x-teacher-key':'1234567890'}});
+  if(tamper){await assert.rejects(()=>handleAssessments(db,req,{action:'teacher_publish',draft_id:id}),/تغير البنك/);assert.equal(writes.length,0);return;}
+  const result=await handleAssessments(db,req,{action:'teacher_publish',draft_id:id});
+  assert.equal(result.auto_rebalanced,true);assert.equal(writes.length,1);assert.equal(writes[0].status,'published');
+  const saved=writes[0].rendered_sections[0].questions;
+  assert.deepEqual([0,1,2,3].map(ci=>saved.filter(x=>x.correctIndex===ci).length),[5,5,5,5]);
+  saved.forEach((item,i)=>assert(matchesBankSnapshot(questions[i],item)));
+ };
+ await run(false);await run(true);
+});
