@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id),ar=n=>new Intl.NumberFormat('ar-SA').for
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={blank:'غير محلول',multiple:'إجابات متعددة',correct:'صحيح مؤكد',incorrect:'إجابة خاطئة',uncertain:'قراءة غير مؤكدة'};
 const letters=['أ','ب','ج','د'];
-const OMR_POLICY='calibrated_homography_adaptive_v4';
+const OMR_POLICY='server_jpeg_homography_v5';
 let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
@@ -140,14 +140,9 @@ async function rereadAllStrict(options={}){
        if(eff?.identity_valid!==true||!sh.student_id){skippedIdentity++;continue;}
        if(onlyStale&&eff?.omr_policy===OMR_POLICY){alreadyCurrent++;continue;}
        try{
-         message('تطبيق قارئ التظليل المُعاير: '+ar(processed+failed+1)+' · الورقة '+ar(i+1)+' من '+ar(list.length)+' · الجلسة '+ar(si+1)+' من '+ar(sessionsList.length));
-         const im=await api('teacher_scan_image',{session_id:sid,sheet_id:sh.id});
-         const rr=await window.NafesScanReader.readStoredOmr(im.image_data,Number(eff.total||draft.question_count||0),Number(draft.question_start||1));
-         const saved=await api('teacher_scan_reclassify',{
-           session_id:sid,sheet_id:sh.id,answer_version:sh.answer_version||0,
-           answers:rr.answers,markers_ok:rr.markers_ok,marker_confidence:rr.marker_confidence,
-           detector:rr.detector,marker_points:rr.marker_points,
-           image_quality:rr.image_quality,verification:rr.verification,calibration:rr.calibration
+         message('قراءة خادمية دقيقة: '+ar(processed+failed+1)+' · الورقة '+ar(i+1)+' من '+ar(list.length)+' · الجلسة '+ar(si+1)+' من '+ar(sessionsList.length));
+         const saved=await api('teacher_scan_reprocess_server',{
+           session_id:sid,sheet_id:sh.id,answer_version:sh.answer_version||0
          });
          processed++;if(Number(saved.unresolved||0)>0)uncertainSheets++;
        }catch(e){
