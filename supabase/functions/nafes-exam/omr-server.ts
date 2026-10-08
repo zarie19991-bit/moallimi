@@ -82,10 +82,10 @@ function squareCandidates(I:any,zone:number[],expectX:number,expectY:number,maxN
 }
 function detectMarkers(im:GrayImage){
  const threshold=otsuThreshold(im),I=binaryIntegral(im,threshold);
- const TL=squareCandidates(I,[.02,.24,.36,.58],.08,.46),
-       TR=squareCandidates(I,[.68,.98,.34,.58],.83,.45),
-       BL=squareCandidates(I,[.02,.24,.58,.92],.08,.72),
-       BR=squareCandidates(I,[.68,.98,.58,.92],.85,.71);
+ const TL=squareCandidates(I,[.02,.24,.48,.70],.10,.59),
+       TR=squareCandidates(I,[.68,.98,.48,.70],.88,.59),
+       BL=squareCandidates(I,[.02,.24,.78,.98],.10,.92),
+       BR=squareCandidates(I,[.68,.98,.78,.98],.88,.92);
  const target=172/104;let best:any=null;
  for(const tl of TL)for(const tr of TR){
    const topDx=tr.x-tl.x;if(topDx<im.width*.45||Math.abs(tr.y-tl.y)>im.height*.06)continue;
@@ -114,7 +114,7 @@ function detectMarkers(im:GrayImage){
  return{
    tl:best.tl,tr:best.tr,bl:best.bl,br:best.br,
    confidence:Math.max(.90,Math.min(.995,1-best.aspectErr)),
-   detector:'otsu-quad-geometry-v4',threshold
+   detector:'otsu-quad-geometry-v5',threshold
  };
 }
 function mapPoint(m:any,x:number,y:number){
@@ -151,7 +151,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Math.min(1,.94+(top.s-definite)*.45+sep*.30),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-geometry-v4'),
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-geometry-v5'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
