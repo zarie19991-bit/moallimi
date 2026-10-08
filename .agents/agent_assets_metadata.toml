@@ -154,3 +154,17 @@ mtime_ms = 1791477833844
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/12b8a86c-e478-48b8-a577-1e879c2935c5/ace403bc-0896-447e-a71c-e89cf0fedef2"
 storage_version_token = "1791477860486185"
 content_type = "text/html"
+
+[[outputs]]
+id = "hFYy3tkaQJJaFsUrCc_YU"
+uri = "file://qa/omr/results/source-closure/report.html"
+type = "html"
+title = "معلّمي — تقرير العائق المحدد للتكامل"
+description = "المصادر المفحوصة، وفروق التعريفات القديمة، والتبعيات الأصلية غير المتاحة محليًا؛ دون تغيير الإنتاج أو إعادة الاختبارات السابقة."
+logical_id = "29b154a5-e0f3-4500-aa85-f1f22a3cc5a5"
+content_hash = "sha256:9c2b8b6037999008f4014b5e5ee903c3ec566088d513941b52e1c28698cc58ef"
+size = 7058
+mtime_ms = 1791478708541
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/29b154a5-e0f3-4500-aa85-f1f22a3cc5a5/a2aaf955-6083-465e-8379-978cfb249011"
+storage_version_token = "1791478710233162"
+content_type = "text/html"

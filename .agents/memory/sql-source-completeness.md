@@ -11,6 +11,14 @@ description: Validate dependency closure before claiming original-schema SQL tes
 
 **How to apply:** اختبر مسار Edge والحفظ بدور الخدمة أيضًا؛ إن احتاجت نسخة التطوير منحًا صريحة فسمّها إصلاحات تطويرية، ولا تنسبها إلى تعريفات الإنتاج أو تمنح الأدوار العامة صلاحيات لتجاوز الفشل.
 
+## وجود مكونات الإنتاج مقابل توافر تعريفاتها
+
+أكد صاحب المشروع وجود جداول الحذف والاختبارات والطلاب ووظيفتي مزامنة المحاولات في الإنتاج بعد تحقق للقراءة فقط. لا تصف تعذر اختبارها محليًا بأنه غياب المكونات من الإنتاج.
+
+**Why:** صاحب المشروع ميّز صراحة بين وجود المكونات في Supabase وبين نقص تعريفاتها الأصلية محليًا.
+
+**How to apply:** اعرض العائق باعتباره نقص مصدر المخطط وتبعياته؛ لا تستبدل التعريفات المنشورة الأحدث بترحيلات GitHub التاريخية دون إثبات مطابقتها.
+
 An empty missing-requested-tables list proves only that the requested roots were
 exported, not that their schema can be imported. Follow foreign-key parents and
 inspect trigger/function bodies for procedural callees; catalog dependency lists
