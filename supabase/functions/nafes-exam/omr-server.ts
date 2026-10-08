@@ -118,7 +118,7 @@ function detectMarkers(im:GrayImage){
  return{
    tl:best.tl,tr:best.tr,bl:best.bl,br:best.br,
    confidence:Math.max(.90,Math.min(.995,1-best.aspectErr)),
-   detector:'otsu-quad-blue-row-v8',threshold
+   detector:'otsu-quad-hybrid-v9',threshold
  };
 }
 function mapPoint(m:any,x:number,y:number){
@@ -184,37 +184,47 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
  const answers=raw.map((ev:any[],i:number)=>{
   const blueOrder=ev.map((e:any,j:number)=>({j,m:Number(e.blueMass||0),h:Number(e.blueHits||0),s:Number(e.blueRowScore||0)})).sort((a:any,b:any)=>b.m-a.m);
   const blueTop=blueOrder[0],blueSecond=blueOrder[1],blueSep=blueTop.m-blueSecond.m;
-  const hasBlue=blueTop.m>=5&&blueTop.h>=4;
-  const strongBlue=blueTop.m>=9&&blueTop.h>=7&&blueSep>=3;
+  const hasBlue=blueTop.m>=5&&blueTop.h>=4,strongBlue=blueTop.m>=9&&blueTop.h>=7&&blueSep>=3;
   const multipleBlue=blueSecond.m>=7&&blueSecond.h>=5&&blueSecond.m/Math.max(1,blueTop.m)>=.48;
+
+  const centerOrder=ev.map((e:any,j:number)=>({j,v:Number(e.center)})).sort((a:any,b:any)=>a.v-b.v);
+  const centerTop=centerOrder[0],centerSecond=centerOrder[1],centerValues=ev.map((e:any)=>Number(Number(e.center).toFixed(1)));
+  const centerBase=median(centerValues),centerLift=centerBase-centerTop.v,centerGap=centerSecond.v-centerTop.v;
+  const secondLift=centerBase-centerSecond.v;
+  const darkMultiple=centerLift>=16&&secondLift>=14&&centerGap<9;
+  const darkClear=centerLift>=18&&centerGap>=10&&centerTop.v<=228;
+  const darkPossible=centerLift>=11&&centerGap>=6&&centerTop.v<=235;
 
   const grayOrder=ev.map((e:any,j:number)=>({j,s:e.score})).sort((a:any,b:any)=>b.s-a.s),top=grayOrder[0],second=grayOrder[1],sep=top.s-second.s;
   const scores=ev.map((x:any)=>Number(x.score.toFixed(4))),blueScores=ev.map((x:any)=>Number(Number(x.blueRowScore||0).toFixed(4)));
   const rowBase=median(scores),lift=top.s-rowBase;
-  const relativeClear=sep>=Math.max(.055,sepThr*1.15)&&lift>=.075;
-  const relativeStrong=sep>=.12&&lift>=.12;
-  const ratio=(top.s>0&&second.s>0)?second.s/top.s:0;
-  const strongSecond=top.s>=definite&&second.s>=definite&&ratio>=.55;
+  const relativeClear=sep>=Math.max(.055,sepThr*1.15)&&lift>=.075,relativeStrong=sep>=.12&&lift>=.12;
+  const ratio=(top.s>0&&second.s>0)?second.s/top.s:0,strongSecond=top.s>=definite&&second.s>=definite&&ratio>=.55;
   const weakCompetition=top.s>=possible&&second.s>=possible&&ratio>=.42;
 
   if(hasBlue){
     if(multipleBlue){
       const marked=blueOrder.filter((x:any)=>x.m>=7&&x.h>=5&&x.m/Math.max(1,blueTop.m)>=.48).map((x:any)=>x.j);
-      return{question:startNo+i,selected:blueTop.j,status:'multiple',marked,scores,blueScores,reader:'blue-row',confidence:.45,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
+      return{question:startNo+i,selected:blueTop.j,status:'multiple',marked,scores,blueScores,centerValues,reader:'blue-row',confidence:.45,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
     }
-    if(strongBlue){
-      return{question:startNo+i,selected:blueTop.j,status:'clear',marked:[blueTop.j],scores,blueScores,reader:'blue-row',confidence:Math.min(1,.94+Math.min(.05,blueSep/80)),topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
-    }
-    return{question:startNo+i,selected:blueTop.j,status:'ambiguous',marked:[blueTop.j],scores,blueScores,reader:'blue-row',confidence:.72,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
+    if(strongBlue)return{question:startNo+i,selected:blueTop.j,status:'clear',marked:[blueTop.j],scores,blueScores,centerValues,reader:'blue-row',confidence:Math.min(1,.94+Math.min(.05,blueSep/80)),topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
+    return{question:startNo+i,selected:blueTop.j,status:'ambiguous',marked:[blueTop.j],scores,blueScores,centerValues,reader:'blue-row',confidence:.72,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
   }
 
-  if(!relativeClear&&top.s<possible)return{question:startNo+i,selected:null,status:'blank',marked:[],scores,blueScores,reader:'gray',confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
-  if(strongSecond&&sep<.060)return{question:startNo+i,selected:top.j,status:'multiple',marked:grayOrder.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,blueScores,reader:'gray',confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
-  if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear)))return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
-  return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  if(darkMultiple){
+    const marked=centerOrder.filter((x:any)=>centerBase-x.v>=14).map((x:any)=>x.j);
+    return{question:startNo+i,selected:centerTop.j,status:'multiple',marked,scores,blueScores,centerValues,reader:'center-dark',confidence:.46,topScore:centerLift,secondScore:secondLift,threshold:18,separation:centerGap};
+  }
+  if(darkClear)return{question:startNo+i,selected:centerTop.j,status:'clear',marked:[centerTop.j],scores,blueScores,centerValues,reader:'center-dark',confidence:Math.min(.99,.91+Math.min(.08,centerGap/120)+Math.min(.04,centerLift/300)),topScore:centerLift,secondScore:secondLift,threshold:18,separation:centerGap};
+  if(darkPossible)return{question:startNo+i,selected:centerTop.j,status:'ambiguous',marked:[centerTop.j],scores,blueScores,centerValues,reader:'center-dark',confidence:.74,topScore:centerLift,secondScore:secondLift,threshold:18,separation:centerGap};
+
+  if(!relativeClear&&top.s<possible)return{question:startNo+i,selected:null,status:'blank',marked:[],scores,blueScores,centerValues,reader:'gray',confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
+  if(strongSecond&&sep<.060)return{question:startNo+i,selected:top.j,status:'multiple',marked:grayOrder.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,blueScores,centerValues,reader:'gray',confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear)))return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,centerValues,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,centerValues,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-blue-row-v8'),
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-hybrid-v9'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
