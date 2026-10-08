@@ -76,6 +76,7 @@ export function classifyAnswer(raw:Row,key:Row,index:number,context:Row={}){
 }
 function classificationDiagnostics(answers:Row[]){
  return {
+   review_pending_count:answers.filter(a=>a.review_pending===true).length,
    reading_counts:answers.reduce((m:Row,a:Row)=>(m[a.reading_status]=(m[a.reading_status]||0)+1,m),{clear:0,blank:0,multiple:0,ambiguous:0,invalid:0,unavailable:0}),
    uncertainty_counts:Object.fromEntries(['reading','identity','answer_key'].map(category=>[category,answers.filter(a=>a.uncertainty?.[category]?.length>0).length]))
  };
@@ -85,6 +86,7 @@ function classificationVerification(verification:any,answers:Row[]){
  const needsReview=answers.some(a=>a.requires_verification);
  if(!needsReview)return base;
  const reasons=[...new Set(answers.flatMap(a=>Object.values(a.uncertainty||{}).flat()) as string[])];
+ if(answers.some(a=>a.review_pending===true))reasons.push('prior_uncertainty_requires_explicit_review');
  if(answers.some(a=>a.reading_status==='multiple'))reasons.push('confirmed_multiple_requires_review');
  return {...base,risk:'high',requires_manual_review:true,auto_accept:false,reasons:[...new Set([...base.reasons,...reasons])].slice(0,12)};
 }
@@ -95,6 +97,21 @@ async function reprocessServerSheet(db:any,session:Row,row:Row){
  if(!assignment)return {row,error:'تعذر مطابقة الطالب مع قائمة الاختبار.'};
  const key=(p.answer_keys||[]).find((k:Row)=>k.model===assignment.model)?.answers||[];
  if(key.length!==p.question_count||key.some((k:Row)=>!validOption(k?.correct_index)))return {row,error:'مفتاح النموذج غير مكتمل.'};
+ if((current.answers||[]).some((a:Row)=>a.reviewed_manually===true)||row.reviewed_at||row.reviewed_by){
+   // A fresh machine reading is a proposal, never a replacement for human review.
+   let proposal:Row;
+   try{
+     const reading=readOmrJpeg(String(row.image_data||''),Number(p.question_count||0),Number(p.question_start||1));
+     const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(reading.answers[i]||{},key[i]||{},i,
+       {identity_valid:true,key_complete:true,markers_ok:reading.markers_ok===true}));
+     proposal={answers,omr_policy:OMR_POLICY,applied:false,error:null};
+   }catch(e:any){proposal={answers:[],omr_policy:OMR_POLICY,applied:false,error:String(e?.message||e)};}
+   const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:{...current,omr_reprocess_proposal:proposal}})
+     .eq('id',row.id).eq('session_id',session.id).eq('answer_version',row.answer_version).select(summaryColumns+',image_data').maybeSingle());
+   if(!updated)return {row,error:'تغيرت الورقة أثناء إعادة القراءة.'};
+   return {row:updated,proposal_only:true,error:proposal.error,
+     unresolved:proposal.answers.filter((a:Row)=>a.state==='uncertain'||a.state==='multiple').length};
+ }
  let rr:any;
  try{rr=readOmrJpeg(String(row.image_data||''),Number(p.question_count||0),Number(p.question_start||1));}
  catch(e:any){
@@ -250,8 +267,17 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const answers=Array.from({length:p.question_count},(_,i)=>{
      const raw=rawAnswers[i]||{};
      // Assigning identity cannot resolve a bubble ambiguity, even on a reviewed row.
-     return {...classifyAnswer(raw,key[i]||{},i,{identity_valid:true,key_complete:true,
-       markers_ok:current.markers_ok===true,reader_error:!!current.omr_reader_error}),reviewed_manually:raw.reviewed_manually===true};
+     const classified=classifyAnswer(raw,key[i]||{},i,{identity_valid:true,key_complete:true,
+       markers_ok:current.markers_ok===true,reader_error:!!current.omr_reader_error});
+     // Changing the identity/key is not an explicit answer review.
+     // Keep previously uncertain answers pending even if the new key matches.
+     if((raw.state==='uncertain'||raw.review_pending===true)&&classified.state!=='uncertain'){
+       classified.state='uncertain';classified.correct=false;classified.requires_verification=true;
+       classified.review_pending=true;classified.review_pending_reason='prior_uncertainty_requires_explicit_review';
+     }
+     return {...raw,...classified,
+       reader_selected:validOption(raw.reader_selected)?raw.reader_selected:classified.reader_selected,
+       reviewed_manually:raw.reviewed_manually===true};
    });
    const effective={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,identity_source:'manual',answers,
      score:answers.filter((a:Row)=>a.correct).length,
@@ -279,7 +305,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    if(rr.error)fail('فشل القارئ الخادمي: '+rr.error,422);
    await db.from('nafes_scan_sessions').update({completed_at:null}).eq('id',session.id);
    const {image_data,...safe}=rr.row;
-   return {ok:true,sheet:safe,unresolved:Number(rr.unresolved||0),reader:OMR_POLICY};
+    return {ok:true,sheet:safe,unresolved:Number(rr.unresolved||0),reader:OMR_POLICY,proposal_only:rr.proposal_only===true};
  }
  if(b.action==='teacher_scan_reclassify'){
    if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات إعادة القراءة غير صالحة.');
@@ -290,7 +316,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    if(rr.skipped)fail('لا يمكن إعادة التصنيف قبل تأكيد هوية الطالب.',409);
    if(rr.error)fail('فشل القارئ الخادمي: '+rr.error,422);
    const {image_data,...safe}=rr.row;
-   return {ok:true,sheet:safe,unresolved:Number(rr.unresolved||0),reader:OMR_POLICY};
+    return {ok:true,sheet:safe,unresolved:Number(rr.unresolved||0),reader:OMR_POLICY,proposal_only:rr.proposal_only===true};
  }
  if(b.action==='teacher_scan_edit_answer'){
    if(!uuid(b.request_id)||!uuid(b.sheet_id)||!Number.isInteger(b.question)||!Number.isInteger(b.answer_version)||!Array.isArray(b.marked)||b.marked.length>4||b.marked.some((n:any)=>!Number.isInteger(n)||n<0||n>3))fail('بيانات تعديل الإجابة غير صالحة.');
@@ -302,30 +328,48 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const edits=must(await db.from('nafes_scan_answer_edits').select('*').eq('sheet_id',b.sheet_id).order('answer_version',{ascending:false}).range(cursor,cursor+199));
    return {ok:true,edits,next_cursor:edits.length===200?cursor+200:null};
  }
- if(b.action==='teacher_scan_verify')return {ok:true,sheet:must(await db.rpc('nafes_scan_verify_current',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_ack:b.acknowledge_duplicate===true,p_version:b.answer_version}))};
- if(b.action==='teacher_scan_finish')return {ok:true,session:publicSession(must(await db.rpc('nafes_scan_finish',{p_session:session.id})))};
+ if(b.action==='teacher_scan_verify'){
+   if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات التحقق من الورقة غير صالحة.');
+   const sheet=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
+   if(!sheet)fail('ورقة غير موجودة.',404);
+   if(sheet.answer_version!==b.answer_version)fail('تغيرت الورقة أثناء المراجعة؛ حدّثها قبل التحقق.',409);
+   assertReviewedSheet(sheet,Number(session.review_snapshot?.question_count));
+   // SQL still owns the atomic version check and audit; its source must be verified separately.
+   return {ok:true,sheet:must(await db.rpc('nafes_scan_verify_current',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_ack:b.acknowledge_duplicate===true,p_version:b.answer_version}))};
+ }
+ if(b.action==='teacher_scan_finish'){
+   await reviewedBatchSheets(db,session);
+   return {ok:true,session:publicSession(must(await db.rpc('nafes_scan_finish',{p_session:session.id})))};
+ }
  fail('إجراء مراجعة غير معروف.');
 }
-export async function reviewedScanPayload(db:any,b:Row,owner:Row){
- if(!uuid(b.session_id))fail('أكمل جلسة مراجعة الأوراق قبل اعتماد النتائج.',409);
- const {review,session}=await scanSession(db,b,owner);
- if(!session.completed_at)fail('اضغط «تم المراجعة» قبل اعتماد النتائج.',409);
- const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('disposition','verified').eq('blocked_duplicate',false).order('ordinal'));
- if(!sheets.length)fail('لا توجد أوراق قابلة للاعتماد؛ راجع تنبيهات التكرار وإعادة المسح.',409);
- // A historical/stale "verified" label cannot resolve an ambiguous answer.
- for(const sheet of sheets){
+function assertReviewedSheet(sheet:Row,questionCount:number){
    const snapshot=sheet.effective_snapshot||sheet.snapshot||{};
    if(snapshot.identity_valid!==true||!uuid(sheet.student_id))fail('هوية الورقة غير مؤكدة؛ لا يمكن اعتمادها.',409);
-   if(!Array.isArray(snapshot.answers)||snapshot.answers.length!==Number(session.review_snapshot?.question_count))
+   if(!Array.isArray(snapshot.answers)||snapshot.answers.length!==questionCount)
      fail('إجابات الورقة غير مكتملة؛ لا يمكن اعتمادها.',409);
    for(const a of snapshot.answers){
-     const unresolved=a.state==='uncertain'||a.status==='ambiguous'
+     const unresolved=a.state==='uncertain'||a.status==='ambiguous'||a.review_pending===true
        ||!['correct','incorrect','blank','multiple'].includes(a.state)
        ||Object.values(a.uncertainty||{}).some((v:any)=>Array.isArray(v)&&v.length>0);
      const invalidMultiple=a.state==='multiple'&&(a.status!=='multiple'||a.selected!==null
        ||!Array.isArray(a.marked)||a.marked.some((v:any)=>!validOption(v))||new Set(a.marked).size<2);
      if(unresolved||invalidMultiple)fail('توجد قراءة غير محسومة أو أدلة متناقضة؛ تحقق منها قبل اعتماد النتائج.',409);
    }
+}
+async function reviewedBatchSheets(db:any,session:Row){
+ const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('blocked_duplicate',false).order('ordinal'));
+ if(!sheets.length)fail('لا توجد أوراق قابلة للاعتماد؛ راجع تنبيهات التكرار وإعادة المسح.',409);
+ for(const sheet of sheets){
+   if(sheet.disposition!=='verified')fail('توجد أوراق لم تُحسم مراجعتها؛ لا يمكن اعتماد الدفعة.',409);
+   assertReviewedSheet(sheet,Number(session.review_snapshot?.question_count));
  }
+ return sheets;
+}
+export async function reviewedScanPayload(db:any,b:Row,owner:Row){
+ if(!uuid(b.session_id))fail('أكمل جلسة مراجعة الأوراق قبل اعتماد النتائج.',409);
+ const {review,session}=await scanSession(db,b,owner);
+ if(!session.completed_at)fail('اضغط «تم المراجعة» قبل اعتماد النتائج.',409);
+ const sheets=await reviewedBatchSheets(db,session);
  return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length,policy:x.omr_policy||null,risk:x.omr_verification?.risk||null,quality_score:x.omr_verification?.quality_score||null}};})};
 }

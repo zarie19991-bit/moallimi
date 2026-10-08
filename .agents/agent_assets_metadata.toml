@@ -84,3 +84,17 @@ mtime_ms = 1791459857261
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/6dd922bf-83f0-4533-b31b-28fcd45621bf/acd86ebc-d4db-4173-b616-53415a36bf3f"
 storage_version_token = "1791460200135587"
 content_type = "text/html"
+
+[[outputs]]
+id = "d8inYXC4vkE_FMgLhIQeh"
+uri = "file://qa/omr/results/manual-review/report.html"
+type = "html"
+title = "معلّمي — نتائج اختبارات الحفظ والمراجعة المحلية"
+description = "مقارنة المصدر الأصلي بالإصلاح المحلي: 112 اختبارًا ناجحًا، 4 اختبارات SQL معلّقة، وحماية المراجعات اليدوية والدفعات غير المحسومة. لا اتصال بالإنتاج أو تنفيذ SQL."
+logical_id = "bb3fcc0d-6a00-4af0-baa8-9690828a5b76"
+content_hash = "sha256:0108e3704332e843796bff044f5e40201728061e425c56f463a7b70efdf48ff1"
+size = 9658
+mtime_ms = 1791461868317
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/bb3fcc0d-6a00-4af0-baa8-9690828a5b76/c7f1a4d1-e58a-48bd-9f35-a964960a2cc6"
+storage_version_token = "1791461970043369"
+content_type = "text/html"

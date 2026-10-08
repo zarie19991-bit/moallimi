@@ -8,7 +8,8 @@
   "scripts": {
     "test:omr": "bun test --timeout 60000 qa/omr",
     "compare:omr": "bun qa/omr/comparison.ts",
-    "test:omr:classification": "bun qa/omr/classification-evidence.ts"
+    "test:omr:classification": "bun qa/omr/classification-evidence.ts",
+    "test:omr:manual-review": "bun qa/omr/manual-review-evidence.ts"
   },
   "keywords": [],
   "author": "",

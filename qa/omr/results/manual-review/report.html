@@ -1,0 +1,152 @@
+<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>معلّمي — اختبارات الحفظ والمراجعة</title>
+<style>body{font:17px/1.8 Tahoma,Arial,sans-serif;margin:32px auto;padding:0 24px;max-width:1100px;color:#17212f}h1,h2{line-height:1.4}table{border-collapse:collapse;width:100%;margin:16px 0}td,th{border:1px solid #a5afbb;padding:10px;vertical-align:top}th{background:#edf2f7}.notice{padding:16px;border:2px solid #b76b00;background:#fff7e6}pre{direction:ltr;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;background:#f1f4f8;padding:16px}@media print{body{margin:0;font-size:12pt}thead{display:table-header-group}tr{break-inside:avoid}pre{font-size:9pt}}</style>
+<h1>معلّمي — حفظ أوراق التظليل والمراجعة اليدوية</h1>
+<p><strong>112 اختبارًا ناجحًا، 0 فشل، 4 اختبارات SQL معلّقة.</strong> جميع البيانات اصطناعية.</p>
+<div class="notice">هذه اختبارات كود Edge وحدود الاستدعاء فقط. لم تُنشأ قاعدة SQL ولم تُنفذ وظائفها. موافقة القاعدة المحلية متاحة، لكن مخطط الإنتاج لم يُخترع. لا تعني الاختبارات الناجحة نجاح الحفظ أو سجل التعديلات أو منع التكرار داخل SQL. المهمة كاملةً لم تُعتبر ناجحة بعد، ولم يبدأ تحسين واجهة المعلم.</div>
+<h2>قبل الإصلاح وبعده</h2><table><thead><tr><th>الحالة</th><th>المصدر الأصلي المرفوع</th><th>الإصلاح المحلي</th></tr></thead><tbody>
+<tr><td>التحقق من ورقة ambiguous أو uncertain</td><td>يمرر الطلب إلى SQL دون حماية Edge؛ لا إثبات لاعتماد فعلي</td><td>يحجب الطلب قبل استدعاء SQL</td></tr>
+<tr><td>تغيير الهوية لإجابة uncertain ذات قراءة clear</td><td>يعيد تصنيفها correct عند تطابق المفتاح</td><td>يحتفظ بالاختيار والتظليل، ويُبقي state=uncertain وcorrect=false حتى مراجعة صريحة</td></tr>
+<tr><td>إعادة قراءة تتعارض مع تعديل بشري</td><td>يستبدل الإجابات ويمحو علامات المراجعة</td><td>يحفظ الإجابات والسبب والعلامات؛ القراءة الجديدة اقتراح غير مطبق</td></tr>
+<tr><td>إنهاء دفعة غير محسومة / حذف ورقة معلقة من النتائج ضمنيًا</td><td>الإنهاء يُحال إلى SQL؛ تجهيز النتائج قد يتجاهل غير verified</td><td>يرفض الإنهاء والتجهيز ما دامت ورقة غير محجوبة من التكرار تحتاج حسمًا أو تحققًا</td></tr>
+<tr><td>تسجيل سبب التعديل / منع الحفظ المكرر والمعاملات المتزامنة</td><td colspan="2">غير مثبت. مصدر SQL مفقود؛ سبب الطلب لا يُمرر حاليًا. لا يُضاف p_reason أو قيد جديد دون تعريف الأصل.</td></tr>
+</tbody></table>
+<h2>المصدر الناقص</h2><p>تعريفات الجداول الخمسة المذكورة، القيود والفهارس وسياسات الوصول والمحفزات ووظائفها، وتواقيع وأجسام RPC الفعلية. الأسماء التالية مراجع من كود Edge وليست تأكيدًا لوجود وظائف بهذا التوقيع في الإنتاج:</p><pre>nafes_scan_register
+nafes_scan_assign_identity
+nafes_scan_edit_answer
+nafes_scan_verify_current
+nafes_scan_finish
+nafes_scan_delete_corrections</pre>
+<p>ملف استخراج بيانات تعريف المخطط بالقراءة فقط: <code dir="ltr">qa/omr/export/manual-review-metadata-readonly.sql</code>. لم يُنفذ. لا يقرأ صفوف الطلاب أو الدرجات. يجب مراجعة المصدر الناتج وإزالة أي أسرار مضمّنة قبل مشاركته.</p>
+<h2>الأدلة التفصيلية والبصمة</h2><pre>{
+  &quot;synthetic_only&quot;: true,
+  &quot;real_student_data_used&quot;: false,
+  &quot;historical_snapshots_used&quot;: false,
+  &quot;production_connected&quot;: false,
+  &quot;sql_executed&quot;: false,
+  &quot;sql_database_created&quot;: false,
+  &quot;local_sql_database_permission&quot;: true,
+  &quot;source_sha256&quot;: &quot;55965d25038ad72efd09b8d8bcc427cd701ee33530cf752e564b55604b5ffe64&quot;,
+  &quot;validation&quot;: {
+    &quot;passed&quot;: 112,
+    &quot;failed&quot;: 0,
+    &quot;todo&quot;: 4,
+    &quot;files&quot;: [
+      &quot;qa/omr/omr.test.ts&quot;,
+      &quot;qa/omr/development.test.ts&quot;,
+      &quot;qa/omr/regressions.test.ts&quot;,
+      &quot;qa/omr/historical-state.test.ts&quot;,
+      &quot;qa/omr/classification.test.ts&quot;,
+      &quot;qa/omr/manual-review-boundary.test.ts&quot;,
+      &quot;qa/omr/manual-reprocess.test.ts&quot;
+    ]
+  },
+  &quot;rows&quot;: [
+    {
+      &quot;test&quot;: &quot;verified / ambiguous&quot;,
+      &quot;before&quot;: &quot;يمرّر الطلب إلى SQL؛ النتيجة الداخلية غير مختبرة&quot;,
+      &quot;after&quot;: &quot;محجوب قبل SQL&quot;,
+      &quot;scope&quot;: &quot;حماية Edge مثبتة؛ تنفيذ SQL غير مختبر&quot;
+    },
+    {
+      &quot;test&quot;: &quot;verified / uncertain&quot;,
+      &quot;before&quot;: &quot;يمرّر الطلب إلى SQL؛ النتيجة الداخلية غير مختبرة&quot;,
+      &quot;after&quot;: &quot;محجوب قبل SQL&quot;,
+      &quot;scope&quot;: &quot;حماية Edge مثبتة؛ تنفيذ SQL غير مختبر&quot;
+    },
+    {
+      &quot;test&quot;: &quot;identity / uncertain&quot;,
+      &quot;source&quot;: &quot;original&quot;,
+      &quot;state&quot;: &quot;correct&quot;,
+      &quot;selected&quot;: 0,
+      &quot;marked&quot;: [
+        0
+      ],
+      &quot;correct&quot;: true,
+      &quot;review_pending&quot;: false,
+      &quot;scope&quot;: &quot;اللقطة المرسلة فقط؛ التخزين غير مختبر&quot;
+    },
+    {
+      &quot;test&quot;: &quot;edit / reason&quot;,
+      &quot;source&quot;: &quot;original&quot;,
+      &quot;reason_forwarded&quot;: false,
+      &quot;scope&quot;: &quot;سبب الطلب لا يمرَّر؛ تسجيل SQL والقيود غير مختبرة&quot;
+    },
+    {
+      &quot;test&quot;: &quot;finish / uncertain&quot;,
+      &quot;source&quot;: &quot;original&quot;,
+      &quot;rpc_reached&quot;: true,
+      &quot;scope&quot;: &quot;SQL غير منفذ&quot;
+    },
+    {
+      &quot;test&quot;: &quot;reprocess / human review&quot;,
+      &quot;source&quot;: &quot;original&quot;,
+      &quot;selected&quot;: 2,
+      &quot;manual_reason&quot;: null,
+      &quot;reviewed_at&quot;: null,
+      &quot;proposal_only&quot;: false,
+      &quot;scope&quot;: &quot;تحديث كائنات JavaScript فقط؛ المحفزات SQL غير مختبرة&quot;
+    },
+    {
+      &quot;test&quot;: &quot;identity / uncertain&quot;,
+      &quot;source&quot;: &quot;repair&quot;,
+      &quot;state&quot;: &quot;uncertain&quot;,
+      &quot;selected&quot;: 0,
+      &quot;marked&quot;: [
+        0
+      ],
+      &quot;correct&quot;: false,
+      &quot;review_pending&quot;: true,
+      &quot;scope&quot;: &quot;اللقطة المرسلة فقط؛ التخزين غير مختبر&quot;
+    },
+    {
+      &quot;test&quot;: &quot;edit / reason&quot;,
+      &quot;source&quot;: &quot;repair&quot;,
+      &quot;reason_forwarded&quot;: false,
+      &quot;scope&quot;: &quot;سبب الطلب لا يمرَّر؛ تسجيل SQL والقيود غير مختبرة&quot;
+    },
+    {
+      &quot;test&quot;: &quot;finish / uncertain&quot;,
+      &quot;source&quot;: &quot;repair&quot;,
+      &quot;rpc_reached&quot;: false,
+      &quot;scope&quot;: &quot;SQL غير منفذ&quot;
+    },
+    {
+      &quot;test&quot;: &quot;reprocess / human review&quot;,
+      &quot;source&quot;: &quot;repair&quot;,
+      &quot;selected&quot;: 0,
+      &quot;manual_reason&quot;: &quot;synthetic review&quot;,
+      &quot;reviewed_at&quot;: &quot;2026-01-01T00:00:00Z&quot;,
+      &quot;proposal_only&quot;: true,
+      &quot;scope&quot;: &quot;تحديث كائنات JavaScript فقط؛ المحفزات SQL غير مختبرة&quot;
+    }
+  ],
+  &quot;blockers&quot;: [
+    &quot;Original table DDL, constraints, indexes, RLS policies, triggers and trigger functions are absent.&quot;,
+    &quot;Original SQL RPC bodies/signatures, audit persistence and transaction semantics are absent.&quot;,
+    &quot;Duplicate and concurrent operations cannot be proved by an RPC boundary recorder.&quot;,
+    &quot;The current Edge edit and identity calls do not forward an entered reason. No SQL argument was invented.&quot;
+  ],
+  &quot;missing_tables&quot;: [
+    &quot;nafes_scan_sheets&quot;,
+    &quot;nafes_scan_sessions&quot;,
+    &quot;nafes_scan_answer_edits&quot;,
+    &quot;nafes_scan_identity_edits&quot;,
+    &quot;nafes_scan_alerts&quot;
+  ],
+  &quot;rpc_names_referenced_by_existing_edge_not_verified_in_database&quot;: [
+    &quot;nafes_scan_register&quot;,
+    &quot;nafes_scan_assign_identity&quot;,
+    &quot;nafes_scan_edit_answer&quot;,
+    &quot;nafes_scan_verify_current&quot;,
+    &quot;nafes_scan_finish&quot;,
+    &quot;nafes_scan_delete_corrections&quot;
+  ]
+}</pre>
+<h2>سجل التحقق</h2><pre>bun test v1.3.6 (d530ed99)
+
+ 112 pass
+ 4 todo
+ 0 fail
+ 967 expect() calls
+Ran 116 tests across 7 files. [13.32s]
+</pre></html>

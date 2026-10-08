@@ -1,0 +1,125 @@
+{
+  "synthetic_only": true,
+  "real_student_data_used": false,
+  "historical_snapshots_used": false,
+  "production_connected": false,
+  "sql_executed": false,
+  "sql_database_created": false,
+  "local_sql_database_permission": true,
+  "source_sha256": "55965d25038ad72efd09b8d8bcc427cd701ee33530cf752e564b55604b5ffe64",
+  "validation": {
+    "passed": 112,
+    "failed": 0,
+    "todo": 4,
+    "files": [
+      "qa/omr/omr.test.ts",
+      "qa/omr/development.test.ts",
+      "qa/omr/regressions.test.ts",
+      "qa/omr/historical-state.test.ts",
+      "qa/omr/classification.test.ts",
+      "qa/omr/manual-review-boundary.test.ts",
+      "qa/omr/manual-reprocess.test.ts"
+    ]
+  },
+  "rows": [
+    {
+      "test": "verified / ambiguous",
+      "before": "يمرّر الطلب إلى SQL؛ النتيجة الداخلية غير مختبرة",
+      "after": "محجوب قبل SQL",
+      "scope": "حماية Edge مثبتة؛ تنفيذ SQL غير مختبر"
+    },
+    {
+      "test": "verified / uncertain",
+      "before": "يمرّر الطلب إلى SQL؛ النتيجة الداخلية غير مختبرة",
+      "after": "محجوب قبل SQL",
+      "scope": "حماية Edge مثبتة؛ تنفيذ SQL غير مختبر"
+    },
+    {
+      "test": "identity / uncertain",
+      "source": "original",
+      "state": "correct",
+      "selected": 0,
+      "marked": [
+        0
+      ],
+      "correct": true,
+      "review_pending": false,
+      "scope": "اللقطة المرسلة فقط؛ التخزين غير مختبر"
+    },
+    {
+      "test": "edit / reason",
+      "source": "original",
+      "reason_forwarded": false,
+      "scope": "سبب الطلب لا يمرَّر؛ تسجيل SQL والقيود غير مختبرة"
+    },
+    {
+      "test": "finish / uncertain",
+      "source": "original",
+      "rpc_reached": true,
+      "scope": "SQL غير منفذ"
+    },
+    {
+      "test": "reprocess / human review",
+      "source": "original",
+      "selected": 2,
+      "manual_reason": null,
+      "reviewed_at": null,
+      "proposal_only": false,
+      "scope": "تحديث كائنات JavaScript فقط؛ المحفزات SQL غير مختبرة"
+    },
+    {
+      "test": "identity / uncertain",
+      "source": "repair",
+      "state": "uncertain",
+      "selected": 0,
+      "marked": [
+        0
+      ],
+      "correct": false,
+      "review_pending": true,
+      "scope": "اللقطة المرسلة فقط؛ التخزين غير مختبر"
+    },
+    {
+      "test": "edit / reason",
+      "source": "repair",
+      "reason_forwarded": false,
+      "scope": "سبب الطلب لا يمرَّر؛ تسجيل SQL والقيود غير مختبرة"
+    },
+    {
+      "test": "finish / uncertain",
+      "source": "repair",
+      "rpc_reached": false,
+      "scope": "SQL غير منفذ"
+    },
+    {
+      "test": "reprocess / human review",
+      "source": "repair",
+      "selected": 0,
+      "manual_reason": "synthetic review",
+      "reviewed_at": "2026-01-01T00:00:00Z",
+      "proposal_only": true,
+      "scope": "تحديث كائنات JavaScript فقط؛ المحفزات SQL غير مختبرة"
+    }
+  ],
+  "blockers": [
+    "Original table DDL, constraints, indexes, RLS policies, triggers and trigger functions are absent.",
+    "Original SQL RPC bodies/signatures, audit persistence and transaction semantics are absent.",
+    "Duplicate and concurrent operations cannot be proved by an RPC boundary recorder.",
+    "The current Edge edit and identity calls do not forward an entered reason. No SQL argument was invented."
+  ],
+  "missing_tables": [
+    "nafes_scan_sheets",
+    "nafes_scan_sessions",
+    "nafes_scan_answer_edits",
+    "nafes_scan_identity_edits",
+    "nafes_scan_alerts"
+  ],
+  "rpc_names_referenced_by_existing_edge_not_verified_in_database": [
+    "nafes_scan_register",
+    "nafes_scan_assign_identity",
+    "nafes_scan_edit_answer",
+    "nafes_scan_verify_current",
+    "nafes_scan_finish",
+    "nafes_scan_delete_corrections"
+  ]
+}
