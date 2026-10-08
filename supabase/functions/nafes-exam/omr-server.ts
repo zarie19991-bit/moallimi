@@ -39,15 +39,78 @@ function findSquare(I:any,zone:number[],ex:number,ey:number){
   }
  }return best;
 }
+function globalSquareCandidates(im:GrayImage){
+ const I=integral(im),raw:any[]=[];
+ const sizes=[.006,.008,.010,.012,.015,.018,.022].map(f=>Math.max(6,Math.round(im.width*f)));
+ for(const size of sizes){
+   const half=Math.floor(size/2),step=Math.max(3,Math.floor(size/2));
+   const x0=Math.max(half,Math.floor(im.width*.02)),x1=Math.min(im.width-half,Math.ceil(im.width*.98));
+   const y0=Math.max(half,Math.floor(im.height*.30)),y1=Math.min(im.height-half,Math.ceil(im.height*.95));
+   for(let y=y0;y<=y1;y+=step)for(let x=x0;x<=x1;x+=step){
+     const core=rectMean(I,x-half,y-half,size,size);
+     if(core>165)continue;
+     const outer=rectMean(I,x-size,y-size,size*2,size*2),contrast=outer-core;
+     if(contrast<12)continue;
+     const score=(255-core)*.65+contrast*.75;
+     raw.push({x,y,size,score,core,contrast});
+   }
+ }
+ raw.sort((a,b)=>b.score-a.score);
+ const out:any[]=[];
+ for(const p of raw){
+   if(out.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<Math.max(p.size,q.size)*1.5))continue;
+   out.push(p);if(out.length>=120)break;
+ }
+ return out;
+}
+function globalMarkerRectangle(im:GrayImage){
+ const c=globalSquareCandidates(im),target=172/104,rows:any[]=[];
+ for(let i=0;i<c.length;i++)for(let j=i+1;j<c.length;j++){
+   let a=c[i],b=c[j];if(a.x>b.x){const t=a;a=b;b=t;}
+   const dx=b.x-a.x,dy=Math.abs(a.y-b.y);
+   if(a.x>im.width*.38||b.x<im.width*.62)continue;
+   if(dx<im.width*.45||dy>im.height*.035)continue;
+   const sizeRatio=Math.max(a.size,b.size)/Math.max(1,Math.min(a.size,b.size));if(sizeRatio>2.2)continue;
+   rows.push({l:a,r:b,y:(a.y+b.y)/2,dx,ink:(a.score+b.score)/2});
+ }
+ let best:any=null;
+ for(let i=0;i<rows.length;i++)for(let j=i+1;j<rows.length;j++){
+   let top=rows[i],bottom=rows[j];if(top.y>bottom.y){const t=top;top=bottom;bottom=t;}
+   const dy=bottom.y-top.y;
+   if(dy<im.height*.15||dy>im.height*.52)continue;
+   if(Math.abs(top.l.x-bottom.l.x)>im.width*.09||Math.abs(top.r.x-bottom.r.x)>im.width*.09)continue;
+   const widthRatio=Math.max(top.dx,bottom.dx)/Math.max(1,Math.min(top.dx,bottom.dx));if(widthRatio>1.28)continue;
+   const dx=(top.dx+bottom.dx)/2,aspect=dx/dy,aspectErr=Math.abs(Math.log(aspect/target));
+   if(aspectErr>.42)continue;
+   const area=(dx*dy)/(im.width*im.height);
+   if(area<.09)continue;
+   const edgeBonus=((top.l.x<im.width*.28&&bottom.l.x<im.width*.28)?1:0)+((top.r.x>im.width*.72&&bottom.r.x>im.width*.72)?1:0);
+   const score=area*9+(top.ink+bottom.ink)/220-aspectErr*1.8+edgeBonus*.35;
+   if(!best||score>best.score)best={top,bottom,score,aspectErr,area};
+ }
+ if(!best)return null;
+ return{
+   tl:best.top.l,tr:best.top.r,bl:best.bottom.l,br:best.bottom.r,
+   confidence:Math.max(.86,Math.min(.99,1-best.aspectErr)),
+   detector:'global-square-rectangle-v2'
+ };
+}
 function detectMarkers(im:GrayImage){
+ // First try the calibrated legacy locations because they are cheap; if the camera framing
+ // changes, fall back to a full answer-area search and solve the four-corner rectangle geometrically.
  const I=integral(im);
- const tl=findSquare(I,[.035,.145,.40,.52],.079,.461),tr=findSquare(I,[.75,.91,.39,.51],.823,.449),bl=findSquare(I,[.035,.15,.64,.79],.082,.720),br=findSquare(I,[.75,.94,.63,.79],.847,.708);
- if(!tl||!tr||!bl||!br)throw new Error('لم تُكتشف المربعات السوداء الأربعة في الصورة المخزنة.');
- const topDx=tr.x-tl.x,bottomDx=br.x-bl.x,leftDy=bl.y-tl.y,rightDy=br.y-tr.y;
- if(topDx<im.width*.52||bottomDx<im.width*.52||leftDy<im.height*.18||rightDy<im.height*.18)throw new Error('هندسة مربعات المحاذاة غير مكتملة.');
- const target=172/104,aspect=((topDx+bottomDx)/2)/((leftDy+rightDy)/2),err=Math.abs(Math.log(aspect/target));
- if(err>.36)throw new Error('منظور الورقة خارج حدود القالب.');
- return{tl,tr,bl,br,confidence:Math.max(.90,1-err)};
+ const tl=findSquare(I,[.025,.20,.34,.62],.10,.49),tr=findSquare(I,[.72,.98,.34,.62],.86,.49),
+       bl=findSquare(I,[.025,.20,.60,.94],.10,.80),br=findSquare(I,[.72,.98,.60,.94],.86,.80);
+ if(tl&&tr&&bl&&br){
+   const topDx=tr.x-tl.x,bottomDx=br.x-bl.x,leftDy=bl.y-tl.y,rightDy=br.y-tr.y,target=172/104;
+   if(topDx>im.width*.45&&bottomDx>im.width*.45&&leftDy>im.height*.14&&rightDy>im.height*.14){
+     const aspect=((topDx+bottomDx)/2)/((leftDy+rightDy)/2),err=Math.abs(Math.log(aspect/target));
+     if(err<=.42)return{tl,tr,bl,br,confidence:Math.max(.88,Math.min(.99,1-err)),detector:'broad-zone-v2'};
+   }
+ }
+ const global=globalMarkerRectangle(im);
+ if(!global)throw new Error('لم يتم العثور على مستطيل علامات المحاذاة الأربع في كامل منطقة الإجابات.');
+ return global;
 }
 function mapPoint(m:any,x:number,y:number){
  const u=(x-4)/172,v=(y-4)/104,p0=m.tl,p1=m.tr,p2=m.br,p3=m.bl;
@@ -79,7 +142,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Math.min(1,.94+(top.s-definite)*.45+sep*.30),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:'server-jpeg-homography-v1',
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'server-jpeg-homography-v2'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
