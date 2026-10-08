@@ -1,5 +1,6 @@
 // Auth is performed by handleAssessments before invoking this module.
 import { fail, hash } from './assessment-engine.ts';
+import { readOmrJpeg } from './omr-server.ts';
 type Row=Record<string,any>;
 const must=(r:any)=>{if(r.error)fail(r.error.message,400);return r.data;};
 const uuid=(v:any)=>/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(String(v));
@@ -146,6 +147,32 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const refreshed=must(await db.from('nafes_scan_sessions').select('*').eq('id',session.id).single());
    const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
    return {ok:true,...result,session:publicSession(refreshed),sheets};
+ }
+ if(b.action==='teacher_scan_reprocess_server'){
+   if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات إعادة القراءة الخادمية غير صالحة.');
+   const row=must(await db.from('nafes_scan_sheets').select(summaryColumns+',image_data').eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
+   if(!row)fail('ورقة غير موجودة.',404);
+   const current=row.effective_snapshot||row.snapshot;
+   if(current?.identity_valid!==true||!row.student_id)fail('لا يمكن احتساب درجة آلية قبل تأكيد هوية الطالب.',409);
+   const p=session.review_snapshot,assignment=(p.assignments||[]).find((a:Row)=>String(a.student_id)===String(row.student_id));
+   if(!assignment)fail('تعذر مطابقة الطالب مع قائمة الاختبار.',409);
+   const key=(p.answer_keys||[]).find((k:Row)=>k.model===assignment.model)?.answers||[];
+   if(key.length!==p.question_count)fail('مفتاح النموذج غير مكتمل.',409);
+   let rr:any;
+   try{rr=readOmrJpeg(String(row.image_data||''),Number(p.question_count||0),Number(p.question_start||1));}
+   catch(e:any){fail('فشل القارئ الخادمي: '+String(e?.message||e),422);}
+   const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(rr.answers[i]||{},key[i]||{},i));
+   const uncertain=answers.filter((a:Row)=>a.state==='uncertain'||a.state==='multiple').length;
+   const next={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,markers_ok:rr.markers_ok===true,
+     marker_confidence:finite(rr.marker_confidence,0,1),answers,score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
+     counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
+     omr_policy:'server_jpeg_homography_v5',omr_detector:String(rr.detector||'').slice(0,64),
+     marker_points:rr.marker_points||null,omr_verification:compactVerification(rr.verification),omr_calibration:compactCalibration(rr.calibration),
+     unresolved_answers:uncertain};
+   const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:next,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null}).eq('id',row.id).eq('session_id',session.id).eq('answer_version',b.answer_version).select(summaryColumns).maybeSingle());
+   if(!updated)fail('تغيرت الورقة أثناء إعادة القراءة؛ أعد المحاولة.',409);
+   await db.from('nafes_scan_sessions').update({completed_at:null}).eq('id',session.id);
+   return {ok:true,sheet:updated,unresolved:uncertain,reader:'server_jpeg_homography_v5'};
  }
  if(b.action==='teacher_scan_reclassify'){
    if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version)||!Array.isArray(b.answers))fail('بيانات إعادة القراءة غير صالحة.');
