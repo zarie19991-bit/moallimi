@@ -114,7 +114,7 @@ function detectMarkers(im:GrayImage){
  return{
    tl:best.tl,tr:best.tr,bl:best.bl,br:best.br,
    confidence:Math.max(.90,Math.min(.995,1-best.aspectErr)),
-   detector:'otsu-quad-geometry-v5',threshold
+   detector:'otsu-quad-geometry-v6',threshold
  };
 }
 function mapPoint(m:any,x:number,y:number){
@@ -142,16 +142,28 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
  const vals=raw.flat().map((x:any)=>Number(x.score)),base=median(vals),mad=median(vals.map((x:number)=>Math.abs(x-base))),possible=clamp(base+Math.max(.018,mad*2.4),.012,.032),definite=clamp(base+Math.max(.028,mad*3.5),.025,.052),sepThr=clamp(Math.max(.024,mad*2.2),.020,.042);
  const answers=raw.map((ev:any[],i:number)=>{
   const order=ev.map((e:any,j:number)=>({j,s:e.score})).sort((a:any,b:any)=>b.s-a.s),top=order[0],second=order[1],sep=top.s-second.s;
-  const scores=ev.map((x:any)=>Number(x.score.toFixed(4))),ratio=top.s>0?second.s/top.s:1;
-  const strongSecond=second.s>=definite&&ratio>=.55;
-  const weakCompetition=second.s>=possible&&ratio>=.42;
-  if(top.s<possible)return{question:startNo+i,selected:null,status:'blank',marked:[],scores,confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
-  if(strongSecond&&sep<.060)return{question:startNo+i,selected:top.j,status:'multiple',marked:order.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
-  if(top.s<definite||sep<sepThr||weakCompetition)return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,confidence:Math.min(.79,.5+(top.s-possible)*6+sep*4),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
-  return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Math.min(1,.94+(top.s-definite)*.45+sep*.30),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  const scores=ev.map((x:any)=>Number(x.score.toFixed(4)));
+  const rowBase=median(scores),lift=top.s-rowBase;
+  const relativeClear=sep>=Math.max(.055,sepThr*1.15)&&lift>=.075;
+  const relativeStrong=sep>=.12&&lift>=.12;
+  const ratio=(top.s>0&&second.s>0)?second.s/top.s:0;
+  const strongSecond=top.s>=definite&&second.s>=definite&&ratio>=.55;
+  const weakCompetition=top.s>=possible&&second.s>=possible&&ratio>=.42;
+
+  // Blank only when no option separates from the other three.
+  if(!relativeClear&&top.s<possible){
+    return{question:startNo+i,selected:null,status:'blank',marked:[],scores,confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
+  }
+  if(strongSecond&&sep<.060){
+    return{question:startNo+i,selected:top.j,status:'multiple',marked:order.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  }
+  if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear))){
+    return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  }
+  return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-geometry-v5'),
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-geometry-v6'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
