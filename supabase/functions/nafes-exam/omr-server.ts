@@ -56,8 +56,9 @@ function binaryRect(I:any,x:number,y:number,w:number,h:number){
  const x1=clamp(Math.round(x),0,I.w),y1=clamp(Math.round(y),0,I.h),x2=clamp(Math.round(x+w),0,I.w),y2=clamp(Math.round(y+h),0,I.h),W=I.w+1;
  return I.ii[y2*W+x2]-I.ii[y1*W+x2]-I.ii[y2*W+x1]+I.ii[y1*W+x1];
 }
-function findFilledSquare(I:any,zone:number[],ex:number,ey:number){
- const sizes=[.0075,.0095,.012,.0145,.018,.021].map(f=>Math.max(6,Math.round(I.w*f))),raw:any[]=[];
+function squareCandidates(I:any,zone:number[],expectX:number,expectY:number,maxN=24){
+ const sizes=[.0065,.0075,.0085,.0095,.011,.013,.015,.018].map(f=>Math.max(6,Math.round(I.w*f)));
+ const raw:any[]=[];
  for(const size of sizes){
    const half=Math.floor(size/2),step=Math.max(2,Math.floor(size/3));
    const x0=Math.max(half,Math.floor(I.w*zone[0])),x1=Math.min(I.w-half,Math.ceil(I.w*zone[1]));
@@ -67,26 +68,54 @@ function findFilledSquare(I:any,zone:number[],ex:number,ey:number){
      if(core<.55)continue;
      const outer=binaryRect(I,x-size,y-size,size*2,size*2)/(size*size*4),contrast=core-outer;
      if(contrast<.12)continue;
-     const prox=Math.abs(x/I.w-ex)+Math.abs(y/I.h-ey),score=core+.70*contrast-.25*prox;
-     raw.push({x,y,size,score,core,outer,contrast});
+     const prox=Math.abs(x/I.w-expectX)+Math.abs(y/I.h-expectY);
+     raw.push({x,y,size,core,outer,contrast,score:core+.70*contrast-.10*prox});
    }
  }
- raw.sort((a,b)=>b.score-a.score);return raw[0]||null;
+ raw.sort((a,b)=>b.score-a.score);
+ const out:any[]=[];
+ for(const p of raw){
+   if(out.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<Math.max(p.size,q.size)*1.4))continue;
+   out.push(p);if(out.length>=maxN)break;
+ }
+ return out;
 }
 function detectMarkers(im:GrayImage){
  const threshold=otsuThreshold(im),I=binaryIntegral(im,threshold);
- // Broad edge zones cover the real phone framing while excluding the answer bubbles themselves.
- const tl=findFilledSquare(I,[.025,.20,.36,.58],.08,.46),
-       tr=findFilledSquare(I,[.72,.96,.34,.57],.83,.45),
-       bl=findFilledSquare(I,[.025,.20,.60,.90],.08,.72),
-       br=findFilledSquare(I,[.72,.96,.58,.90],.85,.71);
- if(!tl||!tr||!bl||!br)throw new Error('لم يتم اكتشاف مربعات المحاذاة الأربعة بعد التحويل الثنائي التكيفي.');
- const topDx=tr.x-tl.x,bottomDx=br.x-bl.x,leftDy=bl.y-tl.y,rightDy=br.y-tr.y,target=172/104;
- if(topDx<im.width*.45||bottomDx<im.width*.45||leftDy<im.height*.14||rightDy<im.height*.14)throw new Error('هندسة مربعات المحاذاة غير مكتملة.');
- if(Math.abs(tl.x-bl.x)>im.width*.08||Math.abs(tr.x-br.x)>im.width*.08)throw new Error('انحراف جانبي غير منطقي في علامات المحاذاة.');
- const aspect=((topDx+bottomDx)/2)/((leftDy+rightDy)/2),err=Math.abs(Math.log(aspect/target));
- if(err>.42)throw new Error('نسبة مستطيل التظليل لا تطابق القالب.');
- return{tl,tr,bl,br,confidence:Math.max(.90,Math.min(.995,1-err)),detector:'otsu-filled-square-v3',threshold};
+ const TL=squareCandidates(I,[.02,.24,.36,.58],.08,.46),
+       TR=squareCandidates(I,[.68,.98,.34,.58],.83,.45),
+       BL=squareCandidates(I,[.02,.24,.58,.92],.08,.72),
+       BR=squareCandidates(I,[.68,.98,.58,.92],.85,.71);
+ const target=172/104;let best:any=null;
+ for(const tl of TL)for(const tr of TR){
+   const topDx=tr.x-tl.x;if(topDx<im.width*.45||Math.abs(tr.y-tl.y)>im.height*.06)continue;
+   for(const bl of BL){
+     if(bl.y<=tl.y)continue;
+     for(const br of BR){
+       if(br.y<=tr.y)continue;
+       const bottomDx=br.x-bl.x;if(bottomDx<im.width*.45||Math.abs(br.y-bl.y)>im.height*.06)continue;
+       const leftDy=bl.y-tl.y,rightDy=br.y-tr.y;
+       if(leftDy<im.height*.14||rightDy<im.height*.14)continue;
+       if(Math.abs(tl.x-bl.x)>im.width*.10||Math.abs(tr.x-br.x)>im.width*.10)continue;
+       const widthRatio=Math.max(topDx,bottomDx)/Math.max(1,Math.min(topDx,bottomDx));if(widthRatio>1.25)continue;
+       const dy=(leftDy+rightDy)/2,aspect=((topDx+bottomDx)/2)/dy,aspectErr=Math.abs(Math.log(aspect/target));
+       if(aspectErr>.45)continue;
+       const sizes=[tl.size,tr.size,bl.size,br.size],sizeRatio=Math.max(...sizes)/Math.max(1,Math.min(...sizes));
+       if(sizeRatio>2)continue;
+       const horiz=(Math.abs(tr.y-tl.y)+Math.abs(br.y-bl.y))/im.height;
+       const vert=(Math.abs(tl.x-bl.x)+Math.abs(tr.x-br.x))/im.width;
+       const density=(tl.score+tr.score+bl.score+br.score)/4;
+       const score=density-aspectErr*1.8-horiz*4-vert*3-(sizeRatio-1)*.2;
+       if(!best||score>best.score)best={tl,tr,bl,br,score,aspectErr};
+     }
+   }
+ }
+ if(!best)throw new Error('لم يتم العثور على رباعي علامات محاذاة يطابق هندسة القالب.');
+ return{
+   tl:best.tl,tr:best.tr,bl:best.bl,br:best.br,
+   confidence:Math.max(.90,Math.min(.995,1-best.aspectErr)),
+   detector:'otsu-quad-geometry-v4',threshold
+ };
 }
 function mapPoint(m:any,x:number,y:number){
  const u=(x-4)/172,v=(y-4)/104,p0=m.tl,p1=m.tr,p2=m.br,p3=m.bl;
@@ -118,7 +147,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Math.min(1,.94+(top.s-definite)*.45+sep*.30),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-filled-square-v3'),
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-geometry-v4'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
