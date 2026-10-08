@@ -75,6 +75,6 @@ export function memoryDb(image: string, overrides: Row = {}) {
   };
   return {
     db, writes, tables, owner: { id: ids.owner, subject_scope: "all" },
-    request: { review_id: "test-review", session_id: ids.session },
+    request: { review_id: "test-review", session_id: ids.session, reason:"synthetic explicit visual review" },
   };
 }

@@ -279,7 +279,8 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
        reader_selected:validOption(raw.reader_selected)?raw.reader_selected:classified.reader_selected,
        reviewed_manually:raw.reviewed_manually===true};
    });
-   const effective={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,identity_source:'manual',answers,
+   if(typeof b.reason!=='string'||b.reason.trim().length<3||b.reason.trim().length>1000)fail('سبب تعديل الهوية مطلوب.');
+   const effective={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,identity_source:'manual',identity_manual_reason:b.reason.trim(),answers,
      score:answers.filter((a:Row)=>a.correct).length,
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
      omr_verification:classificationVerification(current.omr_reading_verification||current.omr_verification,answers),...classificationDiagnostics(answers)};
@@ -320,7 +321,8 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  if(b.action==='teacher_scan_edit_answer'){
    if(!uuid(b.request_id)||!uuid(b.sheet_id)||!Number.isInteger(b.question)||!Number.isInteger(b.answer_version)||!Array.isArray(b.marked)||b.marked.length>4||b.marked.some((n:any)=>!Number.isInteger(n)||n<0||n>3))fail('بيانات تعديل الإجابة غير صالحة.');
-   return {ok:true,sheet:must(await db.rpc('nafes_scan_edit_answer',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_question:b.question,p_marked:b.marked,p_version:b.answer_version,p_request:b.request_id}))};
+   if(typeof b.reason!=='string'||b.reason.trim().length<3||b.reason.trim().length>1000)fail('سبب التعديل اليدوي مطلوب.');
+   return {ok:true,sheet:must(await db.rpc('nafes_scan_edit_answer',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_question:b.question,p_marked:b.marked,p_version:b.answer_version,p_request:b.request_id,p_reason:b.reason.trim()}))};
  }
  if(b.action==='teacher_scan_edit_history'){
    const found=must(await db.from('nafes_scan_sheets').select('id').eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());if(!found)fail('ورقة غير موجودة.',404);
@@ -333,7 +335,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const sheet=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
    if(!sheet)fail('ورقة غير موجودة.',404);
    if(sheet.answer_version!==b.answer_version)fail('تغيرت الورقة أثناء المراجعة؛ حدّثها قبل التحقق.',409);
-   assertReviewedSheet(sheet,Number(session.review_snapshot?.question_count));
+   if(!sheet.blocked_duplicate)assertReviewedSheet(sheet,Number(session.review_snapshot?.question_count));
    // SQL still owns the atomic version check and audit; its source must be verified separately.
    return {ok:true,sheet:must(await db.rpc('nafes_scan_verify_current',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_ack:b.acknowledge_duplicate===true,p_version:b.answer_version}))};
  }

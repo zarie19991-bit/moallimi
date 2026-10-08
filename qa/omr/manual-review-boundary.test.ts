@@ -66,17 +66,14 @@ test("stale verified labels cannot export a complete ambiguous synthetic sheet",
    expect(m.writes).toHaveLength(0);
  }
 });
-test("audit only: edit request stops at the real RPC boundary; no reason support is invented",async()=>{
+test("edit boundary forwards the deliberately extended local SQL reason contract",async()=>{
  const m=manualReviewFixture("ambiguous"),result=await inspectBoundary(repaired,m,"teacher_scan_edit_answer");
  expect(result.error).toBe("QA_RPC_BOUNDARY_NO_SQL_EXECUTED");
  expect(m.calls[0].name).toBe("nafes_scan_edit_answer");
- expect(Object.keys(m.calls[0].args).sort()).toEqual(["p_marked","p_question","p_request","p_reviewer","p_session","p_sheet","p_version"]);
+ expect(Object.keys(m.calls[0].args).sort()).toEqual(["p_marked","p_question","p_reason","p_request","p_reviewer","p_session","p_sheet","p_version"]);
+ expect(m.calls[0].args.p_reason).toBe("synthetic visual review");
  expect(m.row.snapshot.answers[0].state).toBe("uncertain");expect(m.writes).toHaveLength(0);
 });
-test.todo("Original SQL source required: persist manual edits and their reason atomically");
-test.todo("Original SQL source required: verify SQL rejects unresolved sheets and stale versions");
-test.todo("Original SQL source required: session finish checks pending reviews and logs identity edits");
-test.todo("Original SQL source required: repeated registration, duplicate images and concurrent approval are idempotent");
 for(const mode of ["ambiguous","uncertain"])test(`finish rejects ${mode} before SQL`,async()=>{
  const before=await inspectBoundary(original,manualReviewFixture(mode),"teacher_scan_finish");
  const after=await inspectBoundary(repaired,manualReviewFixture(mode),"teacher_scan_finish");

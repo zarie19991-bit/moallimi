@@ -1,0 +1,46 @@
+{
+  "purpose": "Read-only catalog metadata to help local isolated SQL tests for Moallimi OMR; not executable DDL",
+  "project": "moallimi",
+  "database_relation": "public.nafes_teacher_access",
+  "kind": "table",
+  "source": "Supabase production catalog metadata, retrieved without reading table rows",
+  "contains_teacher_records": false,
+  "contains_actual_key_hash_values": false,
+  "columns": [
+    {"name":"id","type":"uuid","nullable":false,"default":"gen_random_uuid()"},
+    {"name":"key_hash","type":"text","nullable":false,"default":null},
+    {"name":"label","type":"text","nullable":false,"default":"'معلم المنصة'::text"},
+    {"name":"active","type":"boolean","nullable":false,"default":"true"},
+    {"name":"created_at","type":"timestamp with time zone","nullable":false,"default":"now()"},
+    {"name":"subject_scope","type":"text","nullable":false,"default":"'all'::text"}
+  ],
+  "constraints": [
+    {"name":"nafes_teacher_access_pkey","definition":"PRIMARY KEY (id)"},
+    {"name":"nafes_teacher_access_key_hash_key","definition":"UNIQUE (key_hash)"},
+    {"name":"nafes_teacher_access_key_hash_check","definition":"CHECK (key_hash ~ '^[a-f0-9]{64}$'::text)"},
+    {"name":"nafes_teacher_access_subject_scope_check","definition":"CHECK (subject_scope = ANY (ARRAY['all'::text, 'reading'::text, 'math'::text, 'science'::text]))"}
+  ],
+  "indexes": [
+    "CREATE UNIQUE INDEX nafes_teacher_access_pkey ON public.nafes_teacher_access USING btree (id)",
+    "CREATE UNIQUE INDEX nafes_teacher_access_key_hash_key ON public.nafes_teacher_access USING btree (key_hash)"
+  ],
+  "row_level_security": {
+    "enabled": true,
+    "forced": false,
+    "policies": [
+      {"name":"deny_direct_access","roles":["anon","authenticated"],"command":"ALL","using":"false","with_check":"false"}
+    ]
+  },
+  "owner": "postgres",
+  "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+  "user_triggers": [],
+  "scan_related_inbound_foreign_keys": [
+    {"constraint":"nafes_scan_sessions_reviewer_id_fkey","from":"public.nafes_scan_sessions.reviewer_id","to":"public.nafes_teacher_access.id"},
+    {"constraint":"nafes_scan_sheets_reviewed_by_fkey","from":"public.nafes_scan_sheets.reviewed_by","to":"public.nafes_teacher_access.id"},
+    {"constraint":"nafes_scan_answer_edits_reviewer_id_fkey","from":"public.nafes_scan_answer_edits.reviewer_id","to":"public.nafes_teacher_access.id"},
+    {"constraint":"nafes_scan_identity_edits_reviewer_id_fkey","from":"public.nafes_scan_identity_edits.reviewer_id","to":"public.nafes_teacher_access.id"},
+    {"constraint":"nafes_scan_alerts_acknowledged_by_fkey","from":"public.nafes_scan_alerts.acknowledged_by","to":"public.nafes_teacher_access.id"},
+    {"constraint":"nafes_paper_reviews_owner_id_fkey","from":"public.nafes_paper_reviews.owner_id","to":"public.nafes_teacher_access.id"}
+  ],
+  "note": "This is schema metadata only. It does not include any teacher key, student data, actual hash value, or production row. Do not use it to update production or substitute for full behavioral SQL tests."
+}

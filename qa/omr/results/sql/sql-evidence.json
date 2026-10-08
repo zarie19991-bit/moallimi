@@ -1,0 +1,590 @@
+{
+  "postgres_version": "postgres (PostgreSQL) 17.6",
+  "connection": "temporary local Unix socket; listen_addresses=''",
+  "synthetic_only": true,
+  "production_connected": false,
+  "source_checksums": {
+    "0_moallimi_omr_schema_metadata_reviewed_(1)_1791465393560.json": "b0642af05b4c8c234332664ed5071c167830bbaffd820f7d83052824f860b08f",
+    "nafes_teacher_access_schema_metadata_1791468833151.json": "aa6441bb47d1a442404d1b2318e7a79dc2dcea2d20e2256e58dc1e47077d5727"
+  },
+  "original_constraints_preserved": true,
+  "scope": "7 original tables (6 scan/review plus teacher), 6 scan routines; backend-privileged SQL logic.",
+  "not_covered": [
+    "Supabase/PostgREST transport and production grants for scan tables",
+    "assessment_attempts/adaptive triggers and actual grade publishing",
+    "real historical paper images or original historical grade snapshots"
+  ],
+  "temporary_directory": "/tmp/moallimi-synthetic-sql-9_1gkvq9",
+  "cases": [
+    {
+      "database": "omr_original",
+      "group": 1,
+      "test": "save_without_reason_does_not_confirm_ambiguous",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 1,
+      "test": "empty_reason_is_rejected_atomically",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 1,
+      "test": "manual_choice_reason_audit_and_verify_are_consistent",
+      "passed": false,
+      "detail": "new human reason was not persisted"
+    },
+    {
+      "database": "omr_original",
+      "group": 1,
+      "test": "transaction_failure_rolls_back_answer_and_audit",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 1,
+      "test": "manual_edit_uses_current_model_key",
+      "passed": false,
+      "detail": "grading used stale original key"
+    },
+    {
+      "database": "omr_original",
+      "group": 1,
+      "test": "invalid_marks_leave_no_write",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 1,
+      "test": "duplicate_candidates_cannot_be_normalized_into_one_confirmed_choice",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 1,
+      "test": "request_replay_is_idempotent_and_conflicting_reason_rejected",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "verify_rejects_ambiguous",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "verify_rejects_uncertain",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "verify_rejects_legacy_ambiguous",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "verify_rejects_stale_version",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "sixty_correct_choices_unchanged_and_repeat_verify_no_second_write",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "multiple_requires_two_distinct_valid_marks",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "missing_key_cannot_be_verified",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "contradictory_reading_status_cannot_be_verified",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "inconsistent_snapshot_score_cannot_be_approved",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 2,
+      "test": "separated_uncertainty_reasons_block_approval",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 3,
+      "test": "finish_rejects_reviewed_but_unresolved_sheet",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 3,
+      "test": "identity_preserves_choices_pending_state_and_reason_audit",
+      "passed": false,
+      "detail": ""
+    },
+    {
+      "database": "omr_original",
+      "group": 3,
+      "test": "identity_cannot_replace_bubble_choices",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 3,
+      "test": "verified_manual_identity_uses_effective_context",
+      "passed": false,
+      "detail": "verify still used obsolete raw identity flag"
+    },
+    {
+      "database": "omr_original",
+      "group": 3,
+      "test": "unaudited_reprocess_cannot_erase_manual_review",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 3,
+      "test": "reprocess_proposal_preserves_manual_answers_and_history",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 3,
+      "test": "completed_session_rejects_late_reprocess_write",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 3,
+      "test": "finalize_upload_cannot_reopen_an_approved_batch",
+      "passed": false,
+      "detail": "SQL unexpectedly committed an operation that must be rejected"
+    },
+    {
+      "database": "omr_original",
+      "group": 4,
+      "test": "register_replay_and_conflicting_image",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 4,
+      "test": "two_concurrent_registrations_persist_one_sheet",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 4,
+      "test": "duplicate_image_and_student_are_flagged_not_graded_twice",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 4,
+      "test": "duplicate_only_batch_closes_without_any_second_grade",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 4,
+      "test": "two_concurrent_verifications_have_one_review_timestamp",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 4,
+      "test": "competing_manual_edits_commit_only_one_version_and_audit",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 4,
+      "test": "concurrent_finish_is_idempotent_and_closes_editing",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_original",
+      "group": 4,
+      "test": "cross_session_identity_assignment_cannot_race_duplicate_check",
+      "passed": false,
+      "detail": "Both sessions assigned the same student"
+    },
+    {
+      "database": "omr_original",
+      "group": 3,
+      "test": "actual_edge_reprocess_preserves_manual_review_in_postgres",
+      "passed": false,
+      "detail": "actual Edge reread replaced persisted manual answers"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 1,
+      "test": "save_without_reason_does_not_confirm_ambiguous",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 1,
+      "test": "empty_reason_is_rejected_atomically",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 1,
+      "test": "manual_choice_reason_audit_and_verify_are_consistent",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 1,
+      "test": "transaction_failure_rolls_back_answer_and_audit",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 1,
+      "test": "manual_edit_uses_current_model_key",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 1,
+      "test": "invalid_marks_leave_no_write",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 1,
+      "test": "duplicate_candidates_cannot_be_normalized_into_one_confirmed_choice",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 1,
+      "test": "request_replay_is_idempotent_and_conflicting_reason_rejected",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "verify_rejects_ambiguous",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "verify_rejects_uncertain",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "verify_rejects_legacy_ambiguous",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "verify_rejects_stale_version",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "sixty_correct_choices_unchanged_and_repeat_verify_no_second_write",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "multiple_requires_two_distinct_valid_marks",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "missing_key_cannot_be_verified",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "contradictory_reading_status_cannot_be_verified",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "inconsistent_snapshot_score_cannot_be_approved",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 2,
+      "test": "separated_uncertainty_reasons_block_approval",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 3,
+      "test": "finish_rejects_reviewed_but_unresolved_sheet",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 3,
+      "test": "identity_preserves_choices_pending_state_and_reason_audit",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 3,
+      "test": "identity_cannot_replace_bubble_choices",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 3,
+      "test": "verified_manual_identity_uses_effective_context",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 3,
+      "test": "unaudited_reprocess_cannot_erase_manual_review",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 3,
+      "test": "reprocess_proposal_preserves_manual_answers_and_history",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 3,
+      "test": "completed_session_rejects_late_reprocess_write",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 3,
+      "test": "finalize_upload_cannot_reopen_an_approved_batch",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 4,
+      "test": "register_replay_and_conflicting_image",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 4,
+      "test": "two_concurrent_registrations_persist_one_sheet",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 4,
+      "test": "duplicate_image_and_student_are_flagged_not_graded_twice",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 4,
+      "test": "duplicate_only_batch_closes_without_any_second_grade",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 4,
+      "test": "two_concurrent_verifications_have_one_review_timestamp",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 4,
+      "test": "competing_manual_edits_commit_only_one_version_and_audit",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 4,
+      "test": "concurrent_finish_is_idempotent_and_closes_editing",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 4,
+      "test": "cross_session_identity_assignment_cannot_race_duplicate_check",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 3,
+      "test": "actual_edge_reprocess_preserves_manual_review_in_postgres",
+      "passed": true,
+      "detail": "expected outcome"
+    }
+  ],
+  "concurrency_proofs": [
+    {
+      "database": "omr_original",
+      "case": "register",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_original",
+      "case": "verify",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_original",
+      "case": "edit",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_original",
+      "case": "finish",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_original",
+      "case": "identity_race",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_original",
+      "case": "edge_reprocess_bridge",
+      "details": {
+        "error": null,
+        "proposal_only": false,
+        "sql_operations": 9,
+        "answers_preserved": false,
+        "version_preserved": false,
+        "selected_before": 1,
+        "selected_after": 2,
+        "audit_rows": 1
+      }
+    },
+    {
+      "database": "omr_repaired",
+      "case": "register",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_repaired",
+      "case": "verify",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_repaired",
+      "case": "edit",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_repaired",
+      "case": "finish",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_repaired",
+      "case": "identity_race",
+      "independent_backends_waiting": 2
+    },
+    {
+      "database": "omr_repaired",
+      "case": "edge_reprocess_bridge",
+      "details": {
+        "error": null,
+        "proposal_only": true,
+        "sql_operations": 9,
+        "answers_preserved": true,
+        "version_preserved": true,
+        "selected_before": 1,
+        "selected_after": 1,
+        "audit_rows": 1
+      }
+    }
+  ]
+}

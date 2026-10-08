@@ -112,3 +112,17 @@ mtime_ms = 1791466131174
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/ee7ed675-bd3d-4e0d-9502-637b4c49ec3e/6a55572e-3d80-4932-9cf0-3899c67625db"
 storage_version_token = "1791466205021503"
 content_type = "text/html"
+
+[[outputs]]
+id = "JFoPRlGVPSUtAA1uRIZ5L"
+uri = "file://qa/omr/results/sql/report.html"
+type = "html"
+title = "معلّمي — التقرير النهائي لاختبارات الحفظ والمراجعة SQL"
+description = "مقارنة الأصل والإصلاح: 35 حالة SQL على PostgreSQL محلي، و116 اختبارًا ناجحًا إجمالًا، مع الأدلة وحدود النتيجة والعوائق قبل النشر."
+logical_id = "321df79b-1d3e-4490-a39e-1e3dbcef92e3"
+content_hash = "sha256:d2c776cdb42aa96971465fd9eb4d228dc60f8674f11171d94e2cecb2d16e2033"
+size = 38992
+mtime_ms = 1791470889257
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/321df79b-1d3e-4490-a39e-1e3dbcef92e3/7680fc45-bf6a-4c8c-9066-d204a481e13c"
+storage_version_token = "1791471033581598"
+content_type = "text/html"
