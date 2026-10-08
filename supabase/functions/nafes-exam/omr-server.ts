@@ -118,7 +118,7 @@ function detectMarkers(im:GrayImage){
  return{
    tl:best.tl,tr:best.tr,bl:best.bl,br:best.br,
    confidence:Math.max(.90,Math.min(.995,1-best.aspectErr)),
-   detector:'otsu-quad-blue-v7',threshold
+   detector:'otsu-quad-blue-row-v8',threshold
  };
 }
 function mapPoint(m:any,x:number,y:number){
@@ -135,50 +135,61 @@ function meanAt(im:GrayImage,cx:number,cy:number,r:number,inner=0){
  }return n?sum/n:255;
 }
 function fillScore(im:GrayImage,cx:number,cy:number,r:number){const center=meanAt(im,cx,cy,r*.55),ring=meanAt(im,cx,cy,r*1.55,r*1.05);return{score:(ring-center)/255,center,ring};}
+function bluePixelWeight(R:number,G:number,B:number){
+ const chroma=Math.max(R,G,B)-Math.min(R,G,B),blueDom=B-Math.max(R,G),mean=(R+G+B)/3;
+ if(chroma<22||blueDom<8||mean>=225)return 0;
+ return Math.min(1,Math.max(.08,(blueDom-6)/70));
+}
 function blueInkAt(im:GrayImage,cx:number,cy:number,r:number){
  let hit=0,weighted=0,n=0,rr=r*r;
  for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(let x=Math.floor(cx-r);x<=Math.ceil(cx+r);x++){
    if(x<0||y<0||x>=im.width||y>=im.height)continue;
    const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>rr)continue;
-   const p=(y*im.width+x)*4,R=im.rgba[p],G=im.rgba[p+1],B=im.rgba[p+2];
-   const chroma=Math.max(R,G,B)-Math.min(R,G,B),blueDom=B-Math.max(R,G),mean=(R+G+B)/3;
-   if(chroma>=22&&blueDom>=8&&mean<225){hit++;weighted+=Math.min(1,(blueDom-6)/70);}
-   n++;
+   const p=(y*im.width+x)*4,w=bluePixelWeight(im.rgba[p],im.rgba[p+1],im.rgba[p+2]);
+   if(w>0){hit++;weighted+=w;}n++;
  }
  return{density:n?hit/n:0,weighted:n?weighted/n:0};
 }
-function bestBlueInk(im:GrayImage,cx:number,cy:number,r:number){
- const shift=Math.max(1.5,Math.min(4,r*.45));let best={density:0,weighted:0,x:cx,y:cy};
- for(const dy of [-shift,0,shift])for(const dx of [-shift,0,shift]){
-   const z=blueInkAt(im,cx+dx,cy+dy,r*.95),score=z.density*.70+z.weighted*.30;
-   const bestScore=best.density*.70+best.weighted*.30;
-   if(score>bestScore)best={...z,x:cx+dx,y:cy+dy};
+function rowBlueEvidence(im:GrayImage,centers:any[],rowGap:number,optionGap:number){
+ const xs=centers.map(p=>p.x),ys=centers.map(p=>p.y),minX=Math.max(0,Math.floor(Math.min(...xs)-optionGap*.48)),maxX=Math.min(im.width-1,Math.ceil(Math.max(...xs)+optionGap*.48));
+ const minY=Math.max(0,Math.floor(Math.min(...ys)-rowGap*.42)),maxY=Math.min(im.height-1,Math.ceil(Math.max(...ys)+rowGap*.42));
+ const mass=[0,0,0,0],hits=[0,0,0,0];
+ for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
+   const p=(y*im.width+x)*4,w=bluePixelWeight(im.rgba[p],im.rgba[p+1],im.rgba[p+2]);if(w<=0)continue;
+   let best=-1,bestD=Infinity;
+   for(let j=0;j<4;j++){
+     const dx=(x-centers[j].x)/Math.max(1,optionGap),dy=(y-centers[j].y)/Math.max(1,rowGap),d=dx*dx+dy*dy*1.35;
+     if(d<bestD){bestD=d;best=j;}
+   }
+   if(best>=0&&bestD<=.38){mass[best]+=w;hits[best]++;}
  }
- return best;
+ const norm=Math.max(1,optionGap*rowGap*.18);
+ return{mass,hits,scores:mass.map(x=>x/norm)};
 }
-
 
 export function readOmrJpeg(src:string,total:number,startNo=1){
  const im=decodeDataUrl(src),m=detectMarkers(im),topSpan=Math.hypot(m.tr.x-m.tl.x,m.tr.y-m.tl.y),bottomSpan=Math.hypot(m.br.x-m.bl.x,m.br.y-m.bl.y),radius=clamp(((topSpan+bottomSpan)/2)*.0082,3.2,7.5);
  const rights=[171,128,85,42],offs=[7.5,15.5,23.5,31.5],raw:any[]=[];
- for(let i=0;i<Math.min(total,60);i++){const block=Math.floor(i/15),row=i%15,y=20+row*5.45,right=rights[block],ev=[];
-  for(const off of offs){
-   const p=mapPoint(m,right-off,y),z=fillScore(im,p.x,p.y,radius),blue=bestBlueInk(im,p.x,p.y,radius);
-   ev.push({...z,blueDensity:blue.density,blueWeighted:blue.weighted,blueX:blue.x,blueY:blue.y,x:p.x,y:p.y});
-  }raw.push(ev);
+ const verticalSpan=(Math.hypot(m.bl.x-m.tl.x,m.bl.y-m.tl.y)+Math.hypot(m.br.x-m.tr.x,m.br.y-m.tr.y))/2;
+ const rowGap=Math.max(12,verticalSpan*(5.45/104)),optionGap=Math.max(14,((topSpan+bottomSpan)/2)*(8/172));
+ for(let i=0;i<Math.min(total,60);i++){
+  const block=Math.floor(i/15),row=i%15,y=20+row*5.45,right=rights[block],ev:any[]=[],centers:any[]=[];
+  for(const off of offs){const p=mapPoint(m,right-off,y);centers.push(p);const z=fillScore(im,p.x,p.y,radius);ev.push({...z,x:p.x,y:p.y});}
+  const blue=rowBlueEvidence(im,centers,rowGap,optionGap);
+  for(let j=0;j<4;j++){ev[j].blueMass=blue.mass[j];ev[j].blueHits=blue.hits[j];ev[j].blueRowScore=blue.scores[j];}
+  raw.push(ev);
  }
  if(raw.length!==total)throw new Error('عدد أسئلة القالب لا يطابق الاختبار.');
  const vals=raw.flat().map((x:any)=>Number(x.score)),base=median(vals),mad=median(vals.map((x:number)=>Math.abs(x-base))),possible=clamp(base+Math.max(.018,mad*2.4),.012,.032),definite=clamp(base+Math.max(.028,mad*3.5),.025,.052),sepThr=clamp(Math.max(.024,mad*2.2),.020,.042);
  const answers=raw.map((ev:any[],i:number)=>{
-  const blueOrder=ev.map((e:any,j:number)=>({j,s:e.blueDensity,w:e.blueWeighted})).sort((a:any,b:any)=>(b.s+b.w*.45)-(a.s+a.w*.45));
-  const blueTop=blueOrder[0],blueSecond=blueOrder[1],blueSignal=blueTop.s+blueTop.w*.45,blueSecondSignal=blueSecond.s+blueSecond.w*.45,blueSep=blueSignal-blueSecondSignal;
-  const hasBlue=blueSignal>=.020;
-  const strongBlue=blueSignal>=.034&&blueSep>=.010;
-  const multipleBlue=blueSecondSignal>=.024&&blueSecondSignal/Math.max(.001,blueSignal)>=.58;
+  const blueOrder=ev.map((e:any,j:number)=>({j,m:Number(e.blueMass||0),h:Number(e.blueHits||0),s:Number(e.blueRowScore||0)})).sort((a:any,b:any)=>b.m-a.m);
+  const blueTop=blueOrder[0],blueSecond=blueOrder[1],blueSep=blueTop.m-blueSecond.m;
+  const hasBlue=blueTop.m>=5&&blueTop.h>=4;
+  const strongBlue=blueTop.m>=9&&blueTop.h>=7&&blueSep>=3;
+  const multipleBlue=blueSecond.m>=7&&blueSecond.h>=5&&blueSecond.m/Math.max(1,blueTop.m)>=.48;
 
   const grayOrder=ev.map((e:any,j:number)=>({j,s:e.score})).sort((a:any,b:any)=>b.s-a.s),top=grayOrder[0],second=grayOrder[1],sep=top.s-second.s;
-  const scores=ev.map((x:any)=>Number(x.score.toFixed(4)));
-  const blueScores=ev.map((x:any)=>Number((x.blueDensity+x.blueWeighted*.45).toFixed(4)));
+  const scores=ev.map((x:any)=>Number(x.score.toFixed(4))),blueScores=ev.map((x:any)=>Number(Number(x.blueRowScore||0).toFixed(4)));
   const rowBase=median(scores),lift=top.s-rowBase;
   const relativeClear=sep>=Math.max(.055,sepThr*1.15)&&lift>=.075;
   const relativeStrong=sep>=.12&&lift>=.12;
@@ -188,28 +199,22 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
 
   if(hasBlue){
     if(multipleBlue){
-      const marked=blueOrder.filter((x:any)=>(x.s+x.w*.45)>=.024&&(x.s+x.w*.45)/Math.max(.001,blueSignal)>=.58).map((x:any)=>x.j);
-      return{question:startNo+i,selected:blueTop.j,status:'multiple',marked,scores,blueScores,reader:'blue',confidence:.45,topScore:blueSignal,secondScore:blueSecondSignal,threshold:.020,separation:blueSep};
+      const marked=blueOrder.filter((x:any)=>x.m>=7&&x.h>=5&&x.m/Math.max(1,blueTop.m)>=.48).map((x:any)=>x.j);
+      return{question:startNo+i,selected:blueTop.j,status:'multiple',marked,scores,blueScores,reader:'blue-row',confidence:.45,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
     }
     if(strongBlue){
-      return{question:startNo+i,selected:blueTop.j,status:'clear',marked:[blueTop.j],scores,blueScores,reader:'blue',confidence:Math.min(1,.94+blueSep*.8+blueSignal*.25),topScore:blueSignal,secondScore:blueSecondSignal,threshold:.020,separation:blueSep};
+      return{question:startNo+i,selected:blueTop.j,status:'clear',marked:[blueTop.j],scores,blueScores,reader:'blue-row',confidence:Math.min(1,.94+Math.min(.05,blueSep/80)),topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
     }
-    return{question:startNo+i,selected:blueTop.j,status:'ambiguous',marked:[blueTop.j],scores,blueScores,reader:'blue',confidence:.72,topScore:blueSignal,secondScore:blueSecondSignal,threshold:.020,separation:blueSep};
+    return{question:startNo+i,selected:blueTop.j,status:'ambiguous',marked:[blueTop.j],scores,blueScores,reader:'blue-row',confidence:.72,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
   }
 
-  if(!relativeClear&&top.s<possible){
-    return{question:startNo+i,selected:null,status:'blank',marked:[],scores,blueScores,reader:'gray',confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
-  }
-  if(strongSecond&&sep<.060){
-    return{question:startNo+i,selected:top.j,status:'multiple',marked:grayOrder.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,blueScores,reader:'gray',confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
-  }
-  if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear))){
-    return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
-  }
+  if(!relativeClear&&top.s<possible)return{question:startNo+i,selected:null,status:'blank',marked:[],scores,blueScores,reader:'gray',confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
+  if(strongSecond&&sep<.060)return{question:startNo+i,selected:top.j,status:'multiple',marked:grayOrder.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,blueScores,reader:'gray',confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear)))return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-blue-v7'),
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-blue-row-v8'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
