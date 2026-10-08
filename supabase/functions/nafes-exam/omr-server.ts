@@ -118,7 +118,7 @@ function detectMarkers(im:GrayImage){
  return{
    tl:best.tl,tr:best.tr,bl:best.bl,br:best.br,
    confidence:Math.max(.90,Math.min(.995,1-best.aspectErr)),
-   detector:'otsu-quad-hybrid-row-v10',threshold
+   detector:'otsu-warped-hybrid-v11',threshold
  };
 }
 function mapPoint(m:any,x:number,y:number){
@@ -128,6 +128,27 @@ function mapPoint(m:any,x:number,y:number){
  const a=p1.x-p0.x+g*p1.x,b=p3.x-p0.x+h*p3.x,c=p0.x,d=p1.y-p0.y+g*p1.y,e=p3.y-p0.y+h*p3.y,f=p0.y,z=g*u+h*v+1;
  return{x:(a*u+b*v+c)/z,y:(d*u+e*v+f)/z};
 }
+function projectiveMapper(m:any){
+ const p0=m.tl,p1=m.tr,p2=m.br,p3=m.bl;
+ const dx1=p1.x-p2.x,dx2=p3.x-p2.x,dx3=p0.x-p1.x+p2.x-p3.x,dy1=p1.y-p2.y,dy2=p3.y-p2.y,dy3=p0.y-p1.y+p2.y-p3.y,den=dx1*dy2-dx2*dy1;
+ let g=0,h=0;if(Math.abs(den)>1e-6){g=(dx3*dy2-dx2*dy3)/den;h=(dx1*dy3-dx3*dy1)/den;}
+ const a=p1.x-p0.x+g*p1.x,b=p3.x-p0.x+h*p3.x,c=p0.x,d=p1.y-p0.y+g*p1.y,e=p3.y-p0.y+h*p3.y,f=p0.y;
+ return(x:number,y:number)=>{
+   const u=(x-4)/172,v=(y-4)/104,z=g*u+h*v+1;
+   return{x:(a*u+b*v+c)/z,y:(d*u+e*v+f)/z};
+ };
+}
+function warpTemplate(im:GrayImage,m:any,scale=5):GrayImage{
+ const w=180*scale,h=112*scale,g=new Uint8Array(w*h),rgba=new Uint8Array(w*h*4),map=projectiveMapper(m);
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const p=map((x+.5)/scale,(y+.5)/scale),sx=Math.round(p.x),sy=Math.round(p.y),dst=y*w+x,di=dst*4;
+   if(sx>=0&&sy>=0&&sx<im.width&&sy<im.height){
+     const src=sy*im.width+sx,si=src*4;g[dst]=im.gray[src];rgba[di]=im.rgba[si];rgba[di+1]=im.rgba[si+1];rgba[di+2]=im.rgba[si+2];rgba[di+3]=255;
+   }else{g[dst]=255;rgba[di]=rgba[di+1]=rgba[di+2]=rgba[di+3]=255;}
+ }
+ return{width:w,height:h,gray:g,rgba};
+}
+
 function meanAt(im:GrayImage,cx:number,cy:number,r:number,inner=0){
  let sum=0,n=0,rr=r*r,ii=inner*inner;
  for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(let x=Math.floor(cx-r);x<=Math.ceil(cx+r);x++){
@@ -186,13 +207,12 @@ function rowDarkEvidence(im:GrayImage,centers:any[],rowGap:number,optionGap:numb
 
 
 export function readOmrJpeg(src:string,total:number,startNo=1){
- const im=decodeDataUrl(src),m=detectMarkers(im),topSpan=Math.hypot(m.tr.x-m.tl.x,m.tr.y-m.tl.y),bottomSpan=Math.hypot(m.br.x-m.bl.x,m.br.y-m.bl.y),radius=clamp(((topSpan+bottomSpan)/2)*.0082,3.2,7.5);
+ const source=decodeDataUrl(src),m=detectMarkers(source),scale=5,im=warpTemplate(source,m,scale),radius=2.08*scale;
  const rights=[171,128,85,42],offs=[7.5,15.5,23.5,31.5],raw:any[]=[];
- const verticalSpan=(Math.hypot(m.bl.x-m.tl.x,m.bl.y-m.tl.y)+Math.hypot(m.br.x-m.tr.x,m.br.y-m.tr.y))/2;
- const rowGap=Math.max(12,verticalSpan*(5.45/104)),optionGap=Math.max(14,((topSpan+bottomSpan)/2)*(8/172));
+ const rowGap=5.45*scale,optionGap=8*scale;
  for(let i=0;i<Math.min(total,60);i++){
-  const block=Math.floor(i/15),row=i%15,y=20+row*5.45,right=rights[block],ev:any[]=[],centers:any[]=[];
-  for(const off of offs){const p=mapPoint(m,right-off,y);centers.push(p);const z=fillScore(im,p.x,p.y,radius);ev.push({...z,x:p.x,y:p.y});}
+  const block=Math.floor(i/15),row=i%15,y=(20+row*5.45)*scale,right=rights[block],ev:any[]=[],centers:any[]=[];
+  for(const off of offs){const p={x:(right-off)*scale,y};centers.push(p);const z=fillScore(im,p.x,p.y,radius);ev.push({...z,x:p.x,y:p.y});}
   const blue=rowBlueEvidence(im,centers,rowGap,optionGap),dark=rowDarkEvidence(im,centers,rowGap,optionGap);
   for(let j=0;j<4;j++){
     ev[j].blueMass=blue.mass[j];ev[j].blueHits=blue.hits[j];ev[j].blueRowScore=blue.scores[j];
@@ -254,7 +274,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-hybrid-row-v10'),
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-warped-hybrid-v11'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
