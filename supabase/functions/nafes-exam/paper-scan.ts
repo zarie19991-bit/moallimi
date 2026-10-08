@@ -6,7 +6,7 @@ const must=(r:any)=>{if(r.error)fail(r.error.message,400);return r.data;};
 const uuid=(v:any)=>/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(String(v));
 const publicSession=(s:Row)=>{const {review_snapshot,...out}=s;return out;};
 const summaryColumns='id,session_id,ordinal,student_id,sheet_no,snapshot,effective_snapshot,answer_version,duplicate_of,duplicate_legacy_at,blocked_duplicate,uploaded_at,reviewed_at,reviewed_by,disposition';
-const OMR_POLICY='server_jpeg_homography_v10';
+const OMR_POLICY='server_jpeg_homography_v11';
 const finite=(v:any,min:number,max:number,def=0)=>{const n=Number(v);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):def;};
 const compactImageQuality=(q:any)=>q&&typeof q==='object'?{
  width:Math.max(0,Math.min(10000,Number(q.width)||0)),height:Math.max(0,Math.min(10000,Number(q.height)||0)),
@@ -33,8 +33,10 @@ export function classifyAnswer(raw:Row,key:Row,index:number){
  const marked=Array.isArray(raw?.marked)?[...new Set(raw.marked.filter((x:any)=>Number.isInteger(x)&&x>=0&&x<4))]:selected===null?[]:[selected];
  const state=status==='multiple'||marked.length>1?'multiple':status==='blank'?'blank':status!=='clear'||selected===null||correctIndex===null?'uncertain':selected===correctIndex?'correct':'incorrect';
  const scores=Array.isArray(raw?.scores)?raw.scores.slice(0,4).map((x:any)=>finite(x,-1,1)):null;
+ const blueScores=Array.isArray(raw?.blueScores)?raw.blueScores.slice(0,4).map((x:any)=>finite(x,0,2)):null;
  return {question:index+1,selected,marked,status,state,correct_index:correctIndex,correct:state==='correct',indicator:String(key?.indicator||''),confidence:Math.max(0,Math.min(1,Number(raw?.confidence)||0)),
-   scores,top_score:finite(raw?.topScore,-1,1),second_score:finite(raw?.secondScore,-1,1),separation:finite(raw?.separation,0,2),threshold:finite(raw?.threshold,-1,1)};
+   scores,blue_scores:blueScores,reader:String(raw?.reader||'').slice(0,16),
+   top_score:finite(raw?.topScore,-1,2),second_score:finite(raw?.secondScore,-1,2),separation:finite(raw?.separation,0,2),threshold:finite(raw?.threshold,-1,2)};
 }
 async function reprocessServerSheet(db:any,session:Row,row:Row){
  const current=row.effective_snapshot||row.snapshot||{};
@@ -194,7 +196,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const legacy=identityValid?must(await db.from('nafes_assessment_attempts').select('submitted_at,events').eq('student_id',assignment.student_id).contains('config',{paper_review_id:review.review_id}).not('submitted_at','is',null).order('submitted_at').limit(20)):[];
    const legacyAt=(legacy||[]).find((x:Row)=>x.events?.some((e:Row)=>e.type==='paper_scan'&&e.review_id===review.review_id&&!e.scan_sheet_id))?.submitted_at||null;
    const sheet=must(await db.rpc('nafes_scan_register',{p_session:session.id,p_sheet:{ordinal:raw.ordinal,legacy_at:legacyAt,student_id:identityValid?assignment.student_id:null,sheet_no:identityValid?raw.sheet_no:null,image_hash:await hash(raw.image_data),image_data:raw.image_data,snapshot}}));
-   return {ok:true,sheet,reader:'server_jpeg_homography_v10',reader_error:readerError||null};
+   return {ok:true,sheet,reader:'server_jpeg_homography_v11',reader_error:readerError||null};
  }
  if(b.action==='teacher_scan_image'){
    const row=must(await db.from('nafes_scan_sheets').select('image_data').eq('session_id',session.id).eq('id',b.sheet_id).single());return {ok:true,...row};
