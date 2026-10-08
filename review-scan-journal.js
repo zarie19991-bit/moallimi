@@ -326,7 +326,7 @@ async function beginStream(files){
 }
 async function appendStream(x,ordinal){
  if(!session?.id)throw Error('جلسة الحفظ غير جاهزة.');
- const r=await api('teacher_scan_register',{sheet:{ordinal,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,markers_ok:x.markersOk,marker_confidence:x.markerConfidence,answers:x.answers,image_data:x.fullImage,page_no:x.pageNo,region_no:x.regionNo,detector:x.detector,marker_points:x.markerPoints,image_quality:x.imageQuality,verification:x.verification,calibration:x.calibration}});
+ const r=await api('teacher_scan_register',{sheet:{ordinal,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,image_data:x.fullImage,page_no:x.pageNo,region_no:x.regionNo}});
  sheets.push(r.sheet);
  if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه فوري: تكرر رفع ورقة '+r.sheet.snapshot.student_name+'؛ سُجلت الحالة.';}
  return r.sheet;
@@ -355,7 +355,7 @@ async function transfer(){
  for(let i=0;i<p.data.length;i++){
    if(sheets.some(s=>s.ordinal===i+1))continue;
    const x=p.data[i];message('حفظ الورقة '+ar(i+1)+' من '+ar(p.data.length)+'…');
-   const r=await api('teacher_scan_register',{sheet:{ordinal:i+1,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,markers_ok:x.markersOk,marker_confidence:x.markerConfidence,answers:x.answers,image_data:x.fullImage||x.thumbnail,page_no:x.pageNo,region_no:x.regionNo,detector:x.detector,marker_points:x.markerPoints,image_quality:x.imageQuality,verification:x.verification,calibration:x.calibration}});
+   const r=await api('teacher_scan_register',{sheet:{ordinal:i+1,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,image_data:x.fullImage||x.thumbnail,page_no:x.pageNo,region_no:x.regionNo}});
    sheets.push(r.sheet);render();
    if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه فوري: تكرر رفع ورقة '+r.sheet.snapshot.student_name+'؛ سُجلت الحالة في قسم المراجعة.';await refreshAlerts();}
  }
