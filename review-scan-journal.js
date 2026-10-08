@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id),ar=n=>new Intl.NumberFormat('ar-SA').for
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={blank:'غير محلول',multiple:'إجابات متعددة',correct:'صحيح مؤكد',incorrect:'إجابة خاطئة',uncertain:'قراءة غير مؤكدة'};
 const letters=['أ','ب','ج','د'];
-const OMR_POLICY='server_jpeg_homography_v7';
+const OMR_POLICY='server_jpeg_homography_v8';
 let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
@@ -381,16 +381,21 @@ async function report(){
 }
 async function init(p){
  draft=p;clearInterval(poll);
- const sr=await api('teacher_scan_sessions');
- $('sessionPicker').innerHTML='<option value="">اختر جلسة محفوظة…</option>'+(sr.sessions||[]).map(x=>'<option value="'+x.id+'">'+new Date(x.created_at).toLocaleString('ar-SA')+' · '+ar(x.expected_count)+' ورقة · '+(x.completed_at?'منتهية':'مفتوحة')+'</option>').join('');
- if((sr.sessions||[]).length){
-   const latest=sr.sessions[0];session={id:latest.id};
-   const lr=await api('teacher_scan_list',{session_id:latest.id});session=lr.session;sheets=lr.sheets||[];active=-1;imageCache.clear();render();
+ const sr=await api('teacher_scan_sessions'),allSessions=sr.sessions||[];
+ $('sessionPicker').innerHTML='<option value="">اختر جلسة محفوظة…</option>'+allSessions.map(x=>'<option value="'+x.id+'">'+new Date(x.created_at).toLocaleString('ar-SA')+' · '+ar(x.expected_count)+' ورقة · '+(x.completed_at?'منتهية':'مفتوحة')+'</option>').join('');
+ if(allSessions.length){
+   let chosen=null,lr=null;
+   for(const candidate of allSessions){
+     const listed=await api('teacher_scan_list',{session_id:candidate.id});
+     if((listed.sheets||[]).length){chosen=candidate;lr=listed;break;}
+     if(!chosen){chosen=candidate;lr=listed;}
+   }
+   session=lr.session;sheets=lr.sheets||[];active=-1;imageCache.clear();$('sessionPicker').value=chosen.id;render();
    const stale=sheets.filter(sh=>{const e=effective(sh);return e?.identity_valid===true&&sh.student_id&&e?.omr_policy!==OMR_POLICY;}).length;
    if(stale){
-     message('يوجد '+ar(stale)+' ورقة تحتاج تطبيق قارئ التظليل المُعاير؛ سيبدأ التحديث تلقائيًا.');
+     message('يوجد '+ar(stale)+' ورقة تحتاج إعادة قراءة خادمية بالإصدار الحالي؛ سيبدأ التحديث تلقائيًا.');
      setTimeout(()=>rereadAllStrict({auto:true,onlyStale:true}),150);
-   }else message('قارئ التظليل المُعاير مطبق على جميع الأوراق ذات الهوية المؤكدة.');
+   }else if(sheets.length) message('القارئ الخادمي الحالي مطبق على جميع الأوراق ذات الهوية المؤكدة.');
  }
  await refreshAlerts();await refreshDeletionLog();
  poll=setInterval(()=>{if(!document.hidden&&!busy){refreshAlerts();refreshDeletionLog();}},10000);
