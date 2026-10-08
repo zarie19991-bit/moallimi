@@ -1,0 +1,27 @@
+{
+  "synthetic_only": true,
+  "production_connected": false,
+  "ready_to_publish": false,
+  "sheets": 140,
+  "source_image_matches": 8400,
+  "source_image_differences": 0,
+  "marker_success": 140,
+  "answers_after_manual_review_matches": 8400,
+  "repeated_uploads": 140,
+  "persisted_rows": 140,
+  "unique_students": 140,
+  "verified": 140,
+  "completed_at": "2026-10-08T16:05:38.306459+00:00",
+  "manual_audit_rows": 1,
+  "workflow_injected_ambiguous": 1,
+  "answers_per_sheet": 60,
+  "definitions_missing": [
+    "nafes_scan_deletions",
+    "nafes_assessments",
+    "nafes_students",
+    "lugati_sync_sections_attempt",
+    "lugati_sync_student_worksheets"
+  ],
+  "grading_attempt_publication": "BLOCKED: original downstream schema incomplete, no attempts were created",
+  "native_snapshot_sha256": "317982f66ae62c9171bd5a685ae8664bcfa2c837d08314f1f323a5fbc84c7156"
+}

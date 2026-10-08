@@ -1640,29 +1640,19 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     settings:{show_result:false,show_answers:false,show_indicator_result:true,show_correct_count:true,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:true,disable_print:true,disable_shortcuts:true,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,opens_at:null,closes_at:null,attempts:1,break_minutes:0,manual_closed:true}
   };
 
-  let assessment=must(await db.from('nafes_assessments').select('*').eq('owner_id',(b.review_owner_id||owner.id)).contains('config',{paper_review_id:reviewId}).maybeSingle());
   const assessmentSections=sectionForQuestions(firstModel.questions);
-  if(!assessment){
-    assessment=must(await db.from('nafes_assessments').insert({owner_id:(b.review_owner_id||owner.id),status:'draft',kind:'multi_indicator',title,config,rendered_sections:assessmentSections}).select().single());
-  }else{
-    assessment=must(await db.from('nafes_assessments').update({title,config,rendered_sections:assessmentSections}).eq('id',assessment.id).select().single());
-  }
 
   const students=must(await db.from('nafes_students').select('id,full_name,name_normalized,class_name,national_id_last3,is_demo,is_active').eq('is_demo',false));
   const studentById=new Map((students||[]).map((st:Row)=>[String(st.id),st]));
-  const byName=new Map<string,Row[]>();
-  for(const st of students||[]){const k=normalizeArabicName(st.full_name);const list=byName.get(k)||[];list.push(st);byName.set(k,list);}
   const now=new Date(),submittedAt=now.toISOString(),expiresAt=new Date(now.getTime()+5*60000).toISOString();
   const saved:Row[]=[];
+  const prepared:Row[]=[];
 
   for(const result of results){
     const model=tidy(result.model,12),m=modelMap.get(model);
     if(!m)fail('نموذج نتيجة غير معروف: '+model);
     let student=isUUID(result.student_id)?studentById.get(String(result.student_id)):null;
-    if(!student){
-      const matches=byName.get(normalizeArabicName(tidy(result.student_name,120)))||[];
-      student=matches.find((st:Row)=>!className||String(st.class_name||'')===className)||matches[0]||null;
-    }
+     // A reviewed sheet UUID is authoritative. Names cannot silently choose another pupil.
     if(!student)fail('تعذر ربط نتيجة الطالب «'+tidy(result.student_name,120)+'» بسجل الطلاب.');
     const sections=sectionForQuestions(m.questions);
     const answers:Row={};
@@ -1684,24 +1674,19 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
       answer_count:Math.max(0,Math.min(questionCount,Math.trunc(Number(rawOmr.answer_count)||0))),
       auto_accept:rawOmr.auto_accept===true
     };
-    const event={type:'paper_scan',at:submittedAt,review_id:reviewId,model,method:'omr',subjects,omr,scan_session_id:b.session_id,scan_sheet_id:result.sheet_id,answer_states:rawAnswers.map((a:Row)=>({question:a.question,state:a.state,status:a.status,selected:a.selected,reviewed_manually:a.reviewed_manually===true}))};
-    const existing=must(await db.from('nafes_assessment_attempts').select('*').eq('assessment_id',assessment.id).eq('student_id',student.id).order('attempt_no',{ascending:false}).limit(1).maybeSingle());
-    if(existing?.events?.some((e:Row)=>e.scan_sheet_id===result.sheet_id)){saved.push({id:existing.id,student_id:student.id,student_name:student.full_name,model,score:existing.score,total:existing.total,percent:existing.percent});continue;}
+     const event={type:'paper_scan',at:submittedAt,review_id:reviewId,model,method:'omr',subjects,omr,scan_session_id:b.session_id,scan_sheet_id:result.sheet_id,scan_answer_version:result.answer_version,answer_states:rawAnswers.map((a:Row)=>({question:a.question,state:a.state,status:a.status,selected:a.selected,reviewed_manually:a.reviewed_manually===true}))};
     const lastSection=sections[sections.length-1];
     const payload={
-      assessment_id:assessment.id,student_id:student.id,student_name:student.full_name,student_no:student.national_id_last3,
-      student_key:student.id,class_name:student.class_name||className,attempt_no:existing?.attempt_no||1,config:attemptConfig,
+       student_id:student.id,student_name:student.full_name,student_no:student.national_id_last3,
+       student_key:student.id,class_name:student.class_name||className,attempt_no:1,config:attemptConfig,
       rendered_sections:sections,answers,events:[event],cursor:Math.max(0,(lastSection?.questions?.length||1)-1),section_index:Math.max(0,sections.length-1),section_started_at:submittedAt,
       session_id:'paper:'+reviewId+':'+student.id,access_hash:await hash('paper:'+reviewId+':'+student.id),
-      lease_until:submittedAt,started_at:existing?.started_at||submittedAt,expires_at:expiresAt,submitted_at:submittedAt,
+       lease_until:submittedAt,started_at:submittedAt,expires_at:expiresAt,submitted_at:submittedAt,
       score:graded.score,total:graded.total,percent:graded.percent,section_scores:graded.section_scores,is_demo:false
     };
-    let row;
-    if(existing)row=must(await db.from('nafes_assessment_attempts').update({...payload,version:Number(existing.version||1)+1}).eq('id',existing.id).select().single());
-    else row=must(await db.from('nafes_assessment_attempts').insert(payload).select().single());
-    saved.push({id:row.id,student_id:student.id,student_name:student.full_name,model,score:graded.score,total:graded.total,percent:graded.percent});
+     prepared.push({sheet_id:result.sheet_id,answer_version:result.answer_version,payload});
   }
-
+   // One database transaction, never sequential per-student writes or immutable-attempt updates.
   const existingReview=must(await db.from('nafes_paper_reviews').select('id,payload').eq('owner_id',(b.review_owner_id||owner.id)).eq('review_id',reviewId).maybeSingle());
   const baseReview=existingReview?.payload||{};
   const reviewPayload=validatePaperReviewPayload({
@@ -1709,9 +1694,10 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     model_count:models.length,models,answer_keys:answerKeys,indicator_counts:indicators,
     assignments:Array.isArray(baseReview.assignments)?baseReview.assignments:(Array.isArray(b.assignments)?b.assignments:[])
   },owner);
-  const reviewRow={owner_id:(b.review_owner_id||owner.id),review_id:reviewId,title,subject,subjects,class_name:className,payload:reviewPayload,updated_at:new Date().toISOString()};
-  if(existingReview)must(await db.from('nafes_paper_reviews').update(reviewRow).eq('id',existingReview.id));
-  else must(await db.from('nafes_paper_reviews').insert(reviewRow));
+  const publication=must(await db.rpc('nafes_scan_publish_attempts',{p_session:b.session_id,p_owner:owner.id,
+    p_assessment:{title,config,rendered_sections:assessmentSections,review_payload:reviewPayload},p_attempts:prepared}));
+  const assessment={id:publication.assessment_id};
+  saved.push(...publication.results);
 
   return{ok:true,review_id:reviewId,assessment_id:assessment.id,subjects,saved_count:saved.length,results:saved};
 }

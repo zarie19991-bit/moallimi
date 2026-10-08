@@ -73,7 +73,7 @@ export const omr = await import(join(directory, "compiled/omr-server.js"));
 export const scan = await import(join(directory, "compiled/paper-scan.js"));
 const developmentDir=join(root,"qa/omr/development/source");
 const devBuilt=await Bun.build({
-  entrypoints:[join(developmentDir,"omr-server.ts"),join(developmentDir,"paper-scan.ts")],
+  entrypoints:[join(developmentDir,"omr-server.ts"),join(developmentDir,"paper-scan.ts"),join(developmentDir,"assessments.ts")],
   outdir:join(directory,"development"),target:"bun",format:"esm",
   plugins:[{
     name:"offline-development-npm-mapping",
@@ -88,5 +88,6 @@ const devBuilt=await Bun.build({
 if(!devBuilt.success)throw new Error(devBuilt.logs.join("\n"));
 export const developmentOmr=await import(join(directory,"development/omr-server.js"));
 export const developmentScan=await import(join(directory,"development/paper-scan.js"));
+export const developmentAssessments=await import(join(directory,"development/assessments.js"));
 export const auditedSource = { sources, dependencies, manifest };
 process.on("exit", () => rmSync(directory, { recursive: true, force: true }));

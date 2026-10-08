@@ -40,8 +40,8 @@ class LocalPostgres:
         result = subprocess.run(
             ["psql", "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1",
              "-h", str(self.socket), "-p", str(self.port), "-U", "postgres",
-             "-d", database, "-c", text],
-            capture_output=True, text=True, env=self.env, timeout=25)
+             "-d", database],
+            input=text, capture_output=True, text=True, env=self.env, timeout=25)
         if result.returncode and not allow_error:
             raise RuntimeError(result.stderr.strip())
         return result

@@ -18,5 +18,8 @@
   "description": "",
   "devDependencies": {
     "jpeg-js": "0.4.4"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.64.0"
   }
 }

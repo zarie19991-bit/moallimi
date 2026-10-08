@@ -1,0 +1,38 @@
+{
+  "ready_to_publish": false,
+  "production_modified": false,
+  "source_basis": "Uploaded nafes-exam deployed v128; not older GitHub source",
+  "missing_original_definitions": [
+    "nafes_scan_deletions",
+    "nafes_assessments",
+    "nafes_students",
+    "lugati_sync_sections_attempt",
+    "lugati_sync_student_worksheets"
+  ],
+  "excluded_from_production": [
+    "local-transport.js",
+    "integrated-server.ts",
+    "sql/preview.py",
+    "synthetic context and database"
+  ],
+  "regression_tests_passed": 138,
+  "regression_tests_failed": 0,
+  "files": {
+    "qa/omr/development/source/index.ts": "962b3fe25cf6a238d1b662e52e4a776401e1dd1ab596cd5f1c7d761e7f0a3a3b",
+    "qa/omr/development/source/reviewed-bank.ts": "d37b3f3ae1dda2d45e221a115d5c01065e0b55562fe878dbb115644c1e277ea1",
+    "qa/omr/development/source/assessment-engine.ts": "76bb1e6c6fcc2955ac66ce3d94f989b9085ce5bf1d40b72573f8cc2b4a2f7e3c",
+    "qa/omr/development/source/framework.ts": "9a0b7353229f8e7674dfa7eb91a84da9cf882dab565f9218d8e072fefad23bf2",
+    "qa/omr/development/source/omr-server.ts": "e04c2c39e9b4539b3a464c6343766c8f30f5102479e985f6d024d97f8b22a413",
+    "qa/omr/development/source/assessments.ts": "089a1966bcdac63e4882037924a7074b7cbf307906f8e727f5172e5016439956",
+    "qa/omr/development/source/paper-scan.ts": "13c189ef0cba9b7dafaa79d54cf36db332607034b950905e6d97322e0d21cc37",
+    "qa/omr/development/frontend/student-papers.html": "bb93d98a17b3637821205fc974f75147da7da2c19031f3f6cbece1aca5ebe44f",
+    "qa/omr/development/frontend/omr-review-ui.css": "b430b6dda94d6b76c5abdaa4f7e0ffcbaacdb0a5d7ef5738377766ca18f61a64",
+    "qa/omr/development/frontend/local-transport.js": "024da2d28c0b092aa7acba7dc8796b2eb8a4db73e1cfbd51d50ceab6ad8177fc",
+    "qa/omr/development/frontend/omr-review-ui.js": "9332235240b33627c2c9f84cba85745ea32d44828d380ed4f78d6e6aef0938eb",
+    "qa/omr/development/manual-review-repairs.sql": "bca86c8235c1a13ca69ca5f3b74e944c4d8a7de1c22f0b548695c90a17aa0c65",
+    "qa/omr/FINAL-DEVELOPMENT-REPORT.md": "c2b2d1c90870d9bd7e206c56bb87a6e626ff838a7f471e499f1d13b9ebb1492c",
+    "qa/omr/results/integrated/batch-140.json": "995ceed81b7f79bdad364abd9543231ed3e8b56820d8ed26bcaa799759f1f6d9",
+    "qa/omr/results/integrated/ui-evidence.json": "53b78fe36b7ba914d3237a426e0a3a0f75d74072eedd8f4140e413dc7aa50dc7",
+    "qa/omr/results/sql/sql-evidence.json": "92ded066b86fcf3ae5f3bffe37737c3c2ec8b3876778846af03880c31d4ab84a"
+  }
+}

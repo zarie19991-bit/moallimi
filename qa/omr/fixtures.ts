@@ -5,6 +5,7 @@ export type Mark = {
   radius?: number; dx?: number; dy?: number;
 };
 export type FixtureOptions = {
+  syntheticTag?:number;
   marks?: Mark[]; rotation?: 0 | 90 | 180 | 270; markers?: boolean;
   originY?:number; bubbleDx?:number; bubbleDy?:number;
   tilt?:number;
@@ -63,6 +64,13 @@ export function syntheticSheet(options: FixtureOptions = {}) {
       out.set(data.subarray(src, src + 4), dst);
     }
     data = out; width = nw; height = nh;
+  }
+  if(options.syntheticTag!==undefined){
+    // Near-white synthetic page identifier outside answer/marker regions, not a fake QR.
+    for(let bit=0;bit<16;bit++)for(let y=160;y<165;y++)for(let x=110+bit*5;x<114+bit*5;x++){
+      const p=(y*width+x)*4,c=(options.syntheticTag>>bit)&1?240:250;
+      data[p]=data[p+1]=data[p+2]=c;
+    }
   }
   return `data:image/jpeg;base64,${Buffer.from(jpeg.encode({ width, height, data }, 90).data).toString("base64")}`;
 }

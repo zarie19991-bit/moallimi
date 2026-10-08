@@ -14,7 +14,7 @@
     "assessment_attempts/adaptive triggers and actual grade publishing",
     "real historical paper images or original historical grade snapshots"
   ],
-  "temporary_directory": "/tmp/moallimi-synthetic-sql-9_1gkvq9",
+  "temporary_directory": "/tmp/moallimi-synthetic-sql-2_bnsvvd",
   "cases": [
     {
       "database": "omr_original",
@@ -503,6 +503,20 @@
       "database": "omr_repaired",
       "group": 3,
       "test": "actual_edge_reprocess_preserves_manual_review_in_postgres",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 5,
+      "test": "missing_original_downstream_schema_refuses_all_mutations",
+      "passed": true,
+      "detail": "expected outcome"
+    },
+    {
+      "database": "omr_repaired",
+      "group": 5,
+      "test": "privileged_publication_and_rollback_are_not_public_rpcs",
       "passed": true,
       "detail": "expected outcome"
     }

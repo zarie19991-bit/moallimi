@@ -1,0 +1,21 @@
+{
+  "passed": 13,
+  "checks": [
+    "140 sheets shown in existing UI",
+    "previous resolution still has explicit human reason",
+    "manual reason required in browser",
+    "one-based question matches SQL contract",
+    "actual Edge handler saved reason in native PostgreSQL",
+    "saved audit reason shown",
+    "actual stored synthetic JPEG displayed",
+    "actual reread preserves reviewed answer and version",
+    "reread shown only as proposal",
+    "unfinished batch cannot be approved by actual handler",
+    "admin rollback blocked without original DDL",
+    "no browser JavaScript exceptions",
+    "no production Supabase requests"
+  ],
+  "errors": [],
+  "external_requests_blocked": [],
+  "synthetic_only": true
+}

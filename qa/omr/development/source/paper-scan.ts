@@ -328,7 +328,8 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const found=must(await db.from('nafes_scan_sheets').select('id').eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());if(!found)fail('ورقة غير موجودة.',404);
    const cursor=Number(b.cursor||0);if(!Number.isInteger(cursor)||cursor<0)fail('مؤشر غير صالح.');
    const edits=must(await db.from('nafes_scan_answer_edits').select('*').eq('sheet_id',b.sheet_id).order('answer_version',{ascending:false}).range(cursor,cursor+199));
-   return {ok:true,edits,next_cursor:edits.length===200?cursor+200:null};
+   const identity_edits=must(await db.from('nafes_scan_identity_edits').select('*').eq('sheet_id',b.sheet_id).order('created_at',{ascending:false}).range(cursor,cursor+199));
+   return {ok:true,edits,identity_edits,next_cursor:edits.length===200||identity_edits.length===200?cursor+200:null};
  }
  if(b.action==='teacher_scan_verify'){
    if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات التحقق من الورقة غير صالحة.');
@@ -373,5 +374,5 @@ export async function reviewedScanPayload(db:any,b:Row,owner:Row){
  const {review,session}=await scanSession(db,b,owner);
  if(!session.completed_at)fail('اضغط «تم المراجعة» قبل اعتماد النتائج.',409);
  const sheets=await reviewedBatchSheets(db,session);
- return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length,policy:x.omr_policy||null,risk:x.omr_verification?.risk||null,quality_score:x.omr_verification?.quality_score||null}};})};
+ return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answer_version:s.answer_version,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length,policy:x.omr_policy||null,risk:x.omr_verification?.risk||null,quality_score:x.omr_verification?.quality_score||null}};})};
 }

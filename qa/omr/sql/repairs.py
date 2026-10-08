@@ -248,6 +248,9 @@ begin
  old_effective:=coalesce(old.effective_snapshot,old.snapshot);
  new_effective:=coalesce(new.effective_snapshot,new.snapshot);
  if done is not null then
+   if old.blocked_duplicate and new.blocked_duplicate and new.duplicate_of is null
+   and (to_jsonb(new)-'duplicate_of')=(to_jsonb(old)-'duplicate_of')
+   and public.nafes_local_rollback_proof(old.review_pk,null,old.duplicate_of,0) then return new; end if;
    if (to_jsonb(new)-'effective_snapshot') is distinct from (to_jsonb(old)-'effective_snapshot')
    or (new_effective-'omr_reprocess_proposal') is distinct from (old_effective-'omr_reprocess_proposal') then
      raise exception 'الجلسة معتمدة؛ لا تُغيّر إجاباتها أو هوية أوراقها';
@@ -280,6 +283,9 @@ CREATE FUNCTION public.nafes_scan_session_close_guard() RETURNS trigger LANGUAGE
  SET search_path TO public,pg_temp AS $guard$
 begin
  if old.completed_at is not null and to_jsonb(new) is distinct from to_jsonb(old) then
+   if new.completed_at is null and new.expected_count<old.expected_count
+   and (to_jsonb(new)-array['completed_at','expected_count'])=(to_jsonb(old)-array['completed_at','expected_count'])
+   and public.nafes_local_rollback_proof(old.review_pk,old.id,null,old.expected_count-new.expected_count) then return new; end if;
    raise exception 'الجلسة معتمدة؛ لا تعِد فتحها أو تغيير بياناتها دون مسار تدقيق معتمد';
  end if;
  return new;
@@ -288,6 +294,22 @@ CREATE TRIGGER nafes_scan_session_close_guard BEFORE UPDATE ON public.nafes_scan
  FOR EACH ROW EXECUTE FUNCTION public.nafes_scan_session_close_guard();
 """
     # unchanged register/version wrapper retain the original serialization and optimistic check.
+    from integration_repairs import build_integration
     return ("-- DEVELOPMENT ONLY. Original metadata plus measured SQL fixes; NOT DEPLOYED.\n"
             "-- Apply once to an isolated copy of the original schema, never automatically to production.\n"
-            + guard + "\n;\n".join([legacy_edit, edit, identity, verify, finish]) + ";\n")
+            + build_integration() + guard + "\n;\n".join([legacy_edit, edit, identity, verify, finish]) + ";\n" + """
+-- Teacher keys are checked by Edge. Never expose definer RPCs to an unauthenticated caller
+-- that can simply supply a reviewer UUID; discover actual overload signatures, not guessed ones.
+DO $acl$
+declare f record;
+begin
+ for f in select p.oid::regprocedure as signature from pg_proc p
+ join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname=any(array[
+ 'nafes_scan_register','nafes_scan_assign_identity','nafes_scan_edit_answer','nafes_scan_verify',
+ 'nafes_scan_verify_current','nafes_scan_finish','nafes_scan_delete_corrections','nafes_scan_publish_attempts'])
+ loop
+  execute 'REVOKE ALL ON FUNCTION '||f.signature||' FROM PUBLIC,anon,authenticated';
+  execute 'GRANT EXECUTE ON FUNCTION '||f.signature||' TO service_role';
+ end loop;
+end $acl$;
+""")

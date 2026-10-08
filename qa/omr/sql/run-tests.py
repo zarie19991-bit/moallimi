@@ -482,6 +482,31 @@ class Cases:
             assert bridge["proposal_only"] and bridge["sql_operations"]>0
         self.run(3,"actual_edge_reprocess_preserves_manual_review_in_postgres",edge_bridge)
 
+        if self.repaired:
+            def guarded_missing_dependencies():
+                self.reset()
+                before=self.stored()
+                for name,args in [
+                    ("nafes_scan_publish_attempts",[literal(SESSION),literal(OWNER),"'{}'::jsonb","'[]'::jsonb"]),
+                    ("nafes_scan_delete_corrections",[literal(SESSION),f"ARRAY[{literal(self.row['id'])}]::uuid[]",literal(OWNER),literal(REASON),literal(REQUEST)])]:
+                    result=self.rpc(name,args,error=True)
+                    self.rejected(result)
+                    assert "Original" in result.stderr and "unavailable" in result.stderr
+                assert self.stored()==before
+                assert self.sql("SELECT public.nafes_local_rollback_proof("
+                    f"{literal(REVIEW)},{literal(SESSION)},null,1)").stdout.strip()=="f"
+            self.run(5,"missing_original_downstream_schema_refuses_all_mutations",guarded_missing_dependencies)
+
+            def privileged_rpc():
+                names="'nafes_scan_register','nafes_scan_assign_identity','nafes_scan_edit_answer','nafes_scan_verify','nafes_scan_verify_current','nafes_scan_finish'"
+                assert self.sql(f"SELECT bool_and(NOT has_function_privilege('anon',p.oid,'EXECUTE') AND NOT has_function_privilege('authenticated',p.oid,'EXECUTE') AND has_function_privilege('service_role',p.oid,'EXECUTE')) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN({names})").stdout.strip()=="t"
+                for signature in ["nafes_scan_publish_attempts(uuid,uuid,jsonb,jsonb)",
+                    "nafes_scan_delete_corrections(uuid,uuid[],uuid,text,uuid)"]:
+                    assert self.sql("SELECT has_function_privilege('anon',"+literal(signature)+",'EXECUTE')").stdout.strip()=="f"
+                    assert self.sql("SELECT has_function_privilege('authenticated',"+literal(signature)+",'EXECUTE')").stdout.strip()=="f"
+                    assert self.sql("SELECT has_function_privilege('service_role',"+literal(signature)+",'EXECUTE')").stdout.strip()=="t"
+            self.run(5,"privileged_publication_and_rollback_are_not_public_rpcs",privileged_rpc)
+
 
 def main():
     ddl, bodies = original_ddl()
