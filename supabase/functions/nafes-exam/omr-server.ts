@@ -140,10 +140,14 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
  }
  if(raw.length!==total)throw new Error('عدد أسئلة القالب لا يطابق الاختبار.');
  const vals=raw.flat().map((x:any)=>Number(x.score)),base=median(vals),mad=median(vals.map((x:number)=>Math.abs(x-base))),possible=clamp(base+Math.max(.018,mad*2.4),.012,.032),definite=clamp(base+Math.max(.028,mad*3.5),.025,.052),sepThr=clamp(Math.max(.024,mad*2.2),.020,.042);
- const answers=raw.map((ev:any[],i:number)=>{const order=ev.map((e:any,j:number)=>({j,s:e.score})).sort((a:any,b:any)=>b.s-a.s),top=order[0],second=order[1],sep=top.s-second.s,defs=order.filter((x:any)=>x.s>=definite),poss=order.filter((x:any)=>x.s>=possible),scores=ev.map((x:any)=>Number(x.score.toFixed(4)));
+ const answers=raw.map((ev:any[],i:number)=>{
+  const order=ev.map((e:any,j:number)=>({j,s:e.score})).sort((a:any,b:any)=>b.s-a.s),top=order[0],second=order[1],sep=top.s-second.s;
+  const scores=ev.map((x:any)=>Number(x.score.toFixed(4))),ratio=top.s>0?second.s/top.s:1;
+  const strongSecond=second.s>=definite&&ratio>=.55;
+  const weakCompetition=second.s>=possible&&ratio>=.42;
   if(top.s<possible)return{question:startNo+i,selected:null,status:'blank',marked:[],scores,confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
-  if(defs.length>1)return{question:startNo+i,selected:top.j,status:'multiple',marked:defs.map((x:any)=>x.j),scores,confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
-  if(poss.length>1||top.s<definite||sep<sepThr)return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,confidence:Math.min(.79,.5+(top.s-possible)*6+sep*4),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  if(strongSecond&&sep<.060)return{question:startNo+i,selected:top.j,status:'multiple',marked:order.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  if(top.s<definite||sep<sepThr||weakCompetition)return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,confidence:Math.min(.79,.5+(top.s-possible)*6+sep*4),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Math.min(1,.94+(top.s-definite)*.45+sep*.30),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
