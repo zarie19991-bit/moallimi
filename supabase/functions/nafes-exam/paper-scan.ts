@@ -6,7 +6,7 @@ const must=(r:any)=>{if(r.error)fail(r.error.message,400);return r.data;};
 const uuid=(v:any)=>/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(String(v));
 const publicSession=(s:Row)=>{const {review_snapshot,...out}=s;return out;};
 const summaryColumns='id,session_id,ordinal,student_id,sheet_no,snapshot,effective_snapshot,answer_version,duplicate_of,duplicate_legacy_at,blocked_duplicate,uploaded_at,reviewed_at,reviewed_by,disposition';
-const OMR_POLICY='calibrated_homography_adaptive_v4';
+const OMR_POLICY='server_jpeg_homography_v9';
 const finite=(v:any,min:number,max:number,def=0)=>{const n=Number(v);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):def;};
 const compactImageQuality=(q:any)=>q&&typeof q==='object'?{
  width:Math.max(0,Math.min(10000,Number(q.width)||0)),height:Math.max(0,Math.min(10000,Number(q.height)||0)),
@@ -36,6 +36,39 @@ export function classifyAnswer(raw:Row,key:Row,index:number){
  return {question:index+1,selected,marked,status,state,correct_index:correctIndex,correct:state==='correct',indicator:String(key?.indicator||''),confidence:Math.max(0,Math.min(1,Number(raw?.confidence)||0)),
    scores,top_score:finite(raw?.topScore,-1,1),second_score:finite(raw?.secondScore,-1,1),separation:finite(raw?.separation,0,2),threshold:finite(raw?.threshold,-1,1)};
 }
+async function reprocessServerSheet(db:any,session:Row,row:Row){
+ const current=row.effective_snapshot||row.snapshot||{};
+ if(current?.identity_valid!==true||!row.student_id)return {row,skipped:'identity'};
+ const p=session.review_snapshot||{},assignment=(p.assignments||[]).find((a:Row)=>String(a.student_id)===String(row.student_id));
+ if(!assignment)return {row,error:'تعذر مطابقة الطالب مع قائمة الاختبار.'};
+ const key=(p.answer_keys||[]).find((k:Row)=>k.model===assignment.model)?.answers||[];
+ if(key.length!==p.question_count)return {row,error:'مفتاح النموذج غير مكتمل.'};
+ let rr:any;
+ try{rr=readOmrJpeg(String(row.image_data||''),Number(p.question_count||0),Number(p.question_start||1));}
+ catch(e:any){
+   const msg=String(e?.message||e);
+   const failed={...current,omr_policy:OMR_POLICY+'_error',markers_ok:false,marker_confidence:0,omr_reader_error:msg,
+     omr_verification:{risk:'high',quality_score:0,reasons:[msg],requires_manual_review:true,auto_accept:false,
+       counts:{ambiguous:p.question_count,multiple:0,blank:0,low_margin:0,clear:0}}};
+   const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:failed,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null})
+     .eq('id',row.id).eq('session_id',session.id).eq('answer_version',row.answer_version).select(summaryColumns+',image_data').maybeSingle());
+   return {row:updated||row,error:msg};
+ }
+ const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(rr.answers[i]||{},key[i]||{},i));
+ const uncertain=answers.filter((a:Row)=>a.state==='uncertain'||a.state==='multiple').length;
+ const next={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,
+   markers_ok:rr.markers_ok===true,marker_confidence:finite(rr.marker_confidence,0,1),answers,
+   score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
+   counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
+   omr_policy:OMR_POLICY,omr_detector:String(rr.detector||'').slice(0,64),marker_points:rr.marker_points||null,
+   omr_verification:compactVerification(rr.verification),omr_calibration:compactCalibration(rr.calibration),
+   omr_reader_error:null,unresolved_answers:uncertain};
+ const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:next,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null})
+   .eq('id',row.id).eq('session_id',session.id).eq('answer_version',row.answer_version).select(summaryColumns+',image_data').maybeSingle());
+ if(!updated)return {row,error:'تغيرت الورقة أثناء إعادة القراءة.'};
+ return {row:updated,unresolved:uncertain};
+}
+
 async function reviewFor(db:any,b:Row,owner:Row){
  let q=db.from('nafes_paper_reviews').select('*').eq('review_id',String(b.review_id||''));
  if(owner.subject_scope!=='all')q=q.eq('owner_id',owner.id);
@@ -68,7 +101,17 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    return {ok:true,alerts,next_cursor:alerts.length===200?after+200:null};
  }
  const {session}=await scanSession(db,b,owner);
- if(b.action==='teacher_scan_list')return {ok:true,session:publicSession(session),sheets:must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'))};
+ if(b.action==='teacher_scan_list'){
+   let rows=must(await db.from('nafes_scan_sheets').select(summaryColumns+',image_data').eq('session_id',session.id).order('ordinal'));
+   let processed=0;
+   for(let i=0;i<rows.length&&processed<20;i++){
+     const x=rows[i],cur=x.effective_snapshot||x.snapshot||{},policy=String(cur.omr_policy||'');
+     if(cur.identity_valid!==true||!x.student_id||policy===OMR_POLICY||policy===OMR_POLICY+'_error')continue;
+     const rr=await reprocessServerSheet(db,session,x);rows[i]=rr.row;processed++;
+   }
+   const safe=rows.map((x:Row)=>{const {image_data,...rest}=x;return rest;});
+   return {ok:true,session:publicSession(session),sheets:safe,auto_reprocessed:processed,omr_policy:OMR_POLICY};
+ }
  if(b.action==='teacher_scan_quality_report'){
    const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
    const items=rows.map((r:Row)=>{const x=r.effective_snapshot||r.snapshot||{},v=x.omr_verification||{};return{
@@ -128,7 +171,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
      answers,score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
      page_no:Number(raw.page_no)||1,region_no:Number(raw.region_no)||1,
-     omr_policy:'server_jpeg_homography_v8',
+     omr_policy:OMR_POLICY,
      omr_detector:String(rr?.detector||'').slice(0,64),
      marker_points:rr?.marker_points||null,
      omr_verification:compactVerification(verification),
@@ -138,7 +181,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const legacy=identityValid?must(await db.from('nafes_assessment_attempts').select('submitted_at,events').eq('student_id',assignment.student_id).contains('config',{paper_review_id:review.review_id}).not('submitted_at','is',null).order('submitted_at').limit(20)):[];
    const legacyAt=(legacy||[]).find((x:Row)=>x.events?.some((e:Row)=>e.type==='paper_scan'&&e.review_id===review.review_id&&!e.scan_sheet_id))?.submitted_at||null;
    const sheet=must(await db.rpc('nafes_scan_register',{p_session:session.id,p_sheet:{ordinal:raw.ordinal,legacy_at:legacyAt,student_id:identityValid?assignment.student_id:null,sheet_no:identityValid?raw.sheet_no:null,image_hash:await hash(raw.image_data),image_data:raw.image_data,snapshot}}));
-   return {ok:true,sheet,reader:'server_jpeg_homography_v8',reader_error:readerError||null};
+   return {ok:true,sheet,reader:'server_jpeg_homography_v9',reader_error:readerError||null};
  }
  if(b.action==='teacher_scan_image'){
    const row=must(await db.from('nafes_scan_sheets').select('image_data').eq('session_id',session.id).eq('id',b.sheet_id).single());return {ok:true,...row};
@@ -177,53 +220,24 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات إعادة القراءة الخادمية غير صالحة.');
    const row=must(await db.from('nafes_scan_sheets').select(summaryColumns+',image_data').eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
    if(!row)fail('ورقة غير موجودة.',404);
-   const current=row.effective_snapshot||row.snapshot;
-   if(current?.identity_valid!==true||!row.student_id)fail('لا يمكن احتساب درجة آلية قبل تأكيد هوية الطالب.',409);
-   const p=session.review_snapshot,assignment=(p.assignments||[]).find((a:Row)=>String(a.student_id)===String(row.student_id));
-   if(!assignment)fail('تعذر مطابقة الطالب مع قائمة الاختبار.',409);
-   const key=(p.answer_keys||[]).find((k:Row)=>k.model===assignment.model)?.answers||[];
-   if(key.length!==p.question_count)fail('مفتاح النموذج غير مكتمل.',409);
-   let rr:any;
-   try{rr=readOmrJpeg(String(row.image_data||''),Number(p.question_count||0),Number(p.question_start||1));}
-   catch(e:any){fail('فشل القارئ الخادمي: '+String(e?.message||e),422);}
-   const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(rr.answers[i]||{},key[i]||{},i));
-   const uncertain=answers.filter((a:Row)=>a.state==='uncertain'||a.state==='multiple').length;
-   const next={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,markers_ok:rr.markers_ok===true,
-     marker_confidence:finite(rr.marker_confidence,0,1),answers,score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
-     counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
-     omr_policy:'server_jpeg_homography_v8',omr_detector:String(rr.detector||'').slice(0,64),
-     marker_points:rr.marker_points||null,omr_verification:compactVerification(rr.verification),omr_calibration:compactCalibration(rr.calibration),
-     unresolved_answers:uncertain};
-   const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:next,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null}).eq('id',row.id).eq('session_id',session.id).eq('answer_version',b.answer_version).select(summaryColumns).maybeSingle());
-   if(!updated)fail('تغيرت الورقة أثناء إعادة القراءة؛ أعد المحاولة.',409);
+   if(row.answer_version!==b.answer_version)fail('تغيرت الورقة أثناء إعادة القراءة؛ أعد المحاولة.',409);
+   const rr=await reprocessServerSheet(db,session,row);
+   if(rr.skipped)fail('لا يمكن احتساب درجة آلية قبل تأكيد هوية الطالب.',409);
+   if(rr.error)fail('فشل القارئ الخادمي: '+rr.error,422);
    await db.from('nafes_scan_sessions').update({completed_at:null}).eq('id',session.id);
-   return {ok:true,sheet:updated,unresolved:uncertain,reader:'server_jpeg_homography_v8'};
+   const {image_data,...safe}=rr.row;
+   return {ok:true,sheet:safe,unresolved:Number(rr.unresolved||0),reader:OMR_POLICY};
  }
  if(b.action==='teacher_scan_reclassify'){
-   if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version)||!Array.isArray(b.answers))fail('بيانات إعادة القراءة غير صالحة.');
-   const row=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
+   if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات إعادة القراءة غير صالحة.');
+   const row=must(await db.from('nafes_scan_sheets').select(summaryColumns+',image_data').eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
    if(!row)fail('ورقة غير موجودة.',404);
-   const current=row.effective_snapshot||row.snapshot;
-   if(current?.identity_valid!==true||!row.student_id)fail('لا يمكن احتساب درجة آلية قبل تأكيد هوية الطالب.',409);
-   const p=session.review_snapshot,assignment=(p.assignments||[]).find((a:Row)=>String(a.student_id)===String(row.student_id));
-   if(!assignment)fail('تعذر مطابقة الطالب مع قائمة الاختبار.',409);
-   const key=(p.answer_keys||[]).find((k:Row)=>k.model===assignment.model)?.answers||[];
-   if(key.length!==p.question_count)fail('مفتاح النموذج غير مكتمل.',409);
-   if(b.answers.length!==p.question_count)fail('عدد الإجابات المقروءة لا يطابق الاختبار.',409);
-   const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(b.answers[i]||{},key[i]||{},i));
-   const uncertain=answers.filter((a:Row)=>a.state==='uncertain'||a.state==='multiple').length;
-   const next={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,markers_ok:b.markers_ok===true,
-     marker_confidence:Math.max(0,Math.min(1,Number(b.marker_confidence)||0)),answers,
-     score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
-     counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
-     omr_policy:OMR_POLICY,omr_detector:String(b.detector||'').slice(0,64),
-     marker_points:b.marker_points&&typeof b.marker_points==='object'?b.marker_points:null,
-     image_quality:compactImageQuality(b.image_quality),omr_verification:compactVerification(b.verification),omr_calibration:compactCalibration(b.calibration),
-     unresolved_answers:uncertain};
-   const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:next,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null}).eq('id',row.id).eq('session_id',session.id).eq('answer_version',b.answer_version).select(summaryColumns).maybeSingle());
-   if(!updated)fail('تغيرت الورقة أثناء إعادة القراءة؛ أعد المحاولة.',409);
-   await db.from('nafes_scan_sessions').update({completed_at:null}).eq('id',session.id);
-   return {ok:true,sheet:updated,unresolved:uncertain};
+   if(row.answer_version!==b.answer_version)fail('تغيرت الورقة أثناء إعادة القراءة؛ أعد المحاولة.',409);
+   const rr=await reprocessServerSheet(db,session,row);
+   if(rr.skipped)fail('لا يمكن إعادة التصنيف قبل تأكيد هوية الطالب.',409);
+   if(rr.error)fail('فشل القارئ الخادمي: '+rr.error,422);
+   const {image_data,...safe}=rr.row;
+   return {ok:true,sheet:safe,unresolved:Number(rr.unresolved||0),reader:OMR_POLICY};
  }
  if(b.action==='teacher_scan_edit_answer'){
    if(!uuid(b.request_id)||!uuid(b.sheet_id)||!Number.isInteger(b.question)||!Number.isInteger(b.answer_version)||!Array.isArray(b.marked)||b.marked.length>4||b.marked.some((n:any)=>!Number.isInteger(n)||n<0||n>3))fail('بيانات تعديل الإجابة غير صالحة.');
