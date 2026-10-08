@@ -19,14 +19,14 @@
    <label class="field"><span>اسم الاختبار</span><input id="testTitle" required value="اختبار نافس" maxlength="160"></label>
    <input type="radio" name="testType" value="custom" checked hidden aria-hidden="true">
    <div class="choice-grid">
-    <div class="choice" style="cursor:default"><span><b>اختبارات المؤشرات</b><small>اختر المادة أولًا، ثم مؤشرًا واحدًا أو عدة مؤشرات منها، وحدد عدد الأسئلة ثم راجع الأسئلة واستبدل ما تريد قبل النشر.</small></span></div>
+    <div class="choice" style="cursor:default"><span><b>اختبارات المؤشرات</b><small>فعّل مادة واحدة أو أكثر من العلوم والرياضيات والقراءة، ثم اختر مؤشرات كل مادة لتجميعها في اختبار واحد. حدد عدد الأسئلة وراجعها قبل النشر.</small></span></div>
    </div>
    <div id="customMode"><div id="regularCustomControls"><label class="field"><span>توزيع الأسئلة</span><select id="countMode"><option value="total">عدد كلي للمادة، يوزع تلقائيًا على المؤشرات المختارة</option><option value="per_indicator">أحدد عددًا مستقلًا لكل مؤشر</option></select></label><label class="field"><span>النموذج في اختبار المؤشر الواحد</span><select id="fixedModel"><option value="">سحب متنوع من بنك المؤشر</option><option value="1">النموذج الأول — ١٥ سؤالًا</option><option value="2">النموذج الثاني — ١٥ سؤالًا</option></select></label></div></div>
    <label class="field"><span>الصف</span><select id="grade"><option value="middle_3">الصف الثالث المتوسط</option></select></label>
    <div class="section-table" aria-label="مواد الاختبار">
     <div class="section-row head"><b>المادة</b><b>الأسئلة</b><b>الدقائق</b><b>تفعيل</b></div>
-    <div class="section-row" data-subject="math"><div><strong>الرياضيات</strong><small>95 مؤشرًا</small></div><input class="count" type="number" min="1" max="60" value="20" aria-label="عدد أسئلة الرياضيات"><input class="minutes" type="number" min="5" max="120" value="45" aria-label="دقائق الرياضيات"><label class="check"><input class="enabled" type="checkbox" checked><span></span></label><label class="calculator"><input type="checkbox" checked> آلة حاسبة</label></div>
     <div class="section-row" data-subject="science"><div><strong>العلوم</strong><small>159 مؤشرًا</small></div><input class="count" type="number" min="1" max="60" value="20" aria-label="عدد أسئلة العلوم"><input class="minutes" type="number" min="5" max="120" value="30" aria-label="دقائق العلوم"><label class="check"><input class="enabled" type="checkbox"><span></span></label></div>
+    <div class="section-row" data-subject="math"><div><strong>الرياضيات</strong><small>95 مؤشرًا</small></div><input class="count" type="number" min="1" max="60" value="20" aria-label="عدد أسئلة الرياضيات"><input class="minutes" type="number" min="5" max="120" value="45" aria-label="دقائق الرياضيات"><label class="check"><input class="enabled" type="checkbox" checked><span></span></label><label class="calculator"><input type="checkbox" checked> آلة حاسبة</label></div>
     <div class="section-row" data-subject="reading"><div><strong>القراءة</strong><small>16 مؤشرًا</small></div><input class="count" type="number" min="1" max="60" value="20" aria-label="عدد أسئلة القراءة"><input class="minutes" type="number" min="5" max="120" value="45" aria-label="دقائق القراءة"><label class="check"><input class="enabled" type="checkbox"><span></span></label></div>
    </div>
    <div id="selectionPanels"></div>
@@ -91,5 +91,5 @@
  <section id="publishedTests" class="step my-tests-section"><header><span>٥</span><div><h2>اختباراتي</h2><p>الاختبارات الآلية التي أنشأها هذا الحساب. يمكنك فتح الاختبار أو تحليله أو تعديل إعداداته أو حذفه بشكل انتقائي.</p></div></header><div id="publishedList"></div></section>
 </main>
 <script src="nafes-reading.js?v=20260909-final"></script><script src="nafes-math.js?v=20260909-final"></script><script src="nafes-science.js?v=20260909-final"></script><script src="teacher-access.js?v=20260930-mainfix2"></script><script src="qr.js?v=20260909-final"></script><script src="question-media.js?v=20260909-final"></script>
-<script src="create.js?v=20261003-mytests1"></script><script src="test-management.js?v=20261003-mytests1"></script>
+<script src="create.js?v=20261008-multi-subject1"></script><script src="test-management.js?v=20261003-mytests1"></script>
 <script src="platform-auto-correct.js?v=20261003-corrector1"></script>\n</body></html>
