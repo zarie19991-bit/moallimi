@@ -96,9 +96,22 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    return {ok:true,deletions:rows};
  }
  if(b.action==='teacher_scan_alerts'){
+   // While the review page is open, use its existing poll to upgrade stale OMR sheets in the background.
+   let upgraded=0;
+   const sessions=must(await db.from('nafes_scan_sessions').select('*').eq('review_pk',review.id).order('created_at',{ascending:false}).limit(100));
+   for(const se of sessions){
+     if(upgraded>=20)break;
+     const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns+',image_data').eq('session_id',se.id).order('ordinal'));
+     for(const row of rows){
+       if(upgraded>=20)break;
+       const cur=row.effective_snapshot||row.snapshot||{},policy=String(cur.omr_policy||'');
+       if(cur.identity_valid!==true||!row.student_id||policy===OMR_POLICY||policy===OMR_POLICY+'_error')continue;
+       await reprocessServerSheet(db,se,row);upgraded++;
+     }
+   }
    const after=Number(b.cursor||0);if(!Number.isInteger(after)||after<0)fail('مؤشر غير صالح.');
    const alerts=must(await db.from('nafes_scan_alerts').select('*,sheet:nafes_scan_sheets!sheet_id(student_id,snapshot,uploaded_at),original:nafes_scan_sheets!original_sheet_id(uploaded_at,session_id)').eq('review_pk',review.id).order('created_at',{ascending:false}).order('id').range(after,after+199));
-   return {ok:true,alerts,next_cursor:alerts.length===200?after+200:null};
+   return {ok:true,alerts,next_cursor:alerts.length===200?after+200:null,omr_auto_upgraded:upgraded,omr_policy:OMR_POLICY};
  }
  const {session}=await scanSession(db,b,owner);
  if(b.action==='teacher_scan_list'){
