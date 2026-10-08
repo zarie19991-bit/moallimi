@@ -39,78 +39,54 @@ function findSquare(I:any,zone:number[],ex:number,ey:number){
   }
  }return best;
 }
-function globalSquareCandidates(im:GrayImage){
- const I=integral(im),raw:any[]=[];
- const sizes=[.006,.008,.010,.012,.015,.018,.022].map(f=>Math.max(6,Math.round(im.width*f)));
+function otsuThreshold(im:GrayImage,y0f=.34,y1f=.90){
+ const hist=new Uint32Array(256),y0=Math.max(0,Math.floor(im.height*y0f)),y1=Math.min(im.height,Math.ceil(im.height*y1f));
+ let total=0,sum=0;
+ for(let y=y0;y<y1;y++)for(let x=0;x<im.width;x++){const g=im.gray[y*im.width+x];hist[g]++;total++;sum+=g;}
+ let sumB=0,wB=0,best=0,bestVar=-1;
+ for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=total-wB;if(!wF)break;sumB+=t*hist[t];const mB=sumB/wB,mF=(sum-sumB)/wF,v=wB*wF*(mB-mF)*(mB-mF);if(v>bestVar){bestVar=v;best=t;}}
+ return Math.max(55,Math.min(180,best));
+}
+function binaryIntegral(im:GrayImage,threshold:number){
+ const W=im.width+1,H=im.height+1,ii=new Uint32Array(W*H);
+ for(let y=1;y<H;y++){let row=0;for(let x=1;x<W;x++){row+=im.gray[(y-1)*im.width+(x-1)]<threshold?1:0;ii[y*W+x]=ii[(y-1)*W+x]+row;}}
+ return{ii,w:im.width,h:im.height};
+}
+function binaryRect(I:any,x:number,y:number,w:number,h:number){
+ const x1=clamp(Math.round(x),0,I.w),y1=clamp(Math.round(y),0,I.h),x2=clamp(Math.round(x+w),0,I.w),y2=clamp(Math.round(y+h),0,I.h),W=I.w+1;
+ return I.ii[y2*W+x2]-I.ii[y1*W+x2]-I.ii[y2*W+x1]+I.ii[y1*W+x1];
+}
+function findFilledSquare(I:any,zone:number[],ex:number,ey:number){
+ const sizes=[.0075,.0095,.012,.0145,.018,.021].map(f=>Math.max(6,Math.round(I.w*f))),raw:any[]=[];
  for(const size of sizes){
-   const half=Math.floor(size/2),step=Math.max(3,Math.floor(size/2));
-   const x0=Math.max(half,Math.floor(im.width*.02)),x1=Math.min(im.width-half,Math.ceil(im.width*.98));
-   const y0=Math.max(half,Math.floor(im.height*.30)),y1=Math.min(im.height-half,Math.ceil(im.height*.95));
+   const half=Math.floor(size/2),step=Math.max(2,Math.floor(size/3));
+   const x0=Math.max(half,Math.floor(I.w*zone[0])),x1=Math.min(I.w-half,Math.ceil(I.w*zone[1]));
+   const y0=Math.max(half,Math.floor(I.h*zone[2])),y1=Math.min(I.h-half,Math.ceil(I.h*zone[3]));
    for(let y=y0;y<=y1;y+=step)for(let x=x0;x<=x1;x+=step){
-     const core=rectMean(I,x-half,y-half,size,size);
-     if(core>165)continue;
-     const outer=rectMean(I,x-size,y-size,size*2,size*2),contrast=outer-core;
-     if(contrast<12)continue;
-     const score=(255-core)*.65+contrast*.75;
-     raw.push({x,y,size,score,core,contrast});
+     const core=binaryRect(I,x-half,y-half,size,size)/(size*size);
+     if(core<.55)continue;
+     const outer=binaryRect(I,x-size,y-size,size*2,size*2)/(size*size*4),contrast=core-outer;
+     if(contrast<.12)continue;
+     const prox=Math.abs(x/I.w-ex)+Math.abs(y/I.h-ey),score=core+.70*contrast-.25*prox;
+     raw.push({x,y,size,score,core,outer,contrast});
    }
  }
- raw.sort((a,b)=>b.score-a.score);
- const out:any[]=[];
- for(const p of raw){
-   if(out.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<Math.max(p.size,q.size)*1.5))continue;
-   out.push(p);if(out.length>=120)break;
- }
- return out;
-}
-function globalMarkerRectangle(im:GrayImage){
- const c=globalSquareCandidates(im),target=172/104,rows:any[]=[];
- for(let i=0;i<c.length;i++)for(let j=i+1;j<c.length;j++){
-   let a=c[i],b=c[j];if(a.x>b.x){const t=a;a=b;b=t;}
-   const dx=b.x-a.x,dy=Math.abs(a.y-b.y);
-   if(a.x>im.width*.38||b.x<im.width*.62)continue;
-   if(dx<im.width*.45||dy>im.height*.035)continue;
-   const sizeRatio=Math.max(a.size,b.size)/Math.max(1,Math.min(a.size,b.size));if(sizeRatio>2.2)continue;
-   rows.push({l:a,r:b,y:(a.y+b.y)/2,dx,ink:(a.score+b.score)/2});
- }
- let best:any=null;
- for(let i=0;i<rows.length;i++)for(let j=i+1;j<rows.length;j++){
-   let top=rows[i],bottom=rows[j];if(top.y>bottom.y){const t=top;top=bottom;bottom=t;}
-   const dy=bottom.y-top.y;
-   if(dy<im.height*.15||dy>im.height*.52)continue;
-   if(Math.abs(top.l.x-bottom.l.x)>im.width*.09||Math.abs(top.r.x-bottom.r.x)>im.width*.09)continue;
-   const widthRatio=Math.max(top.dx,bottom.dx)/Math.max(1,Math.min(top.dx,bottom.dx));if(widthRatio>1.28)continue;
-   const dx=(top.dx+bottom.dx)/2,aspect=dx/dy,aspectErr=Math.abs(Math.log(aspect/target));
-   if(aspectErr>.42)continue;
-   const area=(dx*dy)/(im.width*im.height);
-   if(area<.09)continue;
-   const edgeBonus=((top.l.x<im.width*.28&&bottom.l.x<im.width*.28)?1:0)+((top.r.x>im.width*.72&&bottom.r.x>im.width*.72)?1:0);
-   const score=area*9+(top.ink+bottom.ink)/220-aspectErr*1.8+edgeBonus*.35;
-   if(!best||score>best.score)best={top,bottom,score,aspectErr,area};
- }
- if(!best)return null;
- return{
-   tl:best.top.l,tr:best.top.r,bl:best.bottom.l,br:best.bottom.r,
-   confidence:Math.max(.86,Math.min(.99,1-best.aspectErr)),
-   detector:'global-square-rectangle-v2'
- };
+ raw.sort((a,b)=>b.score-a.score);return raw[0]||null;
 }
 function detectMarkers(im:GrayImage){
- // First try the calibrated legacy locations because they are cheap; if the camera framing
- // changes, fall back to a full answer-area search and solve the four-corner rectangle geometrically.
- const I=integral(im);
- const tl=findSquare(I,[.025,.20,.34,.62],.10,.49),tr=findSquare(I,[.72,.98,.34,.62],.86,.49),
-       bl=findSquare(I,[.025,.20,.60,.94],.10,.80),br=findSquare(I,[.72,.98,.60,.94],.86,.80);
- if(tl&&tr&&bl&&br){
-   const topDx=tr.x-tl.x,bottomDx=br.x-bl.x,leftDy=bl.y-tl.y,rightDy=br.y-tr.y,target=172/104;
-   if(topDx>im.width*.45&&bottomDx>im.width*.45&&leftDy>im.height*.14&&rightDy>im.height*.14){
-     const aspect=((topDx+bottomDx)/2)/((leftDy+rightDy)/2),err=Math.abs(Math.log(aspect/target));
-     if(err<=.42)return{tl,tr,bl,br,confidence:Math.max(.88,Math.min(.99,1-err)),detector:'broad-zone-v2'};
-   }
- }
- const global=globalMarkerRectangle(im);
- if(!global)throw new Error('لم يتم العثور على مستطيل علامات المحاذاة الأربع في كامل منطقة الإجابات.');
- return global;
+ const threshold=otsuThreshold(im),I=binaryIntegral(im,threshold);
+ // Broad edge zones cover the real phone framing while excluding the answer bubbles themselves.
+ const tl=findFilledSquare(I,[.025,.20,.36,.58],.08,.46),
+       tr=findFilledSquare(I,[.72,.96,.34,.57],.83,.45),
+       bl=findFilledSquare(I,[.025,.20,.60,.90],.08,.72),
+       br=findFilledSquare(I,[.72,.96,.58,.90],.85,.71);
+ if(!tl||!tr||!bl||!br)throw new Error('لم يتم اكتشاف مربعات المحاذاة الأربعة بعد التحويل الثنائي التكيفي.');
+ const topDx=tr.x-tl.x,bottomDx=br.x-bl.x,leftDy=bl.y-tl.y,rightDy=br.y-tr.y,target=172/104;
+ if(topDx<im.width*.45||bottomDx<im.width*.45||leftDy<im.height*.14||rightDy<im.height*.14)throw new Error('هندسة مربعات المحاذاة غير مكتملة.');
+ if(Math.abs(tl.x-bl.x)>im.width*.08||Math.abs(tr.x-br.x)>im.width*.08)throw new Error('انحراف جانبي غير منطقي في علامات المحاذاة.');
+ const aspect=((topDx+bottomDx)/2)/((leftDy+rightDy)/2),err=Math.abs(Math.log(aspect/target));
+ if(err>.42)throw new Error('نسبة مستطيل التظليل لا تطابق القالب.');
+ return{tl,tr,bl,br,confidence:Math.max(.90,Math.min(.995,1-err)),detector:'otsu-filled-square-v3',threshold};
 }
 function mapPoint(m:any,x:number,y:number){
  const u=(x-4)/172,v=(y-4)/104,p0=m.tl,p1=m.tr,p2=m.br,p3=m.bl;
@@ -142,7 +118,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,confidence:Math.min(1,.94+(top.s-definite)*.45+sep*.30),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'server-jpeg-homography-v2'),
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-filled-square-v3'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
