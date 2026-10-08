@@ -100,20 +100,45 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const valid=!!assignment&&uuid(assignment.student_id)&&raw.qr_valid===true&&raw.model===assignment.model;
    const model=valid?assignment.model:String(raw.model||'').slice(0,12);
    const key=(p.answer_keys||[]).find((k:Row)=>k.model===model)?.answers||[];
-   const rawAnswers=Array.isArray(raw.answers)?raw.answers:[];
-   const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(rawAnswers[i]||{},valid?(key[i]||{}):{},i));
    const identityValid=valid&&key.length===p.question_count;
-   const snapshot={student_name:identityValid?assignment.student_name:'غير معروف — يلزم إعادة المسح',model,identity_valid:identityValid,
-   markers_ok:raw.markers_ok===true&&rawAnswers.length===p.question_count,marker_confidence:finite(raw.marker_confidence,0,1),
-   answers,score:answers.filter(a=>a.correct).length,total:p.question_count,
-   counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
-   page_no:Number(raw.page_no)||1,region_no:Number(raw.region_no)||1,omr_policy:OMR_POLICY,
-   omr_detector:String(raw.detector||'').slice(0,64),marker_points:raw.marker_points&&typeof raw.marker_points==='object'?raw.marker_points:null,
-   image_quality:compactImageQuality(raw.image_quality),omr_verification:compactVerification(raw.verification),omr_calibration:compactCalibration(raw.calibration)};
+
+   // Single source of truth: the server reads OMR from the stored JPEG.
+   // Browser-provided bubble results are ignored for scoring.
+   let rr:any=null,readerError='';
+   if(identityValid){
+     try{
+       rr=readOmrJpeg(String(raw.image_data),Number(p.question_count||0),Number(p.question_start||1));
+     }catch(e:any){
+       readerError=String(e?.message||e);
+     }
+   }
+
+   const sourceAnswers=rr?.answers||[];
+   const answers=Array.from({length:p.question_count},(_,i)=>classifyAnswer(sourceAnswers[i]||{},identityValid?(key[i]||{}):{},i));
+   const markersOk=identityValid&&rr?.markers_ok===true&&sourceAnswers.length===p.question_count;
+   const verification=rr?.verification||{
+     risk:'high',quality_score:0,
+     reasons:[identityValid?(readerError||'فشل القارئ الخادمي في تحليل التظليل.'):'هوية الورقة غير مؤكدة.'],
+     requires_manual_review:true,auto_accept:false,
+     counts:{ambiguous:p.question_count,multiple:0,blank:0,low_margin:0,clear:0}
+   };
+   const snapshot={
+     student_name:identityValid?assignment.student_name:'غير معروف — يلزم إعادة المسح',model,identity_valid:identityValid,
+     markers_ok:markersOk,marker_confidence:finite(rr?.marker_confidence,0,1),
+     answers,score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
+     counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
+     page_no:Number(raw.page_no)||1,region_no:Number(raw.region_no)||1,
+     omr_policy:'server_jpeg_homography_v8',
+     omr_detector:String(rr?.detector||'').slice(0,64),
+     marker_points:rr?.marker_points||null,
+     omr_verification:compactVerification(verification),
+     omr_calibration:compactCalibration(rr?.calibration),
+     omr_reader_error:readerError||null
+   };
    const legacy=identityValid?must(await db.from('nafes_assessment_attempts').select('submitted_at,events').eq('student_id',assignment.student_id).contains('config',{paper_review_id:review.review_id}).not('submitted_at','is',null).order('submitted_at').limit(20)):[];
    const legacyAt=(legacy||[]).find((x:Row)=>x.events?.some((e:Row)=>e.type==='paper_scan'&&e.review_id===review.review_id&&!e.scan_sheet_id))?.submitted_at||null;
    const sheet=must(await db.rpc('nafes_scan_register',{p_session:session.id,p_sheet:{ordinal:raw.ordinal,legacy_at:legacyAt,student_id:identityValid?assignment.student_id:null,sheet_no:identityValid?raw.sheet_no:null,image_hash:await hash(raw.image_data),image_data:raw.image_data,snapshot}}));
-   return {ok:true,sheet};
+   return {ok:true,sheet,reader:'server_jpeg_homography_v8',reader_error:readerError||null};
  }
  if(b.action==='teacher_scan_image'){
    const row=must(await db.from('nafes_scan_sheets').select('image_data').eq('session_id',session.id).eq('id',b.sheet_id).single());return {ok:true,...row};
@@ -166,13 +191,13 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const next={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,markers_ok:rr.markers_ok===true,
      marker_confidence:finite(rr.marker_confidence,0,1),answers,score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
-     omr_policy:'server_jpeg_homography_v7',omr_detector:String(rr.detector||'').slice(0,64),
+     omr_policy:'server_jpeg_homography_v8',omr_detector:String(rr.detector||'').slice(0,64),
      marker_points:rr.marker_points||null,omr_verification:compactVerification(rr.verification),omr_calibration:compactCalibration(rr.calibration),
      unresolved_answers:uncertain};
    const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:next,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null}).eq('id',row.id).eq('session_id',session.id).eq('answer_version',b.answer_version).select(summaryColumns).maybeSingle());
    if(!updated)fail('تغيرت الورقة أثناء إعادة القراءة؛ أعد المحاولة.',409);
    await db.from('nafes_scan_sessions').update({completed_at:null}).eq('id',session.id);
-   return {ok:true,sheet:updated,unresolved:uncertain,reader:'server_jpeg_homography_v7'};
+   return {ok:true,sheet:updated,unresolved:uncertain,reader:'server_jpeg_homography_v8'};
  }
  if(b.action==='teacher_scan_reclassify'){
    if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version)||!Array.isArray(b.answers))fail('بيانات إعادة القراءة غير صالحة.');
