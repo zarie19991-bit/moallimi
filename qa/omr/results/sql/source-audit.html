@@ -1,0 +1,125 @@
+<!doctype html><html dir="rtl" lang="ar"><meta charset="utf-8">
+<title>معلّمي — تدقيق مصدر SQL</title>
+<style>body{font:17px/1.8 Tahoma,Arial;max-width:1050px;margin:30px auto;padding:20px;color:#162b3b}
+pre{direction:ltr;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;background:#f1f4f7;padding:18px}
+.notice{padding:18px;background:#fff3da;border:2px solid #a96b00}h1,h2{line-height:1.4}</style>
+<h1>معلّمي — تدقيق تعريفات SQL الأصلية</h1>
+<div class="notice">هذا تقرير اكتمال المصدر، لا تقرير نجاح اختبارات SQL.
+0 اختبار SQL منفذ؛ الأربع معلّقة بسبب جدول المراجعين المرجعي المفقود.
+لم تُحذف مفاتيح أجنبية، ولم تُنشأ جداول بديلة، ولم يحدث اتصال بالإنتاج.</div>
+<p>المرفق يحتوي على 7 جداول و7 وظائف. المانع المباشر لاختبارات المسح:
+تعريف nafes_teacher_access وقيوده وتبعياته. توجد تبعيات إضافية لجدول المحاولات ومحفزاته
+إذا أُعيد استيراد كامل الجداول السبعة.</p>
+<h2>ملاحظات المصدر المؤكدة — لم تُقاس نتائجها أثناء التشغيل بعد</h2>
+<ol><li>Manual edit has no incoming reason parameter</li><li>Answer audit has no dedicated reason column; new reason is not written by the function</li><li>Edit grading key is read from original snapshot, not the reassigned effective snapshot</li><li>Verify checks state=uncertain but not status=ambiguous or separated uncertainty reasons</li><li>Finish checks reviewed_at, not unresolved answer state or requires_rescan disposition</li><li>Identity assigns the supplied effective_snapshot without enforcing unchanged bubble choices in SQL</li></ol>
+<h2>استخراج النواقص</h2><p>تم تحديث qa/omr/export/manual-review-metadata-readonly.sql
+ليتبع مفاتيح FK إلى الجداول المرجعية ويجمع المساعدين اللذين ظهرا في محفزات المحاولات.
+الاستخراج بيانات تعريف فقط؛ لا صفوف طلاب أو درجات. التبعيات الإجرائية الإضافية
+تُراجع بعد وصول المصدر ولا تُستبدل بتخمين.</p>
+<h2>التفاصيل وبصمة المصدر</h2><pre>{
+  &quot;source_file&quot;: &quot;attached_assets/0_moallimi_omr_schema_metadata_reviewed_(1)_1791465393560.json&quot;,
+  &quot;source_sha256&quot;: &quot;b0642af05b4c8c234332664ed5071c167830bbaffd820f7d83052824f860b08f&quot;,
+  &quot;reported_postgres_version&quot;: &quot;17.6&quot;,
+  &quot;table_count&quot;: 7,
+  &quot;function_count&quot;: 7,
+  &quot;missing_fk_relations&quot;: {
+    &quot;nafes_teacher_access&quot;: [
+      {
+        &quot;table&quot;: &quot;nafes_scan_sheets&quot;,
+        &quot;constraint&quot;: &quot;nafes_scan_sheets_reviewed_by_fkey&quot;,
+        &quot;core_rpc_blocker&quot;: true
+      },
+      {
+        &quot;table&quot;: &quot;nafes_scan_sessions&quot;,
+        &quot;constraint&quot;: &quot;nafes_scan_sessions_reviewer_id_fkey&quot;,
+        &quot;core_rpc_blocker&quot;: true
+      },
+      {
+        &quot;table&quot;: &quot;nafes_scan_answer_edits&quot;,
+        &quot;constraint&quot;: &quot;nafes_scan_answer_edits_reviewer_id_fkey&quot;,
+        &quot;core_rpc_blocker&quot;: true
+      },
+      {
+        &quot;table&quot;: &quot;nafes_scan_identity_edits&quot;,
+        &quot;constraint&quot;: &quot;nafes_scan_identity_edits_reviewer_id_fkey&quot;,
+        &quot;core_rpc_blocker&quot;: true
+      },
+      {
+        &quot;table&quot;: &quot;nafes_scan_alerts&quot;,
+        &quot;constraint&quot;: &quot;nafes_scan_alerts_acknowledged_by_fkey&quot;,
+        &quot;core_rpc_blocker&quot;: true
+      },
+      {
+        &quot;table&quot;: &quot;nafes_paper_reviews&quot;,
+        &quot;constraint&quot;: &quot;nafes_paper_reviews_owner_id_fkey&quot;,
+        &quot;core_rpc_blocker&quot;: true
+      }
+    ],
+    &quot;nafes_assessments&quot;: [
+      {
+        &quot;table&quot;: &quot;nafes_assessment_attempts&quot;,
+        &quot;constraint&quot;: &quot;nafes_assessment_attempts_assessment_id_fkey&quot;,
+        &quot;core_rpc_blocker&quot;: false
+      }
+    ],
+    &quot;nafes_students&quot;: [
+      {
+        &quot;table&quot;: &quot;nafes_assessment_attempts&quot;,
+        &quot;constraint&quot;: &quot;nafes_assessment_attempts_student_id_fkey&quot;,
+        &quot;core_rpc_blocker&quot;: false
+      }
+    ]
+  },
+  &quot;missing_attempt_trigger_helpers&quot;: [
+    &quot;lugati_sync_sections_attempt&quot;,
+    &quot;lugati_sync_student_worksheets&quot;
+  ],
+  &quot;sql_tests_executed&quot;: 0,
+  &quot;sql_tests_passed&quot;: 0,
+  &quot;sql_tests_blocked&quot;: 4,
+  &quot;production_connected&quot;: false,
+  &quot;schema_stub_created&quot;: false,
+  &quot;core_blocker&quot;: &quot;Original nafes_teacher_access DDL is required by scan/reviewer foreign keys.&quot;,
+  &quot;ancillary_note&quot;: &quot;Attempt-only parent tables/helpers are additional dependencies for the whole seven-table import, not standalone scan RPC business logic.&quot;,
+  &quot;source_findings&quot;: [
+    {
+      &quot;finding&quot;: &quot;Manual edit has no incoming reason parameter&quot;,
+      &quot;evidence&quot;: &quot;p_session uuid, p_sheet uuid, p_reviewer uuid, p_question integer, p_marked integer[], p_version integer, p_request uuid&quot;,
+      &quot;runtime_tested&quot;: false
+    },
+    {
+      &quot;finding&quot;: &quot;Answer audit has no dedicated reason column; new reason is not written by the function&quot;,
+      &quot;evidence&quot;: [
+        &quot;id&quot;,
+        &quot;sheet_id&quot;,
+        &quot;reviewer_id&quot;,
+        &quot;question&quot;,
+        &quot;before_answer&quot;,
+        &quot;after_answer&quot;,
+        &quot;answer_version&quot;,
+        &quot;created_at&quot;
+      ],
+      &quot;runtime_tested&quot;: false
+    },
+    {
+      &quot;finding&quot;: &quot;Edit grading key is read from original snapshot, not the reassigned effective snapshot&quot;,
+      &quot;evidence&quot;: &quot;(r.snapshot-&gt;&#x27;answers&#x27;-&gt;(p_question-1)-&gt;&gt;&#x27;correct_index&#x27;)::integer&quot;,
+      &quot;runtime_tested&quot;: false
+    },
+    {
+      &quot;finding&quot;: &quot;Verify checks state=uncertain but not status=ambiguous or separated uncertainty reasons&quot;,
+      &quot;evidence&quot;: &quot;exists(select 1 from jsonb_array_elements(effective-&gt;&#x27;answers&#x27;) a where a-&gt;&gt;&#x27;state&#x27;=&#x27;uncertain&#x27;)&quot;,
+      &quot;runtime_tested&quot;: false
+    },
+    {
+      &quot;finding&quot;: &quot;Finish checks reviewed_at, not unresolved answer state or requires_rescan disposition&quot;,
+      &quot;evidence&quot;: &quot;exists(select 1 from public.nafes_scan_sheets where session_id=s.id and reviewed_at is null)&quot;,
+      &quot;runtime_tested&quot;: false
+    },
+    {
+      &quot;finding&quot;: &quot;Identity assigns the supplied effective_snapshot without enforcing unchanged bubble choices in SQL&quot;,
+      &quot;evidence&quot;: &quot;effective_snapshot=p_effective&quot;,
+      &quot;runtime_tested&quot;: false
+    }
+  ]
+}</pre></html>

@@ -5,16 +5,27 @@
 -- Five tables below were supplied by the owner; two support tables are
 -- referenced by the existing Edge source. Missing names are reported, not created.
 -- RPC functions are discovered from the catalog; no signatures are assumed.
-WITH requested(name) AS (
+WITH RECURSIVE requested(name) AS (
  VALUES ('nafes_scan_sheets'),('nafes_scan_sessions'),
         ('nafes_scan_answer_edits'),('nafes_scan_identity_edits'),('nafes_scan_alerts'),
         ('nafes_paper_reviews'),('nafes_assessment_attempts')
-), relations AS (
+), root_relations AS (
  SELECT c.oid,c.relname,c.relrowsecurity,c.relforcerowsecurity,c.relowner,c.relacl,n.nspname
  FROM pg_catalog.pg_class c
  JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
  JOIN requested r ON r.name=c.relname
  WHERE n.nspname='public' AND c.relkind IN ('r','p')
+), relation_oids(oid) AS (
+ SELECT oid FROM root_relations
+ UNION
+ SELECT con.confrelid
+ FROM pg_catalog.pg_constraint con JOIN relation_oids r ON r.oid=con.conrelid
+ WHERE con.contype='f' AND con.confrelid<>0
+), relations AS (
+ SELECT c.oid,c.relname,c.relrowsecurity,c.relforcerowsecurity,c.relowner,c.relacl,n.nspname
+ FROM pg_catalog.pg_class c
+ JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+ JOIN relation_oids r ON r.oid=c.oid
 )
 SELECT jsonb_build_object(
  'postgres_version',pg_catalog.current_setting('server_version'),
@@ -68,7 +79,10 @@ SELECT jsonb_build_object(
      'definition_withheld_for_review',pg_catalog.pg_get_functiondef(p.oid)
        ~* '(sb_secret_|eyJ[A-Za-z0-9_-]{10,}[.]|bearer[[:space:]]|api[_-]?key|password|jwt[_-]?secret|vault[.])'
    )) FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
-   WHERE n.nspname='public' AND p.proname ~ '^nafes_scan_' AND p.prokind='f'
+   WHERE n.nspname='public' AND p.prokind='f'
+     AND (p.proname ~ '^nafes_scan_'
+       -- These exact callees were found in the uploaded attempt trigger bodies.
+       OR p.proname IN ('lugati_sync_sections_attempt','lugati_sync_student_worksheets'))
  ),'[]'::jsonb),
  'column_enums',COALESCE((
    SELECT jsonb_agg(jsonb_build_object('schema',n.nspname,'name',t.typname,
@@ -97,6 +111,6 @@ SELECT jsonb_build_object(
  ),'[]'::jsonb),
  'missing_requested_tables',COALESCE((
    SELECT jsonb_agg(q.name) FROM requested q
-   WHERE NOT EXISTS (SELECT 1 FROM relations r WHERE r.relname=q.name)
+   WHERE NOT EXISTS (SELECT 1 FROM root_relations r WHERE r.relname=q.name)
  ),'[]'::jsonb)
 ) AS manual_review_source_metadata;

@@ -1,1 +1,2 @@
 - [OMR validation timing](omr-validation-timing.md) — preserve source resolution; separate test timeouts from answer correctness.
+- [SQL source completeness](sql-source-completeness.md) — root-table exports can look complete while FK parents and procedural helpers are absent.

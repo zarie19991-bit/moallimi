@@ -1,0 +1,107 @@
+{
+  "source_file": "attached_assets/0_moallimi_omr_schema_metadata_reviewed_(1)_1791465393560.json",
+  "source_sha256": "b0642af05b4c8c234332664ed5071c167830bbaffd820f7d83052824f860b08f",
+  "reported_postgres_version": "17.6",
+  "table_count": 7,
+  "function_count": 7,
+  "missing_fk_relations": {
+    "nafes_teacher_access": [
+      {
+        "table": "nafes_scan_sheets",
+        "constraint": "nafes_scan_sheets_reviewed_by_fkey",
+        "core_rpc_blocker": true
+      },
+      {
+        "table": "nafes_scan_sessions",
+        "constraint": "nafes_scan_sessions_reviewer_id_fkey",
+        "core_rpc_blocker": true
+      },
+      {
+        "table": "nafes_scan_answer_edits",
+        "constraint": "nafes_scan_answer_edits_reviewer_id_fkey",
+        "core_rpc_blocker": true
+      },
+      {
+        "table": "nafes_scan_identity_edits",
+        "constraint": "nafes_scan_identity_edits_reviewer_id_fkey",
+        "core_rpc_blocker": true
+      },
+      {
+        "table": "nafes_scan_alerts",
+        "constraint": "nafes_scan_alerts_acknowledged_by_fkey",
+        "core_rpc_blocker": true
+      },
+      {
+        "table": "nafes_paper_reviews",
+        "constraint": "nafes_paper_reviews_owner_id_fkey",
+        "core_rpc_blocker": true
+      }
+    ],
+    "nafes_assessments": [
+      {
+        "table": "nafes_assessment_attempts",
+        "constraint": "nafes_assessment_attempts_assessment_id_fkey",
+        "core_rpc_blocker": false
+      }
+    ],
+    "nafes_students": [
+      {
+        "table": "nafes_assessment_attempts",
+        "constraint": "nafes_assessment_attempts_student_id_fkey",
+        "core_rpc_blocker": false
+      }
+    ]
+  },
+  "missing_attempt_trigger_helpers": [
+    "lugati_sync_sections_attempt",
+    "lugati_sync_student_worksheets"
+  ],
+  "sql_tests_executed": 0,
+  "sql_tests_passed": 0,
+  "sql_tests_blocked": 4,
+  "production_connected": false,
+  "schema_stub_created": false,
+  "core_blocker": "Original nafes_teacher_access DDL is required by scan/reviewer foreign keys.",
+  "ancillary_note": "Attempt-only parent tables/helpers are additional dependencies for the whole seven-table import, not standalone scan RPC business logic.",
+  "source_findings": [
+    {
+      "finding": "Manual edit has no incoming reason parameter",
+      "evidence": "p_session uuid, p_sheet uuid, p_reviewer uuid, p_question integer, p_marked integer[], p_version integer, p_request uuid",
+      "runtime_tested": false
+    },
+    {
+      "finding": "Answer audit has no dedicated reason column; new reason is not written by the function",
+      "evidence": [
+        "id",
+        "sheet_id",
+        "reviewer_id",
+        "question",
+        "before_answer",
+        "after_answer",
+        "answer_version",
+        "created_at"
+      ],
+      "runtime_tested": false
+    },
+    {
+      "finding": "Edit grading key is read from original snapshot, not the reassigned effective snapshot",
+      "evidence": "(r.snapshot->'answers'->(p_question-1)->>'correct_index')::integer",
+      "runtime_tested": false
+    },
+    {
+      "finding": "Verify checks state=uncertain but not status=ambiguous or separated uncertainty reasons",
+      "evidence": "exists(select 1 from jsonb_array_elements(effective->'answers') a where a->>'state'='uncertain')",
+      "runtime_tested": false
+    },
+    {
+      "finding": "Finish checks reviewed_at, not unresolved answer state or requires_rescan disposition",
+      "evidence": "exists(select 1 from public.nafes_scan_sheets where session_id=s.id and reviewed_at is null)",
+      "runtime_tested": false
+    },
+    {
+      "finding": "Identity assigns the supplied effective_snapshot without enforcing unchanged bubble choices in SQL",
+      "evidence": "effective_snapshot=p_effective",
+      "runtime_tested": false
+    }
+  ]
+}

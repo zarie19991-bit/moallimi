@@ -1,0 +1,1476 @@
+{
+  "tables": [
+    {
+      "rls": true,
+      "name": "nafes_scan_sheets",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "session_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "review_pk",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "ordinal",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "student_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "sheet_no",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "image_hash",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "image_data",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "snapshot",
+          "type": "jsonb",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "duplicate_of",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "blocked_duplicate",
+          "type": "boolean",
+          "default": "false",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "duplicate_legacy_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "uploaded_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "reviewed_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "reviewed_by",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "disposition",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "effective_snapshot",
+          "type": "jsonb",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "answer_version",
+          "type": "integer",
+          "default": "0",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX nafes_scan_sheets_pkey ON public.nafes_scan_sheets USING btree (id)",
+        "CREATE UNIQUE INDEX nafes_scan_sheets_session_id_ordinal_key ON public.nafes_scan_sheets USING btree (session_id, ordinal)",
+        "CREATE INDEX nafes_scan_sheets_identity_idx ON public.nafes_scan_sheets USING btree (review_pk, student_id, uploaded_at)",
+        "CREATE INDEX nafes_scan_sheets_image_idx ON public.nafes_scan_sheets USING btree (review_pk, image_hash)"
+      ],
+      "policies": null,
+      "triggers": null,
+      "force_rls": false,
+      "constraints": [
+        {
+          "name": "nafes_scan_sheets_disposition_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (disposition = ANY (ARRAY['verified'::text, 'duplicate'::text, 'requires_rescan'::text]))",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_sheets_duplicate_of_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (duplicate_of) REFERENCES nafes_scan_sheets(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_scan_sheets"
+        },
+        {
+          "name": "nafes_scan_sheets_ordinal_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (ordinal >= 1 AND ordinal <= 400)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_sheets_pkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "PRIMARY KEY (id)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_sheets_reviewed_by_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (reviewed_by) REFERENCES nafes_teacher_access(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_teacher_access"
+        },
+        {
+          "name": "nafes_scan_sheets_session_id_ordinal_key",
+          "validated": true,
+          "deferrable": false,
+          "definition": "UNIQUE (session_id, ordinal)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_sheets_session_id_review_pk_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (session_id, review_pk) REFERENCES nafes_scan_sessions(id, review_pk)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_scan_sessions"
+        }
+      ]
+    },
+    {
+      "rls": true,
+      "name": "nafes_scan_sessions",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "review_pk",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "reviewer_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "file_hash",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "review_snapshot",
+          "type": "jsonb",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "expected_count",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "expected_page_count",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "source_file_count",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "batch_manifest",
+          "type": "jsonb",
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX nafes_scan_sessions_pkey ON public.nafes_scan_sessions USING btree (id)",
+        "CREATE UNIQUE INDEX nafes_scan_sessions_id_review_pk_key ON public.nafes_scan_sessions USING btree (id, review_pk)",
+        "CREATE INDEX nafes_scan_sessions_review_idx ON public.nafes_scan_sessions USING btree (review_pk, created_at DESC)"
+      ],
+      "policies": null,
+      "triggers": null,
+      "force_rls": false,
+      "constraints": [
+        {
+          "name": "nafes_scan_sessions_batch_manifest_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (jsonb_typeof(batch_manifest) = 'array'::text)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_sessions_expected_count_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (expected_count >= 1 AND expected_count <= 400)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_sessions_expected_page_count_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (expected_page_count IS NULL OR expected_page_count >= 1 AND expected_page_count <= 200)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_sessions_id_review_pk_key",
+          "validated": true,
+          "deferrable": false,
+          "definition": "UNIQUE (id, review_pk)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_sessions_pkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "PRIMARY KEY (id)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_sessions_review_pk_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (review_pk) REFERENCES nafes_paper_reviews(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_paper_reviews"
+        },
+        {
+          "name": "nafes_scan_sessions_reviewer_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (reviewer_id) REFERENCES nafes_teacher_access(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_teacher_access"
+        },
+        {
+          "name": "nafes_scan_sessions_source_file_count_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (source_file_count IS NULL OR source_file_count >= 1 AND source_file_count <= 200)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        }
+      ]
+    },
+    {
+      "rls": true,
+      "name": "nafes_scan_answer_edits",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "sheet_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "reviewer_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "question",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "before_answer",
+          "type": "jsonb",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "after_answer",
+          "type": "jsonb",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "answer_version",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX nafes_scan_answer_edits_pkey ON public.nafes_scan_answer_edits USING btree (id)",
+        "CREATE UNIQUE INDEX nafes_scan_answer_edits_sheet_id_answer_version_key ON public.nafes_scan_answer_edits USING btree (sheet_id, answer_version)",
+        "CREATE INDEX nafes_scan_answer_edits_sheet_idx ON public.nafes_scan_answer_edits USING btree (sheet_id, created_at)"
+      ],
+      "policies": null,
+      "triggers": null,
+      "force_rls": false,
+      "constraints": [
+        {
+          "name": "nafes_scan_answer_edits_pkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "PRIMARY KEY (id)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_answer_edits_question_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (question >= 1 AND question <= 60)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_answer_edits_reviewer_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (reviewer_id) REFERENCES nafes_teacher_access(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_teacher_access"
+        },
+        {
+          "name": "nafes_scan_answer_edits_sheet_id_answer_version_key",
+          "validated": true,
+          "deferrable": false,
+          "definition": "UNIQUE (sheet_id, answer_version)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_answer_edits_sheet_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (sheet_id) REFERENCES nafes_scan_sheets(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_scan_sheets"
+        }
+      ]
+    },
+    {
+      "rls": true,
+      "name": "nafes_scan_identity_edits",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "sheet_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "session_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "review_pk",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "reviewer_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "student_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "sheet_no",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "student_name",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "model",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX nafes_scan_identity_edits_pkey ON public.nafes_scan_identity_edits USING btree (id)",
+        "CREATE INDEX nafes_scan_identity_edits_sheet_idx ON public.nafes_scan_identity_edits USING btree (sheet_id, created_at DESC)",
+        "CREATE INDEX nafes_scan_identity_edits_reviewer_idx ON public.nafes_scan_identity_edits USING btree (reviewer_id)"
+      ],
+      "policies": null,
+      "triggers": null,
+      "force_rls": false,
+      "constraints": [
+        {
+          "name": "nafes_scan_identity_edits_pkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "PRIMARY KEY (id)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_identity_edits_reviewer_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (reviewer_id) REFERENCES nafes_teacher_access(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_teacher_access"
+        },
+        {
+          "name": "nafes_scan_identity_edits_sheet_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (sheet_id) REFERENCES nafes_scan_sheets(id) ON DELETE CASCADE",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_scan_sheets"
+        }
+      ]
+    },
+    {
+      "rls": true,
+      "name": "nafes_scan_alerts",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "sheet_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "original_sheet_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "original_uploaded_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "review_pk",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "acknowledged_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "acknowledged_by",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX nafes_scan_alerts_pkey ON public.nafes_scan_alerts USING btree (id)",
+        "CREATE UNIQUE INDEX nafes_scan_alerts_sheet_id_key ON public.nafes_scan_alerts USING btree (sheet_id)",
+        "CREATE INDEX nafes_scan_alerts_review_idx ON public.nafes_scan_alerts USING btree (review_pk, created_at DESC)"
+      ],
+      "policies": null,
+      "triggers": null,
+      "force_rls": false,
+      "constraints": [
+        {
+          "name": "nafes_scan_alerts_acknowledged_by_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (acknowledged_by) REFERENCES nafes_teacher_access(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_teacher_access"
+        },
+        {
+          "name": "nafes_scan_alerts_kind_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (kind = ANY (ARRAY['same_student'::text, 'same_image'::text]))",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_alerts_original_sheet_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (original_sheet_id) REFERENCES nafes_scan_sheets(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_scan_sheets"
+        },
+        {
+          "name": "nafes_scan_alerts_pkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "PRIMARY KEY (id)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_scan_alerts_review_pk_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (review_pk) REFERENCES nafes_paper_reviews(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_paper_reviews"
+        },
+        {
+          "name": "nafes_scan_alerts_sheet_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (sheet_id) REFERENCES nafes_scan_sheets(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_scan_sheets"
+        },
+        {
+          "name": "nafes_scan_alerts_sheet_id_key",
+          "validated": true,
+          "deferrable": false,
+          "definition": "UNIQUE (sheet_id)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        }
+      ]
+    },
+    {
+      "rls": true,
+      "name": "nafes_paper_reviews",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "owner_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "review_id",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "default": "'مراجعة ورقية'::text",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "class_name",
+          "type": "text",
+          "default": "''::text",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "payload",
+          "type": "jsonb",
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "subjects",
+          "type": "text[]",
+          "default": "'{}'::text[]",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX nafes_paper_reviews_pkey ON public.nafes_paper_reviews USING btree (id)",
+        "CREATE UNIQUE INDEX nafes_paper_reviews_owner_id_review_id_key ON public.nafes_paper_reviews USING btree (owner_id, review_id)",
+        "CREATE INDEX nafes_paper_reviews_owner_updated_idx ON public.nafes_paper_reviews USING btree (owner_id, updated_at DESC)"
+      ],
+      "policies": null,
+      "triggers": null,
+      "force_rls": false,
+      "constraints": [
+        {
+          "name": "nafes_paper_reviews_owner_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (owner_id) REFERENCES nafes_teacher_access(id) ON DELETE CASCADE",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_teacher_access"
+        },
+        {
+          "name": "nafes_paper_reviews_owner_id_review_id_key",
+          "validated": true,
+          "deferrable": false,
+          "definition": "UNIQUE (owner_id, review_id)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_paper_reviews_pkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "PRIMARY KEY (id)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_paper_reviews_subject_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (subject = ANY (ARRAY['reading'::text, 'math'::text, 'science'::text]))",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_paper_reviews_subjects_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (cardinality(subjects) >= 1 AND cardinality(subjects) <= 3 AND subjects <@ ARRAY['reading'::text, 'math'::text, 'science'::text])",
+          "initially_deferred": false,
+          "referenced_relation": null
+        }
+      ]
+    },
+    {
+      "rls": true,
+      "name": "nafes_assessment_attempts",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "assessment_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "student_name",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "student_no",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "student_key",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "class_name",
+          "type": "text",
+          "default": "''::text",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "attempt_no",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "config",
+          "type": "jsonb",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "rendered_sections",
+          "type": "jsonb",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "answers",
+          "type": "jsonb",
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "events",
+          "type": "jsonb",
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "cursor",
+          "type": "integer",
+          "default": "0",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "section_index",
+          "type": "integer",
+          "default": "0",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "section_started_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "default": "1",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "session_id",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "access_hash",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "lease_until",
+          "type": "timestamp with time zone",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "score",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "percent",
+          "type": "numeric",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "section_scores",
+          "type": "jsonb",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "student_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "default": "false",
+          "identity": "",
+          "not_null": true,
+          "generated": "",
+          "owned_sequence": null,
+          "default_withheld_for_review": false
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX nafes_assessment_attempts_pkey ON public.nafes_assessment_attempts USING btree (id)",
+        "CREATE UNIQUE INDEX nafes_assessment_attempts_assessment_id_student_key_attempt_key ON public.nafes_assessment_attempts USING btree (assessment_id, student_key, attempt_no)",
+        "CREATE UNIQUE INDEX nafes_assessment_active_student_idx ON public.nafes_assessment_attempts USING btree (assessment_id, student_key) WHERE (submitted_at IS NULL)",
+        "CREATE INDEX nafes_assessment_history_idx ON public.nafes_assessment_attempts USING btree (student_key, started_at DESC)",
+        "CREATE INDEX nafes_assessment_expiry_idx ON public.nafes_assessment_attempts USING btree (expires_at) WHERE (submitted_at IS NULL)",
+        "CREATE INDEX nafes_assessment_student_id_idx ON public.nafes_assessment_attempts USING btree (student_id)",
+        "CREATE INDEX nafes_assessment_real_attempts_idx ON public.nafes_assessment_attempts USING btree (is_demo, submitted_at)"
+      ],
+      "policies": [
+        {
+          "cmd": "ALL",
+          "qual": "false",
+          "roles": [
+            "anon",
+            "authenticated"
+          ],
+          "tablename": "nafes_assessment_attempts",
+          "permissive": "PERMISSIVE",
+          "policyname": "deny_direct_access",
+          "schemaname": "public",
+          "with_check": "false"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "nafes_snapshot_guard",
+          "enabled": "O",
+          "definition": "CREATE TRIGGER nafes_snapshot_guard BEFORE UPDATE ON nafes_assessment_attempts FOR EACH ROW EXECUTE FUNCTION nafes_preserve_attempt_snapshot()",
+          "function_definition": "CREATE OR REPLACE FUNCTION public.nafes_preserve_attempt_snapshot()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n if TG_TABLE_NAME='nafes_assessment_attempts' then\n  if (to_jsonb(new) - array['answers','events','cursor','section_index','section_started_at','version','session_id','access_hash','lease_until','submitted_at','score','total','percent','section_scores']) is distinct from\n     (to_jsonb(old) - array['answers','events','cursor','section_index','section_started_at','version','session_id','access_hash','lease_until','submitted_at','score','total','percent','section_scores']) then\n   raise exception 'Attempt snapshot is immutable';\n  end if;\n end if;\n if old.submitted_at is not null and to_jsonb(new) is distinct from to_jsonb(old) then\n  raise exception 'Submitted attempts are immutable';\n end if;\n return new;\nend $function$\n",
+          "definition_withheld_for_review": false
+        },
+        {
+          "name": "trg_lugati_assessment_adaptive",
+          "enabled": "O",
+          "definition": "CREATE TRIGGER trg_lugati_assessment_adaptive AFTER INSERT OR UPDATE OF submitted_at, answers, rendered_sections ON nafes_assessment_attempts FOR EACH ROW EXECUTE FUNCTION lugati_assessment_adaptive_trigger()",
+          "function_definition": "CREATE OR REPLACE FUNCTION public.lugati_assessment_adaptive_trigger()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if new.submitted_at is not null and new.student_id is not null then\n    perform public.lugati_sync_sections_attempt(new.student_id,new.id::text,new.submitted_at,new.rendered_sections,new.answers,'assessment');\n  end if;\n  return new;\nend;\n$function$\n",
+          "definition_withheld_for_review": false
+        },
+        {
+          "name": "trg_lugati_ws_assessment",
+          "enabled": "O",
+          "definition": "CREATE TRIGGER trg_lugati_ws_assessment AFTER INSERT OR DELETE OR UPDATE ON nafes_assessment_attempts FOR EACH ROW EXECUTE FUNCTION lugati_attempt_worksheet_sync_trigger()",
+          "function_definition": "CREATE OR REPLACE FUNCTION public.lugati_attempt_worksheet_sync_trigger()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  old_sid uuid;\n  new_sid uuid;\nbegin\n  if tg_op in ('UPDATE','DELETE') then\n    old_sid := old.student_id;\n  end if;\n  if tg_op in ('INSERT','UPDATE') then\n    new_sid := new.student_id;\n  end if;\n\n  if old_sid is not null and (new_sid is null or old_sid is distinct from new_sid) then\n    perform public.lugati_sync_student_worksheets(old_sid);\n  end if;\n  if new_sid is not null then\n    perform public.lugati_sync_student_worksheets(new_sid);\n  end if;\n\n  return coalesce(new,old);\nend;\n$function$\n",
+          "definition_withheld_for_review": false
+        }
+      ],
+      "force_rls": false,
+      "constraints": [
+        {
+          "name": "nafes_assessment_attempts_assessment_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (assessment_id) REFERENCES nafes_assessments(id)",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_assessments"
+        },
+        {
+          "name": "nafes_assessment_attempts_assessment_id_student_key_attempt_key",
+          "validated": true,
+          "deferrable": false,
+          "definition": "UNIQUE (assessment_id, student_key, attempt_no)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_assessment_attempts_attempt_no_check",
+          "validated": true,
+          "deferrable": false,
+          "definition": "CHECK (is_demo = true AND attempt_no >= 1 OR is_demo = false AND attempt_no >= 1 AND attempt_no <= 10)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_assessment_attempts_pkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "PRIMARY KEY (id)",
+          "initially_deferred": false,
+          "referenced_relation": null
+        },
+        {
+          "name": "nafes_assessment_attempts_student_id_fkey",
+          "validated": true,
+          "deferrable": false,
+          "definition": "FOREIGN KEY (student_id) REFERENCES nafes_students(id) ON DELETE RESTRICT",
+          "initially_deferred": false,
+          "referenced_relation": "nafes_students"
+        }
+      ]
+    }
+  ],
+  "column_enums": [],
+  "scan_functions": [
+    {
+      "name": "nafes_scan_assign_identity",
+      "definition": "CREATE OR REPLACE FUNCTION public.nafes_scan_assign_identity(p_session uuid, p_sheet uuid, p_reviewer uuid, p_student uuid, p_sheet_no integer, p_student_name text, p_model text, p_effective jsonb, p_version integer)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare\n  s public.nafes_scan_sessions;\n  r public.nafes_scan_sheets;\nbegin\n  select * into s from public.nafes_scan_sessions where id=p_session for update;\n  if not found then raise exception 'جلسة المراجعة غير موجودة'; end if;\n  if s.completed_at is not null then raise exception 'الجلسة منتهية؛ لا يمكن تغيير هوية الورقة بعد إنهاء المراجعة'; end if;\n\n  select * into r from public.nafes_scan_sheets\n  where id=p_sheet and session_id=p_session\n  for update;\n  if not found then raise exception 'ورقة غير موجودة'; end if;\n  if r.answer_version is distinct from p_version then\n    raise exception 'تغيرت الورقة لدى مراجع آخر؛ أعد فتحها قبل تعيين الطالب';\n  end if;\n  if p_student_name is null or length(trim(p_student_name))<2 then\n    raise exception 'اسم الطالب غير صالح';\n  end if;\n  if p_model is null or length(trim(p_model))<1 then\n    raise exception 'النموذج غير صالح';\n  end if;\n\n  if exists(\n    select 1 from public.nafes_scan_sheets x\n    where x.review_pk=s.review_pk\n      and x.id<>r.id\n      and x.student_id=p_student\n      and not x.blocked_duplicate\n      and coalesce(x.disposition,'pending')<>'requires_rescan'\n  ) then\n    raise exception 'هذا الطالب مرتبط بورقة أخرى في الاختبار؛ راجع تنبيه التكرار أولًا';\n  end if;\n\n  update public.nafes_scan_sheets\n  set student_id=p_student,\n      sheet_no=p_sheet_no,\n      effective_snapshot=p_effective,\n      answer_version=answer_version+1,\n      reviewed_at=null,\n      reviewed_by=null,\n      disposition=null\n  where id=r.id\n  returning * into r;\n\n  insert into public.nafes_scan_identity_edits(\n    sheet_id,session_id,review_pk,reviewer_id,student_id,sheet_no,student_name,model\n  ) values(\n    r.id,r.session_id,r.review_pk,p_reviewer,p_student,p_sheet_no,trim(p_student_name),trim(p_model)\n  );\n\n  return to_jsonb(r)-'image_data';\nend $function$\n",
+      "volatility": "v",
+      "security_definer": false,
+      "identity_arguments": "p_session uuid, p_sheet uuid, p_reviewer uuid, p_student uuid, p_sheet_no integer, p_student_name text, p_model text, p_effective jsonb, p_version integer",
+      "definition_withheld_for_review": false
+    },
+    {
+      "name": "nafes_scan_delete_corrections",
+      "definition": "CREATE OR REPLACE FUNCTION public.nafes_scan_delete_corrections(p_session uuid, p_sheet_ids uuid[], p_reviewer uuid, p_reason text, p_batch uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare\n  s public.nafes_scan_sessions;\n  target_count integer;\n  total_count integer;\n  session_deleted boolean := false;\nbegin\n  if p_sheet_ids is null or cardinality(p_sheet_ids)=0 then\n    raise exception 'لم تحدد أي تصحيحات للحذف';\n  end if;\n  if cardinality(p_sheet_ids)>200 then\n    raise exception 'عدد التصحيحات المحددة أكبر من الحد المسموح';\n  end if;\n  if p_reason is null or length(trim(p_reason))<3 then\n    raise exception 'سبب الحذف مطلوب';\n  end if;\n\n  select * into s\n  from public.nafes_scan_sessions\n  where id=p_session\n  for update;\n  if not found then raise exception 'جلسة المراجعة غير موجودة'; end if;\n\n  select count(*) into target_count\n  from public.nafes_scan_sheets\n  where session_id=p_session and id=any(p_sheet_ids);\n  if target_count<>cardinality(p_sheet_ids) then\n    raise exception 'بعض التصحيحات المحددة غير موجودة في هذه الجلسة';\n  end if;\n\n  select count(*) into total_count\n  from public.nafes_scan_sheets\n  where session_id=p_session;\n\n  insert into public.nafes_scan_deletions(\n    batch_id,review_pk,session_id,sheet_id,student_id,sheet_no,student_name,model,\n    reviewer_id,reason,had_published_attempt,snapshot_summary\n  )\n  select\n    p_batch,x.review_pk,x.session_id,x.id,x.student_id,x.sheet_no,\n    coalesce(x.effective_snapshot->>'student_name',x.snapshot->>'student_name'),\n    coalesce(x.effective_snapshot->>'model',x.snapshot->>'model'),\n    p_reviewer,trim(p_reason),\n    exists(\n      select 1\n      from public.nafes_assessment_attempts a,\n      lateral jsonb_array_elements(coalesce(a.events,'[]'::jsonb)) e\n      where e->>'scan_sheet_id'=x.id::text\n    ),\n    jsonb_build_object(\n      'ordinal',x.ordinal,\n      'score',coalesce(x.effective_snapshot->'score',x.snapshot->'score'),\n      'total',coalesce(x.effective_snapshot->'total',x.snapshot->'total'),\n      'disposition',x.disposition,\n      'answer_version',x.answer_version,\n      'uploaded_at',x.uploaded_at\n    )\n  from public.nafes_scan_sheets x\n  where x.session_id=p_session and x.id=any(p_sheet_ids);\n\n  delete from public.nafes_assessment_attempts a\n  where exists (\n    select 1\n    from jsonb_array_elements(coalesce(a.events,'[]'::jsonb)) e\n    where e->>'scan_sheet_id'=any(select unnest(p_sheet_ids)::text)\n  );\n\n  update public.nafes_scan_sheets\n  set duplicate_of=null\n  where duplicate_of=any(p_sheet_ids);\n\n  delete from public.nafes_scan_alerts\n  where sheet_id=any(p_sheet_ids) or original_sheet_id=any(p_sheet_ids);\n\n  delete from public.nafes_scan_answer_edits\n  where sheet_id=any(p_sheet_ids);\n\n  delete from public.nafes_scan_identity_edits\n  where sheet_id=any(p_sheet_ids);\n\n  delete from public.nafes_scan_sheets\n  where session_id=p_session and id=any(p_sheet_ids);\n\n  if target_count=total_count then\n    delete from public.nafes_scan_sessions where id=p_session;\n    session_deleted:=true;\n  else\n    update public.nafes_scan_sessions\n    set expected_count=greatest(1, expected_count-target_count),\n        completed_at=null\n    where id=p_session;\n  end if;\n\n  return jsonb_build_object(\n    'deleted_count',target_count,\n    'session_deleted',session_deleted,\n    'batch_id',p_batch\n  );\nend $function$\n",
+      "volatility": "v",
+      "security_definer": true,
+      "identity_arguments": "p_session uuid, p_sheet_ids uuid[], p_reviewer uuid, p_reason text, p_batch uuid",
+      "definition_withheld_for_review": false
+    },
+    {
+      "name": "nafes_scan_edit_answer",
+      "definition": "CREATE OR REPLACE FUNCTION public.nafes_scan_edit_answer(p_session uuid, p_sheet uuid, p_reviewer uuid, p_question integer, p_marked integer[], p_version integer, p_request uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare s public.nafes_scan_sessions; r public.nafes_scan_sheets; prior public.nafes_scan_answer_edits;\n current_snapshot jsonb; before_q jsonb; after_q jsonb; marked integer[]; state text; answer_status text; correct_idx integer;\nbegin\n select * into s from public.nafes_scan_sessions where id=p_session for update;\n if not found then raise exception 'جلسة غير موجودة'; end if;\n select * into r from public.nafes_scan_sheets where id=p_sheet and session_id=s.id for update;\n if not found then raise exception 'ورقة غير موجودة'; end if;\n if p_marked is null or cardinality(p_marked)>4 or array_position(p_marked,null) is not null\n or exists(select 1 from unnest(p_marked) m where m<0 or m>3) then raise exception 'اختيارات غير صالحة';end if;\n select coalesce(array_agg(distinct m order by m),'{}'::integer[]) into marked from unnest(p_marked) m;\n select * into prior from public.nafes_scan_answer_edits where id=p_request;\n if found then\n   if prior.sheet_id<>r.id or prior.reviewer_id<>p_reviewer or prior.question<>p_question or prior.after_answer->'marked'<>to_jsonb(marked) then raise exception 'تعارض طلب التعديل';end if;\n   return to_jsonb(r)-'image_data';\n end if;\n if s.completed_at is not null then raise exception 'انتهت المراجعة؛ لا يمكن تعديل إجابات الجلسة المعتمدة';end if;\n if p_version is distinct from r.answer_version then raise exception 'تغيرت الورقة لدى مراجع آخر؛ أعد فتحها قبل التعديل';end if;\n if (select count(*) from public.nafes_scan_sheets where session_id=s.id)<>s.expected_count then raise exception 'انتظر اكتمال رفع جميع الأوراق';end if;\n if exists(select 1 from public.nafes_scan_sheets where session_id=s.id and ordinal<r.ordinal and reviewed_at is null) then raise exception 'راجع الورقة السابقة أولًا';end if;\n current_snapshot:=coalesce(r.effective_snapshot,r.snapshot);\n if p_question is null or p_question<1 or p_question>jsonb_array_length(current_snapshot->'answers') then raise exception 'رقم سؤال غير صالح';end if;\n before_q:=current_snapshot->'answers'->(p_question-1);\n correct_idx:=(r.snapshot->'answers'->(p_question-1)->>'correct_index')::integer;\n answer_status:=case when cardinality(marked)=0 then 'blank' when cardinality(marked)>1 then 'multiple' else 'clear' end;\n state:=case when cardinality(marked)=0 then 'blank' when cardinality(marked)>1 then 'multiple'\n when correct_idx is null then 'uncertain' when marked[1]=correct_idx then 'correct' else 'incorrect' end;\n after_q:=before_q||jsonb_build_object('selected',case when cardinality(marked)=1 then marked[1] else null end,\n 'marked',to_jsonb(marked),'status',answer_status,'state',state,'correct',state='correct','reviewed_manually',true);\n current_snapshot:=jsonb_set(current_snapshot,array['answers',(p_question-1)::text],after_q);\n current_snapshot:=current_snapshot||jsonb_build_object('score',(select count(*) from jsonb_array_elements(current_snapshot->'answers') a where a->>'state'='correct'),\n 'counts',(select jsonb_build_object('blank',count(*) filter(where a->>'state'='blank'),'multiple',count(*) filter(where a->>'state'='multiple'),\n 'correct',count(*) filter(where a->>'state'='correct'),'incorrect',count(*) filter(where a->>'state'='incorrect'),'uncertain',count(*) filter(where a->>'state'='uncertain')) from jsonb_array_elements(current_snapshot->'answers') a));\n insert into public.nafes_scan_answer_edits(id,sheet_id,reviewer_id,question,before_answer,after_answer,answer_version)\n values(p_request,r.id,p_reviewer,p_question,before_q,after_q,r.answer_version+1);\n update public.nafes_scan_sheets set effective_snapshot=current_snapshot,answer_version=answer_version+1,\n reviewed_at=null,reviewed_by=null,disposition=null where id=r.id returning * into r;\n return to_jsonb(r)-'image_data';\nend $function$\n",
+      "volatility": "v",
+      "security_definer": false,
+      "identity_arguments": "p_session uuid, p_sheet uuid, p_reviewer uuid, p_question integer, p_marked integer[], p_version integer, p_request uuid",
+      "definition_withheld_for_review": false
+    },
+    {
+      "name": "nafes_scan_finish",
+      "definition": "CREATE OR REPLACE FUNCTION public.nafes_scan_finish(p_session uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare s public.nafes_scan_sessions;\nbegin\n select * into s from public.nafes_scan_sessions where id=p_session for update;\n if not found then raise exception 'جلسة غير موجودة'; end if;\n if (select count(*) from public.nafes_scan_sheets where session_id=s.id)<>s.expected_count\n or exists(select 1 from public.nafes_scan_sheets where session_id=s.id and reviewed_at is null) then raise exception 'يجب مراجعة جميع الأوراق أولًا'; end if;\n update public.nafes_scan_sessions set completed_at=coalesce(completed_at,now()) where id=s.id returning * into s;\n return to_jsonb(s);\nend $function$\n",
+      "volatility": "v",
+      "security_definer": false,
+      "identity_arguments": "p_session uuid",
+      "definition_withheld_for_review": false
+    },
+    {
+      "name": "nafes_scan_register",
+      "definition": "CREATE OR REPLACE FUNCTION public.nafes_scan_register(p_session uuid, p_sheet jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare s public.nafes_scan_sessions; r public.nafes_scan_sheets; prior public.nafes_scan_sheets; blocked boolean:=false; legacy_at timestamptz;\nbegin\n select * into s from public.nafes_scan_sessions where id=p_session for update;\n if not found then raise exception 'جلسة غير موجودة'; end if;\n -- Serialize duplicate checks across sessions, not just within one file.\n perform 1 from public.nafes_paper_reviews where id=s.review_pk for update;\n select * into r from public.nafes_scan_sheets where session_id=s.id and ordinal=(p_sheet->>'ordinal')::integer;\n if found then\n   if r.image_hash<>p_sheet->>'image_hash' then raise exception 'تعارض إعادة إرسال الورقة'; end if;\n   return to_jsonb(r)-'image_data';\n end if;\n if s.completed_at is not null then raise exception 'الجلسة مغلقة'; end if;\n if (p_sheet->>'ordinal')::integer>s.expected_count then raise exception 'عدد الأوراق غير مطابق'; end if;\n select * into prior from public.nafes_scan_sheets\n where review_pk=s.review_pk and ((student_id is not null and student_id=nullif(p_sheet->>'student_id','')::uuid) or image_hash=p_sheet->>'image_hash')\n order by uploaded_at,id limit 1;\n if prior.id is not null then\n   blocked:=exists(select 1 from public.nafes_scan_sheets x where x.review_pk=s.review_pk\n      and ((x.student_id is not null and x.student_id=nullif(p_sheet->>'student_id','')::uuid) or x.image_hash=p_sheet->>'image_hash')\n      and not x.blocked_duplicate and coalesce(x.disposition,'pending')<>'requires_rescan');\n end if;\n legacy_at:=nullif(p_sheet->>'legacy_at','')::timestamptz;\n if legacy_at is not null then blocked:=true; end if;\n insert into public.nafes_scan_sheets(session_id,review_pk,ordinal,student_id,sheet_no,image_hash,image_data,snapshot,duplicate_of,blocked_duplicate,duplicate_legacy_at)\n values(s.id,s.review_pk,(p_sheet->>'ordinal')::integer,nullif(p_sheet->>'student_id','')::uuid,(p_sheet->>'sheet_no')::integer,\n p_sheet->>'image_hash',p_sheet->>'image_data',p_sheet->'snapshot',prior.id,blocked,legacy_at) returning * into r;\n if prior.id is not null or legacy_at is not null then\n insert into public.nafes_scan_alerts(sheet_id,original_sheet_id,original_uploaded_at,review_pk,kind)\n values(r.id,prior.id,coalesce(prior.uploaded_at,legacy_at),s.review_pk,case when prior.image_hash=r.image_hash then 'same_image' else 'same_student' end);\n end if;\n return to_jsonb(r)-'image_data';\nend $function$\n",
+      "volatility": "v",
+      "security_definer": false,
+      "identity_arguments": "p_session uuid, p_sheet jsonb",
+      "definition_withheld_for_review": false
+    },
+    {
+      "name": "nafes_scan_verify",
+      "definition": "CREATE OR REPLACE FUNCTION public.nafes_scan_verify(p_session uuid, p_sheet uuid, p_reviewer uuid, p_ack boolean)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare s public.nafes_scan_sessions; r public.nafes_scan_sheets; d text; effective jsonb;\nbegin\n select * into s from public.nafes_scan_sessions where id=p_session for update;\n if not found then raise exception 'جلسة غير موجودة'; end if;\n select * into r from public.nafes_scan_sheets where id=p_sheet and session_id=s.id for update;\n if not found then raise exception 'ورقة غير موجودة'; end if;\n if r.reviewed_at is not null then return to_jsonb(r)-'image_data'; end if;\n if s.completed_at is not null then raise exception 'الجلسة مغلقة'; end if;\n if (select count(*) from public.nafes_scan_sheets where session_id=s.id)<>s.expected_count then raise exception 'انتظر اكتمال رفع جميع الأوراق'; end if;\n if exists(select 1 from public.nafes_scan_sheets where session_id=s.id and ordinal<r.ordinal and reviewed_at is null) then raise exception 'راجع الورقة السابقة أولًا'; end if;\n if exists(select 1 from public.nafes_scan_alerts where sheet_id=r.id) and not p_ack then raise exception 'يجب تأكيد الاطلاع على تنبيه التكرار'; end if;\n effective:=coalesce(r.effective_snapshot,r.snapshot);\n d:=case when r.blocked_duplicate then 'duplicate'\n when coalesce((r.snapshot->>'identity_valid')::boolean,false)=false\n   or coalesce((r.snapshot->>'markers_ok')::boolean,false)=false\n   or exists(select 1 from jsonb_array_elements(effective->'answers') a where a->>'state'='uncertain')\n   or (effective ? 'quality_score' and nullif(effective->>'quality_score','') is not null and (effective->>'quality_score')::numeric < 35)\n then 'requires_rescan' else 'verified' end;\n update public.nafes_scan_sheets set reviewed_at=now(),reviewed_by=p_reviewer,disposition=d where id=r.id returning * into r;\n update public.nafes_scan_alerts set acknowledged_at=coalesce(acknowledged_at,now()),acknowledged_by=coalesce(acknowledged_by,p_reviewer) where sheet_id=r.id;\n return to_jsonb(r)-'image_data';\nend $function$\n",
+      "volatility": "v",
+      "security_definer": false,
+      "identity_arguments": "p_session uuid, p_sheet uuid, p_reviewer uuid, p_ack boolean",
+      "definition_withheld_for_review": false
+    },
+    {
+      "name": "nafes_scan_verify_current",
+      "definition": "CREATE OR REPLACE FUNCTION public.nafes_scan_verify_current(p_session uuid, p_sheet uuid, p_reviewer uuid, p_ack boolean, p_version integer)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare v integer;\nbegin\n perform 1 from public.nafes_scan_sessions where id=p_session for update;\n select answer_version into v from public.nafes_scan_sheets where id=p_sheet and session_id=p_session for update;\n if not found then raise exception 'ورقة غير موجودة';end if;\n if p_version is distinct from v then raise exception 'تغيرت الإجابات لدى مراجع آخر؛ أعد فتح الورقة للتحقق من أحدث نسخة';end if;\n return public.nafes_scan_verify(p_session,p_sheet,p_reviewer,p_ack);\nend $function$\n",
+      "volatility": "v",
+      "security_definer": false,
+      "identity_arguments": "p_session uuid, p_sheet uuid, p_reviewer uuid, p_ack boolean, p_version integer",
+      "definition_withheld_for_review": false
+    }
+  ],
+  "owned_sequences": [],
+  "postgres_version": "17.6",
+  "missing_requested_tables": []
+}
