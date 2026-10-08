@@ -118,7 +118,7 @@ function detectMarkers(im:GrayImage){
  return{
    tl:best.tl,tr:best.tr,bl:best.bl,br:best.br,
    confidence:Math.max(.90,Math.min(.995,1-best.aspectErr)),
-   detector:'otsu-quad-hybrid-v9',threshold
+   detector:'otsu-quad-hybrid-row-v10',threshold
  };
 }
 function mapPoint(m:any,x:number,y:number){
@@ -166,6 +166,24 @@ function rowBlueEvidence(im:GrayImage,centers:any[],rowGap:number,optionGap:numb
  const norm=Math.max(1,optionGap*rowGap*.18);
  return{mass,hits,scores:mass.map(x=>x/norm)};
 }
+function rowDarkEvidence(im:GrayImage,centers:any[],rowGap:number,optionGap:number){
+ const scores=[0,0,0,0],hits=[0,0,0,0],pixels=[0,0,0,0];
+ const rx=Math.max(5,optionGap*.34),ry=Math.max(4,rowGap*.33);
+ for(let j=0;j<4;j++){
+   const cx=centers[j].x,cy=centers[j].y;
+   const x0=Math.max(0,Math.floor(cx-rx)),x1=Math.min(im.width-1,Math.ceil(cx+rx));
+   const y0=Math.max(0,Math.floor(cy-ry)),y1=Math.min(im.height-1,Math.ceil(cy+ry));
+   let sum=0,n=0,h=0;
+   for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+     const dx=(x-cx)/rx,dy=(y-cy)/ry;if(dx*dx+dy*dy>1)continue;
+     const g=im.gray[y*im.width+x],w=Math.max(0,(210-g)/110);
+     if(g<190)h++;sum+=Math.min(1,w);n++;
+   }
+   scores[j]=n?sum/n:0;hits[j]=h;pixels[j]=n;
+ }
+ return{scores,hits,pixels};
+}
+
 
 export function readOmrJpeg(src:string,total:number,startNo=1){
  const im=decodeDataUrl(src),m=detectMarkers(im),topSpan=Math.hypot(m.tr.x-m.tl.x,m.tr.y-m.tl.y),bottomSpan=Math.hypot(m.br.x-m.bl.x,m.br.y-m.bl.y),radius=clamp(((topSpan+bottomSpan)/2)*.0082,3.2,7.5);
@@ -175,8 +193,11 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
  for(let i=0;i<Math.min(total,60);i++){
   const block=Math.floor(i/15),row=i%15,y=20+row*5.45,right=rights[block],ev:any[]=[],centers:any[]=[];
   for(const off of offs){const p=mapPoint(m,right-off,y);centers.push(p);const z=fillScore(im,p.x,p.y,radius);ev.push({...z,x:p.x,y:p.y});}
-  const blue=rowBlueEvidence(im,centers,rowGap,optionGap);
-  for(let j=0;j<4;j++){ev[j].blueMass=blue.mass[j];ev[j].blueHits=blue.hits[j];ev[j].blueRowScore=blue.scores[j];}
+  const blue=rowBlueEvidence(im,centers,rowGap,optionGap),dark=rowDarkEvidence(im,centers,rowGap,optionGap);
+  for(let j=0;j<4;j++){
+    ev[j].blueMass=blue.mass[j];ev[j].blueHits=blue.hits[j];ev[j].blueRowScore=blue.scores[j];
+    ev[j].darkRowScore=dark.scores[j];ev[j].darkHits=dark.hits[j];
+  }
   raw.push(ev);
  }
  if(raw.length!==total)throw new Error('عدد أسئلة القالب لا يطابق الاختبار.');
@@ -187,44 +208,53 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   const hasBlue=blueTop.m>=5&&blueTop.h>=4,strongBlue=blueTop.m>=9&&blueTop.h>=7&&blueSep>=3;
   const multipleBlue=blueSecond.m>=7&&blueSecond.h>=5&&blueSecond.m/Math.max(1,blueTop.m)>=.48;
 
+  const darkRowScores=ev.map((e:any)=>Number(e.darkRowScore||0)),darkRowOrder=darkRowScores.map((v:number,j:number)=>({j,v})).sort((a:any,b:any)=>b.v-a.v);
+  const darkRowTop=darkRowOrder[0],darkRowSecond=darkRowOrder[1],darkRowBase=median(darkRowScores),darkRowLift=darkRowTop.v-darkRowBase,darkRowSep=darkRowTop.v-darkRowSecond.v;
+  const darkRowMultiple=darkRowSecond.v>=.105&&(darkRowSecond.v-darkRowBase)>=.028&&darkRowSecond.v/Math.max(.001,darkRowTop.v)>=.62;
+  const darkRowClear=darkRowTop.v>=.115&&darkRowLift>=.038&&darkRowSep>=.022;
+  const darkRowPossible=darkRowTop.v>=.085&&darkRowLift>=.022&&darkRowSep>=.012;
+
   const centerOrder=ev.map((e:any,j:number)=>({j,v:Number(e.center)})).sort((a:any,b:any)=>a.v-b.v);
   const centerTop=centerOrder[0],centerSecond=centerOrder[1],centerValues=ev.map((e:any)=>Number(Number(e.center).toFixed(1)));
-  const centerBase=median(centerValues),centerLift=centerBase-centerTop.v,centerGap=centerSecond.v-centerTop.v;
-  const secondLift=centerBase-centerSecond.v;
-  const darkMultiple=centerLift>=16&&secondLift>=14&&centerGap<9;
-  const darkClear=centerLift>=18&&centerGap>=10&&centerTop.v<=228;
-  const darkPossible=centerLift>=11&&centerGap>=6&&centerTop.v<=235;
+  const centerBase=median(centerValues),centerLift=centerBase-centerTop.v,centerGap=centerSecond.v-centerTop.v,secondLift=centerBase-centerSecond.v;
+  const darkMultiple=centerLift>=16&&secondLift>=14&&centerGap<9,darkClear=centerLift>=18&&centerGap>=10&&centerTop.v<=228,darkPossible=centerLift>=11&&centerGap>=6&&centerTop.v<=235;
 
   const grayOrder=ev.map((e:any,j:number)=>({j,s:e.score})).sort((a:any,b:any)=>b.s-a.s),top=grayOrder[0],second=grayOrder[1],sep=top.s-second.s;
-  const scores=ev.map((x:any)=>Number(x.score.toFixed(4))),blueScores=ev.map((x:any)=>Number(Number(x.blueRowScore||0).toFixed(4)));
+  const scores=ev.map((x:any)=>Number(x.score.toFixed(4))),blueScores=ev.map((x:any)=>Number(Number(x.blueRowScore||0).toFixed(4))),darkScores=darkRowScores.map((x:number)=>Number(x.toFixed(4)));
   const rowBase=median(scores),lift=top.s-rowBase;
   const relativeClear=sep>=Math.max(.055,sepThr*1.15)&&lift>=.075,relativeStrong=sep>=.12&&lift>=.12;
-  const ratio=(top.s>0&&second.s>0)?second.s/top.s:0,strongSecond=top.s>=definite&&second.s>=definite&&ratio>=.55;
-  const weakCompetition=top.s>=possible&&second.s>=possible&&ratio>=.42;
+  const ratio=(top.s>0&&second.s>0)?second.s/top.s:0,strongSecond=top.s>=definite&&second.s>=definite&&ratio>=.55,weakCompetition=top.s>=possible&&second.s>=possible&&ratio>=.42;
 
   if(hasBlue){
     if(multipleBlue){
       const marked=blueOrder.filter((x:any)=>x.m>=7&&x.h>=5&&x.m/Math.max(1,blueTop.m)>=.48).map((x:any)=>x.j);
-      return{question:startNo+i,selected:blueTop.j,status:'multiple',marked,scores,blueScores,centerValues,reader:'blue-row',confidence:.45,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
+      return{question:startNo+i,selected:blueTop.j,status:'multiple',marked,scores,blueScores,darkScores,centerValues,reader:'blue-row',confidence:.45,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
     }
-    if(strongBlue)return{question:startNo+i,selected:blueTop.j,status:'clear',marked:[blueTop.j],scores,blueScores,centerValues,reader:'blue-row',confidence:Math.min(1,.94+Math.min(.05,blueSep/80)),topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
-    return{question:startNo+i,selected:blueTop.j,status:'ambiguous',marked:[blueTop.j],scores,blueScores,centerValues,reader:'blue-row',confidence:.72,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
+    if(strongBlue)return{question:startNo+i,selected:blueTop.j,status:'clear',marked:[blueTop.j],scores,blueScores,darkScores,centerValues,reader:'blue-row',confidence:Math.min(1,.94+Math.min(.05,blueSep/80)),topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
+    return{question:startNo+i,selected:blueTop.j,status:'ambiguous',marked:[blueTop.j],scores,blueScores,darkScores,centerValues,reader:'blue-row',confidence:.72,topScore:blueTop.m,secondScore:blueSecond.m,threshold:5,separation:blueSep};
   }
+
+  if(darkRowMultiple){
+    const marked=darkRowOrder.filter((x:any)=>x.v>=.105&&(x.v-darkRowBase)>=.028&&x.v/Math.max(.001,darkRowTop.v)>=.62).map((x:any)=>x.j);
+    return{question:startNo+i,selected:darkRowTop.j,status:'multiple',marked,scores,blueScores,darkScores,centerValues,reader:'dark-row',confidence:.47,topScore:darkRowTop.v,secondScore:darkRowSecond.v,threshold:.115,separation:darkRowSep};
+  }
+  if(darkRowClear)return{question:startNo+i,selected:darkRowTop.j,status:'clear',marked:[darkRowTop.j],scores,blueScores,darkScores,centerValues,reader:'dark-row',confidence:Math.min(.99,.91+Math.min(.07,darkRowSep*.7)+Math.min(.04,darkRowLift*.35)),topScore:darkRowTop.v,secondScore:darkRowSecond.v,threshold:.115,separation:darkRowSep};
+  if(darkRowPossible)return{question:startNo+i,selected:darkRowTop.j,status:'ambiguous',marked:[darkRowTop.j],scores,blueScores,darkScores,centerValues,reader:'dark-row',confidence:.74,topScore:darkRowTop.v,secondScore:darkRowSecond.v,threshold:.115,separation:darkRowSep};
 
   if(darkMultiple){
     const marked=centerOrder.filter((x:any)=>centerBase-x.v>=14).map((x:any)=>x.j);
-    return{question:startNo+i,selected:centerTop.j,status:'multiple',marked,scores,blueScores,centerValues,reader:'center-dark',confidence:.46,topScore:centerLift,secondScore:secondLift,threshold:18,separation:centerGap};
+    return{question:startNo+i,selected:centerTop.j,status:'multiple',marked,scores,blueScores,darkScores,centerValues,reader:'center-dark',confidence:.46,topScore:centerLift,secondScore:secondLift,threshold:18,separation:centerGap};
   }
-  if(darkClear)return{question:startNo+i,selected:centerTop.j,status:'clear',marked:[centerTop.j],scores,blueScores,centerValues,reader:'center-dark',confidence:Math.min(.99,.91+Math.min(.08,centerGap/120)+Math.min(.04,centerLift/300)),topScore:centerLift,secondScore:secondLift,threshold:18,separation:centerGap};
-  if(darkPossible)return{question:startNo+i,selected:centerTop.j,status:'ambiguous',marked:[centerTop.j],scores,blueScores,centerValues,reader:'center-dark',confidence:.74,topScore:centerLift,secondScore:secondLift,threshold:18,separation:centerGap};
+  if(darkClear)return{question:startNo+i,selected:centerTop.j,status:'clear',marked:[centerTop.j],scores,blueScores,darkScores,centerValues,reader:'center-dark',confidence:Math.min(.99,.91+Math.min(.08,centerGap/120)+Math.min(.04,centerLift/300)),topScore:centerLift,secondScore:secondLift,threshold:18,separation:centerGap};
+  if(darkPossible)return{question:startNo+i,selected:centerTop.j,status:'ambiguous',marked:[centerTop.j],scores,blueScores,darkScores,centerValues,reader:'center-dark',confidence:.74,topScore:centerLift,secondScore:secondLift,threshold:18,separation:centerGap};
 
-  if(!relativeClear&&top.s<possible)return{question:startNo+i,selected:null,status:'blank',marked:[],scores,blueScores,centerValues,reader:'gray',confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
-  if(strongSecond&&sep<.060)return{question:startNo+i,selected:top.j,status:'multiple',marked:grayOrder.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,blueScores,centerValues,reader:'gray',confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
-  if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear)))return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,centerValues,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
-  return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,centerValues,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  if(!relativeClear&&top.s<possible)return{question:startNo+i,selected:null,status:'blank',marked:[],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:.96,topScore:top.s,secondScore:second.s,threshold:possible,separation:sep};
+  if(strongSecond&&sep<.060)return{question:startNo+i,selected:top.j,status:'multiple',marked:grayOrder.filter((x:any)=>x.s>=definite&&x.s/top.s>=.55).map((x:any)=>x.j),scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(.49,sep/Math.max(.01,sepThr)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear)))return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
+  return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
- return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-hybrid-v9'),
+ return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-quad-hybrid-row-v10'),
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
   verification:{risk:(ambiguous||multiple)?'high':'low',quality_score:(ambiguous||multiple)?70:100,reasons:(ambiguous||multiple)?['توجد إجابات غير حاسمة أو متعددة']:[],requires_manual_review:!!(ambiguous||multiple),auto_accept:!(ambiguous||multiple),counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
