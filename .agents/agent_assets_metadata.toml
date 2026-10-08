@@ -1,0 +1,86 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "vaiLdjIOIA1lTwJ9VU9jO"
+uri = "file://qa/omr/results/comparison.html"
+type = "html"
+title = "معلّمي — صور اختبار المحاذاة والاتجاهات والتظليل"
+description = "11 صورة مصطنعة و660 إجابة؛ مقارنة المصدر الأصلي بالإصلاح المحلي، مع الصور والقراءة لكل سؤال."
+logical_id = "049f5bed-ad7c-4b2e-a6ab-6086de5aaf16"
+content_hash = "sha256:43a492174058fa2e39b6f691a46544090e22629e39939fe5ba0fe1a8945da2ce"
+size = 1835326
+mtime_ms = 1791457941269
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/049f5bed-ad7c-4b2e-a6ab-6086de5aaf16/d0f3dae0-cd6a-4177-b209-c03797503462"
+storage_version_token = "1791457959735252"
+content_type = "text/html"
+
+[[outputs]]
+id = "ul2uejo3Cdx3rUiq4NT8P"
+uri = "file://qa/omr/results/real-six/report.html"
+type = "html"
+title = "تقرير فحص الأوراق الست الحقيقية — 360 اختيارًا"
+description = "الصور، والاختيارات الستون لكل ورقة، والمقارنة البصرية قبل/بعد، مع توثيق تصحيحات التفريغ اليدوي وحدود النتائج."
+logical_id = "7f5c26ab-c9a0-4707-be1c-3a225f591f4c"
+content_hash = "sha256:c4ef71da6de9803495cee9854f79d7b1b8534ceefa07d70279809de262672027"
+size = 9649514
+mtime_ms = 1791456335789
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/7f5c26ab-c9a0-4707-be1c-3a225f591f4c/7ce7000a-2801-4219-a3d2-c857b8f82f6b"
+storage_version_token = "1791456932510858"
+content_type = "text/html"
+
+[[outputs]]
+id = "MRMnudGlIUfZlHKVVaI4u"
+uri = "file://qa/omr/results/real-six/answers.csv"
+type = "table"
+title = "الاختيارات المستخرجة للأوراق الست — CSV"
+description = "360 صفًا: رقم الورقة والسؤال، الخيار المرئي، قراءتا الأصل والتطوير، التصنيف ونتيجة التطابق."
+logical_id = "97ad404b-b6fc-42e6-9778-0e28079a82be"
+content_hash = "sha256:71c3b083f15f6e7710f5b8bfdeb7dd7377b2823d93becb0b7f8b09d5dd34e2f1"
+size = 18430
+mtime_ms = 1791456335368
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/97ad404b-b6fc-42e6-9778-0e28079a82be/f193f8ec-f910-4b66-b7cc-f2b08de7dc54"
+storage_version_token = "1791456933918324"
+content_type = "text/csv"
+
+[[outputs]]
+id = "CvgdlUcGPqM_87c86HI46"
+uri = "file://qa/omr/results/real-six/alignment-evidence.pdf"
+type = "pdf"
+title = "دليل مواقع المربعات والفقاعات — PDF"
+description = "نسخة منفصلة من الصفحات الست؛ الأحمر يحدد علامات المحاذاة والسماوي مراكز الفقاعات. الملف المرفوع الأصلي لم يُعدّل."
+logical_id = "e7807333-bb97-4ec7-b094-2f17408ff10a"
+content_hash = "sha256:79b9966dcf1275bb6a2113c5c527253d520f194a7d1521b392ece01074d50210"
+size = 3284777
+mtime_ms = 1791456335401
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/e7807333-bb97-4ec7-b094-2f17408ff10a/5420b4c2-60b5-4e31-91c3-1333c07a5e92"
+storage_version_token = "1791456935282386"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "o0aPJ9z1yeTkGDu8CbdWn"
+uri = "file://qa/omr/results/hardening/report.html"
+type = "html"
+title = "معلّمي — أدلة الإصلاح الفعلي لمحرك OMR"
+description = "تقرير جامع: الأوراق الست الأصلية، اختبارات الإضاءة المعدّلة، والتظليل المختلط؛ صور واختيارات قبل وبعد، مع حالة غير محسومة معلنة."
+logical_id = "e786e6f5-80ef-462e-933c-4b5cafb38f58"
+content_hash = "sha256:3ea4fb0672512e88baa2cbeef597dce6f5a26700f8883b8fc08453e0fa536e37"
+size = 4360793
+mtime_ms = 1791457944041
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/e786e6f5-80ef-462e-933c-4b5cafb38f58/5e1a38a9-5890-4dc5-9f80-f844117b8eaa"
+storage_version_token = "1791457958387393"
+content_type = "text/html"
+
+[[outputs]]
+id = "_pW5PRS8xovItO_IzvJev"
+uri = "file://qa/omr/results/classification/report.html"
+type = "html"
+title = "معلّمي — إثبات سلامة تصنيف OMR"
+description = "94 اختبارًا اصطناعيًا ناجحًا؛ فصل أسباب القراءة والهوية والمفتاح، صور للحالات الأربع، وإثبات عدم ترقية المرشحين إلى إجابات مؤكدة."
+logical_id = "6dd922bf-83f0-4533-b31b-28fcd45621bf"
+content_hash = "sha256:feca03a53c8876585bea6ee81b3497b888c73df59627204a8d9d5bd02f25f00e"
+size = 662327
+mtime_ms = 1791459857261
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/6dd922bf-83f0-4533-b31b-28fcd45621bf/acd86ebc-d4db-4173-b616-53415a36bf3f"
+storage_version_token = "1791460200135587"
+content_type = "text/html"

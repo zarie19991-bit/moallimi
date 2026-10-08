@@ -25,3 +25,11 @@ screenshot.png
 .env.*
 *.log
 supabase/manual-sql/
+
+# Local OMR test dependency; never served by the static preview.
+node_modules/
+
+# Local PDF inspection dependencies and Python bytecode.
+.pythonlibs/
+__pycache__/
+*.pyc

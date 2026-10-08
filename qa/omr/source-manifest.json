@@ -1,0 +1,14 @@
+{
+  "archive": "attached_assets/0_nafes-exam_(1)_1791441851751.zip",
+  "sha256": "b2e2b3d30530f84f81f80d45e46598f6098044782360e9a68f3a963644f1e4af",
+  "provenance": "User-supplied export of deployed nafes-exam; version 128 reported by the user, not independently fetched.",
+  "members": [
+    "source/index.ts",
+    "source/reviewed-bank.ts",
+    "source/assessment-engine.ts",
+    "source/framework.ts",
+    "source/assessments.ts",
+    "source/paper-scan.ts",
+    "source/omr-server.ts"
+  ]
+}

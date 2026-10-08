@@ -1,0 +1,1 @@
+- [OMR validation timing](omr-validation-timing.md) — preserve source resolution; separate test timeouts from answer correctness.

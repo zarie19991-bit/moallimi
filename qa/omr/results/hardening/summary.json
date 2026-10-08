@@ -1,0 +1,95 @@
+{
+  "engine_sha256": "e04c2c39e9b4539b3a464c6343766c8f30f5102479e985f6d024d97f8b22a413",
+  "source_archive_sha256": "b2e2b3d30530f84f81f80d45e46598f6098044782360e9a68f3a963644f1e4af",
+  "original_real_sheets": {
+    "before": {
+      "matched": 360,
+      "different": 0,
+      "unread": 0
+    },
+    "after": {
+      "matched": 360,
+      "different": 0,
+      "unread": 0
+    }
+  },
+  "original_synthetic_suite": {
+    "before": {
+      "sheets": 11,
+      "total": 660,
+      "matched": 459,
+      "different": 21,
+      "unread": 180
+    },
+    "after": {
+      "sheets": 11,
+      "total": 660,
+      "matched": 660,
+      "different": 0,
+      "unread": 0
+    }
+  },
+  "controlled_derivatives": {
+    "original": {
+      "total": 360,
+      "matched": 180,
+      "different": 180,
+      "unread": 0,
+      "ambiguous": 0,
+      "auto_clear": 180
+    },
+    "previous_local": {
+      "total": 360,
+      "matched": 240,
+      "different": 120,
+      "unread": 0,
+      "ambiguous": 0,
+      "auto_clear": 240
+    },
+    "after": {
+      "total": 360,
+      "matched": 360,
+      "different": 0,
+      "unread": 0,
+      "ambiguous": 0,
+      "auto_clear": 360
+    }
+  },
+  "mixed_ink_four_synthetic_cases": {
+    "original": {
+      "total": 4,
+      "matched": 0,
+      "different": 4,
+      "unread": 0,
+      "ambiguous": 0,
+      "auto_clear": 4
+    },
+    "previous_local": {
+      "total": 4,
+      "matched": 3,
+      "different": 1,
+      "unread": 0,
+      "ambiguous": 0,
+      "auto_clear": 1
+    },
+    "after": {
+      "total": 4,
+      "matched": 3,
+      "different": 1,
+      "unread": 0,
+      "ambiguous": 1,
+      "auto_clear": 0
+    }
+  },
+  "full_local_test_suite": {
+    "passed": 79,
+    "failed": 0
+  },
+  "limitations": [
+    "No independently confirmed old-template sample.",
+    "Controlled derivatives are modified images, not six additional genuine scans.",
+    "Weak second ink remains ambiguous and requires manual review, not an exact multiple classification.",
+    "Real-sheet visual reference is assistant-reviewed, not independently supplied by the user.",
+    "No Supabase live access, grade writes, publication, or full frontend integration."
+  ]
+}

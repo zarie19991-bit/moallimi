@@ -1,0 +1,20 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "private": true,
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test:omr": "bun test --timeout 60000 qa/omr",
+    "compare:omr": "bun qa/omr/comparison.ts",
+    "test:omr:classification": "bun qa/omr/classification-evidence.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "jpeg-js": "0.4.4"
+  }
+}

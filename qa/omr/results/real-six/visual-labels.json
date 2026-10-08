@@ -1,0 +1,66 @@
+{
+  "method": "Initial visual transcription from grid-1.png through grid-6.png before inspecting engine answer arrays. Four transcription discrepancies were rechecked against enlarged source-image regions after comparing to engine output. Revisions are explicitly logged below. Labels refer to the visibly shaded choice, not an exam answer key. One assistant reviewer; not independently confirmed by the user.",
+  "transcription_revisions": [
+    {"page": 2, "question": 14, "initial": "ب", "rechecked": "د", "evidence": "recheck-page2-q1-15.png"},
+    {"page": 2, "question": 19, "initial": "ج", "rechecked": "د", "evidence": "recheck-page2-q16-30.png"},
+    {"page": 2, "question": 26, "initial": "د", "rechecked": "ب", "evidence": "recheck-page2-q16-30.png"},
+    {"page": 6, "question": 21, "initial": "ب", "rechecked": "ج", "evidence": "recheck-page6-q16-30.png"}
+  ],
+  "option_order": ["أ", "ب", "ج", "د"],
+  "sheets": [
+    {
+      "page": 1,
+      "blocks": [
+        "ج أ د ب د د أ ج ج ب ج ب ج ج ج",
+        "أ ب ج أ ب د أ أ د أ ج ج د ج ب",
+        "أ ب ج ب د ج ج ج ب د أ ج د ج أ",
+        "ج أ ب ب ج أ د ب ب أ د د ج أ ب"
+      ]
+    },
+    {
+      "page": 2,
+      "blocks": [
+        "أ د أ ج ب ب ج أ ب د أ د أ د د",
+        "ب أ أ د ب أ د أ ج د ب د ج ب أ",
+        "ج د ج أ ج أ أ ج أ ب ب ب ب ج ب",
+        "ب د أ أ أ أ ب ب أ د د أ ب ب ب"
+      ]
+    },
+    {
+      "page": 3,
+      "blocks": [
+        "ج ب أ ب أ أ د ج ب د أ ب ج ب أ",
+        "ج أ ج ب ب ج ج أ ج ج ب ب ب ب ج",
+        "ب ج ج د أ ب ب ب د أ د ب ج د د",
+        "أ ج ب أ ب ب د أ ج ب أ ج د ج د"
+      ]
+    },
+    {
+      "page": 4,
+      "blocks": [
+        "ب د أ ب ب أ د د ب أ أ ج ج ب أ",
+        "د د أ د أ أ ب ب ب ب د ب أ أ ب",
+        "د أ ج أ د أ أ د ب ب أ ج ب د أ",
+        "ج د ب أ ب أ أ د د ج ب أ ج ب أ"
+      ]
+    },
+    {
+      "page": 5,
+      "blocks": [
+        "ب د أ ب ج ب د د ب ج أ ج د ب أ",
+        "ب د د ب أ ب د ب أ أ ب ج ج د ج",
+        "أ أ ب أ ب أ أ د أ ب أ د ب ج ب",
+        "ب د ب أ ب د ج ب أ أ د ج ب د ب"
+      ]
+    },
+    {
+      "page": 6,
+      "blocks": [
+        "ب د أ ج ب ج د د د د أ د أ د أ",
+        "ب ب ج ب ب ج ب أ أ ب د ج ج د ج",
+        "أ أ ج أ ج أ أ د أ ب أ د ب ج ب",
+        "ب د ب أ ب د ج ب أ أ د ج ب د ب"
+      ]
+    }
+  ]
+}

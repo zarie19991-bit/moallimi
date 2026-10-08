@@ -1,0 +1,1215 @@
+{
+  "synthetic_only": true,
+  "historical_snapshots_used": false,
+  "production_grade_approval": false,
+  "source_sha256": "41f25a38dc1a941fbc261c7be3168d8ee473f1fc3ac0c3d68c1171862e718f3a",
+  "reader_sha256": "e04c2c39e9b4539b3a464c6343766c8f30f5102479e985f6d024d97f8b22a413",
+  "validation": {
+    "passed": 94,
+    "failed": 0,
+    "files": [
+      "qa/omr/omr.test.ts",
+      "qa/omr/development.test.ts",
+      "qa/omr/regressions.test.ts",
+      "qa/omr/historical-state.test.ts",
+      "qa/omr/classification.test.ts"
+    ]
+  },
+  "cases": [
+    {
+      "id": "clear-correct",
+      "label": "اختيار واضح ومطابق للمفتاح",
+      "raw": {
+        "status": "clear",
+        "selected": 2,
+        "marked": [
+          2
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "reading": "clear",
+      "state": "correct",
+      "categories": [],
+      "original_function_state": "correct",
+      "result": {
+        "question": 1,
+        "selected": 2,
+        "reader_selected": 2,
+        "marked": [
+          2
+        ],
+        "status": "clear",
+        "state": "correct",
+        "reading_status": "clear",
+        "raw_reader_status": "clear",
+        "candidates": [],
+        "confirmed_marks": [
+          2
+        ],
+        "uncertainty": {
+          "reading": [],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": false,
+        "correct_index": 2,
+        "correct": true,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "clear-incorrect",
+      "label": "اختيار واضح غير مطابق للمفتاح",
+      "raw": {
+        "status": "clear",
+        "selected": 1,
+        "marked": [
+          1
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "reading": "clear",
+      "state": "incorrect",
+      "categories": [],
+      "original_function_state": "incorrect",
+      "result": {
+        "question": 1,
+        "selected": 1,
+        "reader_selected": 1,
+        "marked": [
+          1
+        ],
+        "status": "clear",
+        "state": "incorrect",
+        "reading_status": "clear",
+        "raw_reader_status": "clear",
+        "candidates": [],
+        "confirmed_marks": [
+          1
+        ],
+        "uncertainty": {
+          "reading": [],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": false,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "true-blank",
+      "label": "فقاعات فارغة متسقة",
+      "raw": {
+        "status": "blank",
+        "selected": null,
+        "marked": []
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "reading": "blank",
+      "state": "blank",
+      "categories": [],
+      "original_function_state": "blank",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": null,
+        "marked": [],
+        "status": "blank",
+        "state": "blank",
+        "reading_status": "blank",
+        "raw_reader_status": "blank",
+        "candidates": [],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": false,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "two-confirmed",
+      "label": "القارئ يثبت تظليل خيارين",
+      "raw": {
+        "status": "multiple",
+        "selected": null,
+        "marked": [
+          0,
+          2
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "reading": "multiple",
+      "state": "multiple",
+      "categories": [],
+      "original_function_state": "multiple",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": null,
+        "marked": [
+          0,
+          2
+        ],
+        "status": "multiple",
+        "state": "multiple",
+        "reading_status": "multiple",
+        "raw_reader_status": "multiple",
+        "candidates": [],
+        "confirmed_marks": [
+          0,
+          2
+        ],
+        "uncertainty": {
+          "reading": [],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "two-candidates",
+      "label": "مرشحان غير محسومين؛ أحدهما يطابق المفتاح",
+      "raw": {
+        "status": "ambiguous",
+        "selected": 2,
+        "marked": [
+          0,
+          2
+        ],
+        "confidence": 1
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "reading": "ambiguous",
+      "state": "uncertain",
+      "categories": [
+        "reading"
+      ],
+      "original_function_state": "multiple",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          0,
+          2
+        ],
+        "status": "ambiguous",
+        "state": "uncertain",
+        "reading_status": "ambiguous",
+        "raw_reader_status": "ambiguous",
+        "candidates": [
+          0,
+          2
+        ],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "bubble_ambiguous"
+          ],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 1,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "one-candidate",
+      "label": "مرشح واحد غير محسوم وثقة مرتفعة",
+      "raw": {
+        "status": "ambiguous",
+        "selected": 2,
+        "marked": [
+          2
+        ],
+        "confidence": 1
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "reading": "ambiguous",
+      "state": "uncertain",
+      "categories": [
+        "reading"
+      ],
+      "original_function_state": "uncertain",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          2
+        ],
+        "status": "ambiguous",
+        "state": "uncertain",
+        "reading_status": "ambiguous",
+        "raw_reader_status": "ambiguous",
+        "candidates": [
+          2
+        ],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "bubble_ambiguous"
+          ],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 1,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "contradictory-clear",
+      "label": "واضح مع خيارين: تناقض وليس تعددًا مثبتًا",
+      "raw": {
+        "status": "clear",
+        "selected": 2,
+        "marked": [
+          0,
+          2
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "reading": "invalid",
+      "state": "uncertain",
+      "categories": [
+        "reading"
+      ],
+      "original_function_state": "multiple",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          0,
+          2
+        ],
+        "status": "ambiguous",
+        "state": "uncertain",
+        "reading_status": "invalid",
+        "raw_reader_status": "clear",
+        "candidates": [],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "contradictory_clear_evidence"
+          ],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "unproven-multiple",
+      "label": "ادعاء تعدد مع خيار واحد فقط",
+      "raw": {
+        "status": "multiple",
+        "selected": 2,
+        "marked": [
+          2
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "reading": "invalid",
+      "state": "uncertain",
+      "categories": [
+        "reading"
+      ],
+      "original_function_state": "multiple",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          2
+        ],
+        "status": "ambiguous",
+        "state": "uncertain",
+        "reading_status": "invalid",
+        "raw_reader_status": "multiple",
+        "candidates": [],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "multiple_evidence_incomplete"
+          ],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "contradictory-blank",
+      "label": "ادعاء فراغ مع اختيار محدد",
+      "raw": {
+        "status": "blank",
+        "selected": 2,
+        "marked": [
+          2
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "reading": "invalid",
+      "state": "uncertain",
+      "categories": [
+        "reading"
+      ],
+      "original_function_state": "blank",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          2
+        ],
+        "status": "ambiguous",
+        "state": "uncertain",
+        "reading_status": "invalid",
+        "raw_reader_status": "blank",
+        "candidates": [],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "contradictory_blank_evidence"
+          ],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "missing-key",
+      "label": "قراءة واضحة مع مفتاح مفقود",
+      "raw": {
+        "status": "clear",
+        "selected": 2,
+        "marked": [
+          2
+        ]
+      },
+      "key": {},
+      "reading": "clear",
+      "state": "uncertain",
+      "categories": [
+        "answer_key"
+      ],
+      "original_function_state": "uncertain",
+      "result": {
+        "question": 1,
+        "selected": 2,
+        "reader_selected": 2,
+        "marked": [
+          2
+        ],
+        "status": "clear",
+        "state": "uncertain",
+        "reading_status": "clear",
+        "raw_reader_status": "clear",
+        "candidates": [],
+        "confirmed_marks": [
+          2
+        ],
+        "uncertainty": {
+          "reading": [],
+          "identity": [],
+          "answer_key": [
+            "answer_key_missing_or_invalid"
+          ]
+        },
+        "requires_verification": true,
+        "correct_index": null,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "unverified-identity",
+      "label": "قراءة واضحة مع هوية غير مؤكدة",
+      "raw": {
+        "status": "clear",
+        "selected": 2,
+        "marked": [
+          2
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "context": {
+        "identity_valid": false
+      },
+      "reading": "clear",
+      "state": "uncertain",
+      "categories": [
+        "identity"
+      ],
+      "original_function_state": null,
+      "result": {
+        "question": 1,
+        "selected": 2,
+        "reader_selected": 2,
+        "marked": [
+          2
+        ],
+        "status": "clear",
+        "state": "uncertain",
+        "reading_status": "clear",
+        "raw_reader_status": "clear",
+        "candidates": [],
+        "confirmed_marks": [
+          2
+        ],
+        "uncertainty": {
+          "reading": [],
+          "identity": [
+            "identity_not_verified"
+          ],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "incomplete-key",
+      "label": "مفتاح النموذج غير مكتمل",
+      "raw": {
+        "status": "clear",
+        "selected": 2,
+        "marked": [
+          2
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "context": {
+        "key_complete": false
+      },
+      "reading": "clear",
+      "state": "uncertain",
+      "categories": [
+        "answer_key"
+      ],
+      "original_function_state": null,
+      "result": {
+        "question": 1,
+        "selected": 2,
+        "reader_selected": 2,
+        "marked": [
+          2
+        ],
+        "status": "clear",
+        "state": "uncertain",
+        "reading_status": "clear",
+        "raw_reader_status": "clear",
+        "candidates": [],
+        "confirmed_marks": [
+          2
+        ],
+        "uncertainty": {
+          "reading": [],
+          "identity": [],
+          "answer_key": [
+            "answer_key_incomplete"
+          ]
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "all-three-causes",
+      "label": "عدم حسم القراءة والهوية والمفتاح معًا",
+      "raw": {
+        "status": "ambiguous",
+        "selected": 2,
+        "marked": [
+          0,
+          2
+        ]
+      },
+      "key": {},
+      "context": {
+        "identity_valid": false,
+        "key_complete": false
+      },
+      "reading": "ambiguous",
+      "state": "uncertain",
+      "categories": [
+        "reading",
+        "identity",
+        "answer_key"
+      ],
+      "original_function_state": null,
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          0,
+          2
+        ],
+        "status": "ambiguous",
+        "state": "uncertain",
+        "reading_status": "ambiguous",
+        "raw_reader_status": "ambiguous",
+        "candidates": [
+          0,
+          2
+        ],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "bubble_ambiguous"
+          ],
+          "identity": [
+            "identity_not_verified"
+          ],
+          "answer_key": [
+            "answer_key_missing_or_invalid",
+            "answer_key_incomplete"
+          ]
+        },
+        "requires_verification": true,
+        "correct_index": null,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "geometry-unverified",
+      "label": "علامات الورقة غير مؤكدة",
+      "raw": {
+        "status": "clear",
+        "selected": 2,
+        "marked": [
+          2
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "context": {
+        "markers_ok": false
+      },
+      "reading": "clear",
+      "state": "uncertain",
+      "categories": [
+        "reading"
+      ],
+      "original_function_state": null,
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          2
+        ],
+        "status": "clear",
+        "state": "uncertain",
+        "reading_status": "clear",
+        "raw_reader_status": "clear",
+        "candidates": [],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "markers_not_verified"
+          ],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "reader-failure",
+      "label": "فشل القارئ؛ ليست إجابة فارغة",
+      "raw": {
+        "status": "clear",
+        "selected": 2,
+        "marked": [
+          2
+        ]
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "context": {
+        "reader_error": true
+      },
+      "reading": "unavailable",
+      "state": "uncertain",
+      "categories": [
+        "reading"
+      ],
+      "original_function_state": null,
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          2
+        ],
+        "status": "ambiguous",
+        "state": "uncertain",
+        "reading_status": "unavailable",
+        "raw_reader_status": "clear",
+        "candidates": [],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "reader_failed"
+          ],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    },
+    {
+      "id": "reading-not-run",
+      "label": "القراءة لم تُنفذ",
+      "raw": {
+        "status": "blank",
+        "selected": null,
+        "marked": []
+      },
+      "key": {
+        "correct_index": 2
+      },
+      "context": {
+        "reading_not_run": true
+      },
+      "reading": "unavailable",
+      "state": "uncertain",
+      "categories": [
+        "reading"
+      ],
+      "original_function_state": null,
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": null,
+        "marked": [],
+        "status": "ambiguous",
+        "state": "uncertain",
+        "reading_status": "unavailable",
+        "raw_reader_status": "blank",
+        "candidates": [],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "reading_not_run"
+          ],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 2,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0,
+        "scores": null,
+        "blue_scores": null,
+        "dark_scores": null,
+        "center_values": null,
+        "reader": "",
+        "top_score": 0,
+        "second_score": 0,
+        "separation": 0,
+        "threshold": 0
+      }
+    }
+  ],
+  "image_cases": [
+    {
+      "id": "blank",
+      "label": "فراغ فعلي",
+      "marks": [],
+      "expected": "blank",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": null,
+        "marked": [],
+        "status": "blank",
+        "state": "blank",
+        "reading_status": "blank",
+        "raw_reader_status": "blank",
+        "candidates": [],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": false,
+        "correct_index": 0,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0.96,
+        "scores": [
+          -0.0429,
+          -0.0429,
+          -0.0429,
+          -0.0429
+        ],
+        "blue_scores": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "dark_scores": [
+          0.1263,
+          0.1263,
+          0.1263,
+          0.1263
+        ],
+        "center_values": [
+          254.8,
+          254.8,
+          254.8,
+          254.8
+        ],
+        "reader": "gray",
+        "top_score": -0.04285239120841478,
+        "second_score": -0.04285239120841478,
+        "separation": 0,
+        "threshold": 0.012
+      }
+    },
+    {
+      "id": "single",
+      "label": "اختيار أسود واحد واضح",
+      "marks": [
+        {
+          "row": 0,
+          "option": 0
+        }
+      ],
+      "expected": "correct",
+      "result": {
+        "question": 1,
+        "selected": 0,
+        "reader_selected": 0,
+        "marked": [
+          0
+        ],
+        "status": "clear",
+        "state": "correct",
+        "reading_status": "clear",
+        "raw_reader_status": "clear",
+        "candidates": [],
+        "confirmed_marks": [
+          0
+        ],
+        "uncertainty": {
+          "reading": [],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": false,
+        "correct_index": 0,
+        "correct": true,
+        "indicator": "",
+        "confidence": 0.99,
+        "scores": [
+          0.8579,
+          -0.0429,
+          -0.0429,
+          -0.0429
+        ],
+        "blue_scores": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "dark_scores": [
+          0.7526,
+          0.1263,
+          0.1263,
+          0.1263
+        ],
+        "center_values": [
+          24.9,
+          254.8,
+          254.8,
+          254.8
+        ],
+        "reader": "dark-row",
+        "top_score": 0.7526315789473684,
+        "second_score": 0.12631578947368421,
+        "separation": 0.6263157894736842,
+        "threshold": 0.115
+      }
+    },
+    {
+      "id": "multiple",
+      "label": "تظليل أسود وأزرق مثبت",
+      "marks": [
+        {
+          "row": 0,
+          "option": 0,
+          "radius": 1.3
+        },
+        {
+          "row": 0,
+          "option": 2,
+          "color": [
+            20,
+            40,
+            165
+          ]
+        }
+      ],
+      "expected": "multiple",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          2,
+          0
+        ],
+        "status": "multiple",
+        "state": "multiple",
+        "reading_status": "multiple",
+        "raw_reader_status": "multiple",
+        "candidates": [],
+        "confirmed_marks": [
+          2,
+          0
+        ],
+        "uncertainty": {
+          "reading": [],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 0,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0.45,
+        "scores": [
+          0.8573,
+          -0.0429,
+          0.7681,
+          -0.0429
+        ],
+        "blue_scores": [
+          0,
+          0,
+          1.2538,
+          0
+        ],
+        "dark_scores": [
+          0.4895,
+          0.1263,
+          0.7526,
+          0.1263
+        ],
+        "center_values": [
+          25.1,
+          254.8,
+          47.1,
+          254.8
+        ],
+        "reader": "mixed-ink",
+        "top_score": 246,
+        "second_score": 0,
+        "separation": 246,
+        "threshold": 5
+      }
+    },
+    {
+      "id": "ambiguous",
+      "label": "أزرق واضح مع أثر أسود منافس ضعيف",
+      "marks": [
+        {
+          "row": 0,
+          "option": 0,
+          "radius": 0.45
+        },
+        {
+          "row": 0,
+          "option": 2,
+          "color": [
+            20,
+            40,
+            165
+          ]
+        }
+      ],
+      "expected": "uncertain",
+      "result": {
+        "question": 1,
+        "selected": null,
+        "reader_selected": 2,
+        "marked": [
+          2,
+          0
+        ],
+        "status": "ambiguous",
+        "state": "uncertain",
+        "reading_status": "ambiguous",
+        "raw_reader_status": "ambiguous",
+        "candidates": [
+          2,
+          0
+        ],
+        "confirmed_marks": [],
+        "uncertainty": {
+          "reading": [
+            "bubble_ambiguous"
+          ],
+          "identity": [],
+          "answer_key": []
+        },
+        "requires_verification": true,
+        "correct_index": 0,
+        "correct": false,
+        "indicator": "",
+        "confidence": 0.7,
+        "scores": [
+          0.0649,
+          -0.0429,
+          0.7681,
+          -0.0429
+        ],
+        "blue_scores": [
+          0,
+          0,
+          1.2538,
+          0
+        ],
+        "dark_scores": [
+          0.1579,
+          0.1263,
+          0.7526,
+          0.1263
+        ],
+        "center_values": [
+          227.4,
+          254.8,
+          47.1,
+          254.8
+        ],
+        "reader": "mixed-ink-review",
+        "top_score": 246,
+        "second_score": 0,
+        "separation": 246,
+        "threshold": 5
+      }
+    }
+  ],
+  "healthy_option_key_combinations_preserved": 16,
+  "healthy_image_answers_preserved": 60,
+  "ambiguity_option_key_confidence_combinations_not_promoted": 32
+}
