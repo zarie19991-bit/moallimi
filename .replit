@@ -22,13 +22,26 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python3 -m http.server 5000 --bind 0.0.0.0"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = """
+python3 -c $'import http.server,pathlib,urllib.parse
+ROOT=pathlib.Path.cwd().resolve()
+ALLOWED={s.strip() for s in (ROOT/\"production-files.txt\").read_text().splitlines() if s.strip() and not s.lstrip().startswith(\"#\")}
+ASSETS=(ROOT/\"question-bank/assets\").resolve()
+class Safe(http.server.SimpleHTTPRequestHandler):
+    def translate_path(self,url):
+        raw=urllib.parse.unquote(urllib.parse.urlsplit(url).path).lstrip(\"/\") or \"index.html\"
+        target=(ROOT/raw).resolve()
+        try: rel=target.relative_to(ROOT).as_posix()
+        except ValueError: return str(ROOT/\"__blocked__\")
+        if target.is_file() and (rel in ALLOWED or ASSETS in target.parents): return str(target)
+        return str(ROOT/\"__blocked__\")
+http.server.ThreadingHTTPServer((\"0.0.0.0\",5000),Safe).serve_forever()'"""
+waitForPort = 5000
 
 [[ports]]
 localPort = 5000
