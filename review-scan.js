@@ -411,17 +411,17 @@ function normalizeWorkCanvas(src,maxW=2200){
 }
 async function processRegion(c,pageNo,regionNo){
  const work=normalizeWorkCanvas(c),normed=normalizeOrientation(work),canvas=normed.canvas,qrRaw=normed.qr?.data||'',q=parseQr(qrRaw);
- const assignment=q&&q.reviewId===draft.review_id?assignmentBySheet(q.sheetNo):null,qrValid=!!assignment&&q.model===assignment.model,model=assignment?.model||q?.model||'';
- const markers=detectMarkers(canvas),answers=markers?readAnswers(canvas,markers,Number(draft.question_count||20),Number(draft.question_start||1)):[],omrValidation=markers?validateOmrRead(answers,Number(draft.question_count||20)):{ok:false};
- const markerScores=markers?[markers.tl?.score,markers.tr?.score,markers.bl?.score,markers.br?.score].map(Number).filter(Number.isFinite):[];
- const markerConfidence=markers?Number(markers.geometry_confidence||(markerScores.length?markerScores.reduce((a,b)=>a+b,0)/markerScores.length:0)):0;
- const verification=assessOmrQuality({canvas,markers,markerConfidence,answers,identityValid:qrValid});
- const r={id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,studentName:assignment?.student_name||'غير معروف',markersOk:!!markers,markerConfidence:Number(markerConfidence.toFixed(3)),answers,fullImage:fullImage(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),sourceCanvas:canvas,
-   detector:markers?.detector||'',markerPoints:markers?{tl:[markers.tl.x,markers.tl.y],tr:[markers.tr.x,markers.tr.y],bl:[markers.bl.x,markers.bl.y],br:[markers.br.x,markers.br.y]}:null,
-   imageQuality:verification.image,verification,calibration:answers.omrCalibration||null};
- if(!markers){r.unresolved++;r.error='تعذر تحديد علامات المحاذاة في ورقة التظليل.';}
- if(markers&&answers.length&&omrValidation.ok)scoreResult(r);else if(markers&&!omrValidation.ok){r.unresolved++;r.error=omrValidation.reason||'تعذر التحقق من قراءة التظليل.';}
- return r;
+ const assignment=q&&q.reviewId===draft.review_id?assignmentBySheet(q.sheetNo):null;
+ const qrValid=!!assignment&&q.model===assignment.model,model=assignment?.model||q?.model||'';
+ // The browser no longer reads or scores bubbles. It only prepares the full JPEG and QR identity.
+ // All OMR geometry, bubble classification and scoring are performed once on the server.
+ return{
+   id:'p'+pageNo+'r'+regionNo,pageNo,regionNo,qrRaw,qr:q,qrValid,assignment,model,
+   studentName:assignment?.student_name||'غير معروف',
+   markersOk:false,markerConfidence:0,answers:[],
+   fullImage:fullImage(canvas),unresolved:0,score:0,total:Number(draft.question_count||20),
+   sourceCanvas:canvas,detector:'server-only',markerPoints:null,imageQuality:null,verification:null,calibration:null
+ };
 }
 async function canvasFromImage(file){
  let bmp;
@@ -485,7 +485,7 @@ async function processFile(){
    return p;
  };
  try{
-   setProgress(1,'تهيئة القراءة السريعة والحفظ المباشر…');
+   setProgress(1,'تهيئة الصور وقراءة QR ثم التصحيح الخادمي…');
    await window.NafesScanJournal.beginStream(inputFiles);streamStarted=true;
    for(let fi=0;fi<inputFiles.length;fi++){
      const inputFile=inputFiles[fi],standaloneImage=!(inputFile.type==='application/pdf'||inputFile.name.toLowerCase().endsWith('.pdf')||isTiff(inputFile));
@@ -496,7 +496,7 @@ async function processFile(){
          if(queuedCount>=200)throw new Error('تجاوزت الدفعة الحد الأقصى: ٢٠٠ ورقة/صفحة.');
          while(inflight.length>=2)await Promise.race(inflight);
          const approx=Math.min(96,3+((fi+(page.pageNo/Math.max(1,page.total)))/inputFiles.length)*90);
-         setProgress(approx,'الملف '+ar(fi+1)+' من '+ar(inputFiles.length)+' · الصفحة '+ar(page.pageNo)+' من '+ar(page.total)+' · قراءة '+ar(queuedCount+1)+' · محفوظ '+ar(savedCount));
+         setProgress(approx,'الملف '+ar(fi+1)+' من '+ar(inputFiles.length)+' · الصفحة '+ar(page.pageNo)+' من '+ar(page.total)+' · تجهيز '+ar(queuedCount+1)+' · محفوظ '+ar(savedCount));
          const r=await processRegion(regs[ri],sourcePageCount,ri+1);
          delete r.sourceCanvas;
          queuedCount++;
