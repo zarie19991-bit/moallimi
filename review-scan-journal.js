@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id),ar=n=>new Intl.NumberFormat('ar-SA').for
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={blank:'غير محلول',multiple:'إجابات متعددة',correct:'صحيح مؤكد',incorrect:'إجابة خاطئة',uncertain:'قراءة غير مؤكدة'};
 const letters=['أ','ب','ج','د'];
-const OMR_POLICY='server_jpeg_homography_v13';
+const OMR_POLICY='server_jpeg_homography_v14';
 let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
