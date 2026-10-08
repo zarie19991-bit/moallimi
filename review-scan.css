@@ -20,3 +20,5 @@ button:disabled{opacity:.5;cursor:not-allowed}.scan-preview{overflow:auto;max-he
 .quality-table-wrap tbody tr[data-risk="high"]{background:#fff7f7}
 .quality-table-wrap tbody tr[data-risk="medium"]{background:#fffaf0}
 .quality-reasons{max-width:420px;line-height:1.65;color:#526a73}
+
+.omr-evidence{display:block;margin-top:4px;font-size:9px;line-height:1.5;color:#526a73;font-variant-numeric:tabular-nums}
