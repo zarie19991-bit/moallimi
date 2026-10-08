@@ -97,3 +97,33 @@ overload وجسمه ومالكه وACL وSECURITY DEFINER. لا يضيف معا�
 
 تقرير التدقيق: `qa/omr/results/sql/source-audit.html`.
 الأربع لم تُنفذ بعد؛ ولا تعتبر الملاحظات الثابتة نجاحًا أو فشلًا تشغيلًا.
+
+## التحقق الفعلي من صلاحيات المعلم
+
+`nafes_teacher_access` علاقة بيانات وليست وظيفة SQL في مسار الدخول.
+مصدر `assessments.ts` و`assessment-engine.ts` مطابق للأرشيف المرفوع؛ لا يُستبدل
+بتعريف GitHub الأقدم. ملف migration المستورد يعرّفه كجدول، لكن لا يثبت مخطط
+الإنتاج الحالي: مصدر Edge المرفوع يطلب أيضًا subject_scope، الغائب عن ذلك التعريف القديم.
+
+المسار الفعلي:
+
+1. `handleAssessments` يستدعي `teacher(db, req)` قبل إجراءات teacher_scan_*.
+2. `teacher()` يقرأ x-teacher-key، يتحقق من صيغته، ثم يحسب SHA-256 باستخدام hash().
+3. يقرأ id,label,subject_scope من nafes_teacher_access حيث key_hash يطابق
+   البصمة المحسوبة وactive=true. لا توجد RPC باسم nafes_teacher_access.
+4. `reviewFor` يقيد حساب المادة بمالك المراجعة وبالمادة؛ حساب all لا يُقيد
+   بالمالك بهذا المسار. `scanSession` يربط الجلسة بالمراجعة المحددة.
+5. التعديل والتحقق يرسلان owner.id الناتج من الدخول في p_reviewer، لا معرف
+   مراجع يختاره جسم الطلب. عميل Supabase في index.ts يستخدم مفتاح خدمة خادمي؛
+   لا تُستخدم قيمته أو إعدادات اتصال الإنتاج في الاختبارات المحلية.
+
+الدوال الست اللازمة لمسار SQL المستهدف موجودة في المرفق:
+edit_answer، verify_current، verify، assign_identity، register، finish
+(جميعها ببادئة nafes_scan_). لا تنقص دالة تحقق SQL مفترضة.
+
+الناقص المباشر هو تعريف علاقة nafes_teacher_access الأصلي: الأعمدة والأنواع
+والافتراضات والقيود والفهارس وRLS والمنح والمحـفزات وتبعياتها إن وجدت.
+لا نحتاج أي صف معلم أو قيمة key_hash أو مفتاح دخول فعلي.
+يمكن تحديد نوع الكائن باستعلام `teacher-access-relation-readonly.sql`،
+ثم استخراج التعريفات بالنسخة المحدثة من manual-review-metadata-readonly.sql.
+إذا خالف كتالوج العلاقات المصدر المرفوع، يُوثق التعارض قبل أي إنشاء أو استبدال.
