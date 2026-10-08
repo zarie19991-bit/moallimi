@@ -166,13 +166,13 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const next={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,markers_ok:rr.markers_ok===true,
      marker_confidence:finite(rr.marker_confidence,0,1),answers,score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
-     omr_policy:'server_jpeg_homography_v6',omr_detector:String(rr.detector||'').slice(0,64),
+     omr_policy:'server_jpeg_homography_v7',omr_detector:String(rr.detector||'').slice(0,64),
      marker_points:rr.marker_points||null,omr_verification:compactVerification(rr.verification),omr_calibration:compactCalibration(rr.calibration),
      unresolved_answers:uncertain};
    const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:next,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null}).eq('id',row.id).eq('session_id',session.id).eq('answer_version',b.answer_version).select(summaryColumns).maybeSingle());
    if(!updated)fail('تغيرت الورقة أثناء إعادة القراءة؛ أعد المحاولة.',409);
    await db.from('nafes_scan_sessions').update({completed_at:null}).eq('id',session.id);
-   return {ok:true,sheet:updated,unresolved:uncertain,reader:'server_jpeg_homography_v6'};
+   return {ok:true,sheet:updated,unresolved:uncertain,reader:'server_jpeg_homography_v7'};
  }
  if(b.action==='teacher_scan_reclassify'){
    if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version)||!Array.isArray(b.answers))fail('بيانات إعادة القراءة غير صالحة.');
