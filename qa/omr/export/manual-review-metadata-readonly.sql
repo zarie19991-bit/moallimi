@@ -2,13 +2,18 @@
 -- SELECT only: catalog metadata, not student/result/image rows or secret stores.
 -- Conservatively withhold definitions mentioning credential markers.
 -- This is not a complete secret detector. Owner must inspect output before sharing.
--- Five tables below were supplied by the owner; two support tables are
--- referenced by the existing Edge source. Missing names are reported, not created.
+-- Includes the downstream tables whose existence the owner confirmed in production.
+-- Missing names are reported, not created. No live user tables are queried.
 -- RPC functions are discovered from the catalog; no signatures are assumed.
 WITH RECURSIVE requested(name) AS (
  VALUES ('nafes_scan_sheets'),('nafes_scan_sessions'),
         ('nafes_scan_answer_edits'),('nafes_scan_identity_edits'),('nafes_scan_alerts'),
-        ('nafes_paper_reviews'),('nafes_assessment_attempts')
+        ('nafes_paper_reviews'),('nafes_assessment_attempts'),
+        ('nafes_scan_deletions'),('nafes_assessments'),('nafes_students'),
+        ('nafes_teacher_access')
+), requested_functions(name) AS (
+ VALUES ('lugati_sync_sections_attempt'),('lugati_sync_student_worksheets'),
+        ('nafes_teacher_attempt_page'),('nafes_teacher_catalog_counts')
 ), root_relations AS (
  SELECT c.oid,c.relname,c.relrowsecurity,c.relforcerowsecurity,c.relowner,c.relacl,n.nspname
  FROM pg_catalog.pg_class c
@@ -82,7 +87,7 @@ SELECT jsonb_build_object(
    WHERE n.nspname='public' AND p.prokind='f'
      AND (p.proname ~ '^nafes_scan_'
        -- These exact callees were found in the uploaded attempt trigger bodies.
-       OR p.proname IN ('lugati_sync_sections_attempt','lugati_sync_student_worksheets'))
+       OR p.proname IN (SELECT name FROM requested_functions))
  ),'[]'::jsonb),
  'column_enums',COALESCE((
    SELECT jsonb_agg(jsonb_build_object('schema',n.nspname,'name',t.typname,
@@ -112,5 +117,12 @@ SELECT jsonb_build_object(
  'missing_requested_tables',COALESCE((
    SELECT jsonb_agg(q.name) FROM requested q
    WHERE NOT EXISTS (SELECT 1 FROM root_relations r WHERE r.relname=q.name)
- ),'[]'::jsonb)
+ ),'[]'::jsonb),
+ 'missing_requested_functions',COALESCE((
+   SELECT jsonb_agg(q.name) FROM requested_functions q
+   WHERE NOT EXISTS (
+     SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+     WHERE n.nspname='public' AND p.prokind='f' AND p.proname=q.name)
+ ),'[]'::jsonb),
+ 'procedural_dependency_review_required',true
 ) AS manual_review_source_metadata;

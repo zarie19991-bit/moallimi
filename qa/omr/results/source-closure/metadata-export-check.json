@@ -1,0 +1,20 @@
+{
+  "readonly_export_local_check": "PASS",
+  "fixture_scope": "existing original seven-table core; attempt table deliberately not imported without original FK parents",
+  "existing_original_tables_exported": 7,
+  "missing_requested_tables_in_fixture": [
+    "nafes_assessment_attempts",
+    "nafes_scan_deletions",
+    "nafes_assessments",
+    "nafes_students"
+  ],
+  "missing_requested_functions_in_fixture": [
+    "lugati_sync_sections_attempt",
+    "lugati_sync_student_worksheets",
+    "nafes_teacher_attempt_page",
+    "nafes_teacher_catalog_counts"
+  ],
+  "production_connected": false,
+  "publication_positive_tested": false,
+  "rollback_positive_tested": false
+}
