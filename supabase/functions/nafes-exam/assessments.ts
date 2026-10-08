@@ -1,4 +1,3 @@
-import { handlePaperScan, reviewedScanPayload } from './paper-scan.ts';
 import { FRAMEWORK } from './framework.ts';
 import { hasCurrentReview, reviewedImage, REVIEW_VERSION } from './reviewed-bank.ts';
 import { type Row, SUBJECTS, THRESHOLDS, tidy, fail, hash, token, shuffle, randomFrom, normalizeConfig, questionKey, indicatorOf, selectUnique, buildForms, cleanAnswers, gradeSections, publicSections, permuteQuestion, normalizeArabicName, normalizeLast3Digits, verifyStudentIdentity } from './assessment-engine.ts';
@@ -1549,6 +1548,7 @@ async function teacherPaperReviewList(db:any,owner:Row){
 }
 
 async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
+  const { reviewedScanPayload } = await import('./paper-scan.ts');
   b=await reviewedScanPayload(db,b,owner);
   const reviewId=tidy(b.review_id,80);
   if(!/^R[A-Z0-9_-]{4,79}$/i.test(reviewId))fail('معرّف المراجعة الورقية غير صالح.');
@@ -1719,7 +1719,10 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
 export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(String(b.action).startsWith('assessment_'))return await studentAction(db,b);
  const owner=await teacher(db,req);
- if(String(b.action).startsWith('teacher_scan_'))return await handlePaperScan(db,b,owner);
+ if(String(b.action).startsWith('teacher_scan_')){
+  const { handlePaperScan } = await import('./paper-scan.ts');
+  return await handlePaperScan(db,b,owner);
+ }
  if(b.action==='teacher_build_forms')fail('تم إيقاف قسم الاختبارات المحاكية. استخدم اختبارات المؤشرات.',400);
  if(b.action==='teacher_students_list')return await teacherStudentsList(db);
  if(b.action==='teacher_student_add'){assertMainAccount(owner);return await teacherStudentAdd(db,b);}
