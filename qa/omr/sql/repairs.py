@@ -300,6 +300,10 @@ CREATE TRIGGER nafes_scan_session_close_guard BEFORE UPDATE ON public.nafes_scan
             + build_integration() + guard + "\n;\n".join([legacy_edit, edit, identity, verify, finish]) + ";\n" + """
 -- Teacher keys are checked by Edge. Never expose definer RPCs to an unauthenticated caller
 -- that can simply supply a reviewer UUID; discover actual overload signatures, not guessed ones.
+-- Explicit DEVELOPMENT repair ACL, not a claim that these are the exported production ACLs.
+-- Original invoker routines require these operations; no public grants or disabled RLS.
+GRANT SELECT,INSERT,UPDATE ON public.nafes_paper_reviews,public.nafes_scan_sessions,public.nafes_scan_sheets TO service_role;
+GRANT SELECT,INSERT ON public.nafes_scan_answer_edits,public.nafes_scan_identity_edits,public.nafes_scan_alerts TO service_role;
 DO $acl$
 declare f record;
 begin

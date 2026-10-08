@@ -11,7 +11,7 @@
   "persisted_rows": 140,
   "unique_students": 140,
   "verified": 140,
-  "completed_at": "2026-10-08T16:05:38.306459+00:00",
+  "completed_at": "2026-10-08T16:39:09.980331+00:00",
   "manual_audit_rows": 1,
   "workflow_injected_ambiguous": 1,
   "answers_per_sheet": 60,
@@ -23,5 +23,5 @@
     "lugati_sync_student_worksheets"
   ],
   "grading_attempt_publication": "BLOCKED: original downstream schema incomplete, no attempts were created",
-  "native_snapshot_sha256": "317982f66ae62c9171bd5a685ae8664bcfa2c837d08314f1f323a5fbc84c7156"
+  "native_snapshot_sha256": "97a134ff8fe197274d50099136978ede96d70440343522381f57a6b18bda3798"
 }

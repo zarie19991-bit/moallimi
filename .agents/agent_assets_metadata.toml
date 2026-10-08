@@ -140,3 +140,17 @@ mtime_ms = 1791475992473
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/2c0e4a72-681e-4138-b4aa-c0c282233d9c/eb871b29-832e-4049-8c6d-fe964b5a91df"
 storage_version_token = "1791476005157529"
 content_type = "text/html"
+
+[[outputs]]
+id = "DsDGvUYqNyCIBBAePrUSO"
+uri = "file://qa/omr/results/integration-review/report.html"
+type = "html"
+title = "معلّمي — تقرير مراجعة التكامل النهائي"
+description = "نتائج 155 اختبارًا و140 ورقة اصطناعية، والإصلاحات المدمجة والعوائق التي تمنع النشر."
+logical_id = "12b8a86c-e478-48b8-a577-1e879c2935c5"
+content_hash = "sha256:581b73cee841f245d82df61a0cd49bcf741dee80079466be08ce52b2472a4d5f"
+size = 10634
+mtime_ms = 1791477833844
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/12b8a86c-e478-48b8-a577-1e879c2935c5/ace403bc-0896-447e-a71c-e89cf0fedef2"
+storage_version_token = "1791477860486185"
+content_type = "text/html"

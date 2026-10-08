@@ -1,6 +1,33 @@
 -- DEVELOPMENT ONLY. Original metadata plus measured SQL fixes; NOT DEPLOYED.
 -- Apply once to an isolated copy of the original schema, never automatically to production.
 
+-- NEW shared authorization repair, derived from the v128 teacher/scope rules.
+CREATE OR REPLACE FUNCTION public.nafes_scan_actor_context(p_session uuid,p_actor uuid,p_admin boolean)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public,pg_temp AS $actor$
+declare s public.nafes_scan_sessions; r public.nafes_paper_reviews;
+ t public.nafes_teacher_access; subjects text[];
+begin
+ select * into t from public.nafes_teacher_access where id=p_actor and active;
+ if not found or t.subject_scope not in ('all','reading','math','science') then raise exception 'Active authorized teacher required'; end if;
+ select * into s from public.nafes_scan_sessions where id=p_session;
+ if not found then raise exception 'Scan session not found'; end if;
+ select * into r from public.nafes_paper_reviews where id=s.review_pk;
+ subjects:=case when cardinality(r.subjects)>0 then r.subjects else array[r.subject] end;
+ if subjects is null or cardinality(subjects)=0 or exists(select 1 from unnest(subjects) x where x is null or x not in ('reading','math','science')) then
+   raise exception 'Review subject scope invalid';
+ end if;
+ if p_admin then
+   if t.subject_scope<>'all' then raise exception 'Main account required for audited administrative rollback'; end if;
+ else
+   if s.reviewer_id<>p_actor or (t.subject_scope<>'all' and
+     (r.owner_id<>p_actor or exists(select 1 from unnest(subjects) x where x<>t.subject_scope))) then
+     raise exception 'Correction outside reviewer or subject authority';
+   end if;
+ end if;
+ return jsonb_build_object('actor_id',t.id,'review_owner_id',r.owner_id,'review_pk',r.id,'session_id',s.id,'admin',p_admin);
+end $actor$;
+REVOKE ALL ON FUNCTION public.nafes_scan_actor_context(uuid,uuid,boolean) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.nafes_scan_actor_context(uuid,uuid,boolean) TO service_role;
 CREATE OR REPLACE FUNCTION public.nafes_local_rollback_proof(p_review uuid,p_session uuid,p_duplicate uuid,p_delta integer)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public,pg_temp AS $proof$
 declare result boolean; batch text:=current_setting('moallimi.rollback_batch',true);
@@ -8,9 +35,8 @@ begin
  if batch is null or batch='' or to_regclass('public.nafes_scan_deletions') is null then return false; end if;
  EXECUTE 'SELECT count(*)>0 AND ($4=0 OR count(*)=$4)
  FROM public.nafes_scan_deletions d JOIN public.nafes_paper_reviews r ON r.id=d.review_pk
- JOIN public.nafes_teacher_access t ON t.id=r.owner_id
- WHERE d.batch_id::text=$1 AND d.review_pk=$2 AND t.active AND d.reviewer_id=r.owner_id
- AND (t.subject_scope=''all'' OR t.subject_scope=ANY(r.subjects))
+ JOIN public.nafes_teacher_access t ON t.id=d.reviewer_id
+ WHERE d.batch_id::text=$1 AND d.review_pk=$2 AND t.active AND t.subject_scope=''all''
  AND (d.xmin::text)::bigint=mod((pg_current_xact_id()::text)::bigint,4294967296)
  AND ($3 IS NULL OR d.session_id=$3) AND ($5 IS NULL OR d.sheet_id=$5)'
  INTO result USING batch,p_review,p_session,p_delta,p_duplicate;
@@ -33,9 +59,7 @@ begin
  select * into s from public.nafes_scan_sessions where id=p_session for update;
  if not found or s.completed_at is null then raise exception 'Reviewed session required'; end if;
  select * into review from public.nafes_paper_reviews where id=s.review_pk for update;
- if review.owner_id<>p_owner or s.reviewer_id<>p_owner
- or not exists(select 1 from public.nafes_teacher_access where id=p_owner and active
-    and (subject_scope='all' or subject_scope=any(review.subjects))) then raise exception 'Publication outside reviewer scope'; end if;
+ perform public.nafes_scan_actor_context(p_session,p_owner,false);
  perform public.nafes_scan_finish(s.id);
  if jsonb_typeof(p_attempts) is distinct from 'array'
  or jsonb_array_length(p_attempts)<>(select count(*) from public.nafes_scan_sheets where session_id=s.id and not blocked_duplicate)
@@ -54,13 +78,13 @@ begin
    select * into student from public.nafes_students where id=r.student_id and not is_demo;
    if not found then raise exception 'Student UUID is not in original roster'; end if;
  end loop;
- if (select count(*) from public.nafes_assessments where owner_id=p_owner and config->>'paper_review_id'=review.review_id)>1 then
+ if (select count(*) from public.nafes_assessments where owner_id=review.owner_id and config->>'paper_review_id'=review.review_id)>1 then
    raise exception 'Multiple existing paper assessments; administrative reconciliation required';
  end if;
- select * into assessment from public.nafes_assessments where owner_id=p_owner and config->>'paper_review_id'=review.review_id for update;
+ select * into assessment from public.nafes_assessments where owner_id=review.owner_id and config->>'paper_review_id'=review.review_id for update;
  if not found then
    insert into public.nafes_assessments(owner_id,status,kind,title,config,rendered_sections)
-   values(p_owner,'draft','multi_indicator',p_assessment->>'title',p_assessment->'config',p_assessment->'rendered_sections')
+   values(review.owner_id,'draft','multi_indicator',p_assessment->>'title',p_assessment->'config',p_assessment->'rendered_sections')
    returning * into assessment;
  elsif assessment.rendered_sections is distinct from p_assessment->'rendered_sections' then
    raise exception 'Existing assessment question snapshot differs; do not overwrite it';
@@ -123,7 +147,7 @@ begin
   or to_regclass('public.nafes_students') is null then
     raise exception 'Original rollback SQL definitions unavailable; no changes made';
   end if;
-  if not exists(select 1 from public.nafes_teacher_access where id=p_reviewer and active) then
+  if not exists(select 1 from public.nafes_teacher_access where id=p_reviewer and active and subject_scope='all') then
     raise exception 'Reviewer not authorized';
   end if;
   if exists(select 1 from public.nafes_scan_deletions where batch_id=p_batch) then
@@ -154,17 +178,12 @@ begin
 
 
   perform 1 from public.nafes_paper_reviews where id=s.review_pk for update;
-  if s.reviewer_id<>p_reviewer or not exists(select 1 from public.nafes_paper_reviews r
-    join public.nafes_teacher_access t on t.id=r.owner_id
-    where r.id=s.review_pk and r.owner_id=p_reviewer and t.active
-      and (t.subject_scope='all' or t.subject_scope=any(r.subjects))) then
-    raise exception 'Rollback outside reviewer ownership or subject scope';
-  end if;
+  perform public.nafes_scan_actor_context(p_session,p_reviewer,true);
   perform 1 from public.nafes_scan_sheets where session_id=p_session and id=any(p_sheet_ids) order by id for update;
   -- Refuse unrelated ownership, student linkage, online history or mixed corrections.
   if exists(select 1 from public.nafes_assessment_attempts a
     where exists(select 1 from jsonb_array_elements(coalesce(a.events,'[]'::jsonb)) e where e->>'scan_sheet_id'=any(select unnest(p_sheet_ids)::text))
-      and (not exists(select 1 from public.nafes_assessments x where x.id=a.assessment_id and x.owner_id=p_reviewer
+      and (not exists(select 1 from public.nafes_assessments x where x.id=a.assessment_id and x.owner_id=(select owner_id from public.nafes_paper_reviews where id=s.review_pk)
               and x.config->>'paper_review_id'=(select review_id from public.nafes_paper_reviews where id=s.review_pk))
         or not exists(select 1 from public.nafes_scan_sheets x where x.id=any(p_sheet_ids) and x.student_id=a.student_id)
         or exists(select 1 from jsonb_array_elements(coalesce(a.events,'[]'::jsonb)) e
@@ -736,6 +755,10 @@ end $function$
 
 -- Teacher keys are checked by Edge. Never expose definer RPCs to an unauthenticated caller
 -- that can simply supply a reviewer UUID; discover actual overload signatures, not guessed ones.
+-- Explicit DEVELOPMENT repair ACL, not a claim that these are the exported production ACLs.
+-- Original invoker routines require these operations; no public grants or disabled RLS.
+GRANT SELECT,INSERT,UPDATE ON public.nafes_paper_reviews,public.nafes_scan_sessions,public.nafes_scan_sheets TO service_role;
+GRANT SELECT,INSERT ON public.nafes_scan_answer_edits,public.nafes_scan_identity_edits,public.nafes_scan_alerts TO service_role;
 DO $acl$
 declare f record;
 begin

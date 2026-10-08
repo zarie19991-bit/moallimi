@@ -2,7 +2,7 @@
   "passed": 13,
   "checks": [
     "140 sheets shown in existing UI",
-    "previous resolution still has explicit human reason",
+    "injected reading cause shown",
     "manual reason required in browser",
     "one-based question matches SQL contract",
     "actual Edge handler saved reason in native PostgreSQL",

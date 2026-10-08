@@ -851,6 +851,12 @@ async function teacherStudentHardDelete(db: any, b: Row) {
   return rpcRes.data;
 }
 
+async function protectReviewedPaperTest(db:any,testId:string){
+ if(!isUUID(testId))return;
+ const t=must(await db.from('nafes_assessments').select('id,config').eq('id',testId).maybeSingle());
+ if(t?.config?.paper_review===true||t?.config?.paper_review_id)
+   fail('نتائج أوراق المراجعة لا تُمسح من هذا المسار؛ استخدم التراجع الإداري المدقق.',409);
+}
 async function teacherTestClearResults(db: any, b: Row, owner?: Row) {
   const testId = String(b.test_id || b.id || '').trim();
   if (!testId) fail('معرّف الاختبار مطلوب.');
@@ -878,6 +884,7 @@ async function teacherTestClearResults(db: any, b: Row, owner?: Row) {
     fail('معرّف اختبار المحاكاة تالف أو غير صالح.');
   }
 
+  await protectReviewedPaperTest(db,testId);
   const rpcRes = await db.rpc('nafes_teacher_clear_test_results', {
     p_test_id: testId,
     p_confirm_word: confirmWord,
@@ -909,6 +916,7 @@ async function teacherTestDelete(db: any, b: Row, owner?: Row) {
   const ownerId = owner?.id || null;
   if (!ownerId) fail('معرّف مالك الحساب مطلوب للتحقق من صلاحية حذف الاختبار.', 401);
 
+  await protectReviewedPaperTest(db,testId);
   const rpcRes = await db.rpc('nafes_teacher_delete_published_test', {
     p_test_id: testId,
     p_confirm_word: confirmWord,
@@ -926,6 +934,12 @@ async function teacherTestDelete(db: any, b: Row, owner?: Row) {
 }
 
 async function teacherTestsBulkClear(db: any, b: Row, owner?: Row) {
+  if(b.clear_all===true){
+    const papers=must(await db.from('nafes_assessments').select('id').contains('config',{paper_review:true}).limit(1));
+    if(papers?.length)fail('تتضمن النتائج أوراق مراجعة محمية؛ لا يمكن مسحها جماعيًا خارج التراجع المدقق.',409);
+  }else{
+    for(const id of Array.isArray(b.test_ids)?b.test_ids:[])await protectReviewedPaperTest(db,String(id));
+  }
   const isClearAll = b.clear_all === true;
   const confirmWord = tidy(b.confirm_word);
   const ownerId = owner?.id || null;
@@ -1027,8 +1041,10 @@ async function teacherAttemptDelete(db:any,b:Row,owner:Row){
   const source=tidy(b.source,20),attemptId=tidy(b.attempt_id,80);
   if(!['assessment','exam'].includes(source)||!isUUID(attemptId))fail('بيانات المحاولة غير صالحة.');
   if(source==='assessment'){
-    const a=must(await db.from('nafes_assessment_attempts').select('id,assessment_id,student_id,is_demo').eq('id',attemptId).maybeSingle());
+    const a=must(await db.from('nafes_assessment_attempts').select('id,assessment_id,student_id,is_demo,events,config').eq('id',attemptId).maybeSingle());
     if(!a||a.is_demo===true)fail('المحاولة غير موجودة.',404);
+    if(a.config?.paper_review===true||a.config?.paper_review_id||Array.isArray(a.events)&&a.events.some((e:Row)=>e.type==='paper_scan'))
+      fail('هذه محاولة مرتبطة بورقة مراجعة؛ استخدم التراجع الإداري المصرح به مع سبب وسجل تدقيق.',409);
     const t=must(await db.from('nafes_assessments').select('id,owner_id,config').eq('id',a.assessment_id).maybeSingle());
     if(!t)fail('الاختبار غير موجود.',404);
     const subjects=[...new Set((t.config?.sections||[]).map((s:Row)=>String(s.subject||'')))].filter(Boolean);
@@ -1106,9 +1122,14 @@ async function teacher(db:any,req:Request) {
  if(!/^(?:[0-9]{10}|[a-f0-9]{48,96})$/i.test(key))fail('أدخل رقم أو مفتاح دخول المعلم لعرض النتائج وإعداد الاختبارات.',401);
  const row=must(await db.from('nafes_teacher_access').select('id,label,subject_scope').eq('key_hash',await hash(key)).eq('active',true).maybeSingle());
  if(!row)fail('مفتاح دخول المعلم غير صحيح.',401);
- return {...row,subject_scope:SUBJECTS.includes(String(row.subject_scope))?String(row.subject_scope):'all'};
+ if(row.subject_scope!=='all'&&!SUBJECTS.includes(String(row.subject_scope)))fail('صلاحية حساب المعلم غير صالحة.',403);
+ return {...row,subject_scope:String(row.subject_scope)};
 }
-function teacherScope(owner:Row){return SUBJECTS.includes(String(owner?.subject_scope))?String(owner.subject_scope):'all';}
+function teacherScope(owner:Row){
+ const scope=String(owner?.subject_scope||'');
+ if(scope!=='all'&&!SUBJECTS.includes(scope))fail('صلاحية حساب المعلم غير صالحة.',403);
+ return scope;
+}
 function assertMainAccount(owner:Row){if(teacherScope(owner)!=='all')fail('هذه العملية الإدارية متاحة للحساب الرئيسي فقط.',403);}
 function scopeAllows(owner:Row,subject:unknown){const s=teacherScope(owner);return s==='all'||s===String(subject||'');}
 function assertSubjectScope(owner:Row,subject:unknown){if(!scopeAllows(owner,subject))fail('هذه المادة ليست ضمن صلاحية حساب المعلم.',403);}

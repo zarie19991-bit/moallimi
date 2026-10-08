@@ -19,7 +19,7 @@ export function memoryDb(image: string, overrides: Row = {}) {
   };
   const tables: Record<string, Row[]> = {
     nafes_paper_reviews: [{ id: "test-review-pk", review_id: "test-review", owner_id: ids.owner, subjects: ["reading"], payload }],
-    nafes_scan_sessions: [{ id: ids.session, review_pk: "test-review-pk", review_snapshot: payload, expected_count: 1 }],
+    nafes_scan_sessions: [{ id: ids.session,reviewer_id:ids.owner, review_pk: "test-review-pk", review_snapshot: payload, expected_count: 1 }],
     nafes_scan_sheets: [{
       id: ids.sheet, session_id: ids.session, ordinal: 1, student_id: ids.student,
       sheet_no: 1, image_data: image, answer_version: 1,

@@ -141,10 +141,13 @@ async function reprocessServerSheet(db:any,session:Row,row:Row){
 }
 
 async function reviewFor(db:any,b:Row,owner:Row){
+ if(!['all','reading','math','science'].includes(owner.subject_scope))fail('صلاحية حساب المعلم غير صالحة.',403);
  let q=db.from('nafes_paper_reviews').select('*').eq('review_id',String(b.review_id||''));
  if(owner.subject_scope!=='all')q=q.eq('owner_id',owner.id);
  const r=must(await q.maybeSingle());if(!r)fail('الاختبار غير موجود أو غير مصرح به.',404);
- if(owner.subject_scope!=='all'&&(r.subjects||[r.subject]).some((s:string)=>s!==owner.subject_scope))fail('غير مصرح.',403);
+ const subjects=Array.isArray(r.subjects)&&r.subjects.length?r.subjects:[r.subject];
+ if(!subjects.length||subjects.some((s:string)=>!['reading','math','science'].includes(s)))fail('مواد المراجعة غير صالحة.',403);
+ if(owner.subject_scope!=='all'&&subjects.some((s:string)=>s!==owner.subject_scope))fail('غير مصرح.',403);
  return r;
 }
 export async function scanSession(db:any,b:Row,owner:Row){
@@ -172,6 +175,9 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
     return {ok:true,alerts,next_cursor:alerts.length===200?after+200:null,omr_auto_upgraded:0,omr_policy:OMR_POLICY};
  }
  const {session}=await scanSession(db,b,owner);
+ const mutations=['teacher_scan_finalize_upload','teacher_scan_register','teacher_scan_assign_identity',
+   'teacher_scan_reprocess_server','teacher_scan_reclassify','teacher_scan_edit_answer','teacher_scan_verify','teacher_scan_finish'];
+ if(mutations.includes(b.action)&&session.reviewer_id!==owner.id)fail('التعديل متاح لمراجع الجلسة المسجل فقط.',403);
  if(b.action==='teacher_scan_list'){
     const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
    const safe=rows.map((x:Row)=>{const {image_data,...rest}=x;return rest;});
@@ -288,6 +294,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    return {ok:true,sheet};
  }
  if(b.action==='teacher_scan_delete'){
+   if(owner.subject_scope!=='all')fail('التراجع الإداري متاح للحساب الرئيسي فقط.',403);
    if(b.confirm!==true||!uuid(b.request_id)||!Array.isArray(b.sheet_ids)||!b.sheet_ids.length||b.sheet_ids.length>200||b.sheet_ids.some((x:any)=>!uuid(x)))fail('تأكيد الحذف أو البيانات غير صالحة.');
    const reason=String(b.reason||'').trim();if(reason.length<3||reason.length>200)fail('اكتب سبب الحذف باختصار.');
    const result=must(await db.rpc('nafes_scan_delete_corrections',{p_session:session.id,p_sheet_ids:b.sheet_ids,p_reviewer:owner.id,p_reason:reason,p_batch:b.request_id}));
@@ -372,6 +379,7 @@ async function reviewedBatchSheets(db:any,session:Row){
 export async function reviewedScanPayload(db:any,b:Row,owner:Row){
  if(!uuid(b.session_id))fail('أكمل جلسة مراجعة الأوراق قبل اعتماد النتائج.',409);
  const {review,session}=await scanSession(db,b,owner);
+ if(session.reviewer_id!==owner.id)fail('نشر النتائج متاح لمراجع الجلسة المسجل فقط.',403);
  if(!session.completed_at)fail('اضغط «تم المراجعة» قبل اعتماد النتائج.',409);
  const sheets=await reviewedBatchSheets(db,session);
  return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answer_version:s.answer_version,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length,policy:x.omr_policy||null,risk:x.omr_verification?.risk||null,quality_score:x.omr_verification?.quality_score||null}};})};

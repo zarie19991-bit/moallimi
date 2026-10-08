@@ -1,7 +1,7 @@
 import {readFileSync,existsSync} from "node:fs";
 import {resolve,extname} from "node:path";
 import {localDatabase} from "./sql/local-db";
-import {developmentScan} from "./source";
+import {developmentAssessments} from "./source";
 const cfg=JSON.parse(readFileSync(process.argv[2],"utf8"));
 const db=localDatabase(cfg),root=resolve(".");
 const allowed=new Set(readFileSync("production-files.txt","utf8").split("\n").filter(s=>s&&!s.startsWith("#")));
@@ -19,9 +19,9 @@ Bun.serve({port:5000,hostname:"0.0.0.0",async fetch(req){
    if(!String(body.action).startsWith("teacher_scan_")||["teacher_scan_start","teacher_scan_register","teacher_scan_delete","teacher_scan_deletion_log"].includes(body.action))
      return json({error:"المسار يحتاج تعريفات SQL الأصلية غير المتاحة؛ لم تُحفظ محاولات أو تُحذف بيانات."},409);
    if(body.review_id!=="batch-140"||body.session_id!==cfg.session_id)return json({error:"Synthetic session only"},403);
-   const result=await developmentScan.handlePaperScan(db,body,{id:cfg.owner_id,subject_scope:"all"});
+   const result=await developmentAssessments.handleAssessments(db,req,body);
    return json(result);
-  }catch(e:any){return json({error:e.message},409);}
+  }catch(e:any){return json({error:e.message},[400,401,403,404,409].includes(e.status)?e.status:409);}
  }
  let path=decodeURIComponent(url.pathname);
  if(path==="/")path="/qa/omr/development/frontend/student-papers.html";

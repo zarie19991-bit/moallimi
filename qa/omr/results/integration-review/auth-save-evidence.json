@@ -1,0 +1,118 @@
+{
+  "original": {
+    "cases": [
+      {
+        "name": "active_main_real_auth_and_native_save",
+        "passed": false,
+        "error": "Reason absent from native audit"
+      },
+      {
+        "name": "active_subject_teacher_own_session_native_save",
+        "passed": true
+      },
+      {
+        "name": "missing_key_no_write",
+        "passed": true
+      },
+      {
+        "name": "unknown_key_no_write",
+        "passed": true
+      },
+      {
+        "name": "inactive_key_no_write",
+        "passed": true
+      },
+      {
+        "name": "wrong_subject_no_write",
+        "passed": true
+      },
+      {
+        "name": "other_main_cannot_modify_assigned_reviewer_session",
+        "passed": false,
+        "error": "Denial or no-write invariant failed"
+      },
+      {
+        "name": "no_reason_cannot_promote_ambiguous",
+        "passed": false,
+        "error": "Denial or no-write invariant failed"
+      },
+      {
+        "name": "subject_teacher_cannot_use_admin_rollback",
+        "passed": true
+      },
+      {
+        "name": "malformed_scope_cannot_be_promoted_to_all",
+        "passed": false,
+        "error": "Unknown scope expanded authority"
+      }
+    ],
+    "synthetic_only": true,
+    "teacher_lookup_role": "service_role",
+    "rpc_role": "postgres",
+    "scan_selects_role": "postgres",
+    "original_scan_acl_not_supplied": true,
+    "development_service_acl_explicit": false,
+    "publication_positive_tested": false,
+    "rollback_positive_tested": false
+  },
+  "repaired": {
+    "cases": [
+      {
+        "name": "active_main_real_auth_and_native_save",
+        "passed": true
+      },
+      {
+        "name": "active_subject_teacher_own_session_native_save",
+        "passed": true
+      },
+      {
+        "name": "missing_key_no_write",
+        "passed": true
+      },
+      {
+        "name": "unknown_key_no_write",
+        "passed": true
+      },
+      {
+        "name": "inactive_key_no_write",
+        "passed": true
+      },
+      {
+        "name": "wrong_subject_no_write",
+        "passed": true
+      },
+      {
+        "name": "other_main_cannot_modify_assigned_reviewer_session",
+        "passed": true
+      },
+      {
+        "name": "no_reason_cannot_promote_ambiguous",
+        "passed": true
+      },
+      {
+        "name": "subject_teacher_cannot_use_admin_rollback",
+        "passed": true
+      },
+      {
+        "name": "malformed_scope_cannot_be_promoted_to_all",
+        "passed": true
+      },
+      {
+        "name": "main_admin_authorization_across_owner_without_delete",
+        "passed": true
+      },
+      {
+        "name": "main_reviewer_can_publish_for_original_review_owner_authorization_only",
+        "passed": true
+      }
+    ],
+    "synthetic_only": true,
+    "teacher_lookup_role": "service_role",
+    "rpc_role": "service_role",
+    "scan_selects_role": "service_role",
+    "original_scan_acl_not_supplied": true,
+    "development_service_acl_explicit": true,
+    "publication_positive_tested": false,
+    "rollback_positive_tested": false
+  }
+}

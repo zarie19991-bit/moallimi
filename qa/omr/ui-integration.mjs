@@ -16,7 +16,7 @@ try{
  assert(await page.locator("#omrSheets .omr-sheet-item").count()===140,"140 sheets shown in existing UI");
  await page.locator("#omrSheets .omr-sheet-item").first().click();
  await page.waitForSelector("#omrAnswerReason");
- const currentList=await(await context.request.post(base+"/api/omr-local",{data:{action:"teacher_scan_list",review_id:"batch-140",session_id:"11111111-1111-4111-8111-111111111111"}})).json();
+ const currentList=await(await context.request.post(base+"/api/omr-local",{headers:{"x-teacher-key":"0000000001"},data:{action:"teacher_scan_list",review_id:"batch-140",session_id:"11111111-1111-4111-8111-111111111111"}})).json();
  const initialAnswer=(currentList.sheets[0].effective_snapshot||currentList.sheets[0].snapshot).answers[0];
  if(initialAnswer.state==="uncertain")
    assert((await page.locator("#omrDetail").innerText()).includes("synthetic_review_injection"),"injected reading cause shown");
@@ -50,7 +50,7 @@ try{
  await page.waitForTimeout(600);
  const detail=await page.locator("#omrDetail").innerText();
  assert(detail.includes("اقتراح")||detail.includes("مقترح"),"reread shown only as proposal");
- const finish=await context.request.post(base+"/api/omr-local",{data:{action:"teacher_scan_finish",review_id:"batch-140",session_id:"11111111-1111-4111-8111-111111111111"}});
+ const finish=await context.request.post(base+"/api/omr-local",{headers:{"x-teacher-key":"0000000001"},data:{action:"teacher_scan_finish",review_id:"batch-140",session_id:"11111111-1111-4111-8111-111111111111"}});
  assert(!finish.ok(),"unfinished batch cannot be approved by actual handler");
  assert(await page.locator("#omrDelete").isDisabled(),"admin rollback blocked without original DDL");
  assert(errors.length===0,"no browser JavaScript exceptions");

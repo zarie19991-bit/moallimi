@@ -50,6 +50,7 @@ for (const [member, text] of Object.entries(sources)) {
 const require = createRequire(import.meta.url);
 const built = await Bun.build({
   entrypoints: [
+    join(directory, "source/assessments.ts"),
     join(directory, "source/omr-server.ts"),
     join(directory, "source/paper-scan.ts"),
   ],
@@ -71,6 +72,7 @@ const built = await Bun.build({
 if (!built.success) throw new Error(built.logs.join("\n"));
 export const omr = await import(join(directory, "compiled/omr-server.js"));
 export const scan = await import(join(directory, "compiled/paper-scan.js"));
+export const originalAssessments=await import(join(directory,"compiled/assessments.js"));
 const developmentDir=join(root,"qa/omr/development/source");
 const devBuilt=await Bun.build({
   entrypoints:[join(developmentDir,"omr-server.ts"),join(developmentDir,"paper-scan.ts"),join(developmentDir,"assessments.ts")],
