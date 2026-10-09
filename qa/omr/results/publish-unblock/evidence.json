@@ -1,0 +1,235 @@
+{
+  "synthetic_only": true,
+  "production_connected": false,
+  "ready_to_publish": false,
+  "original_dependency_functions_loaded": [
+    "lugati_exam_adaptive_trigger",
+    "lugati_require_source_for_auto_assignment",
+    "lugati_simulation_adaptive_trigger",
+    "nafes_normalize_arabic",
+    "nafes_standard_question_quality_guard"
+  ],
+  "next_missing_function_definitions": [],
+  "source_metadata_limitations": [
+    "Original schema ACL and paper_review/scan RPC ACL are not in the supplied bundles",
+    "PostgREST transport and production role attributes have not been replicated"
+  ],
+  "publication_positive_tested": true,
+  "rollback_of_published_attempt_positive_tested": true,
+  "postgrest_transport_tested": false,
+  "cases": [
+    {
+      "name": "original_student_insert_with_normalization_and_all_student_triggers",
+      "passed": true
+    },
+    {
+      "name": "normalization_original_function_executed",
+      "passed": true
+    },
+    {
+      "name": "synthetic_student_is_regular_roster_for_attempt_test",
+      "passed": true
+    },
+    {
+      "name": "ambiguous_sheet_not_verified_without_resolution",
+      "passed": true
+    },
+    {
+      "name": "manual_resolution_version_incremented",
+      "passed": true
+    },
+    {
+      "name": "manual_reason_persisted_in_original_audit_table",
+      "passed": true
+    },
+    {
+      "name": "resolved_sheet_batch_accepted",
+      "passed": true
+    },
+    {
+      "name": "concurrent_initial_publication_requests_both_complete",
+      "passed": true
+    },
+    {
+      "name": "original_generated_auth_column_evaluated",
+      "passed": true
+    },
+    {
+      "name": "original_auth_uid_default_assigns_authenticated_class_owner",
+      "passed": true
+    },
+    {
+      "name": "original_class_rls_hides_other_owner_rows",
+      "passed": true
+    },
+    {
+      "name": "original_class_rls_rejects_cross_owner_insert",
+      "passed": true
+    },
+    {
+      "name": "original_private_updated_at_trigger_executes",
+      "passed": true
+    },
+    {
+      "name": "original_class_acl_blocks_anonymous_read",
+      "passed": true
+    },
+    {
+      "name": "one_accepted_sheet_produces_exactly_one_attempt",
+      "passed": true
+    },
+    {
+      "name": "published_attempt_linked_to_correct_student",
+      "passed": true
+    },
+    {
+      "name": "published_grade_matches_resolved_sheet",
+      "passed": true
+    },
+    {
+      "name": "published_answers_match_reviewed_payload",
+      "passed": true
+    },
+    {
+      "name": "published_model_matches_sheet_model",
+      "passed": true
+    },
+    {
+      "name": "published_assessment_owner_preserved",
+      "passed": true
+    },
+    {
+      "name": "original_triggers_compute_adaptive_result",
+      "passed": true
+    },
+    {
+      "name": "adaptive_result_references_created_attempt",
+      "passed": true
+    },
+    {
+      "name": "concurrent_publication_replays_succeed",
+      "passed": true
+    },
+    {
+      "name": "concurrent_replays_do_not_duplicate_attempt_or_grade",
+      "passed": true
+    },
+    {
+      "name": "publication_replay_preserves_attempt_snapshot",
+      "passed": true
+    },
+    {
+      "name": "anonymous_publish_execute_denied",
+      "passed": true
+    },
+    {
+      "name": "original_submitted_snapshot_trigger_rejects_grade_mutation",
+      "passed": true
+    },
+    {
+      "name": "original_identity_sequence_records_exclusion_audit",
+      "passed": true
+    },
+    {
+      "name": "original_exclusion_audit_trigger_records_both_changes",
+      "passed": true
+    },
+    {
+      "name": "exclusion_changes_do_not_modify_student_grade",
+      "passed": true
+    },
+    {
+      "name": "unrelated_older_attempt_created_with_original_triggers",
+      "passed": true
+    },
+    {
+      "name": "older_result_does_not_overwrite_latest_adaptive_source",
+      "passed": true
+    },
+    {
+      "name": "restricted_teacher_cannot_rollback_published_attempt",
+      "passed": true
+    },
+    {
+      "name": "unauthorized_published_rollback_changes_nothing",
+      "passed": true
+    },
+    {
+      "name": "aborted_rollback_transaction_preserves_attempts_and_sheet",
+      "passed": true
+    },
+    {
+      "name": "aborted_rollback_transaction_preserves_manual_audit_without_partial_ledger",
+      "passed": true
+    },
+    {
+      "name": "aborted_rollback_transaction_restores_derived_result",
+      "passed": true
+    },
+    {
+      "name": "authorized_rollback_deletes_only_target_published_attempt",
+      "passed": true
+    },
+    {
+      "name": "rollback_preserves_unrelated_attempt_grade",
+      "passed": true
+    },
+    {
+      "name": "original_delete_trigger_recomputes_adaptive_result_from_surviving_attempt",
+      "passed": true
+    },
+    {
+      "name": "published_rollback_creates_one_audit_record",
+      "passed": true
+    },
+    {
+      "name": "rollback_audit_retains_manual_reason_and_deleted_attempt_snapshot",
+      "passed": true
+    },
+    {
+      "name": "rollback_audit_does_not_copy_attempt_access_hash",
+      "passed": true
+    },
+    {
+      "name": "published_rollback_removes_target_scan_sheet",
+      "passed": true
+    },
+    {
+      "name": "published_rollback_request_replay_detected",
+      "passed": true
+    },
+    {
+      "name": "published_rollback_replay_does_not_duplicate_audit_or_erase_other_results",
+      "passed": true
+    }
+  ],
+  "probes": {
+    "publish_original_triggers": {
+      "completed": true
+    },
+    "rollback_published_attempt": {
+      "completed": true
+    }
+  },
+  "source_sha256": {
+    "catalog": "5038bc6d2f47bb008d36b086cca372062fb640265a5488b491f6b6eac85407ee",
+    "dependencies": "498f0c5aa8bd340fbb74ae1346421792667bc21805b4a99df93b9eabed74337a",
+    "publish_unblock": "1a4b72bb3ce99f400b6e14e077590c6c960de426a1acb34a478b88c192baf378"
+  },
+  "publish_unblock_functions_loaded": [
+    "auth.uid",
+    "private.moallimi_touch_updated_at",
+    "public.lugati_norm_training_text",
+    "public.lugati_sync_exam_attempt",
+    "public.nafes_content_fingerprint",
+    "public.nafes_question_quality_checks",
+    "public.nafes_question_quality_hard_pass",
+    "public.nafes_reviewed_content_key"
+  ],
+  "scan_rpc_role": "service_role",
+  "paper_review_acl_original_not_supplied": true,
+  "positive_native_cycle_completed": true,
+  "native_version": "postgres (PostgreSQL) 17.6",
+  "passed": 46,
+  "failed_assertions": 0
+}

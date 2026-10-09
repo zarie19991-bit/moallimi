@@ -1,0 +1,22 @@
+<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>قبول دورة محاولات معلّمي OMR</title>
+<style>body{font:18px/1.8 system-ui,sans-serif;max-width:950px;margin:36px auto;padding:0 24px;color:#18313b}table{border-collapse:collapse;width:100%}th,td{padding:10px;border:1px solid #cbd5dc;text-align:right}.ok{background:#edf8ef;border-right:5px solid #24743d;padding:18px}.warning{background:#fff3dc;border-right:5px solid #946000;padding:18px}code{direction:ltr;unicode-bidi:isolate;font-size:15px}@media print{body{font-size:12pt;margin:0}tr{break-inside:avoid}}</style>
+<h1>معلّمي OMR: نجحت دورة الحفظ والتراجع محليًا</h1>
+<p class="ok"><strong>46 تحققًا SQL ناجحًا، وصفر فشل.</strong> نجح إنشاء محاولة الطالب وحفظ الدرجة ثم التراجع الإداري عنها بالمحفزات الأصلية.</p>
+<p><strong>155 اختبار انحدار ناجحًا</strong>، صفر فشل، 1166 assertion عبر 12 ملفًا. لا تُجمع الأعداد المتداخلة من التقارير القديمة.</p>
+<h2>ما أصلح بيئة الاختبار</h2>
+<p>جُلبت الحزمة <code>production-schema-publish-unblock.pgp.base64</code> وفُكت بالمفتاح المحفوظ. استُخدمت وظائف auth وprivate والتعريفات الأصلية للأعمدة المولّدة والهوية والتسلسل والجداول والسياسات والفهارس. لم تُعطّل قيود أو تُخترع بدائل.</p>
+<table><tr><th>المسار</th><th>النتيجة المثبتة</th></tr>
+<tr><td>الالتباس والمراجعة</td><td>رُفض الاعتماد قبل الحسم؛ ثم حُفظ السبب والإصدار واعتمدت الدفعة.</td></tr>
+<tr><td>إنشاء المحاولات</td><td>طلبان أوليان متزامنان أنتجا محاولة واحدة، للطالب الصحيح والنموذج A والدرجة 4/4.</td></tr>
+<tr><td>إعادة النشر</td><td>لا تكرار أو تغير في لقطة المحاولة.</td></tr>
+<tr><td>التراجع الإداري</td><td>حذف المحاولة المستهدفة وحفظ التدقيق؛ رفض غير المخوّل.</td></tr>
+<tr><td>التجميع بعد التراجع</td><td>استُعيد المصدر الأقدم: 2/4 و50% وتصنيف remedial، دون تغيير درجته.</td></tr>
+<tr><td>ذرية المعاملة</td><td>الإلغاء المتعمد أعاد المحاولات والورقة والمراجعات والنتيجة التابعة كاملة.</td></tr>
+<tr><td>سياسات الفصول</td><td>RLS الأصلي أخفى صفوف المالك الآخر ورفض الإدخال إليه.</td></tr></table>
+<h2>حدود القبول</h2>
+<p>هذه دورة اصطناعية لورقة بأربع إجابات ومحاولة أقدم، وليست اختبار نشر 140 محاولة. لم تُعد تجربة الصور السابقة. لم يتغير محرك OMR أو ملفات الواجهة.</p>
+<p class="warning"><strong>لم يُنشر شيء، ولم يُعدل الإنتاج.</strong> القبول المحلي نجح، لكن جاهزية الإطلاق النهائي لم تُثبت: مسار API/PostgREST والواجهة والتطابق الكامل لصلاحيات الإنتاج ما زالت غير مثبتة في هذه الجولة.</p>
+<p>المعاينة الحالية لا ترتبط بقاعدة هذا الاختبار المؤقتة. التعريفات المفكوكة بقيت خارج المستودع، وحزمة التقرير لا تضمها أو أسرارًا أو بيانات طلاب.</p>
+</html>

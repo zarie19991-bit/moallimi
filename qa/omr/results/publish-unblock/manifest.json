@@ -1,0 +1,16 @@
+{
+  "source_branch": "qa/omr-catalog-locked-20261009",
+  "source_revision": "fa1cde7b1dac126527df838d0d551cd0696c4112",
+  "production_connected": false,
+  "published": false,
+  "plaintext_catalog_included": false,
+  "files": {
+    "qa/omr/sql/dependencies-integration.py": "646dfdbf957bcf022d945223c5163a5aec37ac3cd02060729759cef5c8e43e0e",
+    "qa/omr/sql/catalog_renderer.py": "d00411cfd588e0cdef3e89da4e3460a1626d057692fae07e6e4f93562dc9c638",
+    "qa/omr/sql/published_cycle.py": "ff2bd3dfdb597f2447dd8c9efea789abd7fffec32bfd2d0bca6701cce30b0c29",
+    "qa/omr/PUBLISH-UNBLOCK-ACCEPTANCE.md": "8769c1c0f92041616a568c2ce849b0ef7e7a177983158abaaab3865c4d6f3179",
+    "qa/omr/results/publish-unblock/evidence.json": "f15f0c1d7e1937acbb95e7a22a93051f7757f21df3aff3df18fe0793d7192c1e",
+    "qa/omr/results/publish-unblock/regressions.json": "c7b3347bee57dc9e270502ffcff43c121a7cf551b27ae3ed8d1192d8292876ee",
+    "qa/omr/results/publish-unblock/report.html": "16d04a23264d72afd31c54989aa0ef2fe901848477dc77bd4c021783dad5dd02"
+  }
+}

@@ -224,3 +224,31 @@ mtime_ms = 1791519084727
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/54d492bd-8a13-423a-8fba-85097bd7b26c/b3c95436-b04c-4a3a-8a07-4662aaf6fd24"
 storage_version_token = "1791519093378071"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "grMxq7NixtFDlTvdyP6AT"
+uri = "file://qa/omr/results/publish-unblock/report.html"
+type = "html"
+title = "نجاح دورة محاولات OMR والتراجع محليًا"
+description = "46 تحققًا SQL ناجحًا و155 اختبار انحدار؛ إنشاء المحاولات والتراجع عن المنشورة نجحا دون تعديل الإنتاج."
+logical_id = "9e2b580d-d046-440c-b25d-db1c97067840"
+content_hash = "sha256:16d04a23264d72afd31c54989aa0ef2fe901848477dc77bd4c021783dad5dd02"
+size = 3806
+mtime_ms = 1791521596909
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/9e2b580d-d046-440c-b25d-db1c97067840/748a6788-df81-45fd-bba4-177415f0f035"
+storage_version_token = "1791521728813470"
+content_type = "text/html"
+
+[[outputs]]
+id = "CWwHv7jzOxbOiLXZ5t4-G"
+uri = "file://qa/omr/results/publish-unblock/accepted-native-cycle.zip"
+type = "unspecified"
+title = "نسخة الاختبار والأدلة المحفوظة"
+description = "أدوات تركيب المخطط والاختبار، النتائج والتقرير وبصمات المصادر؛ دون الحزم المفكوكة أو الأسرار أو بيانات طلاب حقيقية."
+logical_id = "3a229d92-9827-4a99-8aef-229d658e83f9"
+content_hash = "sha256:d42412441a2470dda8c922678c65a7713dff85797a5867fa9e6078c895be6a7a"
+size = 18935
+mtime_ms = 1791521676118
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:39a9c7b6-a39d-490f-afd9-4840514c207e/3a229d92-9827-4a99-8aef-229d658e83f9/3ceffd25-2756-4bc5-b7e7-7cdfcb65cdcd"
+storage_version_token = "1791521730163058"
+content_type = "application/octet-stream"

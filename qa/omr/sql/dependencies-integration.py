@@ -4,6 +4,8 @@ The database slice is explicitly not a complete Supabase installation.
 No decrypted definitions are written under the repository.
 """
 import importlib.util
+import hashlib
+import concurrent.futures
 import json
 import os
 import re
@@ -12,6 +14,7 @@ from pathlib import Path
 from runtime import LocalPostgres
 from schema import ROOT, SCAN_SOURCE, original_ddl, literal
 from repairs import build_repairs
+import catalog_renderer
 
 
 def load_module(name, filename):
@@ -27,6 +30,12 @@ def run():
     assert all(str(p).startswith("/tmp/") for p in [catalog_path, dependency_path])
     catalog = json.loads(catalog_path.read_text())
     deps = json.loads(dependency_path.read_text())
+    unblock = None
+    if os.environ.get("OMR_PRIVATE_UNBLOCK"):
+        unblock_path = Path(os.environ["OMR_PRIVATE_UNBLOCK"]).resolve()
+        assert str(unblock_path).startswith("/tmp/")
+        unblock = json.loads(unblock_path.read_text())
+    latest = {t["table"]:t for t in unblock["tables"]} if unblock else {}
     original = json.loads(SCAN_SOURCE.read_text())
     renderer = load_module("original_catalog_renderer", "catalog-integration.py")
     fixtures = load_module("original_scan_fixture", "run-tests.py")
@@ -66,6 +75,13 @@ def run():
         "rollback_of_published_attempt_positive_tested": False,
         "postgrest_transport_tested": False, "cases": [], "probes": {},
     }
+    evidence["source_sha256"] = {
+        "catalog":hashlib.sha256(catalog_path.read_bytes()).hexdigest(),
+        "dependencies":hashlib.sha256(dependency_path.read_bytes()).hexdigest(),
+    }
+    if unblock:
+        evidence["source_sha256"]["publish_unblock"] = hashlib.sha256(unblock_path.read_bytes()).hexdigest()
+        evidence["publish_unblock_functions_loaded"] = [f["schema"]+"."+f["function"] for f in unblock["functions"]]
     with LocalPostgres() as pg:
         pg.sql("postgres", "CREATE DATABASE omr_repaired")
         db = "omr_repaired"
@@ -74,18 +90,36 @@ def run():
         pg.sql(db, build_repairs(bodies))
         c = fixtures.Cases(pg, db, repaired=True)
         row = c.reset("ambiguous")
+        roles = ["anon","authenticated","service_role","supabase_auth_admin","dashboard_user"]
+        sequences = {}
+        if unblock:
+            pg.sql(db,"CREATE SCHEMA auth; CREATE SCHEMA private; "
+                      "CREATE ROLE supabase_auth_admin NOLOGIN; CREATE ROLE dashboard_user NOLOGIN;")
+            sequences = {s["schema"]+"."+s["name"]:s for s in unblock["sequences"]}
+            for f in unblock["functions"]:
+                pg.sql(db,f["definition"])
+            # Definitions present only in the newer bundle replace old metadata.
+            for body in functions.values():
+                pg.sql(db,body)
+            for name in ["users","moallimi_classes"]:
+                pg.sql(db,catalog_renderer.table_ddl(latest[name],sequences,roles))
+                for trigger in latest[name]["triggers"]:
+                    pg.sql(db,trigger+";")
         # Complete public slices only; no fabricated auth.uid or classes trigger.
         installed = set()
         for name in ["nafes_students", "nafes_assessments", "nafes_scan_deletions",
                      "nafes_analysis_exclusion_audit", "lugati_adaptive_assignments",
-                     "nafes_assessment_attempts", "nafes_simulation_attempts", "nafes_question_bank"]:
+                     "nafes_assessment_attempts", "nafes_simulation_attempts", "nafes_question_bank",
+                     *([] if not unblock else ["nafes_exam_attempts"])]:
             t = tables[name]
             normalized = {**t, "policies": [
                 {"name": p["name"], "roles": p["roles"],
                  "cmd": p.get("cmd", p.get("command")),
                  "using": p["using"], "check": p.get("check", p.get("with_check"))}
                 for p in t["policies"]]}
-            imported = pg.sql(db, "BEGIN;\n" + renderer.table_ddl(normalized) + "\nCOMMIT;", allow_error=True)
+            definition = (catalog_renderer.table_ddl(latest[name],sequences,roles)
+                          if name in latest else renderer.table_ddl(normalized))
+            imported = pg.sql(db, "BEGIN;\n" + definition + "\nCOMMIT;", allow_error=True)
             if imported.returncode:
                 evidence["probes"]["import_public."+name] = {
                     "completed":False,"error_first_line":imported.stderr.splitlines()[0]}
@@ -96,11 +130,21 @@ def run():
             assert not re.search(r"dblink|net\.|COPY.*PROGRAM|pg_(read|write)_file", body, re.I | re.S)
             pg.sql(db, body)
         for name in ["nafes_students", "nafes_assessments", "lugati_adaptive_assignments",
-                     "nafes_assessment_attempts", "nafes_simulation_attempts", "nafes_question_bank"]:
+                     "nafes_assessment_attempts", "nafes_simulation_attempts", "nafes_question_bank",
+                     *([] if not unblock else ["nafes_exam_attempts"])]:
             if name not in installed:
                 continue  # Whole import rolled back; no partial table or disabled trigger.
-            for trigger in tables[name]["triggers"]:
+            for trigger in (latest[name]["triggers"] if name in latest else tables[name]["triggers"]):
                 pg.sql(db, trigger + ";")
+        if unblock:
+            for sequence in unblock["sequences"]:
+                pg.sql(db,catalog_renderer.grants("SEQUENCE",
+                    catalog_renderer.quote(sequence["schema"])+"."+catalog_renderer.quote(sequence["name"]),
+                    sequence["acl"],roles))
+            for f in unblock["functions"]:
+                pg.sql(db,catalog_renderer.grants("FUNCTION",
+                    catalog_renderer.quote(f["schema"])+"."+catalog_renderer.quote(f["function"])+"("+f["args"]+")",
+                    f["acl"],roles))
         # Override development table grants with the actual received originals.
         priv = {"a":"INSERT","r":"SELECT","w":"UPDATE","d":"DELETE","D":"TRUNCATE",
                 "x":"REFERENCES","t":"TRIGGER","m":"MAINTAIN"}
@@ -178,15 +222,40 @@ def run():
         attempts = [{"sheet_id":row["id"],"answer_version":1,"payload":data}]
         sql = ("SET ROLE service_role; SELECT public.nafes_scan_publish_attempts("
                f"'{fixtures.SESSION}','{fixtures.OWNER}',{fixtures.j(assessment_data)},{fixtures.j(attempts)});")
-        publication = pg.sql(db, sql, allow_error=True)
-        if publication.returncode:
+        if unblock:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                initial = list(pool.map(lambda _:pg.sql(db,sql,allow_error=True),range(2)))
+            if any(p.returncode for p in initial):
+                raise RuntimeError("Concurrent initial publication failed:\n"+
+                                   "\n".join(p.stderr for p in initial if p.returncode))
+            publication = initial[0]
+            check(True,"concurrent_initial_publication_requests_both_complete")
+        else:
+            publication = pg.sql(db, sql, allow_error=True)
+        if unblock:
+            from published_cycle import verify_cycle
+            verify_cycle(pg,db,c,row,fixtures,assessment_data,attempts,sql,publication,evidence,check)
+            evidence["native_version"] = pg.version
+            evidence["source_metadata_limitations"] = [
+                "Original schema ACL and paper_review/scan RPC ACL are not in the supplied bundles",
+                "PostgREST transport and production role attributes have not been replicated"]
+            evidence["next_missing_function_definitions"] = []
+        if not unblock and publication.returncode:
             message = publication.stderr
             match = re.search(r'(?:relation|function) "([^"]+)" does not exist', message)
             evidence["probes"]["publish_original_triggers"] = {
                 "completed":False,"missing_runtime_dependency":match[1] if match else None,
                 "error_first_line":message.splitlines()[0]}
-        else:
+        elif not unblock:
             evidence["publication_positive_tested"] = True
+        if unblock:
+            evidence["passed"] = len(evidence["cases"])
+            evidence["failed_assertions"] = 0
+            out = ROOT/"qa/omr/results/publish-unblock"
+            out.mkdir(parents=True,exist_ok=True)
+            (out/"evidence.json").write_text(json.dumps(evidence,ensure_ascii=False,indent=2))
+            print(json.dumps(evidence,ensure_ascii=False,indent=2))
+            return
         check(pg.sql(db,"SELECT count(*) FROM public.nafes_assessment_attempts;").stdout.strip()=="0",
               "failed_publication_does_not_leave_partial_attempts")
         check(pg.sql(db,"SELECT count(*) FROM public.nafes_assessments;").stdout.strip()=="0",
