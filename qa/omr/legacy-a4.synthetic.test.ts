@@ -74,3 +74,34 @@ if(weakResult.markers_ok!==true||weakResult.preprocessing?.mode!=='enhanced_geom
 }
 console.log('OMR_LOW_EXPOSURE_SAFE_FALLBACK_PASS');
 
+// The new interior density must detect ink without counting the empty ring.
+const blankDensities=result.answers?.[0]?.pixel_density;
+const markedDensities=result.answers?.[1]?.pixel_density;
+if(!Array.isArray(blankDensities)||blankDensities.length!==4||
+   !Array.isArray(markedDensities)||markedDensities.length!==4||
+   Math.max(...blankDensities)>.48||markedDensities[1]<.48){
+ console.error(JSON.stringify({issue:'interior_density_geometry',blankDensities,markedDensities}));
+ Deno.exit(1);
+}
+console.log('OMR_INTERIOR_PIXEL_DENSITY_PASS');
+
+// Strongly shade a second answer to simulate a student double mark.
+// The answer must become ambiguous/multiple; never silently choose darkest.
+const ix=2, block=Math.floor(ix/15),row=ix%15,secondOption=1;
+const mmX=rights[block]-offs[secondOption],mmY=29+4.85*row;
+const [tx,ty]=map((mmX-4)/172,(mmY-4)/104);
+for(let dy=-12;dy<=12;dy++)for(let dx=-12;dx<=12;dx++)
+ if(Math.hypot(dx,dy)<10)pixel(tx+dx,ty,62,true);
+const withDouble=jpeg.encode({width:W,height:H,data:image},87).data;
+let dblBinary='';for(let i=0;i<withDouble.length;i+=10000)
+ dblBinary+=String.fromCharCode(...withDouble.subarray(i,Math.min(i+10000,withDouble.length)));
+const dblResult=readOmrJpeg('data:image/jpeg;base64,'+btoa(dblBinary),60,1);
+const attempt=dblResult.answers[ix];
+if(!['ambiguous','multiple'].includes(attempt.status)||attempt.marked.length<2){
+ console.error(JSON.stringify({issue:'double_mark_auto_accepted',status:attempt.status,
+  marked:attempt.marked,reader:attempt.reader,pixel_density:attempt.pixel_density}));
+ Deno.exit(1);
+}
+console.log('OMR_DOUBLE_SHADE_REVIEW_PASS');
+
+
