@@ -24,6 +24,7 @@ check('unavailable_reading_must_not_be_zero',[complete({state:'uncertain',readin
 check('ambiguous_reading_must_not_be_zero',[complete({state:'uncertain',reading_status:'ambiguous'}),...allWrong.slice(1)],{},'needs_review',null);
 check('confirmed_multiple_requires_review',[complete({state:'multiple',reading_status:'multiple'}),...allWrong.slice(1)],{},'needs_review',null);
 check('prior_ambiguity_requires_explicit_review',[complete({state:'correct',correct:true,uncertainty:{reading:['previous_ambiguity']}}),...allWrong.slice(1)],{},'needs_review',null);
+check('enhanced_geometry_requires_human_review',allWrong,{reader_requires_review:true},'needs_review',null);
 check('valid_all_correct',Array.from({length:60},()=>complete({state:'correct',correct:true})),{},'provisional',60);
 const source=readFileSync('supabase/functions/nafes-exam/paper-scan.ts','utf8');
 const ui=readFileSync('review-scan-journal.js','utf8');
