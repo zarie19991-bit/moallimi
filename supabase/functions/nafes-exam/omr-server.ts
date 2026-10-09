@@ -253,6 +253,20 @@ function blueInkAt(im:GrayImage,cx:number,cy:number,r:number,paper?:number[]){
  }
   return{density:n?hit/n:0,weighted:n?weighted/n:0,hits:hit,mass:weighted};
 }
+// Local pixel-density evidence inside each printed circle (not its outline).
+function interiorPixelDensity(im:GrayImage,cx:number,cy:number,r:number,localPaperGray:number){
+ const inner=Math.max(2,r*.66),rr=inner*inner,threshold=clamp(localPaperGray-36,105,218);
+ let dark=0,pixels=0,sum=0;
+ for(let y=Math.floor(cy-inner);y<=Math.ceil(cy+inner);y++)
+ for(let x=Math.floor(cx-inner);x<=Math.ceil(cx+inner);x++){
+  if(x<0||y<0||x>=im.width||y>=im.height)continue;
+  const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>rr)continue;
+  const g=im.gray[y*im.width+x];if(g<=threshold)dark++;sum+=g;pixels++;
+ }
+ if(pixels<12)throw new Error('تعذّر قياس الكثافة الداخلية للفقاعة.');
+ return{density:dark/pixels,contrast:localPaperGray-sum/pixels,
+  cutoff:threshold,dark_pixels:dark,total_pixels:pixels};
+}
 function rowBlueEvidence(im:GrayImage,centers:any[],rowGap:number,optionGap:number,papers:number[][]){
  const xs=centers.map(p=>p.x),ys=centers.map(p=>p.y),minX=Math.max(0,Math.floor(Math.min(...xs)-optionGap*.48)),maxX=Math.min(im.width-1,Math.ceil(Math.max(...xs)+optionGap*.48));
  const minY=Math.max(0,Math.floor(Math.min(...ys)-rowGap*.42)),maxY=Math.min(im.height-1,Math.ceil(Math.max(...ys)+rowGap*.42));
@@ -398,6 +412,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
     ev[j].darkRowScore=dark.scores[j];ev[j].darkHits=dark.hits[j];
      const inside=blueInkAt(im,centers[j].x,centers[j].y,radius*.96,papers[j]);
      ev[j].paperGray=papers[j][0]*.299+papers[j][1]*.587+papers[j][2]*.114;
+     ev[j].pixelEvidence=interiorPixelDensity(im,centers[j].x,centers[j].y,radius,ev[j].paperGray);
      ev[j].blueInsideMass=inside.mass;ev[j].blueInsideHits=inside.hits;
   }
   raw.push(ev);
@@ -427,6 +442,14 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   const relativeClear=sep>=Math.max(.055,sepThr*1.15)&&lift>=.075,relativeStrong=sep>=.12&&lift>=.12;
   const ratio=(top.s>0&&second.s>0)?second.s/top.s:0,strongSecond=top.s>=definite&&second.s>=definite&&ratio>=.55,weakCompetition=top.s>=possible&&second.s>=possible&&ratio>=.42;
 
+   // A double strong interior mark may be a double answer or an erasure.
+   // It must be reviewed, not replaced by the darkest choice.
+   const densityMarked=ev.map((e:any,j:number)=>({j,d:e.pixelEvidence}))
+     .filter((x:any)=>x.d.density>=.48&&x.d.contrast>=32).map((x:any)=>x.j);
+   if(densityMarked.length>1)return{question:startNo+i,selected:null,status:'ambiguous',
+     marked:densityMarked,scores,blueScores,darkScores,centerValues,
+     reader:'multi-interior-density-review',confidence:.40,topScore:0,
+     secondScore:0,threshold:.48,separation:0};
    if(hasBlue){
      const blueMarked=blueOrder.filter((x:any)=>x.m>=7&&x.h>=5&&x.m/Math.max(1,blueTop.m)>=.48).map((x:any)=>x.j);
      const darkMarked=darkRowOrder.filter((x:any)=>x.v>=.105&&(x.v-darkRowBase)>=.028).map((x:any)=>x.j);
@@ -467,11 +490,14 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear)))return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
+ const answersWithDensity=answers.map((a:any,i:number)=>({...a,
+    pixel_density:raw[i].map((e:any)=>Number(e.pixelEvidence.density.toFixed(4))),
+    pixel_contrast:raw[i].map((e:any)=>Number(e.pixelEvidence.contrast.toFixed(2)))}));
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
   const geometryUncertain=m.confidence<.85||grid.score<.10;
   const enhancedPreprocessing=preprocessing.mode!=='original'||grid.layout!=='current_print';
    const requiresReview=!!(ambiguous||multiple||geometryUncertain||enhancedPreprocessing);
-  return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,preprocessing,
+  return{answers:answersWithDensity,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,preprocessing,
    color_calibration:{method:'local-paper-annular-median',weak_second_ink:'manual-review'},
    grid_alignment:{score:Number(grid.score.toFixed(4)),row_start_mm:grid.rowStart,row_step_mm:grid.rowStep,layout:grid.layout,blocks:grid.blocks.map((b:any)=>({dx:b.dx,dy:b.dy,score:Number(b.score.toFixed(4))}))},
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
