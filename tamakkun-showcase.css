@@ -1,0 +1,78 @@
+
+/* Tamakkun experience-first landing — service architecture */
+.tk-home-page{display:grid;gap:25px;font-family:var(--tk-font)}
+.tk-home-page *{box-sizing:border-box}
+.tk-home-welcome{display:flex;justify-content:space-between;align-items:center;gap:14px}
+.tk-home-welcome .tk-overline{font-size:12px;font-weight:850;color:#0c7558;letter-spacing:.03em}
+.tk-home-welcome h1{font-size:clamp(20px,2vw,28px);font-weight:900;color:#113e30;margin:3px 0}
+.tk-home-welcome p{margin:3px 0 0;font-size:12px;color:#768b7e}
+.tk-home-current{background:#fff;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:1px solid #d9e9df;border-radius:16px;box-shadow:0 8px 18px #07553d0d;color:#27644e;font-size:12px;font-weight:800}
+.tk-home-current:before{content:"";width:9px;height:9px;border-radius:50%;background:#12bd87;box-shadow:0 0 0 5px #12bd871b}
+.tk-home-hero{min-height:372px;border-radius:36px;overflow:hidden;position:relative;background:linear-gradient(108deg,#064231 1%,#0b7956 65%,#0f9e74);box-shadow:0 29px 68px #064a3440;display:grid;grid-template-columns:1.15fr .85fr;padding:clamp(26px,3.7vw,54px);isolation:isolate}
+.tk-home-hero:before{content:"";position:absolute;top:-140px;right:-130px;width:450px;height:450px;background:radial-gradient(circle,#1d9c73b0,transparent 68%);z-index:-1}
+.tk-home-hero:after{content:"";position:absolute;bottom:-190px;left:-105px;width:400px;height:400px;border:60px solid #ffffff14;border-radius:50%;z-index:-1}
+.tk-home-hero-copy{display:flex;flex-direction:column;align-items:start;justify-content:center;position:relative;z-index:3}
+.tk-home-pill{font-size:12px;font-weight:900;padding:9px 15px;border-radius:100px;color:#f8dfac;background:#ffffff1c;border:1px solid #ffffff45;display:inline-flex;gap:8px;align-items:center;backdrop-filter:blur(8px)}
+.tk-home-pill svg{height:17px;width:17px}
+.tk-home-title{font-size:clamp(32px,3.9vw,55px);font-weight:950;line-height:1.38;letter-spacing:-.055em;color:#fff;margin:21px 0 11px}
+.tk-home-title span{color:#ffd275}
+.tk-home-hero-copy>p{font-size:clamp(13px,1.13vw,16px);line-height:2.15;color:#e5fff3;max-width:615px;margin:0}
+.tk-home-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:27px}
+.tk-home-btn{border:0;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:50px;border-radius:16px;padding:12px 22px;background:linear-gradient(110deg,#f9c66f,#ffdc91);box-shadow:0 13px 28px #003a302f;color:#134531;font-size:13px;font-weight:900;transition:transform .18s,filter .18s;text-decoration:none;cursor:pointer}
+.tk-home-btn:hover{transform:translateY(-2px);filter:brightness(1.03)}
+.tk-home-btn.ghost{color:#fff;background:#ffffff20;border:1px solid #ffffff70;box-shadow:none}
+.tk-home-btn svg{width:18px;height:18px}
+.tk-home-art{min-height:280px;position:relative;display:grid;place-items:center}
+.tk-home-glow{position:absolute;width:min(92%,350px);aspect-ratio:1;background:#c2eacb24;border:1px solid #ffffff38;border-radius:50%;box-shadow:0 0 0 31px #ffffff12,0 0 0 68px #ffffff08;transform:rotate(-14deg)}
+.tk-home-emblem{width:clamp(142px,15vw,210px);aspect-ratio:1;display:grid;place-items:center;border:8px solid #ffffffc4;border-radius:42px;background:linear-gradient(145deg,#ffdb93,#f9ad4f);color:#09523e;box-shadow:0 23px 45px #034a394c,inset 0 0 0 2px #ffffffa8;transform:rotate(-9deg);position:relative;z-index:2}
+.tk-home-emblem>svg{width:95px;height:95px;stroke-width:1.3;transform:rotate(9deg)}
+.tk-home-floating{position:absolute;z-index:3;background:#fff;color:#0a6448;padding:12px 16px;border-radius:18px;box-shadow:0 18px 40px #003d3544;font-size:12px;font-weight:900;border:1px solid #ffffff80;display:flex;align-items:center;gap:9px}
+.tk-home-floating svg{width:20px;height:20px}
+.tk-home-floating.one{top:16%;right:5%;transform:rotate(7deg)}.tk-home-floating.two{bottom:12%;left:0;transform:rotate(-5deg)}
+.tk-home-section-heading{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:16px}
+.tk-home-section-heading strong{color:#116f54;text-transform:uppercase;font-size:11px;letter-spacing:.04em;font-weight:900}
+.tk-home-section-heading h2{font-size:clamp(21px,2.1vw,29px);line-height:1.35;font-weight:950;color:#173b31;margin:4px 0}
+.tk-home-section-heading p{font-size:12px;color:#748579;margin:2px 0;line-height:1.9}
+.tk-home-section-tag{border:1px solid #d4e9db;color:#34715a;background:#fff;border-radius:100px;padding:9px 15px;font-size:11px;font-weight:800;white-space:nowrap}
+.tk-home-services{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.tk-home-feature{background:#fff;border:1px solid #e0eae3;border-radius:30px;min-height:288px;padding:25px;position:relative;display:flex;flex-direction:column;align-items:start;overflow:hidden;box-shadow:0 10px 36px #0b573714;transition:transform .2s,box-shadow .2s,border-color .2s}
+.tk-home-feature:hover{transform:translateY(-5px);box-shadow:0 25px 50px #0b573720;border-color:#b8ddc9}
+.tk-home-feature.light-mint{background:linear-gradient(142deg,#ffffff 0%,#f1fbf4 100%)}
+.tk-home-feature.light-peach{background:linear-gradient(138deg,#fffaf5,#fff 70%)}
+.tk-home-feature.light-lime{background:linear-gradient(125deg,#f9fff5,#fff 75%)}
+.tk-home-feature.light-sky{background:linear-gradient(135deg,#f7fcff,#fff 75%)}
+.tk-home-feature-top{display:inline-flex;align-items:center;gap:7px;border-radius:100px;padding:7px 12px;color:#08765a;background:#e7f7ed;border:1px solid #c6ead5;font-size:10px;font-weight:900}
+.tk-home-feature h3{font-size:25px;color:#123f32;font-weight:950;line-height:1.5;margin:14px 0 8px;position:relative;z-index:2}
+.tk-home-feature p{font-size:12px;line-height:2;color:#60786d;max-width:72%;margin:0;position:relative;z-index:2}
+.tk-home-feature-action{display:inline-flex;align-items:center;gap:8px;margin-top:auto;padding:12px 0 0;color:#05785b;font-size:12px;font-weight:950;border:0;background:none;cursor:pointer;position:relative;z-index:3}
+.tk-home-feature-action svg{width:18px;height:18px}
+.tk-home-feature:has(.tk-home-feature-action:disabled){opacity:.83}
+.tk-home-feature-action:disabled{cursor:default;color:#a16b34}
+.tk-home-card-art{position:absolute;left:-18px;top:52px;width:175px;height:180px;display:grid;place-items:center;pointer-events:none}
+.tk-home-card-art:before{content:"";position:absolute;inset:10px 3px 10px 1px;border-radius:46px;background:linear-gradient(140deg,#b6e9cb,#dff8e7);transform:rotate(-18deg)}
+.tk-home-card-art svg{position:relative;z-index:1;width:94px;height:94px;stroke-width:1.5;color:#08694e;filter:drop-shadow(0 10px 3px #0e664216);transform:rotate(-14deg)}
+.tk-home-feature.light-peach .tk-home-card-art:before{background:linear-gradient(125deg,#ffe3bb,#ffeecf)}
+.tk-home-feature.light-peach .tk-home-card-art svg{color:#c07913}
+.tk-home-feature.light-lime .tk-home-card-art:before{background:linear-gradient(125deg,#d6ebbc,#e9f6d7)}
+.tk-home-feature.light-lime .tk-home-card-art svg{color:#53812f}
+.tk-home-feature.light-sky .tk-home-card-art:before{background:linear-gradient(125deg,#cce4f0,#e8f3fa)}
+.tk-home-feature.light-sky .tk-home-card-art svg{color:#286b8d}
+.tk-home-caps{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px;z-index:2}
+.tk-home-caps span{font-size:10px;font-weight:850;color:#38604d;border:1px solid #e0ede2;background:#ffffffc0;border-radius:8px;padding:7px 9px}
+.tk-home-banner{display:grid;grid-template-columns:1fr 240px;gap:15px;align-items:center;background:linear-gradient(112deg,#105e48,#0a8b70);border-radius:30px;padding:30px;position:relative;overflow:hidden;color:#fff;box-shadow:0 16px 38px #06583c31}
+.tk-home-banner:before{content:"";position:absolute;width:280px;height:280px;border:44px solid #ffffff18;border-radius:50%;left:-130px;bottom:-176px}
+.tk-home-banner h2{font-size:clamp(22px,2.3vw,32px);font-weight:950;margin:7px 0 6px;color:#fff}
+.tk-home-banner p{font-size:12px;line-height:2;color:#d7f5e6;max-width:620px}
+.tk-home-banner small{color:#ffde9c;font-weight:900;font-size:12px}
+.tk-home-banner-art{display:grid;place-items:center}.tk-home-banner-art svg{width:118px;height:118px;color:#ffcf80;stroke-width:1.2;filter:drop-shadow(0 17px 20px #00412a90)}
+.tk-home-utilities{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.tk-home-tool{padding:21px;display:flex;gap:15px;align-items:center;min-height:100px;border:1px solid #e2ece4;border-radius:22px;background:#fff;text-align:right;box-shadow:0 8px 23px #07442c0b;cursor:pointer;transition:transform .2s,box-shadow .2s}
+.tk-home-tool:hover{transform:translateY(-3px);box-shadow:0 16px 32px #07442c18}
+.tk-home-tool-icon{display:grid;place-items:center;width:54px;height:54px;border-radius:17px;background:#e3f6eb;color:#097353;flex:none}
+.tk-home-tool-icon svg{width:26px;height:26px}
+.tk-home-tool b{font-size:14px;font-weight:900;color:#183b31;display:block}
+.tk-home-tool small{font-size:10px;color:#8b9a8e;line-height:1.6;display:block;margin-top:4px}
+.tk-home-footer-note{font-size:11px;color:#8a9a8c;line-height:1.9;text-align:center}
+@media(max-width:1150px){.tk-home-services{gap:12px}.tk-home-feature p{max-width:80%}.tk-home-utilities{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:780px){.tk-home-hero{grid-template-columns:1fr;min-height:0;padding:30px 24px;border-radius:28px}.tk-home-art{height:215px;min-height:215px;max-width:300px;width:100%;margin:0 auto}.tk-home-emblem{height:140px;width:140px;border-radius:30px}.tk-home-emblem>svg{height:70px;width:70px}.tk-home-floating.one{top:5%;right:0}.tk-home-floating.two{bottom:5%;left:0}.tk-home-hero-copy{align-items:start}.tk-home-hero-copy>p{max-width:100%}.tk-home-services{grid-template-columns:1fr}.tk-home-utilities{grid-template-columns:1fr 1fr}.tk-home-banner{grid-template-columns:1fr 80px}.tk-home-banner-art svg{width:80px;height:80px}.tk-home-feature{min-height:265px}}
+@media(max-width:520px){.tk-home-welcome{align-items:start;flex-direction:column}.tk-home-current{padding:7px 12px}.tk-home-section-tag{display:none}.tk-home-feature h3{font-size:23px}.tk-home-feature p{max-width:73%}.tk-home-card-art{width:144px;left:-26px;top:82px}.tk-home-card-art svg{width:75px;height:75px}.tk-home-banner{grid-template-columns:1fr;padding:25px;border-radius:25px}.tk-home-banner-art{display:none}.tk-home-utilities{grid-template-columns:1fr}.tk-home-tool{min-height:88px}.tk-home-title{font-size:32px}}
