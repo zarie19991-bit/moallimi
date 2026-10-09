@@ -273,32 +273,49 @@ function rowDarkEvidence(im:GrayImage,centers:any[],rowGap:number,optionGap:numb
 // Locate the printed rings, not the chosen answers. No answer key is consulted.
 function locateBubbleGrid(im:GrayImage,scale:number){
   const rights=[171,128,85,42],offs=[7.5,15.5,23.5,31.5],radius=2.08*scale;
+  // The current printable SVG uses 20/5.45 mm. Older actual MR2 A4 prints
+  // have different row origin/pitch: calibrate from printed empty bubble rings,
+  // not answer choices, colors, or a student's score.
+  const starts=[19,20,21,23,25,27,29,30,31],steps=[4.65,4.8,4.95,5.1,5.25,5.45,5.55];
+  const ringEvidence=(right:number,row:number,off:number,rowStart:number,rowStep:number,dx=0,dy=0)=>{
+    const x=(right-off)*scale+dx,y=(rowStart+row*rowStep)*scale+dy;
+    const ring=meanAt(im,x,y,radius*1.13,radius*.87);
+    const paper=meanAt(im,x,y,radius*1.65,radius*1.3);
+    return Math.max(0,(paper-ring)/255);
+  };
+  const scored=[] as {start:number;step:number;score:number}[];
+  for(const start of starts)for(const step of steps){
+    const values:number[]=[];
+    for(const right of rights)for(const row of [0,7,14])for(const off of offs)
+       values.push(ringEvidence(right,row,off,start,step));
+    scored.push({start,step,score:median(values)});
+  }
+  scored.sort((a,b)=>b.score-a.score);
+  const candidate=scored[0],runner=scored[1],rowStart=candidate.start,rowStep=candidate.step;
   const blocks=rights.map(right=>{
     const evidence=(dx:number,dy:number)=>{
       const values:number[]=[];
-      for(const row of [0,7,14])for(const off of offs){
-        const x=(right-off)*scale+dx,y=(20+row*5.45)*scale+dy;
-        const ring=meanAt(im,x,y,radius*1.13,radius*.87);
-        const paper=meanAt(im,x,y,radius*1.65,radius*1.3);
-        values.push(Math.max(0,(paper-ring)/255));
-      }
+      for(const row of [0,7,14])for(const off of offs)
+        values.push(ringEvidence(right,row,off,rowStart,rowStep,dx,dy));
       return median(values);
     };
     const initial=evidence(0,0);let best={dx:0,dy:0,score:initial};
     for(let dy=-6;dy<=6;dy+=2)for(let dx=-6;dx<=6;dx+=2){
-      const score=evidence(dx,dy);
-      if(score>best.score+.001)best={dx,dy,score};
+      const score=evidence(dx,dy);if(score>best.score+.001)best={dx,dy,score};
     }
     const coarse={...best};
     for(let dy=coarse.dy-1;dy<=coarse.dy+1;dy++)for(let dx=coarse.dx-1;dx<=coarse.dx+1;dx++){
       if(Math.abs(dx)>6||Math.abs(dy)>6)continue;
       const score=evidence(dx,dy);if(score>best.score+.001)best={dx,dy,score};
     }
-    // A tiny improvement is noise, not evidence to move the grid.
     return best.score-initial>=.018?best:{dx:0,dy:0,score:initial};
   });
-  return{blocks,score:median(blocks.map(b=>b.score))};
+  return{blocks,score:median(blocks.map(b=>b.score)),
+    rowStart,rowStep,nominal:rowStart===20&&rowStep===5.45,
+    candidate_margin:Number((candidate.score-(runner?.score||0)).toFixed(4)),
+    layout:rowStart===20&&rowStep===5.45?'current_print':'calibrated_legacy_print'};
 }
+
 function orientTemplate(source:GrayImage,scale:number){
  const candidates:any[]=[],attempts:any[]=[];let im=source;
  for(let turn=0;turn<4;turn++){
@@ -330,9 +347,9 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   if(!Number.isInteger(total)||total<1||total>60)throw new Error('عدد أسئلة القالب لا يطابق الاختبار.');
   const source=decodeDataUrl(src),scale=5,{m,im,grid,rotation}=orientTemplate(source,scale),radius=2.08*scale;
  const rights=[171,128,85,42],offs=[7.5,15.5,23.5,31.5],raw:any[]=[];
- const rowGap=5.45*scale,optionGap=8*scale;
+ const rowGap=grid.rowStep*scale,optionGap=8*scale;
  for(let i=0;i<Math.min(total,60);i++){
-  const block=Math.floor(i/15),row=i%15,y=(20+row*5.45)*scale,right=rights[block],ev:any[]=[],centers:any[]=[];
+  const block=Math.floor(i/15),row=i%15,y=(grid.rowStart+row*grid.rowStep)*scale,right=rights[block],ev:any[]=[],centers:any[]=[];
    const alignment=grid.blocks[block];
    for(const off of offs){const p={x:(right-off)*scale+alignment.dx,y:y+alignment.dy};centers.push(p);const z=fillScore(im,p.x,p.y,radius);ev.push({...z,x:p.x,y:p.y});}
   const papers=centers.map(p=>paperColorAt(im,p.x,p.y,radius));
@@ -416,7 +433,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   const requiresReview=!!(ambiguous||multiple||geometryUncertain);
   return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,
    color_calibration:{method:'local-paper-annular-median',weak_second_ink:'manual-review'},
-   grid_alignment:{score:Number(grid.score.toFixed(4)),blocks:grid.blocks.map((b:any)=>({dx:b.dx,dy:b.dy,score:Number(b.score.toFixed(4))}))},
+   grid_alignment:{score:Number(grid.score.toFixed(4)),row_start_mm:grid.rowStart,row_step_mm:grid.rowStep,layout:grid.layout,blocks:grid.blocks.map((b:any)=>({dx:b.dx,dy:b.dy,score:Number(b.score.toFixed(4))}))},
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
    verification:{risk:requiresReview?'high':'low',quality_score:requiresReview?70:100,reasons:[...(ambiguous||multiple?['توجد إجابات غير حاسمة أو متعددة']:[]),...(geometryUncertain?['هندسة علامات المحاذاة أو شبكة الفقاعات تحتاج مراجعة']:[])],requires_manual_review:requiresReview,auto_accept:!requiresReview,counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
