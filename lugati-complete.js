@@ -387,7 +387,7 @@ function planCard(g,kind,i){
     <div class="flex-1"><div class="flex flex-wrap gap-2 mb-2"><span class="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-600">${subjectName(g.subject_key)}</span><span class="text-[11px] font-black px-2 py-1 rounded-lg bg-${color}-100 text-${color}-700">${label}</span><span class="text-[11px] bg-slate-50 rounded-lg px-2 py-1 text-slate-600">متوسط المختبرين ${pct(g.average_percent)}</span></div><h3 class="text-sm font-black text-slate-900 leading-relaxed">${esc(title)}</h3></div>
     <div class="flex gap-2 shrink-0 flex-wrap">
      <button data-journey="${esc(g.subject_key)}|${esc(g.outcome_code||'')}|${g.indicator_index}|${kind}" class="px-3 py-2.5 rounded-xl border border-${color}-200 text-${color}-700 bg-white text-xs font-black">${icon('eye','w-4 h-4 inline')} معاينة</button>
-     <button data-send-plan="${esc(g.subject_key)}|${esc(g.outcome_code||'')}|${g.indicator_index}|${kind}" data-send-count="${v}" class="px-3 py-2.5 rounded-xl bg-${color}-700 text-white text-xs font-black">${icon('send','w-4 h-4 inline')} إرسال للمختبرين (${fmt(v)})</button>
+     ${state.role==='teacher'?`<button data-send-plan="${esc(g.subject_key)}|${esc(g.outcome_code||'')}|${g.indicator_index}|${kind}" data-send-count="${v}" class="px-3 py-2.5 rounded-xl bg-${color}-700 text-white text-xs font-black">${icon('send','w-4 h-4 inline')} إرسال للمختبرين (${fmt(v)})</button>`:''}
      <button data-expand="p${kind}${i}" class="px-3 py-2.5 border rounded-xl text-xs font-bold">${expanded?'إخفاء التفاصيل':'التفاصيل'}</button>
     </div>
    </div>
