@@ -16,8 +16,13 @@ await page.route('**/functions/v1/nafes-exam',async route=>{
  if(['assessment_save','assessment_event','assessment_advance'].includes(body.action))return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,...state()})});
  return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'unexpected action'})});
 });
+page.on('pageerror',e=>console.log('DEBUG_PAGE_ERROR',String(e.stack||e)));
+page.on('console',msg=>{if(msg.type()==='error')console.log('DEBUG_BROWSER_CONSOLE',msg.text());});
 await page.goto(`${SITE}e.html?t=resume-smoke`,{waitUntil:'domcontentloaded',timeout:60000});
-await page.waitForSelector('#identity:not([hidden])',{timeout:30000});
+await page.waitForSelector('#identity:not([hidden])',{timeout:30000}).catch(async error=>{
+  console.log('DEBUG_STUDENT_BOOT',JSON.stringify(await page.evaluate(()=>({title:document.title,headline:document.getElementById('title')?.innerText,message:document.getElementById('message')?.innerText,identityHtml:document.getElementById('identity')?.outerHTML.slice(0,350),scripts:[...document.scripts].map(s=>s.src).filter(Boolean)}))));
+  throw error;
+});
 await page.fill('#studentName','طالب أول');
 await page.fill('#studentNo','123');
 await page.fill('#className','أ');
