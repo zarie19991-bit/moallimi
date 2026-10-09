@@ -28,7 +28,7 @@ function shortReadingContext(context:string,question:string){
 function archiveReadingRows(rows:any[],subject:string){return subject==="reading"?rows.map((q:any)=>({...q,context_text:shortReadingContext(q.context_text,q.question_text)})):rows;}
 function sectionPerfs(r:any,source:string){const answers=(r?.answers&&typeof r.answers==="object")?r.answers:{};const groups=new Map<string,any>();for(const sec of(Array.isArray(r?.rendered_sections)?r.rendered_sections:[])){for(const q of(Array.isArray(sec?.questions)?sec.questions:[])){const subject=tidy(q?.subject||sec?.subject),outcome=tidy(q?.outcome),indicator=Number(q?.indicator||0),key=`${subject}:${outcome}:i${indicator}`;if(!["reading","math","science"].includes(subject)||!indicator||!q?.id)continue;if(!groups.has(key))groups.set(key,{student_id:r.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(q?.indicator_text),correct:0,total:0,source,source_attempt_id:String(r.id),source_submitted_at:r.submitted_at});const g=groups.get(key);g.total++;if(Number(answers[q.id])===Number(q.correctIndex))g.correct++;}}return[...groups.values()].map(g=>({...g,percent:g.total?Math.round((g.correct/g.total)*1000)/10:0}))}
 function examPerfs(r:any){const answers=(r?.answers&&typeof r.answers==="object")?r.answers:{},qs=Array.isArray(r?.rendered_questions)?r.rendered_questions:[],groups=new Map<string,any>();for(const q of qs){const subject=tidy(q?.subject||r.subject_key),outcome=tidy(q?.outcome||r.outcome_code),indicator=Number(q?.indicator||r.indicator_index||0),key=`${subject}:${outcome}:i${indicator}`;if(!["reading","math","science"].includes(subject)||!indicator||!q?.id)continue;if(!groups.has(key))groups.set(key,{student_id:r.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(q?.indicator_text),correct:0,total:0,source:"exam",source_attempt_id:String(r.id),source_submitted_at:r.submitted_at});const g=groups.get(key);g.total++;if(Number(answers[q.id])===Number(q.correctIndex))g.correct++;}return[...groups.values()].map(g=>({...g,percent:g.total?Math.round((g.correct/g.total)*1000)/10:Number(r.percent||0)}))}
-function tierFor(p:number|null){if(p==null)return"remedial";if(p<70)return"remedial";if(p<90)return"reinforcement";return"enrichment"}
+function tierFor(p:number|null){if(p==null)return"unclassified";if(p<70)return"remedial";if(p<90)return"reinforcement";return"enrichment"}
 function priorityFor(p:number|null){if(p==null)return 0;if(p<70)return Math.max(1,Math.round(p));if(p<90)return 100+Math.round(p);return 200+Math.round(p)}
 async function roster(ids?:string[]){let q=db.from("nafes_students").select("id,full_name,class_name,grade,is_active,is_demo").eq("is_active",true).order("class_name").order("full_name");if(ids?.length)q=q.in("id",ids);else q=q.eq("is_demo",false);const {data,error}=await q;if(error)throw error;return data||[]}
 async function latestPerformances(ids?:string[]){
@@ -58,6 +58,12 @@ async function latestPerformances(ids?:string[]){
 }
 
 
+// Assessment eligibility comes exclusively from submitted Moallimi/NAFES exam,
+// assessment, or simulation attempts. No grade or missing answer means no classification.
+function moallimiAssessed(p:any){return !!(p&&p.source_attempt_id&&p.source_submitted_at&&Number(p.total)>0&&Number.isFinite(Number(p.percent)));}
+function matchesAssessedIndicator(p:any,subject:string,outcome:string,indicator:number){
+ return moallimiAssessed(p)&&String(p.subject_key)===subject&&Number(p.indicator_index)===indicator&&(!outcome||String(p.outcome_code||"")===outcome);
+}
 function planSourceMeta(at:any,assessment:any){
   const paperEvent=Array.isArray(at?.events)&&at.events.some((e:any)=>e?.type==="paper_scan"||e?.method==="omr");
   const isPaper=at?.config?.paper_review===true||assessment?.config?.paper_review===true||paperEvent;
@@ -327,7 +333,7 @@ async function teacherOverview(req:Request,access:Access){
     const rows=by.get(String(s.id))||[],active=rows.find((x:any)=>x.status!=="mastered")||rows[0]||null;
     const noResult=rows.length===0;
     return{id:s.id,full_name:s.full_name,class_name:s.class_name,grade:s.grade,total_assignments:rows.length,
-      remedial:rows.filter((x:any)=>x.tier==="remedial"||x.tier==="starter").length+(noResult?1:0),
+      remedial:rows.filter((x:any)=>x.tier==="remedial").length,
       reinforcement:rows.filter((x:any)=>x.tier==="reinforcement").length,
       enrichment:rows.filter((x:any)=>x.tier==="enrichment").length,
       mastered:rows.filter((x:any)=>x.status==="mastered").length,no_result:noResult,current:active};
@@ -336,7 +342,7 @@ async function teacherOverview(req:Request,access:Access){
   const totals={students:students.length,assignments:assignments.length,
     starter:0,
     students_without_result:noResultStudents,
-    remedial:assignments.filter((x:any)=>x.tier==="remedial"||x.tier==="starter").length+noResultStudents,
+    remedial:assignments.filter((x:any)=>x.tier==="remedial").length,
     reinforcement:assignments.filter((x:any)=>x.tier==="reinforcement").length,
     enrichment:assignments.filter((x:any)=>x.tier==="enrichment").length,
     mastered:assignments.filter((x:any)=>x.status==="mastered").length,
@@ -454,7 +460,7 @@ async function taskQuestions(ids:string[]){
 }
 async function teacherSendIndicator(req:Request,body:any,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
-  const subject=tidy(body?.subject_key),outcome=tidy(body?.outcome_code),indicator=Number(body?.indicator_index||0),tier=tidy(body?.tier)==="enrichment"?"enrichment":"remedial";
+  const subject=tidy(body?.subject_key),outcome=tidy(body?.outcome_code),indicator=Number(body?.indicator_index||0),tier=["remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body.tier):"remedial";
   if(!["reading","math","science"].includes(subject)||!outcome||!indicator)return json(req,{error:"بيانات المؤشر غير مكتملة."},400);
   if(!teacherAllows(access,subject))return json(req,{error:"هذه المادة خارج صلاحية حسابك."},403);
 
@@ -464,45 +470,38 @@ async function teacherSendIndicator(req:Request,body:any,access:Access){
   const perfByStudent=new Map<string,any>();
   for(const p of perfs)if(!perfByStudent.has(String(p.student_id)))perfByStudent.set(String(p.student_id),p);
 
-  let targets:any[]=[];
-  let noResultCount=0;
-  if(tier==="remedial"){
-    for(const s of students||[]){
-      const p=perfByStudent.get(String(s.id));
-      if(!p){
-        noResultCount++;
-        targets.push({student_id:s.id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,
-          indicator_text:tidy(body?.indicator_text)||("المؤشر "+indicator),percent:null,source_attempt_id:null,source_submitted_at:null,no_result:true});
-      }else if(Number(p.percent)<70)targets.push({...p,no_result:false});
-    }
-  }else{
-    targets=perfs.filter((p:any)=>Number(p.percent)>=90).map((p:any)=>({...p,no_result:false}));
-  }
-
-  if(!targets.length)return json(req,{ok:true,sent:0,skipped:0,total_targets:0,no_result_targets:0,message:tier==="remedial"?"لا يوجد طلاب في المسار العلاجي لهذا المؤشر.":"لا يوجد طلاب في مستوى الإثراء لهذا المؤشر."});
+  // Never add students with no submitted Moallimi result to any of these tiers.
+  const targets=perfs.filter((p:any)=>moallimiAssessed(p)&&(
+    tier==="remedial"?Number(p.percent)<70:
+    tier==="reinforcement"?Number(p.percent)>=70&&Number(p.percent)<90:
+    Number(p.percent)>=90
+  ));
+  const noResultCount=0;
+  if(!targets.length)return json(req,{ok:true,sent:0,skipped:0,total_targets:0,no_result_targets:0,message:"لا توجد نتائج اختبار معلّمي مؤهلة لهذا المسار والمؤشر."});
   const studentIds=[...new Set(targets.map((p:any)=>String(p.student_id)))];
   const {data:existing,error:xe}=await db.from("lugati_teacher_tasks").select("student_id,source_attempt_id,status").eq("teacher_access_id",access.teacher_access_id!).eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator).eq("tier",tier).in("student_id",studentIds);if(xe)throw xe;
   const existingActive=new Set((existing||[]).filter((x:any)=>["assigned","in_progress"].includes(String(x.status))).map((x:any)=>String(x.student_id)));
   const qcount=Math.max(5,Math.min(12,Number(body?.question_count||8))),questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount),now=new Date().toISOString(),rows:any[]=[];let skipped=0;
   for(const p of targets){
     if(existingActive.has(String(p.student_id))){skipped++;continue}
-    const noResult=p.percent==null||p.no_result===true;
+    const noResult=false;
     rows.push({teacher_access_id:access.teacher_access_id,student_id:p.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||p.indicator_text||("المؤشر "+indicator),
-      title:tier==="remedial"?"مسار علاجي للمؤشر":"مسار إثرائي للمؤشر",
-      instructions:tier==="remedial"?(noResult?"تدريب علاجي لأن نتيجتك/إجابتك لم تظهر في هذا المؤشر؛ لا تُسجل لك نسبة صفر، ويبدأ الدعم من المهارة نفسها.":"تدريب علاجي أرسله المعلم بناءً على أحدث نتيجة لك في هذا المؤشر."):"تدريب إثرائي أرسله المعلم بناءً على إتقانك لهذا المؤشر.",
-      tier,question_count:questionIds.length,status:"assigned",source_percent:noResult?null:Number(p.percent),source_attempt_id:p.source_attempt_id||null,source_submitted_at:p.source_submitted_at||null,question_ids:questionIds,assigned_at:now,updated_at:now});
+      title:tier==="remedial"?"مسار علاجي للمؤشر":tier==="reinforcement"?"مسار تعزيزي للمؤشر":"مسار إثرائي للمؤشر",
+      instructions:tier==="remedial"?"تدريب علاجي بناءً على نتيجة اختبار معلّمي المسلّم.":tier==="reinforcement"?"تدريب تعزيز بناءً على نتيجة اختبار معلّمي المسلّم.":"تدريب إثرائي بناءً على نتيجة اختبار معلّمي المسلّم.",
+      tier,question_count:questionIds.length,status:"assigned",source_percent:Number(p.percent),source_attempt_id:p.source_attempt_id||null,source_submitted_at:p.source_submitted_at||null,question_ids:questionIds,assigned_at:now,updated_at:now});
   }
   if(rows.length){for(let i=0;i<rows.length;i+=300){const {error}=await db.from("lugati_teacher_tasks").insert(rows.slice(i,i+300));if(error)throw error}}
   const sentMissing=rows.filter((r:any)=>r.source_percent==null).length;
   return json(req,{ok:true,sent:rows.length,skipped,total_targets:targets.length,no_result_targets:noResultCount,sent_without_result:sentMissing,
-    message:rows.length?("تم الإرسال إلى "+rows.length+" طالبًا، منهم "+sentMissing+" لم تظهر لهم إجابة/نتيجة في هذا المؤشر."):"سبق إرسال المسار للطلاب المستهدفين."});
+    message:rows.length?("تم الإرسال إلى "+rows.length+" طالبًا ممن اختبروا في معلّمي وحققوا شروط المسار."):"سبق إرسال المسار للطلاب المؤهلين."});
 }
 async function teacherSendTask(req:Request,body:any,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
   const studentId=tidy(body?.student_id),subject=tidy(body?.subject_key),outcome=tidy(body?.outcome_code),indicator=Number(body?.indicator_index||0);
   if(!studentId||!["reading","math","science"].includes(subject)||!indicator)return json(req,{error:"بيانات التدريب غير مكتملة."},400);if(!teacherAllows(access,subject))return json(req,{error:"هذه المادة خارج صلاحية حسابك."},403);
   const {data:s,error:se}=await db.from("nafes_students").select("id,is_active").eq("id",studentId).eq("is_active",true).maybeSingle();if(se)throw se;if(!s)return json(req,{error:"الطالب غير موجود."},404);
-  const qcount=Math.max(3,Math.min(20,Number(body?.question_count||8))),questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount);const payload={teacher_access_id:access.teacher_access_id,student_id:studentId,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||`المؤشر ${indicator}`,title:tidy(body?.title)||"تدريب من المعلم",instructions:tidy(body?.instructions).slice(0,2000),tier:["starter","remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",question_count:questionIds.length,question_ids:questionIds,status:"assigned",assigned_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  const tested=(await latestPerformances([studentId])).find((p:any)=>matchesAssessedIndicator(p,subject,outcome,indicator));if(!tested)return json(req,{error:"لا يمكن إرسال مسار علاجي أو تعزيز أو إثراء: لا توجد نتيجة مسلّمة في معلّمي لهذا الطالب والمؤشر."},409);
+  const qcount=Math.max(3,Math.min(20,Number(body?.question_count||8))),questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount);const payload={teacher_access_id:access.teacher_access_id,student_id:studentId,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||`المؤشر ${indicator}`,title:tidy(body?.title)||"تدريب من المعلم",instructions:tidy(body?.instructions).slice(0,2000),tier:["starter","remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",question_count:questionIds.length,question_ids:questionIds,source_percent:Number(tested.percent),source_attempt_id:tested.source_attempt_id,source_submitted_at:tested.source_submitted_at,status:"assigned",assigned_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   const {data,error}=await db.from("lugati_teacher_tasks").insert(payload).select("*").single();if(error)throw error;
   return json(req,{ok:true,task:data},201);
 }
