@@ -12,6 +12,14 @@ const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,sess
 const effective=s=>s.effective_snapshot||s.snapshot;
 const duplicate=s=>!!(s.duplicate_of||s.duplicate_legacy_at);
 const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكررة':s.disposition==='requires_rescan'?'مراجَع — يلزم إعادة المسح':s.reviewed_at?'تم التحقق':'بانتظار التحقق';
+// Keep an unreadable scan distinct from a genuine, fully read 0/60 result.
+const gradeText=a=>{
+ if(!a||a.markers_ok!==true||a.omr_reader_error||a.grade_status==='unreadable')return 'فشل القراءة — بلا درجة';
+ if(a.grade_status==='needs_review'||a.score===null||a.score===undefined||!Number.isFinite(Number(a.score)))return 'بانتظار مراجعة — بلا درجة';
+ return gradeText(a);
+};
+const qualityText=a=>a?.markers_ok===true&&!a?.omr_reader_error&&a?.grade_status!=='unreadable'
+ ?ar(Math.round(Number(a?.omr_verification?.quality_score)||0))+' / ١٠٠':'غير مقاسة';
 const riskOf=s=>{const a=effective(s),r=a?.omr_verification?.risk;return ['low','medium','high'].includes(r)?r:(!a?.markers_ok?'high':((a?.counts?.uncertain||0)+(a?.counts?.multiple||0)>0?'high':'medium'));};
 const riskLabel=r=>r==='low'?'منخفضة':r==='medium'?'متوسطة':'مرتفعة';
 function renderQualityReport(){
@@ -27,13 +35,13 @@ function renderQualityReport(){
  rows.sort((x,y)=>(({high:0,medium:1,low:2}[x.risk]-{high:0,medium:1,low:2}[y.risk])||x.i-y.i));
  $('qualityBody').innerHTML=rows.map(({s,i,a,risk,v})=>{
    const reasons=(Array.isArray(v.reasons)&&v.reasons.length?v.reasons:(a.markers_ok?['لم تُسجل بعد بيانات تحقق كاملة لهذه القراءة']:['فشل تثبيت علامات المحاذاة'])).join('؛ ');
-   return '<tr data-risk="'+risk+'"><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+ar(a.score)+' / '+ar(a.total)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+ar(Math.round(Number(v.quality_score||0)))+' / 100</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
+   return '<tr data-risk="'+risk+'"><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+ar(Math.round(Number(v.quality_score||0)))+' / 100</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
  }).join('');
 }
 function exportQualityReport(){
  const rows=[['الطالب','النموذج','الدرجة','الإجمالي','الخطورة','جودة القراءة','ثقة المحاذاة','المدى الضوئي','تفاوت الإضاءة','حدة الصورة','فارغ','متعدد','غير مؤكد','سبب المراجعة','سياسة القارئ']];
  for(const s of sheets){const a=effective(s),v=a.omr_verification||{},q=a.image_quality||{},c=a.counts||{},risk=riskOf(s);rows.push([
-   a.student_name,a.model,a.score,a.total,riskLabel(risk),v.quality_score||0,a.marker_confidence||0,q.dynamic_range||'',q.illumination_range||'',q.sharpness||'',
+   a.student_name,a.model,a.markers_ok===true&&!a.omr_reader_error&&Number.isFinite(a.score)?a.score:'',a.total,riskLabel(risk),a.markers_ok===true&&!a.omr_reader_error?v.quality_score||0:'',a.marker_confidence||0,q.dynamic_range||'',q.illumination_range||'',q.sharpness||'',
    c.blank||0,c.multiple||0,c.uncertain||0,(v.reasons||[]).join('؛ '),a.omr_policy||''
  ]);}
  download(rows,'تقرير-جودة-قراءة-التظليل.csv');
@@ -86,7 +94,7 @@ function render(){
  }return m;},{});
  $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تمت مراجعتها',sheets.filter(s=>s.reviewed_at).length],['تنبيهات التكرار',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
  const only=$('alertFilter').checked;
- $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+ar(a.score)+' / '+ar(a.total)+'</td><td>'+esc(status(s))+' <span class="quality-risk '+riskOf(s)+'">'+riskLabel(riskOf(s))+'</span>'+(duplicate(s)?' <strong class="duplicate-label">رفع مكرر</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">إعادة قراءة الاسم</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
+ $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td>'+esc(status(s))+' <span class="quality-risk '+riskOf(s)+'">'+riskLabel(riskOf(s))+'</span>'+(duplicate(s)?' <strong class="duplicate-label">رفع مكرر</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">إعادة قراءة الاسم</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
  $('sessionProgress').textContent=session?(session.completed_at?'جلسة منتهية · ':'')+'تم التحقق من '+ar(sheets.filter(s=>s.reviewed_at).length)+' من '+ar(session.expected_count)+' ورقة':'';
  if($('selectAllSheets')){$('selectAllSheets').checked=sheets.length>0&&selected.size===sheets.length;$('selectAllSheets').indeterminate=selected.size>0&&selected.size<sheets.length;}
  renderQualityReport();renderButtons();
@@ -96,7 +104,7 @@ async function open(i){
  const p=firstPending();if(p>=0&&i>p){i=p;message('يجب التحقق من الورقة السابقة قبل الانتقال.');}
  active=i;loadedImage=null;const s=sheets[i],a=effective(s);
  $('modalTitle').textContent=a.student_name+' — نموذج '+a.model;
- $('modalSub').textContent='الورقة '+ar(i+1)+' من '+ar(sheets.length)+' · الدرجة '+ar(a.score)+' / '+ar(a.total)+' · '+status(s)+' · رفع '+new Date(s.uploaded_at).toLocaleString('ar-SA');
+ $('modalSub').textContent='الورقة '+ar(i+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(a)+' · '+status(s)+' · رفع '+new Date(s.uploaded_at).toLocaleString('ar-SA');
  $('scanImage').removeAttribute('src');$('scanImage').alt='جارٍ تحميل الورقة كاملة…';
  if(!a.identity_valid){
    const used=new Set(sheets.filter(x=>x.id!==s.id&&x.student_id).map(x=>String(x.student_id)));
@@ -301,7 +309,7 @@ async function editHistory(){
 }
 async function verify(){
  if(busy||$('saveSheetBtn').disabled||safety.unresolvedSheet(sheets[active]))return;lock(true);
- try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0,verified:true});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+ar(effective(r.sheet).score)+' / '+ar(effective(r.sheet).total)+' · '+status(r.sheet);message('حُفظ التحقق من الورقة. يمكنك الانتقال إلى التالية.');render();}
+ try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0,verified:true});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(effective(r.sheet))+' · '+status(r.sheet);message('حُفظ التحقق من الورقة. يمكنك الانتقال إلى التالية.');render();}
  catch(e){message('لم يُحفظ التحقق: '+e.message,true);}finally{lock(false);}
 }
 async function finish(){
