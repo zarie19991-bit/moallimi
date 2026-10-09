@@ -53,3 +53,24 @@ if(!result.markers_ok||result.answers?.length!==60||grid.score<.07||
  console.error('OMR_A4_LEGACY_CALIBRATION_REJECTED');Deno.exit(1);
 }
 console.log('OMR_A4_LEGACY_CALIBRATION_PASS');
+
+// A low-exposure phone photo: printed ink remains separated from paper by
+// only ~20 grayscale levels, and QR noise stays above the normal dark threshold.
+const dim=new Uint8Array(image);
+for(let i=0;i<dim.length;i+=4){
+ const v=Math.round(210-(232-image[i])*.12);
+ dim[i]=dim[i+1]=dim[i+2]=v;
+}
+const weakJpeg=jpeg.encode({width:W,height:H,data:dim},87).data;
+let weakBinary='';for(let i=0;i<weakJpeg.length;i+=10000)
+ weakBinary+=String.fromCharCode(...weakJpeg.subarray(i,Math.min(i+10000,weakJpeg.length)));
+const weakResult=readOmrJpeg('data:image/jpeg;base64,'+btoa(weakBinary),60,1);
+console.log(JSON.stringify({low_exposure:true,markers_ok:weakResult.markers_ok,
+ preprocessing:weakResult.preprocessing?.mode,needs_manual:weakResult.verification?.requires_manual_review,
+ grid_score:weakResult.grid_alignment?.score}));
+if(weakResult.markers_ok!==true||weakResult.preprocessing?.mode!=='enhanced_geometry_requires_review'||
+ weakResult.verification?.requires_manual_review!==true){
+ console.error('OMR_LOW_EXPOSURE_SAFE_FALLBACK_FAILED');Deno.exit(1);
+}
+console.log('OMR_LOW_EXPOSURE_SAFE_FALLBACK_PASS');
+
