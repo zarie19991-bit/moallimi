@@ -141,5 +141,7 @@ jobs:
         run: node qa/core-browser-smoke.mjs
       - name: Browser QA - student resume after reload
         run: node qa/student-resume-smoke.mjs
+      - name: Browser QA - teacher authentication and OMR scan button
+        run: node qa/scan-login-read-smoke.mjs
       - name: Browser QA - student paper strict identity
         run: node qa/student-paper-smoke.mjs
