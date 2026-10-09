@@ -52,6 +52,7 @@
   <section id="dashboard" hidden>
     <nav class="main-tabs" aria-label="أقسام التحليل والتقارير">
       <button class="main-tab active" data-view="overview">تحليل جميع المواد</button>
+      <button class="main-tab" data-view="joint">الاختبارات المشتركة</button>
       <button class="main-tab" data-view="subject">تحليل مادة منفصلة</button>
       <button class="main-tab" data-view="subjectReport">تقرير رسمي لمادة</button>
       <button class="main-tab" data-view="report">التقرير العام الرسمي</button>
@@ -60,6 +61,13 @@
     <section id="overviewView" class="view-panel">
       <section class="card section-control-card"><div class="section-head"><div><h2>تحليل جميع المواد</h2><p class="muted">عرض تشخيصي للأداء في القراءة والرياضيات والعلوم، وليس ورقة التقرير الرسمي.</p></div></div><div class="toolbar"><label><span>الفصل</span><select id="overviewClass"><option value="">الثالث متوسط (أ - ب - ج - د)</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label><button id="printOverviewAnalysisBtn" class="btn primary" type="button">طباعة تحليل جميع المواد</button></div></section>
       <div id="overviewSummary"></div><div id="overviewStudents"></div>
+    </section>
+
+    <section id="jointView" class="view-panel" hidden>
+      <section class="card section-control-card"><h2>الاختبارات المشتركة</h2><p class="muted">اختر اختبارًا يجمع مادتين أو أكثر لعرض المشاركين وتحليل نتائج كل مادة فيه.</p>
+        <div class="toolbar"><label class="wide"><span>الاختبار المشترك</span><select id="jointTest"><option value="">جارٍ تحميل الاختبارات…</option></select></label><label><span>الفصل</span><select id="jointClass"><option value="">جميع الفصول</option></select></label><button id="jointRefresh" class="btn ghost" type="button">تحديث الاختبارات</button><button id="jointExport" class="btn primary" type="button" disabled>تنزيل كشف الطلاب CSV</button></div>
+        <p id="jointState" role="status" aria-live="polite"></p>
+      </section><div id="jointResults"></div>
     </section>
 
     <section id="subjectView" class="view-panel" hidden>
@@ -87,10 +95,10 @@
 <script src="analysis-core.js?v=20260914-support70"></script>
 <script src="analysis-data-service.js?v=20261006-analysis-exclusion1"></script><script src="delivery-health.js?v=20261007-delivery2"></script>
 <script src="analysis.js?v=20261001-demo1"></script>
-<script src="analysis-all-subjects.js?v=20261006-freeze2"></script>
+<script src="analysis-all-subjects.js?v=20261009-joint1"></script>
 <script src="report-absentees.js?v=20260927-reference1"></script>
 <script src="subject-report-separate.js?v=20261006-subject-freeze6"></script>
-<script src="analysis-section-router.js?v=20261005-print-freeze1"></script>
+<script src="analysis-section-router.js?v=20261009-joint1"></script>
 <script src="analysis-print.js?v=20261005-print-freeze1"></script>
 <script src="report-test-options.js?v=20261006-restored1"></script>
 <script src="report-remedial-plan.js?v=20261006-freeze2"></script>
