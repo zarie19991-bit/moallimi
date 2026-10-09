@@ -120,5 +120,24 @@ BEGIN
  IF (SELECT count(*) FROM public.nafes_scan_answer_edits WHERE sheet_id=sheet2 AND after_answer->>'manual_reason'='Checked bubble manually from scan')<>1
  THEN RAISE EXCEPTION 'FAIL: manual audit'; END IF;
  RAISE NOTICE 'PASS: explicit manual edit reason recorded';
+ -- Confirm the manually resolved sheet is now independently verifiable.
+ result:=public.nafes_scan_verify(ses2,sheet2,owner_id,true);
+ IF result->>'disposition' IS DISTINCT FROM 'verified' THEN
+   RAISE EXCEPTION 'FAIL: manual review verification did not close sheet';
+ END IF;
+ result:=public.nafes_scan_finish(ses2);
+ IF result->'completed_at' IS NULL OR result->'completed_at'='null'::jsonb THEN
+   RAISE EXCEPTION 'FAIL: verified session did not finish';
+ END IF;
+ RAISE NOTICE 'PASS: manual edit then verify then finish';
+ -- Scope check: a reading-only teacher cannot delete even completed scan sheets.
+ BEGIN
+  PERFORM public.nafes_scan_delete_corrections(ses2,ARRAY[sheet2],outsider,'Not an owner',gen_random_uuid());
+  RAISE EXCEPTION 'FAIL: unauthorized rollback accepted';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM LIKE 'FAIL:%' THEN RAISE; END IF; END;
+ IF (SELECT count(*) FROM public.nafes_scan_sheets WHERE id=sheet2)<>1 THEN
+   RAISE EXCEPTION 'FAIL: unauthorized rollback deleted sheet';
+ END IF;
+ RAISE NOTICE 'PASS: limited-scope teacher cannot perform administrative rollback';
 END $t$;
 SELECT 'ISOLATED_SQL_ACCEPTANCE_PASS' AS result;
