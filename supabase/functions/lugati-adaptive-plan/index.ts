@@ -64,6 +64,9 @@ function moallimiAssessed(p:any){return !!(p&&p.source_attempt_id&&p.source_subm
 function matchesAssessedIndicator(p:any,subject:string,outcome:string,indicator:number){
  return moallimiAssessed(p)&&String(p.subject_key)===subject&&Number(p.indicator_index)===indicator&&(!outcome||String(p.outcome_code||"")===outcome);
 }
+function taskHasVerifiedMoallimiAttempt(t:any,perfs:any[]){
+ return perfs.some(p=>String(p.student_id)===String(t.student_id)&&matchesAssessedIndicator(p,String(t.subject_key||""),String(t.outcome_code||""),Number(t.indicator_index||0)));
+}
 function planSourceMeta(at:any,assessment:any){
   const paperEvent=Array.isArray(at?.events)&&at.events.some((e:any)=>e?.type==="paper_scan"||e?.method==="omr");
   const isPaper=at?.config?.paper_review===true||assessment?.config?.paper_review===true||paperEvent;
@@ -467,8 +470,6 @@ async function teacherSendIndicator(req:Request,body:any,access:Access){
   const [allPerfs,students]=await Promise.all([latestPerformances(),roster()]);
   const rosterIds=new Set((students||[]).map((s:any)=>String(s.id)));
   const perfs=(allPerfs||[]).filter((p:any)=>rosterIds.has(String(p.student_id))&&p.subject_key===subject&&p.outcome_code===outcome&&Number(p.indicator_index)===indicator);
-  const perfByStudent=new Map<string,any>();
-  for(const p of perfs)if(!perfByStudent.has(String(p.student_id)))perfByStudent.set(String(p.student_id),p);
 
   // Never add students with no submitted Moallimi result to any of these tiers.
   const targets=perfs.filter((p:any)=>moallimiAssessed(p)&&(
@@ -476,15 +477,13 @@ async function teacherSendIndicator(req:Request,body:any,access:Access){
     tier==="reinforcement"?Number(p.percent)>=70&&Number(p.percent)<90:
     Number(p.percent)>=90
   ));
-  const noResultCount=0;
   if(!targets.length)return json(req,{ok:true,sent:0,skipped:0,total_targets:0,no_result_targets:0,message:"لا توجد نتائج اختبار معلّمي مؤهلة لهذا المسار والمؤشر."});
   const studentIds=[...new Set(targets.map((p:any)=>String(p.student_id)))];
   const {data:existing,error:xe}=await db.from("lugati_teacher_tasks").select("student_id,source_attempt_id,status").eq("teacher_access_id",access.teacher_access_id!).eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator).eq("tier",tier).in("student_id",studentIds);if(xe)throw xe;
-  const existingActive=new Set((existing||[]).filter((x:any)=>["assigned","in_progress"].includes(String(x.status))).map((x:any)=>String(x.student_id)));
+  const existingActive=new Set((existing||[]).filter((x:any)=>x.source_attempt_id&&["assigned","in_progress"].includes(String(x.status))).map((x:any)=>String(x.student_id)));
   const qcount=Math.max(5,Math.min(12,Number(body?.question_count||8))),questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount),now=new Date().toISOString(),rows:any[]=[];let skipped=0;
   for(const p of targets){
     if(existingActive.has(String(p.student_id))){skipped++;continue}
-    const noResult=false;
     rows.push({teacher_access_id:access.teacher_access_id,student_id:p.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||p.indicator_text||("المؤشر "+indicator),
       title:tier==="remedial"?"مسار علاجي للمؤشر":tier==="reinforcement"?"مسار تعزيزي للمؤشر":"مسار إثرائي للمؤشر",
       instructions:tier==="remedial"?"تدريب علاجي بناءً على نتيجة اختبار معلّمي المسلّم.":tier==="reinforcement"?"تدريب تعزيز بناءً على نتيجة اختبار معلّمي المسلّم.":"تدريب إثرائي بناءً على نتيجة اختبار معلّمي المسلّم.",
@@ -492,7 +491,7 @@ async function teacherSendIndicator(req:Request,body:any,access:Access){
   }
   if(rows.length){for(let i=0;i<rows.length;i+=300){const {error}=await db.from("lugati_teacher_tasks").insert(rows.slice(i,i+300));if(error)throw error}}
   const sentMissing=rows.filter((r:any)=>r.source_percent==null).length;
-  return json(req,{ok:true,sent:rows.length,skipped,total_targets:targets.length,no_result_targets:noResultCount,sent_without_result:sentMissing,
+  return json(req,{ok:true,sent:rows.length,skipped,total_targets:targets.length,no_result_targets:0,sent_without_result:sentMissing,
     message:rows.length?("تم الإرسال إلى "+rows.length+" طالبًا ممن اختبروا في معلّمي وحققوا شروط المسار."):"سبق إرسال المسار للطلاب المؤهلين."});
 }
 async function teacherSendTask(req:Request,body:any,access:Access){
@@ -501,7 +500,7 @@ async function teacherSendTask(req:Request,body:any,access:Access){
   if(!studentId||!["reading","math","science"].includes(subject)||!indicator)return json(req,{error:"بيانات التدريب غير مكتملة."},400);if(!teacherAllows(access,subject))return json(req,{error:"هذه المادة خارج صلاحية حسابك."},403);
   const {data:s,error:se}=await db.from("nafes_students").select("id,is_active").eq("id",studentId).eq("is_active",true).maybeSingle();if(se)throw se;if(!s)return json(req,{error:"الطالب غير موجود."},404);
   const tested=(await latestPerformances([studentId])).find((p:any)=>matchesAssessedIndicator(p,subject,outcome,indicator));if(!tested)return json(req,{error:"لا يمكن إرسال مسار علاجي أو تعزيز أو إثراء: لا توجد نتيجة مسلّمة في معلّمي لهذا الطالب والمؤشر."},409);
-  const qcount=Math.max(3,Math.min(20,Number(body?.question_count||8))),questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount);const payload={teacher_access_id:access.teacher_access_id,student_id:studentId,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||`المؤشر ${indicator}`,title:tidy(body?.title)||"تدريب من المعلم",instructions:tidy(body?.instructions).slice(0,2000),tier:["starter","remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",question_count:questionIds.length,question_ids:questionIds,source_percent:Number(tested.percent),source_attempt_id:tested.source_attempt_id,source_submitted_at:tested.source_submitted_at,status:"assigned",assigned_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  const qcount=Math.max(3,Math.min(20,Number(body?.question_count||8))),questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount);const payload={teacher_access_id:access.teacher_access_id,student_id:studentId,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||`المؤشر ${indicator}`,title:tidy(body?.title)||"تدريب من المعلم",instructions:tidy(body?.instructions).slice(0,2000),tier:["remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",question_count:questionIds.length,question_ids:questionIds,source_percent:Number(tested.percent),source_attempt_id:tested.source_attempt_id,source_submitted_at:tested.source_submitted_at,status:"assigned",assigned_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   const {data,error}=await db.from("lugati_teacher_tasks").insert(payload).select("*").single();if(error)throw error;
   return json(req,{ok:true,task:data},201);
 }
@@ -519,16 +518,17 @@ async function myTeacherTasks(req:Request,access:Access){
       tasks.push({...t,student_id:access.student_id,status:"assigned",score:null,total:null,percent:null,started_at:null,completed_at:null,preview_mode:true});
       if(tasks.length>=100)break;
     }
-    return json(req,{ok:true,demo_preview:true,tasks});
+    return json(req,{ok:true,demo_preview:true,tasks:[],message:"الحساب التجريبي لا يملك نتيجة اختبار معلّمي حقيقية للتصنيف."});
   }
   const {data,error}=await db.from("lugati_teacher_tasks").select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,title,instructions,tier,question_count,status,score,total,percent,source_percent,assigned_at,started_at,completed_at,updated_at").eq("student_id",access.student_id!).neq("status","revoked").order("assigned_at",{ascending:false}).limit(100);if(error)throw error;
-  return json(req,{ok:true,tasks:data||[]});
+  const perfs=await latestPerformances([access.student_id!]);
+  return json(req,{ok:true,tasks:(data||[]).filter((t:any)=>taskHasVerifiedMoallimiAttempt(t,perfs))});
 }
 async function teacherTasks(req:Request,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
   const {data,error}=await db.from("lugati_teacher_tasks").select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,title,instructions,tier,question_count,status,score,total,percent,assigned_at,started_at,completed_at,updated_at").eq("teacher_access_id",access.teacher_access_id!).order("assigned_at",{ascending:false}).limit(1000);if(error)throw error;
-  const ids=[...new Set((data||[]).map((x:any)=>String(x.student_id)))];const sm=new Map<string,any>();if(ids.length){const {data:ss,error:se}=await db.from("nafes_students").select("id,full_name,class_name,grade").in("id",ids);if(se)throw se;for(const s of ss||[])sm.set(String(s.id),s)}
-  return json(req,{ok:true,tasks:(data||[]).map((x:any)=>({...x,student:sm.get(String(x.student_id))||null}))});
+  const ids=[...new Set((data||[]).map((x:any)=>String(x.student_id)))];const perfs=ids.length?await latestPerformances(ids):[];const eligible=(data||[]).filter((t:any)=>taskHasVerifiedMoallimiAttempt(t,perfs));const sm=new Map<string,any>();if(ids.length){const {data:ss,error:se}=await db.from("nafes_students").select("id,full_name,class_name,grade").in("id",ids);if(se)throw se;for(const s of ss||[])sm.set(String(s.id),s)}
+  return json(req,{ok:true,tasks:eligible.map((x:any)=>({...x,student:sm.get(String(x.student_id))||null}))});
 }
 
 async function startTeacherTask(req:Request,body:any,access:Access){
