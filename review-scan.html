@@ -118,6 +118,13 @@
         <div id="manualAssignmentWrap" class="manual-assignment hidden"><label>تعذر تأكيد هوية الورقة — اختر الطالب:<select id="manualAssignment"></select></label><button id="applyManualAssignmentBtn" class="secondary" type="button">تأكيد اسم الطالب</button></div>
         <p id="sheetWarning" role="status"></p><p id="modalFeedback" role="status" aria-live="polite"></p>
         <div id="omrUncertaintyReasons" role="status" aria-live="polite"></div>
+        <section id="visionAssistPanel" aria-label="قارئ التظليل بالذكاء الاصطناعي" style="border:1px solid #d6e0df;border-radius:10px;padding:10px;margin:10px 0">
+          <strong>قارئ صور ذكي مساعد — اقتراح فقط</strong>
+          <p id="visionAssistStatus" role="status">غير مفعل؛ لن تُرسل أي صور أو تُحتسب تكاليف.</p>
+          <p style="font-size:.9em">يُرسل الجزء السفلي فقط من صورة الورقة إلى مزود ذكاء اصطناعي خارجي بعد موافقتك. قد يحتوي الجزء المرسل على تفاصيل من الورقة؛ تأكد من موافقة المدرسة على مشاركة بيانات الطلاب. قد يترتب رسم استخدام على حساب مزود الخدمة. لا يحسب هذا الزر أي درجة ولا يعتمد أي إجابة.</p>
+          <button id="visionReadBtn" class="secondary" type="button" disabled>اقتراح قراءة الصورة بالذكاء الاصطناعي</button>
+          <div id="visionProposal" role="status" aria-live="polite"></div>
+        </section>
         <label for="manualReviewReason">سبب التعديل اليدوي أو تصحيح الهوية (إلزامي)</label>
         <textarea id="manualReviewReason" minlength="3" maxlength="1000" rows="2" placeholder="اذكر ما تحققت منه في صورة الورقة؛ لا تدخل بيانات شخصية."></textarea>
         <label class="edit-mode"><input id="editMode" type="checkbox"> تحديد أكثر من إجابة للسؤال (اختياري)</label><div id="answerEditor" class="answer-editor"></div>

@@ -2,6 +2,13 @@ import jpeg from "npm:jpeg-js@0.4.4";
 
 type GrayImage={width:number;height:number;gray:Uint8Array;rgba:Uint8Array};
 type Point={x:number;y:number;score?:number};
+export class OMRReadFailure extends Error{
+ readonly code:string;
+ readonly diagnostics:Record<string,unknown>;
+ constructor(code:string,message:string,diagnostics:Record<string,unknown>={}){
+  super(message);this.name='OMRReadFailure';this.code=code;this.diagnostics=diagnostics;
+ }
+}
 const median=(a:number[])=>{if(!a.length)return 0;const b=[...a].sort((x,y)=>x-y),n=b.length;return n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2;};
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 
@@ -14,6 +21,26 @@ function decodeDataUrl(src:string):GrayImage{
  const rgba=new Uint8Array(d.data),g=new Uint8Array(d.width*d.height);
  for(let i=0,j=0;i<rgba.length;i+=4,j++)g[j]=Math.round(rgba[i]*.299+rgba[i+1]*.587+rgba[i+2]*.114);
   return{width:d.width,height:d.height,gray:g,rgba};
+}
+// This is a *secondary* alignment-only pass, never an automatic grade repair.
+// Local averaging removes isolated camera noise and percentile stretching
+// recovers weak printed square edges when the original marker pass was rejected.
+function enhanceGeometryGray(im:GrayImage){
+ const hist=new Uint32Array(256);
+ for(let i=0;i<im.gray.length;i+=7)hist[im.gray[i]]++;
+ const total=hist.reduce((a,b)=>a+b,0);
+ const quantile=(p:number)=>{let c=0;for(let k=0;k<256;k++){c+=hist[k];if(c>=total*p)return k;}return 255;};
+ const lo=quantile(.005),hi=quantile(.995),range=hi-lo;
+ if(range<18)throw new OMRReadFailure('OMR_LOW_DYNAMIC_RANGE','التباين منخفض جدًا لتأكيد علامات القالب.',{percentile_low:lo,percentile_high:hi});
+ const gain=clamp(175/range,1,2.5),out=new Uint8Array(im.gray.length);
+ const {width:w,height:h,gray:g}=im;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const i=y*w+x;
+   const mixed=x===0||y===0||x+1===w||y+1===h?g[i]:
+     (g[i]*4+g[i-1]+g[i+1]+g[i-w]+g[i+w])/8;
+   out[i]=Math.round(clamp(55+(mixed-lo)*gain,0,255));
+ }
+ return{image:{...im,gray:out},diagnostics:{percentile_low:lo,percentile_high:hi,gain:Number(gain.toFixed(3)),noise_filter:'weighted_5_point'}};
 }
 function rotate90(im:GrayImage):GrayImage{
  const nw=im.height,nh=im.width,outG=new Uint8Array(im.width*im.height),outRgba=new Uint8Array(im.width*im.height*4);
@@ -105,22 +132,27 @@ function componentSquares(im:GrayImage,threshold:number){
     const size=(w+h)/2;
     out.push({x:(minX+maxX)/2,y:(minY+maxY)/2,size,core:density,score:density+.35,component:true});
   }
-  return out.sort((a,b)=>b.score-a.score).slice(0,48);
+  return out; // Preserve alignment markers lower on A4; global top-48 truncation discards them.
 }
 function detectMarkers(im:GrayImage){
  const threshold=otsuThreshold(im),I=binaryIntegral(im,threshold);
   const components=componentSquares(im,threshold);
   const candidates=(zone:number[],ex:number,ey:number)=>{
-    const c=components.filter(p=>p.x>=im.width*zone[0]&&p.x<=im.width*zone[1]&&p.y>=im.height*zone[2]&&p.y<=im.height*zone[3]);
+    const c=components.filter(p=>p.x>=im.width*zone[0]&&p.x<=im.width*zone[1]&&p.y>=im.height*zone[2]&&p.y<=im.height*zone[3])
+      .sort((a,b)=>(b.score-.45*(Math.abs(b.x/im.width-ex)+Math.abs(b.y/im.height-ey)))-
+                    (a.score-.45*(Math.abs(a.x/im.width-ex)+Math.abs(a.y/im.height-ey))));
     // Use the original detector as fallback for skewed/fragmented printed squares.
-    if(c.length>=2)return c.slice(0,24);
+    if(c.length>=2)return c.slice(0,16);
     const original=squareCandidates(I,zone,ex,ey,12);
-    return [...c,...original.filter(p=>!c.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<q.size))].slice(0,24);
+    return [...c,...original.filter(p=>!c.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<q.size))].slice(0,16);
   };
-  const TL=candidates([0,.45,0,.85],.10,.59),
-        TR=candidates([.55,1,0,.85],.88,.59),
-        BL=candidates([0,.45,.15,1],.10,.92),
-        BR=candidates([.55,1,.15,1],.88,.92);
+  // Printed A4 has its answer-template markers in the lower half.
+  // A pre-cropped answer panel has four corners near the edges.
+  const fullA4=im.height>im.width*1.08;
+  const TL=candidates(fullA4?[0,.25,.34,.72]:[0,.45,0,.85],fullA4?.06:.10,fullA4?.53:.59),
+        TR=candidates(fullA4?[.75,1,.34,.72]:[.55,1,0,.85],fullA4?.94:.88,fullA4?.53:.59),
+        BL=candidates(fullA4?[0,.25,.73,1]:[0,.45,.15,1],fullA4?.06:.10,fullA4?.97:.92),
+        BR=candidates(fullA4?[.75,1,.73,1]:[.55,1,.15,1],fullA4?.94:.88,fullA4?.97:.92);
  const target=172/104;let best:any=null;
  for(const tl of TL)for(const tr of TR){
     const topDx=tr.x-tl.x;if(topDx<im.width*.35||Math.abs(tr.y-tl.y)>im.height*.12)continue;
@@ -221,6 +253,20 @@ function blueInkAt(im:GrayImage,cx:number,cy:number,r:number,paper?:number[]){
  }
   return{density:n?hit/n:0,weighted:n?weighted/n:0,hits:hit,mass:weighted};
 }
+// Local pixel-density evidence inside each printed circle (not its outline).
+function interiorPixelDensity(im:GrayImage,cx:number,cy:number,r:number,localPaperGray:number){
+ const inner=Math.max(2,r*.66),rr=inner*inner,threshold=clamp(localPaperGray-36,105,218);
+ let dark=0,pixels=0,sum=0;
+ for(let y=Math.floor(cy-inner);y<=Math.ceil(cy+inner);y++)
+ for(let x=Math.floor(cx-inner);x<=Math.ceil(cx+inner);x++){
+  if(x<0||y<0||x>=im.width||y>=im.height)continue;
+  const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>rr)continue;
+  const g=im.gray[y*im.width+x];if(g<=threshold)dark++;sum+=g;pixels++;
+ }
+ if(pixels<12)throw new Error('تعذّر قياس الكثافة الداخلية للفقاعة.');
+ return{density:dark/pixels,contrast:localPaperGray-sum/pixels,
+  cutoff:threshold,dark_pixels:dark,total_pixels:pixels};
+}
 function rowBlueEvidence(im:GrayImage,centers:any[],rowGap:number,optionGap:number,papers:number[][]){
  const xs=centers.map(p=>p.x),ys=centers.map(p=>p.y),minX=Math.max(0,Math.floor(Math.min(...xs)-optionGap*.48)),maxX=Math.min(im.width-1,Math.ceil(Math.max(...xs)+optionGap*.48));
  const minY=Math.max(0,Math.floor(Math.min(...ys)-rowGap*.42)),maxY=Math.min(im.height-1,Math.ceil(Math.max(...ys)+rowGap*.42));
@@ -261,56 +307,102 @@ function rowDarkEvidence(im:GrayImage,centers:any[],rowGap:number,optionGap:numb
 // Locate the printed rings, not the chosen answers. No answer key is consulted.
 function locateBubbleGrid(im:GrayImage,scale:number){
   const rights=[171,128,85,42],offs=[7.5,15.5,23.5,31.5],radius=2.08*scale;
+  // The current printable SVG uses 20/5.45 mm. Older actual MR2 A4 prints
+  // have different row origin/pitch: calibrate from printed empty bubble rings,
+  // not answer choices, colors, or a student's score.
+  // Registered print profiles only: the unconstrained Cartesian search aliases
+  // bubble rings and silently shifted the grid on three of six actual sheets.
+  // Unknown geometries must be rejected, never auto-graded.
+  const registeredProfiles=[{start:20,step:5.45,name:'current_print'},{start:29,step:4.8,name:'legacy_candidate_requires_review'}];
+  const ringEvidence=(right:number,row:number,off:number,rowStart:number,rowStep:number,dx=0,dy=0)=>{
+    const x=(right-off)*scale+dx,y=(rowStart+row*rowStep)*scale+dy;
+    const ring=meanAt(im,x,y,radius*1.13,radius*.87);
+    const paper=meanAt(im,x,y,radius*1.65,radius*1.3);
+    return Math.max(0,(paper-ring)/255);
+  };
+  const scored=[] as {start:number;step:number;score:number}[];
+  for(const {start,step} of registeredProfiles){
+    const values:number[]=[];
+    for(const right of rights)for(let row=0;row<15;row++)for(const off of offs)
+       values.push(ringEvidence(right,row,off,start,step));
+    scored.push({start,step,score:median(values)});
+  }
+  scored.sort((a,b)=>b.score-a.score);
+  const candidate=scored[0],runner=scored[1],rowStart=candidate.start,rowStep=candidate.step;
   const blocks=rights.map(right=>{
     const evidence=(dx:number,dy:number)=>{
       const values:number[]=[];
-      for(const row of [0,7,14])for(const off of offs){
-        const x=(right-off)*scale+dx,y=(20+row*5.45)*scale+dy;
-        const ring=meanAt(im,x,y,radius*1.13,radius*.87);
-        const paper=meanAt(im,x,y,radius*1.65,radius*1.3);
-        values.push(Math.max(0,(paper-ring)/255));
-      }
+      for(const row of [0,7,14])for(const off of offs)
+        values.push(ringEvidence(right,row,off,rowStart,rowStep,dx,dy));
       return median(values);
     };
     const initial=evidence(0,0);let best={dx:0,dy:0,score:initial};
     for(let dy=-6;dy<=6;dy+=2)for(let dx=-6;dx<=6;dx+=2){
-      const score=evidence(dx,dy);
-      if(score>best.score+.001)best={dx,dy,score};
+      const score=evidence(dx,dy);if(score>best.score+.001)best={dx,dy,score};
     }
     const coarse={...best};
     for(let dy=coarse.dy-1;dy<=coarse.dy+1;dy++)for(let dx=coarse.dx-1;dx<=coarse.dx+1;dx++){
       if(Math.abs(dx)>6||Math.abs(dy)>6)continue;
       const score=evidence(dx,dy);if(score>best.score+.001)best={dx,dy,score};
     }
-    // A tiny improvement is noise, not evidence to move the grid.
     return best.score-initial>=.018?best:{dx:0,dy:0,score:initial};
   });
-  return{blocks,score:median(blocks.map(b=>b.score))};
+  return{blocks,score:median(blocks.map(b=>b.score)),
+    rowStart,rowStep,nominal:rowStart===20&&rowStep===5.45,
+    candidate_margin:Number((candidate.score-(runner?.score||0)).toFixed(4)),
+    layout:rowStart===20&&rowStep===5.45?'current_print':'legacy_candidate_requires_review'};
 }
+
 function orientTemplate(source:GrayImage,scale:number){
-  const candidates:any[]=[];let im=source;
-  for(let turn=0;turn<4;turn++){
-    try{
-      const m=detectMarkers(im),warped=warpTemplate(im,m,scale),grid=locateBubbleGrid(warped,scale);
-      candidates.push({m,im:warped,grid,rotation:turn*90});
-    }catch(e:any){
-      if(!String(e?.message||e).includes('علامات محاذاة'))throw e;
-    }
-    im=rotate90(im);
-  }
-  candidates.sort((a,b)=>b.grid.score-a.grid.score);
-  const best=candidates[0],runner=candidates[1];
-  if(!best||best.grid.score<.07)throw new Error('لم يتم العثور على علامات محاذاة وشبكة فقاعات موثوقة للقالب.');
-  if(runner&&best.grid.score-runner.grid.score<.025)throw new Error('اتجاه الورقة غير حاسم؛ يلزم مراجعة الصورة.');
-  return best;
+ const candidates:any[]=[],attempts:any[]=[];let im=source;
+ for(let turn=0;turn<4;turn++){
+   try{
+     const m=detectMarkers(im),warped=warpTemplate(im,m,scale),grid=locateBubbleGrid(warped,scale);
+     candidates.push({m,im:warped,grid,rotation:turn*90});
+     attempts.push({rotation:turn*90,geometry:'found',marker_confidence:Number(m.confidence.toFixed(3)),
+       threshold:m.threshold,grid_score:Number(grid.score.toFixed(4))});
+   }catch(e:any){
+     const msg=String(e?.message||e);
+     attempts.push({rotation:turn*90,geometry:'rejected',reason:msg.slice(0,160)});
+     if(!msg.includes('علامات محاذاة'))throw e;
+   }
+   im=rotate90(im);
+ }
+ candidates.sort((a,b)=>b.grid.score-a.grid.score);
+ const best=candidates[0],runner=candidates[1];
+ const diag={image_width:source.width,image_height:source.height,
+   expected_template_mm:{width:180,height:112,marker_centers:[[4,4],[176,4],[4,108],[176,108]],marker_size:3},
+   min_grid_score:.07,rotations:attempts};
+ if(!best||best.grid.score<.07)throw new OMRReadFailure(
+   'OMR_GRID_NOT_VERIFIED','لم يتم العثور على علامات محاذاة وشبكة فقاعات موثوقة للقالب.',diag);
+ if(runner&&best.grid.score-runner.grid.score<.025)throw new OMRReadFailure(
+   'OMR_ROTATION_AMBIGUOUS','اتجاه الورقة غير حاسم؛ يلزم مراجعة الصورة.',
+   {...diag,best_rotation:best.rotation,runner_rotation:runner.rotation,grid_gap:Number((best.grid.score-runner.grid.score).toFixed(4))});
+ return best;
 }
 export function readOmrJpeg(src:string,total:number,startNo=1){
   if(!Number.isInteger(total)||total<1||total>60)throw new Error('عدد أسئلة القالب لا يطابق الاختبار.');
-  const source=decodeDataUrl(src),scale=5,{m,im,grid,rotation}=orientTemplate(source,scale),radius=2.08*scale;
+  const source=decodeDataUrl(src),scale=5;
+  let oriented:any,preprocessing:any={mode:'original'};
+  try{oriented=orientTemplate(source,scale);}
+  catch(e:any){
+    if(e?.code!=='OMR_GRID_NOT_VERIFIED')throw e;
+    try{
+      const enhanced=enhanceGeometryGray(source);
+      oriented=orientTemplate(enhanced.image,scale);
+      preprocessing={mode:'enhanced_geometry_requires_review',...enhanced.diagnostics};
+    }catch(second:any){
+      throw new OMRReadFailure('OMR_GRID_NOT_VERIFIED',e.message,{
+        ...e.diagnostics,preprocessing_attempted:true,
+        enhanced_failure_code:second?.code||'OMR_FALLBACK_REJECTED',
+        enhanced_failure_reason:String(second?.message||second).slice(0,160)});
+    }
+  }
+  const {m,im,grid,rotation}=oriented,radius=2.08*scale;
  const rights=[171,128,85,42],offs=[7.5,15.5,23.5,31.5],raw:any[]=[];
- const rowGap=5.45*scale,optionGap=8*scale;
+ const rowGap=grid.rowStep*scale,optionGap=8*scale;
  for(let i=0;i<Math.min(total,60);i++){
-  const block=Math.floor(i/15),row=i%15,y=(20+row*5.45)*scale,right=rights[block],ev:any[]=[],centers:any[]=[];
+  const block=Math.floor(i/15),row=i%15,y=(grid.rowStart+row*grid.rowStep)*scale,right=rights[block],ev:any[]=[],centers:any[]=[];
    const alignment=grid.blocks[block];
    for(const off of offs){const p={x:(right-off)*scale+alignment.dx,y:y+alignment.dy};centers.push(p);const z=fillScore(im,p.x,p.y,radius);ev.push({...z,x:p.x,y:p.y});}
   const papers=centers.map(p=>paperColorAt(im,p.x,p.y,radius));
@@ -320,6 +412,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
     ev[j].darkRowScore=dark.scores[j];ev[j].darkHits=dark.hits[j];
      const inside=blueInkAt(im,centers[j].x,centers[j].y,radius*.96,papers[j]);
      ev[j].paperGray=papers[j][0]*.299+papers[j][1]*.587+papers[j][2]*.114;
+     ev[j].pixelEvidence=interiorPixelDensity(im,centers[j].x,centers[j].y,radius,ev[j].paperGray);
      ev[j].blueInsideMass=inside.mass;ev[j].blueInsideHits=inside.hits;
   }
   raw.push(ev);
@@ -349,6 +442,14 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   const relativeClear=sep>=Math.max(.055,sepThr*1.15)&&lift>=.075,relativeStrong=sep>=.12&&lift>=.12;
   const ratio=(top.s>0&&second.s>0)?second.s/top.s:0,strongSecond=top.s>=definite&&second.s>=definite&&ratio>=.55,weakCompetition=top.s>=possible&&second.s>=possible&&ratio>=.42;
 
+   // A double strong interior mark may be a double answer or an erasure.
+   // It must be reviewed, not replaced by the darkest choice.
+   const densityMarked=ev.map((e:any,j:number)=>({j,d:e.pixelEvidence}))
+     .filter((x:any)=>x.d.density>=.48&&x.d.contrast>=32).map((x:any)=>x.j);
+   if(densityMarked.length>1)return{question:startNo+i,selected:null,status:'ambiguous',
+     marked:densityMarked,scores,blueScores,darkScores,centerValues,
+     reader:'multi-interior-density-review',confidence:.40,topScore:0,
+     secondScore:0,threshold:.48,separation:0};
    if(hasBlue){
      const blueMarked=blueOrder.filter((x:any)=>x.m>=7&&x.h>=5&&x.m/Math.max(1,blueTop.m)>=.48).map((x:any)=>x.j);
      const darkMarked=darkRowOrder.filter((x:any)=>x.v>=.105&&(x.v-darkRowBase)>=.028).map((x:any)=>x.j);
@@ -389,14 +490,19 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear)))return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
+ const answersWithDensity=answers.map((a:any,i:number)=>({...a,
+    pixel_density:raw[i].map((e:any)=>Number(e.pixelEvidence.density.toFixed(4))),
+    pixel_contrast:raw[i].map((e:any)=>Number(e.pixelEvidence.contrast.toFixed(2)))}));
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
   const geometryUncertain=m.confidence<.85||grid.score<.10;
-  const requiresReview=!!(ambiguous||multiple||geometryUncertain);
-  return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,
+  const enhancedPreprocessing=preprocessing.mode!=='original'||grid.layout!=='current_print';
+   const requiresReview=!!(ambiguous||multiple||geometryUncertain||enhancedPreprocessing);
+  return{answers:answersWithDensity,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,preprocessing,
    color_calibration:{method:'local-paper-annular-median',weak_second_ink:'manual-review'},
-   grid_alignment:{score:Number(grid.score.toFixed(4)),blocks:grid.blocks.map((b:any)=>({dx:b.dx,dy:b.dy,score:Number(b.score.toFixed(4))}))},
+   grid_alignment:{score:Number(grid.score.toFixed(4)),row_start_mm:grid.rowStart,row_step_mm:grid.rowStep,layout:grid.layout,blocks:grid.blocks.map((b:any)=>({dx:b.dx,dy:b.dy,score:Number(b.score.toFixed(4))}))},
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
-   verification:{risk:requiresReview?'high':'low',quality_score:requiresReview?70:100,reasons:[...(ambiguous||multiple?['توجد إجابات غير حاسمة أو متعددة']:[]),...(geometryUncertain?['هندسة علامات المحاذاة أو شبكة الفقاعات تحتاج مراجعة']:[])],requires_manual_review:requiresReview,auto_accept:!requiresReview,counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
+   verification:{risk:requiresReview?'high':'low',quality_score:requiresReview?70:100,reasons:[...(ambiguous||multiple?['توجد إجابات غير حاسمة أو متعددة']:[]),...(geometryUncertain?['هندسة علامات المحاذاة أو شبكة الفقاعات تحتاج مراجعة']:[]),
+      ...(enhancedPreprocessing?['تحسين تعرض وضجيج الصورة؛ تتطلب مراجعة بشرية قبل اعتماد الدرجة']:[])],requires_manual_review:requiresReview,auto_accept:!requiresReview,counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
  };
 }
