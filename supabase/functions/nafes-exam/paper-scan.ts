@@ -1,6 +1,7 @@
 // Auth is performed by handleAssessments before invoking this module.
 import { fail, hash } from './assessment-engine.ts';
 import { readOmrJpeg } from './omr-server.ts';
+import { proposeVisionReading } from './omr-vision-assist.ts';
 type Row=Record<string,any>;
 const must=(r:any)=>{if(r.error)fail(r.error.message,400);return r.data;};
 const uuid=(v:any)=>/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(String(v));
@@ -181,7 +182,8 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  if(b.action==='teacher_scan_list'){
     const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
    const safe=rows.map((x:Row)=>{const {image_data,...rest}=x;return rest;});
-    return {ok:true,session:publicSession(session),sheets:safe,auto_reprocessed:0,omr_policy:OMR_POLICY};
+    return {ok:true,session:publicSession(session),sheets:safe,auto_reprocessed:0,omr_policy:OMR_POLICY,
+       vision_available:Deno.env.get('OMR_VISION_ASSIST_ENABLED')==='true'&&!!Deno.env.get('OPENAI_API_KEY')};
  }
  if(b.action==='teacher_scan_quality_report'){
    const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
@@ -196,6 +198,27 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    return {ok:true,policy:OMR_POLICY,summary,items};
  }
 
+ if(b.action==='teacher_scan_vision_proposal'){
+   if(session.reviewer_id!==owner.id)fail('القراءة بالذكاء الاصطناعي متاحة لمراجع الجلسة فقط.',403);
+   if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات الورقة غير صالحة.',400);
+   const row=must(await db.from('nafes_scan_sheets').select(summaryColumns+',image_data')
+     .eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
+   if(!row)fail('لم يتم العثور على الورقة.',404);
+   if(row.answer_version!==b.answer_version)fail('تغيرت الورقة؛ حدّث الصفحة أولًا.',409);
+   const total=Number(session.review_snapshot?.question_count);
+   if(!Number.isInteger(total)||total<1||total>60)fail('عدد الأسئلة غير مدعوم.',400);
+   const current=row.effective_snapshot||row.snapshot||{};
+   const optical=current.markers_ok===true&&!current.omr_reader_error&&
+     Array.isArray(current.answers)&&current.answers.length===total?
+     current.answers.map((a:Row)=>({
+       status:a.reading_status||a.status,
+       marked:Array.isArray(a.confirmed_marks)&&a.confirmed_marks.length?
+         a.confirmed_marks:Array.isArray(a.marked)?a.marked:[]
+     })):null;
+   const proposal=await proposeVisionReading(String(row.image_data||''),total,optical,String(b.vision_consent||''));
+   return{ok:true,proposal,unverified:true,save_performed:false,grade_changed:false,
+     sheet_id:row.id,answer_version:row.answer_version};
+ }
  if(b.action==='teacher_scan_finalize_upload'){
    const actual=Number(b.actual_count);
    if(!Number.isInteger(actual)||actual<1||actual>200)fail('عدد الأوراق النهائي غير صالح.');
