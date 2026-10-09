@@ -30,7 +30,7 @@ function enhanceGeometryGray(im:GrayImage){
  for(let i=0;i<im.gray.length;i+=7)hist[im.gray[i]]++;
  const total=hist.reduce((a,b)=>a+b,0);
  const quantile=(p:number)=>{let c=0;for(let k=0;k<256;k++){c+=hist[k];if(c>=total*p)return k;}return 255;};
- const lo=quantile(.012),hi=quantile(.99),range=hi-lo;
+ const lo=quantile(.005),hi=quantile(.995),range=hi-lo;
  if(range<18)throw new OMRReadFailure('OMR_LOW_DYNAMIC_RANGE','التباين منخفض جدًا لتأكيد علامات القالب.',{percentile_low:lo,percentile_high:hi});
  const gain=clamp(175/range,1,2.5),out=new Uint8Array(im.gray.length);
  const {width:w,height:h,gray:g}=im;
