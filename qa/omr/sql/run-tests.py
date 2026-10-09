@@ -56,7 +56,7 @@ class Cases:
         text = f"SELECT public.{name}({','.join(params)});"
         return self.sql(text, allow_error=error) if error else self.json(text)
 
-    def reset(self, mode="clear", count=4, expected=1, identity=True):
+    def reset(self, mode="clear", count=4, expected=1, identity=True, policy=None):
         self.sql("TRUNCATE " + ",".join("public."+t for t in sorted(CORE_NAMES | {"nafes_teacher_access"})) + ";")
         payload = {"question_count": count, "assignments": [{
             "sheet_no": 1, "student_id": STUDENT, "student_name": "طالب اصطناعي", "model": "A"}],
@@ -70,6 +70,10 @@ class Cases:
         snap = dict(identity_valid=identity, markers_ok=True, model="A", student_name="طالب اصطناعي",
                     total=count, answers=answers(mode, count))
         snap["score"]=sum(a["state"]=="correct" for a in snap["answers"])
+        if policy:
+            snap["omr_policy"]=policy
+            snap["counts"]={state:sum(a["state"]==state for a in snap["answers"])
+                            for state in ["correct","incorrect","blank","multiple","uncertain"]}
         body = dict(ordinal=1, student_id=STUDENT, sheet_no=1, image_hash="synthetic-image-1",
                     image_data="data:image/jpeg;base64,AA==", snapshot=snap)
         self.body = body

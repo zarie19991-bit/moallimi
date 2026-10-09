@@ -89,7 +89,8 @@ def run():
         pg.sql(db, ddl)
         pg.sql(db, build_repairs(bodies))
         c = fixtures.Cases(pg, db, repaired=True)
-        row = c.reset("ambiguous",count=10 if os.environ.get("OMR_HTTP_TEST") else 4)
+        row = c.reset("ambiguous",count=10 if os.environ.get("OMR_HTTP_TEST") else 4,
+                      policy="server_jpeg_homography_dev_grid" if os.environ.get("OMR_RUNTIME_PRODUCTION") else None)
         roles = ["anon","authenticated","service_role","supabase_auth_admin","dashboard_user"]
         sequences = {}
         if unblock:

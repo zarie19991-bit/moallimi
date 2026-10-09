@@ -14,6 +14,8 @@ from schema import ROOT,literal
 
 
 def run_http(pg,db,fixtures,row,evidence):
+    runtime_production=os.environ.get("OMR_RUNTIME_PRODUCTION")=="1"
+    output_path="production-integration" if runtime_production else "postgrest"
     encode=lambda b:base64.urlsafe_b64encode(b).decode().rstrip("=")
     secret=secrets.token_urlsafe(48)
     def jwt(role):
@@ -67,7 +69,8 @@ def run_http(pg,db,fixtures,row,evidence):
             pg.sql(db,f"INSERT INTO public.nafes_teacher_access(id,key_hash,subject_scope,active) VALUES("
                       f"'{actor}',{literal(hashlib.sha256(key.encode()).hexdigest())},'{scope}',{str(active).lower()});")
         bridge_config=directory/"http-bridge.json"
-        bridge_config.write_text(json.dumps({"rest":rest_url,"service_token":service,"session":fixtures.SESSION}))
+        bridge_config.write_text(json.dumps({"rest":rest_url,"service_token":service,"session":fixtures.SESSION,
+                                             "runtime_production":runtime_production}))
         bridge_config.chmod(0o600)
         bridge=subprocess.Popen(["bun","qa/omr/sql/http-edge.ts",str(bridge_config)],
             cwd=ROOT,env=pg.env,stdout=subprocess.PIPE,stderr=open(directory/"edge.log","w"),text=True)
@@ -81,6 +84,12 @@ def run_http(pg,db,fixtures,row,evidence):
         encoded=literal(json.dumps(snapshot))+"::jsonb"
         pg.sql(db,f"UPDATE public.nafes_scan_sessions SET review_snapshot={encoded};"
                   f"UPDATE public.nafes_paper_reviews SET payload={encoded};")
+        if runtime_production:
+            pg.sql(db,"UPDATE public.nafes_scan_sheets SET image_data="+literal(cfg["image"])+f" WHERE id='{row['id']}';")
+            ui=subprocess.run(["bun","qa/omr/sql/http-browser.ts",edge_url,fixtures.SESSION,"review","production"],
+                env=pg.env,cwd=ROOT,capture_output=True,text=True,timeout=80)
+            check(ui.returncode==0,"production_review_modal_blocks_ambiguous_verification",
+                  {"result":ui.stdout.strip(),"error":ui.stderr.strip()})
         base={"review_id":"RQA01","session_id":fixtures.SESSION,"sheet_id":row["id"],"answer_version":0}
         def api(action,changes=None,key="0000000001"):
             return request(edge_url+"/api/omr-local",{**base,**(changes or {}),"action":action},
@@ -115,7 +124,8 @@ def run_http(pg,db,fixtures,row,evidence):
         result={**after,"sheet_id":row["id"],"answer_version":1}
         payload={"title":"Synthetic HTTP paper","subject":"math","subjects":["math"],
                  "models":[cfg["model"]],"answer_keys":cfg["keys"],"results":[result]}
-        initial_browser=subprocess.run(["bun","qa/omr/sql/http-browser.ts",edge_url,fixtures.SESSION,"publish"],
+        initial_browser=subprocess.run(["bun","qa/omr/sql/http-browser.ts",edge_url,fixtures.SESSION,"publish",
+                                       "production" if runtime_production else "qa"],
             env=pg.env,cwd=ROOT,capture_output=True,text=True,timeout=80)
         check(initial_browser.returncode==0,"actual_frontend_concurrent_initial_publication",
               {"result":initial_browser.stdout.strip(),"error":initial_browser.stderr.strip()})
@@ -170,7 +180,8 @@ def run_http(pg,db,fixtures,row,evidence):
                             {"Authorization":"Bearer bad.signature.token"})
         check(status==401,"invalid_jwt_rejected_by_actual_postgrest",{"status":status})
         traffic=request(edge_url+"/qa-traffic")[1]
-        browser=subprocess.run(["bun","qa/omr/sql/http-browser.ts",edge_url,fixtures.SESSION],
+        browser=subprocess.run(["bun","qa/omr/sql/http-browser.ts",edge_url,fixtures.SESSION,"audit",
+                                "production" if runtime_production else "qa"],
             env=pg.env,cwd=ROOT,capture_output=True,text=True,timeout=80)
         check(browser.returncode==0,"actual_frontend_transport_browser_to_postgrest",{"result":browser.stdout.strip(),"error":browser.stderr.strip()})
         traffic=request(edge_url+"/qa-traffic")[1]
@@ -187,18 +198,22 @@ def run_http(pg,db,fixtures,row,evidence):
               "isolated_backup_restore_preserves_surviving_grade")
         check(pg.sql("omr_original","SELECT count(*) FROM public.nafes_scan_deletions;").stdout.strip()=="1",
               "isolated_backup_restore_preserves_rollback_audit")
-        out=ROOT/"qa/omr/results/postgrest"
+        out=ROOT/"qa/omr/results"/output_path
         out.mkdir(parents=True,exist_ok=True)
         (out/"evidence.json").write_text(json.dumps({
             "passed":len(checks),"failed":0,"cases":checks,"traffic":traffic,
             "postgrest_version":subprocess.check_output(["postgrest","--version"],env=pg.env,text=True).strip(),
             "real_http":True,"production_connected":False,"published":False,
+            "runtime_files_tested":runtime_production,
+            "profile_endpoint_uses_synthetic_fixture_only":runtime_production,
+            "runtime_source_sha256":{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
+                for p in (ROOT/"supabase/functions/nafes-exam").glob("*.ts")} if runtime_production else {},
             "original_missing_acl":["schema ACL","paper_review ACL","scan RPC ACL"],
             "backup_restore_rehearsed":True,"production_backup_created":False,
         },ensure_ascii=False,indent=2))
         print(json.dumps({"http_passed":len(checks),"failed":0}))
     except Exception as e:
-        out=ROOT/"qa/omr/results/postgrest"
+        out=ROOT/"qa/omr/results"/output_path
         out.mkdir(parents=True,exist_ok=True)
         failure={"failed_at":str(e),"passed_before_failure":len(checks),"cases":checks,
                  "real_http":True,"production_connected":False,

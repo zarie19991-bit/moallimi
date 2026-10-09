@@ -4,7 +4,9 @@ const $=id=>document.getElementById(id),ar=n=>new Intl.NumberFormat('ar-SA').for
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={blank:'غير محلول',multiple:'إجابات متعددة',correct:'صحيح مؤكد',incorrect:'إجابة خاطئة',uncertain:'قراءة غير مؤكدة'};
 const letters=['أ','ب','ج','د'];
-const OMR_POLICY='server_jpeg_homography_v15';
+const OMR_POLICY='server_jpeg_homography_dev_grid';
+const safety=window.NafesOmrSafety;
+if(!safety)throw new Error('لم يُحمّل عقد سلامة مراجعة OMR؛ أعد تحميل الصفحة.');
 let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
@@ -60,10 +62,17 @@ function ensureSelectAll(){
 }
 function renderButtons(){
  const s=sheets[active];
- $('saveSheetBtn').disabled=busy||!ready()||!s||loadedImage!==s.id||!!s.reviewed_at||!$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
+ $('saveSheetBtn').disabled=busy||!ready()||!s||safety.unresolvedSheet(s)||loadedImage!==s.id||!!s.reviewed_at||!$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
+ const target=$('omrUncertaintyReasons');
+ if(target&&s){
+   const answers=effective(s).answers||[];
+   target.innerHTML=answers.map((a,i)=>safety.reasons(a).map(reason=>
+     '<p>س '+ar(i+1)+': '+esc(reason)+'</p>').join('')).join('');
+ }
  $('nextSheetBtn').disabled=busy||!s?.reviewed_at||active>=sheets.length-1;
  $('finishReviewBtn').disabled=busy||!ready()||firstPending()>=0||!!session.completed_at;
- $('approveBtn').disabled=busy||!session?.completed_at||!sheets.some(s=>s.disposition==='verified');
+ $('approveBtn').disabled=busy||!session?.completed_at||!sheets.some(s=>s.disposition==='verified')||
+   sheets.some(s=>!s.blocked_duplicate&&safety.unresolvedSheet(s));
  if($('deleteSelectedBtn')){$('deleteSelectedBtn').disabled=busy||selected.size===0;$('deleteSelectedBtn').textContent=selected.size?'حذف التصحيحات المحددة ('+ar(selected.size)+')':'حذف التصحيحات المحددة';}if($('selectAllBtn')){$('selectAllBtn').disabled=busy||!sheets.length;$('selectAllBtn').textContent=sheets.length&&selected.size===sheets.length?'إلغاء تحديد الكل':'تحديد الكل';}
  if($('applyManualAssignmentBtn'))$('applyManualAssignmentBtn').disabled=busy||!s||effective(s).identity_valid===true||!!session?.completed_at||!$('manualAssignment')?.value;
  document.querySelectorAll('[data-edit-question]').forEach(b=>{b.disabled=busy||!ready()||!s||loadedImage!==s.id||!!session?.completed_at;});
@@ -72,7 +81,9 @@ function renderButtons(){
 function render(){
  ensureSelectAll();
  $('resultsSection').classList.remove('hidden');$('summarySection').classList.remove('hidden');
- const count=sheets.reduce((m,s)=>{for(const [k,v]of Object.entries(effective(s).counts))m[k]=(m[k]||0)+v;return m;},{});
+ const count=sheets.reduce((m,s)=>{for(const a of effective(s).answers||[]){
+   const k=safety.unresolved(a)?'uncertain':a.state;m[k]=(m[k]||0)+1;
+ }return m;},{});
  $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تمت مراجعتها',sheets.filter(s=>s.reviewed_at).length],['تنبيهات التكرار',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
  const only=$('alertFilter').checked;
  $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+ar(a.score)+' / '+ar(a.total)+'</td><td>'+esc(status(s))+' <span class="quality-risk '+riskOf(s)+'">'+riskLabel(riskOf(s))+'</span>'+(duplicate(s)?' <strong class="duplicate-label">رفع مكرر</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">إعادة قراءة الاسم</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
@@ -121,7 +132,9 @@ async function recoverIdentity(sheetId){
    if(q.reviewId!==draft.review_id)throw new Error('رمز الورقة يعود إلى مراجعة مختلفة.');
    const assignment=(draft.assignments||[]).find(a=>Number(a.sheet_no)===Number(q.sheetNo)&&String(a.model)===String(q.model));
    if(!assignment)throw new Error('تمت قراءة QR لكن لم تتم مطابقة الطالب أو النموذج في هذه المراجعة.');
-   const r=await api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:assignment.student_id,answer_version:sheet.answer_version||0});
+   const reason=(prompt('اذكر سبب تصحيح هوية الورقة بعد التحقق من QR (3 أحرف على الأقل):')||'').trim();
+   if(reason.length<3)throw new Error('سبب تصحيح الهوية إلزامي؛ لم تُحفظ أي تغييرات.');
+   const r=await api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:assignment.student_id,answer_version:sheet.answer_version||0,reason});
    sheets[i]=r.sheet;selected.delete(sheet.id);render();message('تمت استعادة اسم الطالب تلقائيًا من QR المحفوظ: '+assignment.student_name);
  }catch(e){message('تعذر استعادة الاسم تلقائيًا: '+e.message,true);}
  finally{lock(false);}
@@ -170,10 +183,12 @@ async function rereadAllStrict(options={}){
 async function assignIdentity(){
  const sheet=sheets[active],studentId=$('manualAssignment')?.value;
  if(busy||!sheet||!studentId||effective(sheet).identity_valid||session?.completed_at)return;
+ const reason=$('manualReviewReason').value.trim();
+ if(reason.length<3){message('اكتب سبب تصحيح الهوية قبل حفظها.',true);return;}
  if(!confirm('سيتم ربط هذه الورقة بالطالب المحدد وإعادة احتساب الدرجة وفق نموذج الطالب. هل أنت متأكد؟'))return;
  lock(true);
  try{
-   const r=await api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:studentId,answer_version:sheet.answer_version||0});
+   const r=await api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:studentId,answer_version:sheet.answer_version||0,reason});
    sheets[active]=r.sheet;selected.delete(sheet.id);render();message('تم تأكيد اسم الطالب وإعادة ربط الإجابات بالنموذج الصحيح.');
    await open(active);
  }catch(e){message('تعذر تأكيد اسم الطالب: '+e.message,true);}
@@ -259,6 +274,8 @@ async function deleteCorrections(ids){
 async function editAnswer(question,choice){
  const sheet=sheets[active];if(busy||!ready()||!sheet||loadedImage!==sheet.id||session.completed_at)return;
  const a=effective(sheet).answers[question-1];if(!a)return;
+ const reason=$('manualReviewReason').value.trim();
+ if(reason.length<3){message('سبب التعديل اليدوي إلزامي (3 أحرف على الأقل).',true);return;}
  let marked=[];
  if(choice!=='blank'){
    const value=Number(choice);
@@ -266,7 +283,7 @@ async function editAnswer(question,choice){
  }
  lock(true);let refresh=false;
  try{
-   const r=await api('teacher_scan_edit_answer',{sheet_id:sheet.id,question,marked,answer_version:sheet.answer_version||0,request_id:crypto.randomUUID()});
+   const r=await api('teacher_scan_edit_answer',{sheet_id:sheet.id,question,marked,answer_version:sheet.answer_version||0,request_id:crypto.randomUUID(),reason});
    sheets[active]=r.sheet;render();refresh=true;
    message('حُفظ تعديل السؤال '+ar(question)+' وتحدث اللون والدرجة. أعد حفظ التحقق من الورقة قبل الانتقال.');
  }catch(e){message('تعذر حفظ التعديل: '+e.message,true);try{const r=await api('teacher_scan_list');session=r.session;sheets=r.sheets;render();refresh=true;}catch(_){}}
@@ -278,11 +295,13 @@ async function editHistory(){
  const mark=a=>a.marked?.length?a.marked.map(j=>letters[j]).join(' + '):'فارغة';
  $('sheetEditHistory').innerHTML=r.edits.length?r.edits.map(e=>'<p>س '+ar(e.question)+': '+esc(mark(e.before_answer))+' ← '+esc(mark(e.after_answer))+' · '+new Date(e.created_at).toLocaleString('ar-SA')+'<small>المراجع: '+esc(e.reviewer_id)+' · تعديل '+ar(e.answer_version)+'</small></p>').join(''):'لا توجد تعديلات على الورقة.';
  $('editHistoryDetails').open=true;
+ $('sheetEditHistory').insertAdjacentHTML('beforeend',r.edits.map(e=>
+   '<p>سبب التعديل '+ar(e.answer_version)+': '+esc(e.after_answer?.manual_reason||e.reason||'لم يُسجّل سبب في السجل القديم')+'</p>').join(''));
  }catch(e){message('تعذر عرض سجل التعديلات: '+e.message,true);}
 }
 async function verify(){
- if(busy||$('saveSheetBtn').disabled)return;lock(true);
- try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+ar(effective(r.sheet).score)+' / '+ar(effective(r.sheet).total)+' · '+status(r.sheet);message('حُفظ التحقق من الورقة. يمكنك الانتقال إلى التالية.');render();}
+ if(busy||$('saveSheetBtn').disabled||safety.unresolvedSheet(sheets[active]))return;lock(true);
+ try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0,verified:true});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+ar(effective(r.sheet).score)+' / '+ar(effective(r.sheet).total)+' · '+status(r.sheet);message('حُفظ التحقق من الورقة. يمكنك الانتقال إلى التالية.');render();}
  catch(e){message('لم يُحفظ التحقق: '+e.message,true);}finally{lock(false);}
 }
 async function finish(){
