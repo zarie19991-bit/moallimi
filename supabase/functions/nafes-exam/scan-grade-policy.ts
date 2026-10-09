@@ -9,7 +9,7 @@ export type PaperGrade={score:number|null;grade_status:PaperGradeStatus;grade_re
 type ScannedAnswer={correct?:boolean;state?:string;reading_status?:string;requires_verification?:boolean;review_pending?:boolean;uncertainty?:Record<string,unknown>};
 export function gradeScan(
  answers:ScannedAnswer[], expectedCount:number,
- context:{markers_ok:boolean;reader_error?:string|null;identity_valid?:boolean;key_complete?:boolean}
+ context:{markers_ok:boolean;reader_error?:string|null;identity_valid?:boolean;key_complete?:boolean;reader_requires_review?:boolean}
 ):PaperGrade{
  const reasons:string[]=[];
  if(!Number.isInteger(expectedCount)||expectedCount<1||expectedCount>60)reasons.push('invalid_question_count');
@@ -24,7 +24,7 @@ export function gradeScan(
    a.requires_verification===true||a.review_pending===true||
    Object.values(a.uncertainty||{}).some(v=>Array.isArray(v)&&v.length>0)||
    !['correct','incorrect','blank'].includes(String(a.state||'')));
- if(unresolved)return{score:null,grade_status:'needs_review',grade_reasons:['answer_requires_review']};
+ if(unresolved||context.reader_requires_review===true)return{score:null,grade_status:'needs_review',grade_reasons:[unresolved?'answer_requires_review':'geometry_requires_manual_review']};
  return{score:answers.filter(a=>a.state==='correct'&&a.correct===true).length,
    grade_status:'provisional',grade_reasons:[]};
 }
