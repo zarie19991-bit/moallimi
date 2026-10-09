@@ -43,6 +43,8 @@ jobs:
           node-version: '24'
       - name: OMR failed reading cannot become grade zero
         run: node --experimental-strip-types qa/omr/score-failure.test.mjs
+      - name: Audit-gate negative controls
+        run: node qa/omr/acceptance-audit.test.mjs
       - name: Check isolated database client
         run: psql --version
       - name: Create synthetic test schema with zero live student records
