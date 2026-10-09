@@ -1,0 +1,24 @@
+name: OMR false-zero UI hotfix regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'review-scan-journal.js'
+      - 'qa/omr/hotfix-false-zero-ui.test.mjs'
+      - '.github/workflows/omr-false-zero-ui.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  false-zero-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify JS syntax
+        run: node --check review-scan-journal.js
+      - name: Require real-zero vs failed-scan states
+        run: node qa/omr/hotfix-false-zero-ui.test.mjs
