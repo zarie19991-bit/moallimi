@@ -2,6 +2,13 @@ import jpeg from "npm:jpeg-js@0.4.4";
 
 type GrayImage={width:number;height:number;gray:Uint8Array;rgba:Uint8Array};
 type Point={x:number;y:number;score?:number};
+export class OMRReadFailure extends Error{
+ readonly code:string;
+ readonly diagnostics:Record<string,unknown>;
+ constructor(code:string,message:string,diagnostics:Record<string,unknown>={}){
+  super(message);this.name='OMRReadFailure';this.code=code;this.diagnostics=diagnostics;
+ }
+}
 const median=(a:number[])=>{if(!a.length)return 0;const b=[...a].sort((x,y)=>x-y),n=b.length;return n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2;};
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 
@@ -288,21 +295,31 @@ function locateBubbleGrid(im:GrayImage,scale:number){
   return{blocks,score:median(blocks.map(b=>b.score))};
 }
 function orientTemplate(source:GrayImage,scale:number){
-  const candidates:any[]=[];let im=source;
-  for(let turn=0;turn<4;turn++){
-    try{
-      const m=detectMarkers(im),warped=warpTemplate(im,m,scale),grid=locateBubbleGrid(warped,scale);
-      candidates.push({m,im:warped,grid,rotation:turn*90});
-    }catch(e:any){
-      if(!String(e?.message||e).includes('علامات محاذاة'))throw e;
-    }
-    im=rotate90(im);
-  }
-  candidates.sort((a,b)=>b.grid.score-a.grid.score);
-  const best=candidates[0],runner=candidates[1];
-  if(!best||best.grid.score<.07)throw new Error('لم يتم العثور على علامات محاذاة وشبكة فقاعات موثوقة للقالب.');
-  if(runner&&best.grid.score-runner.grid.score<.025)throw new Error('اتجاه الورقة غير حاسم؛ يلزم مراجعة الصورة.');
-  return best;
+ const candidates:any[]=[],attempts:any[]=[];let im=source;
+ for(let turn=0;turn<4;turn++){
+   try{
+     const m=detectMarkers(im),warped=warpTemplate(im,m,scale),grid=locateBubbleGrid(warped,scale);
+     candidates.push({m,im:warped,grid,rotation:turn*90});
+     attempts.push({rotation:turn*90,geometry:'found',marker_confidence:Number(m.confidence.toFixed(3)),
+       threshold:m.threshold,grid_score:Number(grid.score.toFixed(4))});
+   }catch(e:any){
+     const msg=String(e?.message||e);
+     attempts.push({rotation:turn*90,geometry:'rejected',reason:msg.slice(0,160)});
+     if(!msg.includes('علامات محاذاة'))throw e;
+   }
+   im=rotate90(im);
+ }
+ candidates.sort((a,b)=>b.grid.score-a.grid.score);
+ const best=candidates[0],runner=candidates[1];
+ const diag={image_width:source.width,image_height:source.height,
+   expected_template_mm:{width:180,height:112,marker_centers:[[4,4],[176,4],[4,108],[176,108]],marker_size:3},
+   min_grid_score:.07,rotations:attempts};
+ if(!best||best.grid.score<.07)throw new OMRReadFailure(
+   'OMR_GRID_NOT_VERIFIED','لم يتم العثور على علامات محاذاة وشبكة فقاعات موثوقة للقالب.',diag);
+ if(runner&&best.grid.score-runner.grid.score<.025)throw new OMRReadFailure(
+   'OMR_ROTATION_AMBIGUOUS','اتجاه الورقة غير حاسم؛ يلزم مراجعة الصورة.',
+   {...diag,best_rotation:best.rotation,runner_rotation:runner.rotation,grid_gap:Number((best.grid.score-runner.grid.score).toFixed(4))});
+ return best;
 }
 export function readOmrJpeg(src:string,total:number,startNo=1){
   if(!Number.isInteger(total)||total<1||total>60)throw new Error('عدد أسئلة القالب لا يطابق الاختبار.');
