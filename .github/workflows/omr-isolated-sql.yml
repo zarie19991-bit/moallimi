@@ -42,8 +42,10 @@ jobs:
         run: psql --version
       - name: Create synthetic test schema with zero live student records
         run: psql -X -v ON_ERROR_STOP=1 -f qa/omr/isolation/synthetic-schema.sql
-      - name: Execute development-only SQL on synthetic database
-        run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/development/manual-review-repairs.sql
+      - name: Apply staged production-compatible SQL on synthetic database
+        run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/production/001_omr_staged_compat.sql
+      - name: Reapply migration to prove idempotence
+        run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/production/001_omr_staged_compat.sql
       - name: Test ACL, atomic publication, replay, review, tamper and rollback
         run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/isolation/smoke.sql
       - name: Check browser safety contract syntax
