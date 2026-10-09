@@ -214,7 +214,79 @@ function planTotals(){
 function viewWorksheets(){return '<div id="tamakkunWorksheetsMount"></div>'}
 function viewTeacherWorkspace(){return '<div id="tamakkunTeacherWorkspace"><div class="bg-white border border-slate-200 rounded-3xl p-10 text-center text-sm text-slate-400">جارٍ تحميل بيانات المعلمين والأعمال…</div></div>'}
 function renderView(){const v=$('#view');if(!v)return;const views={dashboard:viewDashboard,teachers:viewTeacherWorkspace,plans:viewPlans,practice:viewPractice,games:viewGames,worksheets:viewWorksheets,integration:viewIntegration,training:viewTraining,remedial:()=>viewPlan('remedial'),enrichment:()=>viewPlan('enrichment'),analytics:viewAnalytics,students:viewStudents,assessment:viewAssessment,reports:viewReports};v.innerHTML=(views[state.tab]||viewDashboard)();wireView();refreshIcons()}
-function viewDashboard(){return state.role==='teacher'?viewTeacherDashboard():viewDashboardFull()}
+function viewShowcaseDashboard(){
+ const teacher=state.role==='teacher';
+ const scope=teacher?teacherScope():'all';
+ const fullAccess=teacher&&scope==='all';
+ const subjectLabel=teacher?(fullAccess?'المواد الثلاث':teacherScopeLabel()):'الصف الثالث المتوسط';
+ const learnerName=teacher?(fullAccess?'منسق نافس':'معلم '+teacherScopeLabel()):profileName();
+ const nafesDesc=teacher?(fullAccess?'تابع القراءة والعلوم والرياضيات من لوحة واحدة، وانتقل مباشرة إلى التحليل والمؤشرات.':'افتح مؤشرات '+teacherScopeLabel()+' وتحليل نتائج طلابك والتدريبات المرتبطة بها.'):'القراءة والعلوم والرياضيات، وتدريب تفاعلي يطور مهاراتك خطوة بخطوة.';
+ const nafesRoute=teacher?'analytics':'training';
+ const service=(label,title,description,ic,variant,route,caps,unavailable)=>{
+  return `<article class="tk-home-feature ${variant}">
+    <div class="tk-home-feature-top">${icon("sparkles","w-4 h-4")} ${esc(label)}</div>
+    <div class="tk-home-card-art" aria-hidden="true">${icon(ic)}</div>
+    <h3>${esc(title)}</h3><p>${esc(description)}</p>
+    <div class="tk-home-caps">${caps.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+    ${route?`<button class="tk-home-feature-action" type="button" data-go="${route}">${teacher?'فتح القسم':'ابدأ الآن'} ${icon("arrow-left")}</button>`:`<button class="tk-home-feature-action" type="button" disabled title="تحتاج هذه الخدمة استكمال الربط">${esc(unavailable||'قيد التطوير')} ${icon("lock-keyhole")}</button>`}
+  </article>`
+ };
+ const featureCards=[
+  service('تدرب وتفوّق','نافس',nafesDesc,'target','light-mint',nafesRoute,scope==='all'?['القراءة','العلوم','الرياضيات']:[subjectLabel]),
+  ...(scope==='science'||scope==='math'?[]:[service('دروسك وأنشطتك','لغتي الخالدة','وحدات المنهج، دروس ميسرة، تدريبات وأنشطة وأوراق عمل مرتبطة بأهداف الدرس.','book-open-text','light-sky',null,['الوحدات','الأنشطة','التدريبات'],'مسار الدروس قيد الدمج')]),
+  service('نافِس الجميع','المسابقات','منافسة من أجهزة الطلاب مع متابعة المعلم للجولة، ثم إعلان المراكز عند الإغلاق.','trophy','light-peach','games',['تحديات','نتائج','مراكز']),
+  service('اصنع تجربة تعلم','أوراق العمل','اختر مؤشرًا من بنك المادة، وكوّن ورقة قابلة للحل والمراجعة والطباعة.','notebook-pen','light-lime','worksheets',['من المؤشرات','معاينة','طباعة'])
+ ].join('');
+ const tools=teacher?[
+   ['analytics','chart-no-axes-combined','التحليل والمؤشرات','نتائج حقيقية ومهارات تحتاج تحسينًا'],
+   ['students','users-round','ملفات الطلاب','متابعة الدرجات والمحاولات'],
+   ['plans','clipboard-check','العلاج والإثراء','تدريبات بناءً على نتائج المؤشرات'],
+   ['reports','files','التقارير','طباعة وتحميل التقارير'],
+   ['teachers','panel-top','المعلمون والأعمال','متابعة المهام والإنجاز'],
+   ['games','award','إدارة المسابقات','الجولات والمشاركات والنتائج']
+ ]:[
+   ['practice','target','تدريباتي','مسار يناسب أدائي'],
+   ['training','graduation-cap','تدريب نافس','أسئلة تقيس المهارات'],
+   ['games','trophy','المسابقات','تحديات ومراكز'],
+   ['remedial','puzzle','تقوية مهاراتي','أنشطة لتحسين فهمي'],
+   ['students','chart-line','تقدمي','مراجعة نقاط القوة والضعف'],
+   ['worksheets','notebook-tabs','أوراق العمل','الأنشطة المرتبطة بالمؤشرات']
+ ];
+ return `<div class="tk-home-page">
+  <div class="tk-home-welcome">
+   <div><div class="tk-overline">مِنَصَّةُ تَمَكُّنْ | مساحتك التعليمية</div><h1>مرحبًا، ${esc(learnerName)}</h1><p>رحلة تعلم أكثر حماسًا… وخطوات واضحة نحو الإتقان.</p></div>
+   <div class="tk-home-current">${esc(subjectLabel)}</div>
+  </div>
+  <section class="tk-home-hero">
+   <div class="tk-home-hero-copy">
+     <div class="tk-home-pill">${icon('sparkles')} اكتشف • تعلّم • نافس • أتقن</div>
+     <h2 class="tk-home-title">مع كل تحدٍّ <span>تقترب من التميّز!</span></h2>
+     <p>${teacher?'مساحتك لإنشاء تجربة تعليمية مليئة بالنشاط، ومتابعة تقدّم الطلاب، وتحويل نتائج المؤشرات إلى تدريب قابل للتطبيق.':'أطلق قدراتك في نافس، وانطلق في المنافسات والتدريبات والأنشطة بأسلوب يشعل حماسك نحو المعرفة.'}</p>
+     <div class="tk-home-actions"><button type="button" data-go="${teacher?'games':'training'}" class="tk-home-btn">${icon('rocket')} ${teacher?'ابدأ بإدارة المسابقات':'ابدأ التدريب الآن'}</button><button type="button" data-go="worksheets" class="tk-home-btn ghost">${icon('notebook-pen')} أوراق العمل</button></div>
+   </div>
+   <div class="tk-home-art" aria-hidden="true">
+     <div class="tk-home-glow"></div><div class="tk-home-emblem">${icon('trophy')}</div>
+     <div class="tk-home-floating one">${icon('zap')} تحديات مشوّقة</div>
+     <div class="tk-home-floating two">${icon('star')} إنجاز بعد إنجاز</div>
+   </div>
+  </section>
+  <section>
+    <div class="tk-home-section-heading"><div><strong>اكتشف خدمات تمكّن</strong><h2>اختر مغامرتك التعليمية</h2><p>أدواتك التعليمية الأساسية في بطاقات واضحة، بدل البحث بين القوائم.</p></div><span class="tk-home-section-tag">تعلم بطريقة مختلفة</span></div>
+    <div class="tk-home-services">${featureCards}</div>
+  </section>
+  <section class="tk-home-banner">
+     <div><small>${teacher?'تواصل فعال مع طلابك':'عندك سؤال؟'}</small><h2>${teacher?'استفسارات الطلاب':'اسأل معلمك'}</h2><p>${teacher?'صندوق خاص لاستقبال أسئلة طلاب المادة والرد عليهم، بدل إنشاء فصل افتراضي.':'مساحة خاصة لإرسال استفسارك إلى معلم المادة ومتابعة رده، دون محادثات عامة بين الطلاب.'}</p><span style="font-size:12px;font-weight:900;color:#ffe1a2">هذه الخدمة قيد الربط، ولم تُفعّل بعد.</span></div>
+     <div class="tk-home-banner-art" aria-hidden="true">${icon('messages-square')}</div>
+  </section>
+  <section>
+   <div class="tk-home-section-heading"><div><strong>${teacher?'أدوات المعلم':'خدمات تساعدك'}</strong><h2>${teacher?'مساحتك لإدارة التعلم':'تقدم بثقة كل يوم'}</h2><p>${teacher?'كل أداة تقودك إلى القسم الموجود داخل المنصة.':'انتقل إلى التدريبات والنتائج والأنشطة بنقرة واحدة.'}</p></div></div>
+   <div class="tk-home-utilities">${tools.map(([id,ic,title,desc])=>`<button class="tk-home-tool" type="button" data-go="${id}"><span class="tk-home-tool-icon">${icon(ic)}</span><span><b>${esc(title)}</b><small>${esc(desc)}</small></span>${icon('arrow-up-left','w-4 h-4')}</button>`).join('')}</div>
+  </section>
+  ${fullAccess?`<section class="tk-home-banner" style="background:linear-gradient(120deg,#123d45,#0d7566)"><div><small>حساب المنسق</small><h2>جاهزية نواتج التعلم</h2><p>تابع نتائج المواد الثلاث وشواهدها. إدارة ملف نواتج التعلم التفصيلي مخصصة للمنسق وتحتاج استكمال الربط.</p><button type="button" data-go="analytics" class="tk-home-btn ghost">${icon('chart-no-axes-combined')} عرض تحليل نافس</button></div><div class="tk-home-banner-art">${icon('clipboard-list')}</div></section>`:''}
+  <p class="tk-home-footer-note">الأقسام قيد التطوير موسومة بوضوح. تعتمد التدريبات والمسابقات الحالية على وظائف المنصة القائمة، ولا تُنشأ درجات افتراضية.</p>
+ </div>`;
+}
+function viewDashboard(){return viewShowcaseDashboard()}
 function viewTeacherDashboard(){
  const t=state.summary?.totals||{},pt=planTotals();
  const weak=teacherSubjectKeys().flatMap(s=>indicatorAggregates(s).map(g=>({...g,subject_key:s})))
