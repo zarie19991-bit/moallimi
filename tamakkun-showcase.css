@@ -87,3 +87,27 @@
 @media(min-width:1300px){
  #app:has(.tk-home-page) .tk-home-feature{min-height:306px}
 }
+
+/* Competition: brighter activity cards without altering game logic */
+#lugatiCompetitionMount{font-family:var(--tk-font)}
+#lugatiCompetitionMount .comp-hero{padding:clamp(22px,3vw,36px)!important;background:radial-gradient(circle at 90% 0,#22b79680,transparent 33%),linear-gradient(113deg,#064534,#0b7558)!important;box-shadow:0 22px 58px #0646332a;border-radius:32px!important}
+#lugatiCompetitionMount [data-comp-arena]{border-radius:20px!important;padding:15px 10px!important;min-height:96px!important;box-shadow:0 12px 24px #134a3012;transition:transform .18s,box-shadow .18s,border-color .18s}
+#lugatiCompetitionMount [data-comp-arena]:hover{transform:translateY(-3px);box-shadow:0 18px 30px #134a3021}
+#lugatiCompetitionMount [data-comp-arena].bg-slate-950{background:linear-gradient(125deg,#07664e,#0a9a70)!important;border-color:#3cb38c!important;color:#fff!important;box-shadow:0 16px 30px #077f5b2b!important}
+#lugatiCompetitionMount .comp-stage .comp-stat{background:#fff!important;color:#124c39!important;border:1px solid #d8ebe0!important;box-shadow:0 10px 26px #0b4a330d!important;border-radius:23px!important}
+#lugatiCompetitionMount .comp-stage .comp-stat span{color:#6b8476!important}
+#lugatiCompetitionMount .comp-stage .comp-stat b{color:#0a7457!important}
+#lugatiCompetitionMount .comp-arena-card.open{background:linear-gradient(132deg,#fff,#effaf0)!important;border-color:#a7dfbc!important;box-shadow:0 17px 36px #0e6c4b16!important}
+#lugatiCompetitionMount .comp-arena-card .arena-icon{border-radius:16px!important;background:#e8f6e9!important;box-shadow:inset 0 0 0 1px #d5e8d9}
+#lugatiCompetitionMount .comp-stage nav{background:#fff!important;border-color:#dfebe3!important;box-shadow:0 12px 30px #0a4d360e}
+#lugatiCompetitionMount .comp-stage nav button{color:#456353!important;border-radius:15px!important}
+#lugatiCompetitionMount .comp-stage nav button.bg-white{background:linear-gradient(105deg,#07644d,#0b9972)!important;color:#fff!important;box-shadow:0 10px 22px #097c591e!important}
+#lugatiCompetitionMount .comp-question-shell{border-radius:28px!important;overflow:visible}
+#lugatiCompetitionMount .comp-question-shell>section:first-child{border-radius:28px 28px 0 0!important;background:linear-gradient(110deg,#074b39,#0b8767)!important}
+#lugatiCompetitionMount .comp-question-card{background:#fff!important;box-shadow:0 22px 52px #07432f1c!important;border:1px solid #dbeee2!important;border-radius:0 0 28px 28px!important}
+#lugatiCompetitionMount .comp-option{background:#fbfdfb!important;border:2px solid #e0ebe3!important;padding:17px 16px!important;font-weight:800!important;line-height:1.8!important}
+#lugatiCompetitionMount .comp-option:hover:not(:disabled){border-color:#0d9c70!important;background:#eaf9ef!important;transform:translateY(-2px)}
+#lugatiCompetitionMount .comp-letter{background:#e3f6e9!important;border-radius:12px!important;color:#076b4e!important;border:1px solid #c5ead4!important}
+#lugatiCompetitionMount .comp-powerup{border-radius:17px!important}
+#lugatiCompetitionMount .comp-cta{font-weight:950!important;border-radius:16px!important}
+@media(max-width:640px){#lugatiCompetitionMount [data-comp-arena]{min-height:90px!important}#lugatiCompetitionMount .comp-hero{border-radius:25px!important}}
