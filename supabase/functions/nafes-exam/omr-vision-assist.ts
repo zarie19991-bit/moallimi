@@ -136,5 +136,5 @@ Every question in the 1..N range must appear exactly once. No names, IDs, grade,
    unverified:true,auto_grade:false,may_be_incorrect:true
  };
  return{mode:'independent_vision_reviewer_proposal',answers,summary,
-   redaction:'Only the lower 65% of the portrait JPEG; top 35%, image metadata, keys, and student identity were not transmitted.'};
+   redaction:'Only the lower 65% of the portrait JPEG; top 35% and metadata excluded. Cropped pixels may still contain printed identifiers, requiring school approval. No student metadata or answer keys supplied.'};
 }
