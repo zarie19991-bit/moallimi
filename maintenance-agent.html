@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f6b63">
+<title>وكيل صيانة المنصة | معلّمي</title>
+<link rel="stylesheet" href="moallimi-brand.css?v=20261004-cognitive1">
+<link rel="stylesheet" href="maintenance-agent.css?v=20261004-cognitive1">
+<script src="teacher-preboot.js?v=20260919-scope2"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <a class="brand" href="teacher.html"><img src="moallimi-logo-final.webp?v=20261004-cognitive1" alt="معلّمي"><span>وكيل صيانة المنصة</span></a>
+    <div class="top-actions"><a class="btn ghost" href="teacher.html">حساب المعلم</a><button class="btn danger" type="button" data-teacher-logout data-logout-target="teacher.html">تسجيل الخروج</button></div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <span class="eyebrow">الحساب الرئيسي فقط</span>
+      <h1>وكيل الصيانة الآمن</h1>
+      <p>يفحص المنصة ويقترح خطط إصلاح، ويطبّق فقط التصحيحات النصية الآمنة داخل محرر التصحيح الداخلي دون تنفيذ تغييرات خطرة على البيانات أو الشفرة.</p>
+    </div>
+    <div class="hero-actions">
+      <button id="runScan" class="btn primary" type="button">تشغيل فحص شامل</button>
+      <button id="refreshHistory" class="btn light" type="button">تحديث السجل</button>
+    </div>
+  </section>
+
+  <section class="safe-banner">
+    <div class="safe-icon">🛡️</div>
+    <div><b>الوضع الآمن مفعّل</b><span>الوضع الآمن يمنع التنفيذ التلقائي للعمليات الحساسة. التصحيح الداخلي يطبّق فقط إصلاحات نصية مؤكدة، بينما الحذف أو تعديل قاعدة البيانات أو الشفرة يبقى بحاجة مراجعة صريحة. مفاتيح Supabase وGitHub لا تظهر في الصفحة.</span></div>
+  </section>
+
+  <div id="state" class="state">جارٍ التحقق من صلاحية الحساب…</div>
+
+  <main id="mainContent" hidden>
+    <section id="metrics" class="metrics"></section>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-head"><div><span class="kicker">الفحص الحالي</span><h2>المشكلات المكتشفة</h2></div><span id="runSeverity" class="status-pill ok">—</span></div>
+        <div id="findings" class="findings"><div class="empty">شغّل الفحص الشامل لبدء التشخيص.</div></div>
+        <div class="panel-actions"><button id="preparePlan" class="btn primary" type="button" disabled>إنشاء خطة إصلاح آمنة</button></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><div><span class="kicker">الخصوصية</span><h2>ما الذي يراه الوكيل؟</h2></div></div>
+        <div class="privacy-list">
+          <div><b>✓ مسموح</b><span>حالة RLS، أعداد الأسئلة، حالات الجودة، التكرارات، عدد المراجعات الورقية.</span></div>
+          <div><b>✕ غير مسموح</b><span>أسماء الطلاب، أرقامهم، مفاتيح المعلمين، كلمات المرور، ملفات تعريف شخصية.</span></div>
+          <div><b>✕ لا ينفذ تلقائيًا</b><span>حذف نتائج، حذف أسئلة تاريخية، تعديل main، أو تغيير سياسات قاعدة البيانات.</span></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel indicator-audit-panel">
+      <div class="panel-head">
+        <div><span class="kicker">مراجعة بنك المؤشرات والاختبارات الفعلية</span><h2>فحص القراءة والرياضيات والعلوم والنماذج المنشأة</h2></div>
+        <span id="indicatorAuditBadge" class="status-pill info">جاهز للفحص</span>
+      </div>
+      <p class="brain-intro">ينفذ الوكيل مرحلتين: أولًا يراجع بنك الأسئلة لكل مؤشر، ثم يراجع <b>الاختبارات التي أنشأتها المنصة فعليًا</b> نموذجًا نموذجًا. يفحص الصياغة والتكرار والبدائل والإجابة الصحيحة والمستويات الثلاثة، ثم يتحقق من التسلسل التربوي «معرفة ← تطبيق ← استدلال» داخل كل مؤشر، ويراجع توزيع الأسئلة وبنية القراءة والصور المفقودة، ويحفظ تقريرين للمساعد.</p>
+      <div class="panel-actions">
+        <button id="runIndicatorAudit" class="btn primary" type="button">فحص بنك المؤشرات + الاختبارات الفعلية</button>
+      </div>
+      <div id="indicatorAuditResult" class="indicator-audit-result"><div class="empty">لم يبدأ الفحص العميق بعد.</div></div>
+    </section>
+
+    <section class="panel semantic-judge-panel">
+      <div class="panel-head">
+        <div><span class="kicker">المحكّم التربوي الدلالي</span><h2>يفهم السؤال والمؤشر والبدائل قبل الحكم</h2></div>
+        <span id="semanticJudgeBadge" class="status-pill info">جارٍ التحقق من المحكّم…</span>
+      </div>
+      <p class="brain-intro">هذه الطبقة لا تكتفي بعدّ البدائل أو قراءة الحقل المعرفي. تفحص مطابقة السؤال للمؤشر، صحة المحتوى، احتمال وجود أكثر من إجابة صحيحة، قوة المشتتات، المستوى الحقيقي معرفة/تطبيق/استدلال، وضوح الصياغة، والتكرار المعنوي. لا ترسل أسماء الطلاب أو محاولاتهم أو مفاتيح الحساب.</p>
+      <div id="semanticProviderNote" class="semantic-provider-note">جارٍ التحقق من توفر الذكاء الدلالي…</div>
+      <div class="semantic-actions">
+        <button class="btn primary" type="button" data-semantic-scope="active_tests">تحكيم الاختبارات الفعلية تربويًا</button>
+        <button class="btn light" type="button" data-semantic-scope="indicator_bank" data-semantic-subject="reading">تحكيم بنك القراءة</button>
+        <button class="btn light" type="button" data-semantic-scope="indicator_bank" data-semantic-subject="math">تحكيم بنك الرياضيات</button>
+        <button class="btn light" type="button" data-semantic-scope="indicator_bank" data-semantic-subject="science">تحكيم بنك العلوم</button>
+        <button class="btn light" type="button" data-semantic-scope="indicator_bank" data-semantic-subject="math" data-semantic-stale="true">تحديث المتغير فقط — الرياضيات</button>
+        <button class="btn light" type="button" data-semantic-scope="indicator_bank" data-semantic-subject="science" data-semantic-stale="true">تحديث المتغير فقط — العلوم</button>
+      </div>
+      <div id="semanticJudgeProgress" class="semantic-progress"></div>
+      <div id="semanticJudgeResult" class="semantic-result"><div class="empty">اختر نطاق التحكيم التربوي. الحالات التي تحتاج تعديلًا ستظهر مع السبب والمستوى الحقيقي والصياغة المقترحة عند توفرها.</div></div>
+    </section>
+
+    <section class="panel evaluation-intelligence-panel" id="evaluationIntelligence">
+      <div class="panel-head">
+        <div><span class="kicker">ذكاء التقييم والقياس</span><h2>قوة الأسئلة، OMR، وثبات الاختبار</h2></div>
+        <span id="evaluationBadge" class="status-pill info">جاهز للتحليل</span>
+      </div>
+      <p class="brain-intro">يحلل الاختبار الفعلي من أربعة محاور: جودة السؤال قبل الاستخدام، الصعوبة والتمييز بعد توفر استجابات كافية، ثبات الاختبار، وتشخيص ثقة قراءة أوراق التظليل. لا يختلق معاملات إحصائية عند نقص العينة، ولا يعتبر حد 95٪ دقةً مثبتة قبل وجود عينة معايرة مرجعية.</p>
+      <div class="evaluation-controls">
+        <label><span>الاختبار</span><select id="evaluationSource"><option value="">جارٍ تحميل الاختبارات…</option></select></label>
+        <button id="runEvaluationIntelligence" class="btn primary" type="button">تحليل الاختبار</button>
+        <button id="exportEvaluationHtml" class="btn light" type="button" disabled>تصدير HTML</button>
+        <button id="printEvaluationPdf" class="btn light" type="button" disabled>طباعة / PDF</button>
+      </div>
+      <div id="evaluationState" class="evaluation-state">اختر اختبارًا لتحليل جودة الأسئلة وبيانات التظليل والقياس.</div>
+      <div id="evaluationReport" class="evaluation-report"><div class="empty">لم يتم إنشاء تقرير ذكاء تقييم بعد.</div></div>
+
+      <div class="item-audit-block">
+        <div class="item-audit-head">
+          <div><b>التدقيق الشامل لبنك العلوم والرياضيات</b><span>جدول تفصيلي لجميع الأسئلة مع المستوى المعرفي وقوة المشتتات وحالة التحكيم.</span></div>
+          <button id="loadItemQualityAudit" class="btn primary" type="button">تحميل التدقيق الشامل</button>
+        </div>
+        <div id="itemQualitySummary" class="item-quality-summary"><div class="empty">لم يتم تحميل تقرير البنك الشامل بعد.</div></div>
+        <div class="item-quality-filters">
+          <select id="itemQualitySubject"><option value="">كل المواد</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select>
+          <select id="itemQualityLevel"><option value="">كل المستويات</option><option value="knowledge">المعرفة</option><option value="application">التطبيق</option><option value="reasoning">الاستدلال</option></select>
+          <select id="itemQualityBand"><option value="">كل الحالات</option><option value="strong">قوي</option><option value="acceptable">مقبول</option><option value="review">يحتاج مراجعة</option><option value="weak">ضعيف</option></select>
+          <select id="itemQualitySemantic"><option value="">كل حالات التحكيم</option><option value="current">تحكيم محدث</option><option value="stale">يحتاج تحكيمًا محدثًا</option></select>
+          <input id="itemQualitySearch" type="search" placeholder="ابحث في السؤال أو المؤشر">
+          <button id="applyItemQualityFilters" class="btn light" type="button">تطبيق</button>
+          <button id="exportItemQualityCsv" class="btn light" type="button" disabled>تصدير CSV كامل</button>
+        </div>
+        <div class="item-quality-table-wrap">
+          <table class="item-quality-table">
+            <thead><tr><th>المادة</th><th>المؤشر</th><th>السؤال</th><th>المستوى</th><th>المشتتات</th><th>الجودة</th><th>التحكيم</th><th>ملاحظات</th></tr></thead>
+            <tbody id="itemQualityBody"><tr><td colspan="8">حمّل التدقيق الشامل لعرض الأسئلة.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="item-quality-pager">
+          <button id="itemQualityPrev" class="btn light" type="button" disabled>السابق</button>
+          <span id="itemQualityPageState">—</span>
+          <button id="itemQualityNext" class="btn light" type="button" disabled>التالي</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel print-agent-panel">
+      <div class="panel-head">
+        <div><span class="kicker">وكيل الطباعة المرئي</span><h2>افحص تصميم الورق كما يظهر فعليًا</h2></div>
+        <span id="printAuditBadge" class="status-pill info">جاهز للفحص</span>
+      </div>
+      <p class="brain-intro">يفتح قالب الطباعة نفسه في الخلفية ويقيس A4 والعناصر داخل الصفحة: القص، الخروج عن الحدود، الصفحة الأخيرة الضعيفة، الفراغ الكبير، الخط الصغير، QR وOMR. لا يقرأ أسماء الطلاب ولا نصوص الأسئلة.</p>
+      <div class="print-audit-actions">
+        <button type="button" class="btn light" data-print-audit="question_papers">فحص أوراق الأسئلة</button>
+        <button type="button" class="btn light" data-print-audit="bubble_sheets">فحص أوراق التظليل</button>
+        <button type="button" class="btn light" data-print-audit="paper_report">فحص التقرير الورقي</button>
+      </div>
+      <div id="printAuditResult" class="print-audit-result"><div class="empty">اختر نوع الورقة ليبدأ الفحص المرئي الفعلي.</div></div>
+      <div class="panel-actions">
+        <button id="printPreparePlan" class="btn light" type="button" disabled>إنشاء خطة إصلاح للطباعة</button>
+        <button id="printHandoff" class="btn primary" type="button" disabled>تسليم الأخطاء للمساعد</button>
+      </div>
+      <div id="handoffState" class="handoff-state"><div class="empty">بعد الفحص يمكنك تسليم الأخطاء للمساعد، ثم سيعيد الوكيل التحقق بعد الإصلاح.</div></div>
+      <div id="printAuditFrameHost" aria-hidden="true"></div>
+    </section>
+
+    <section class="panel corrector-panel" id="internalCorrector">
+      <div class="panel-head">
+        <div><span class="kicker">التصحيح الداخلي</span><h2>مصحح النصوص والأوامر</h2></div>
+        <span id="correctorBadge" class="status-pill ok">محلي داخل المنصة</span>
+      </div>
+      <p class="brain-intro">يفحص النصوص والتعليمات والأكواد داخل منصة معلّمي فقط. التصحيحات الإملائية والتنسيقية المؤكدة تُطبّق مباشرة داخل الحقل، أما العمليات المنطقية أو الخطرة فتظهر كملاحظات ولا تُنفذ تلقائيًا. لا يرسل هذا القسم النص إلى أي مزود ذكاء خارجي.</p>
+      <div class="corrector-privacy">الخصوصية: لا تستخدم هذا الحقل لأسماء الطلاب أو أرقامهم. سجل التصحيح محفوظ داخل مشروع المنصة للحساب الرئيسي فقط.</div>
+      <div class="corrector-controls">
+        <label><span>نوع المحتوى</span>
+          <select id="correctorMode">
+            <option value="arabic">نص عربي</option>
+            <option value="instruction">تعليمات / أمر تشغيلي</option>
+            <option value="javascript">JavaScript</option>
+            <option value="css">CSS</option>
+            <option value="html">HTML</option>
+            <option value="sql">SQL</option>
+          </select>
+        </label>
+        <label class="wide"><span>مرجع اختياري</span><input id="correctorSource" maxlength="120" placeholder="مثال: نص زر في صفحة التحليل"></label>
+        <label class="corrector-live"><input id="correctorLive" type="checkbox" checked><span>تصحيح فوري آمن أثناء الكتابة للنصوص العربية والتعليمات</span></label>
+      </div>
+      <textarea id="correctorInput" class="corrector-input" rows="8" maxlength="20000" placeholder="الصق النص أو التعليمات أو الكود هنا. سيُصحّح المحتوى الآمن داخل نفس الحقل، وتظهر الملاحظات التي تحتاج مراجعة أسفله."></textarea>
+      <div class="corrector-actions">
+        <button id="runCorrection" class="btn primary" type="button">فحص وتصحيح الآن</button>
+        <button id="undoCorrection" class="btn light" type="button" disabled>تراجع عن آخر تصحيح</button>
+        <button id="refreshCorrections" class="btn light" type="button">تحديث سجل التصحيحات</button>
+      </div>
+      <div id="correctorResult" class="corrector-result"><div class="empty">اكتب أو الصق محتوى لبدء التصحيح داخل المنصة.</div></div>
+      <div class="corrector-history-head"><b>سجل التصحيحات الأخيرة</b><span>يمكن إعادة فتح أي تصحيح سابق داخل المحرر.</span></div>
+      <div id="correctionHistory" class="correction-history"><div class="empty">لا توجد تصحيحات محفوظة بعد.</div></div>
+    </section>
+
+    <section class="panel brain-panel">
+      <div class="panel-head"><div><span class="kicker">عقل منصة معلّمي</span><h2>اسأل الوكيل عن منصتك</h2></div><span id="brainBadge" class="status-pill info">جارٍ تحميل المعرفة…</span></div>
+      <p class="brain-intro">يعتمد على خريطة موثقة للمنصة وقرارات المشروع والمسارات الحية في GitHub وSupabase. لا يرسل السؤال إلى ذكاء خارجي ولا يحفظ المحادثة.</p>
+      <div class="brain-suggestions">
+        <button type="button" data-brain-q="ما أخطر مشكلة في المنصة الآن؟">ما أخطر مشكلة الآن؟</button>
+        <button type="button" data-brain-q="كيف يعمل التصحيح الآلي OMR من رفع الورقة حتى التحليل؟">كيف يعمل OMR؟</button>
+        <button type="button" data-brain-q="ما سبب مشكلة صياغة الأسئلة في العلوم؟">مشكلة صياغة العلوم</button>
+        <button type="button" data-brain-q="ما الذي لا يجوز للوكيل تعديله تلقائيًا؟">حدود الأمان</button>
+      </div>
+      <form id="brainForm" class="brain-form">
+        <textarea id="brainQuestion" rows="3" maxlength="700" placeholder="مثال: لماذا بعض أسئلة العلوم تظهر بصياغة آلية؟"></textarea>
+        <button id="brainAsk" class="btn primary" type="submit">اسأل عن المنصة</button>
+      </form>
+      <div id="brainAnswer" class="brain-answer"><div class="empty">اكتب سؤالك عن المنصة، وسأجيب من المعرفة الموثقة داخل المشروع.</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><span class="kicker">خطط تحتاج قرارك</span><h2>اقتراحات الإصلاح</h2></div><span class="subtle">الاعتماد هنا لا يعني التنفيذ؛ يحفظ قرارك فقط.</span></div>
+      <div id="proposals" class="proposal-list"><div class="empty">لا توجد خطط بعد.</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><span class="kicker">سجل التدقيق</span><h2>آخر عمليات الفحص</h2></div></div>
+      <div id="history" class="history"><div class="empty">لا يوجد سجل حتى الآن.</div></div>
+    </section>
+  </main>
+
+  <section id="denied" class="denied" hidden>
+    <h2>هذا القسم للحساب الرئيسي فقط</h2>
+    <p>حسابات معلمي القراءة أو الرياضيات أو العلوم لا تملك صلاحية تشغيل وكيل صيانة المنصة.</p>
+    <a class="btn primary" href="teacher.html">العودة إلى حساب المعلم</a>
+  </section>
+</div>
+
+<script src="teacher-access.js?v=20260930-mainfix2"></script>
+<script src="platform-auto-correct.js?v=20261003-corrector1"></script>
+<script src="maintenance-agent.js?v=20261003-item-audit3"></script>
+</body>
+</html>

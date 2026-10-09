@@ -5,6 +5,7 @@ const panels={overview:'overviewView',subject:'subjectView',subjectReport:'subje
 let activeView='overview';
 let enforcing=false;
 const ALL_GRADE_LABEL='الثالث متوسط (أ - ب - ج - د)';
+const DUPLICATE_MEASURED_LABEL='عدد الطلاب ذوي الدرجات المقاسة';
 
 function show(view){
   if(!panels[view])view='overview';
@@ -16,14 +17,6 @@ function show(view){
   enforcing=false;
   if(view==='subject')setTimeout(()=>$('subjectSelect')?.dispatchEvent(new Event('change',{bubbles:true})),0);
   if(view==='subjectReport')setTimeout(()=>$('reportSubjectSelect')?.dispatchEvent(new Event('change',{bubbles:true})),0);
-}
-
-function loadParticipation(){
-  if(document.querySelector('script[data-analysis-participation]'))return;
-  const script=document.createElement('script');
-  script.src='analysis-participation.js?v=20260912-1';
-  script.dataset.analysisParticipation='true';
-  document.head.appendChild(script);
 }
 
 function replaceAllClassesLabels(){
@@ -44,8 +37,33 @@ function applySemesterToSheets(root=document){
     const term=sheet.querySelector('.sar-meta > div:nth-child(2) b');
     if(term)term.textContent=semesterText(semesterForSheet(sheet));
     const grade=sheet.querySelector('.sar-meta > div:nth-child(1) b');
-    if(grade&&/كل الفصول/.test(grade.textContent||''))grade.textContent=ALL_GRADE_LABEL;
+    if(grade&&/كل الفصول/.test(grade.textContent||''))grade.textContent='الثالث متوسط';
   });
+}
+function removeDuplicateMeasuredCount(root=document){
+  root.querySelectorAll?.('.official-analysis-sheet .sar-stat-list>div').forEach(row=>{
+    if((row.querySelector('span')?.textContent||'').trim()===DUPLICATE_MEASURED_LABEL)row.remove();
+  });
+}
+function ensureAnalysisPrintSignatureCss(){
+  if(document.getElementById('analysisPrintSignaturesCss'))return;
+  const link=document.createElement('link');
+  link.id='analysisPrintSignaturesCss';
+  link.rel='stylesheet';
+  link.href='analysis-print-signatures-first-page.css?v=20260914-4';
+  document.head.appendChild(link);
+}
+// Print geometry is owned by report-a4-flow-final.css, not runtime scaling.
+function enterAnalysisPrintMode(){
+  ensureAnalysisPrintSignatureCss();
+  applySemesterToSheets(document);
+  removeDuplicateMeasuredCount(document);
+}
+// Print layout is CSS-only. Do not mutate or synchronously measure the DOM from
+// beforeprint; Chromium can stall while pagination and layout are both active.
+function keepPrintableSectionsTogether(){ return; }
+function bindAnalysisPrintFidelity(){
+  ['printOverviewAnalysisBtn','printSubjectAnalysisBtn'].forEach(id=>$(id)?.addEventListener('click',enterAnalysisPrintMode,true));
 }
 function addSemesterSelect(toolbar,id){
   if(!toolbar||$(id))return;
@@ -65,15 +83,17 @@ function installSemesterControls(){
   addSemesterSelect(document.querySelector('#subjectView .toolbar'),'subjectSemester');
   replaceAllClassesLabels();
   applySemesterToSheets(document);
+  removeDuplicateMeasuredCount(document);
 }
 
 function install(){
+  ensureAnalysisPrintSignatureCss();
   document.querySelectorAll('.main-tab').forEach(b=>{
     b.onclick=e=>{e.preventDefault();show(b.dataset.view);};
   });
   show(document.querySelector('.main-tab.active')?.dataset.view||'overview');
-  loadParticipation();
   installSemesterControls();
+  bindAnalysisPrintFidelity();
 
   const nav=document.querySelector('.main-tabs');
   if(nav){
@@ -93,13 +113,13 @@ function install(){
       }
       if(changed)break;
     }
-    if(changed)queueMicrotask(()=>applySemesterToSheets(document));
+    if(changed)queueMicrotask(()=>{applySemesterToSheets(document);removeDuplicateMeasuredCount(document);});
   });
   sheetObserver.observe(document.body,{childList:true,subtree:true});
-  addEventListener('beforeprint',()=>applySemesterToSheets(document));
+  // No beforeprint DOM mutation. Required text cleanup is done before print is requested.
 
-  $('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{show(activeView);installSemesterControls();},500));
-  addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>{show(activeView);installSemesterControls();},500)});
+  $('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500));
+  addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>{show(activeView);installSemesterControls();bindAnalysisPrintFidelity();},500)});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();

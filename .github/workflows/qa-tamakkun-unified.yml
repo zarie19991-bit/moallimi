@@ -1,0 +1,61 @@
+name: QA Tamakkun unified plans
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tamakkun-unified-plan.js'
+      - 'tamakkun-unified-plan.css'
+      - 'tamakkun-competition-polish.css'
+      - 'lugati-dashboard.html'
+      - 'lugati-dashboard.js'
+      - 'lugati-student.html'
+      - 'lugati-student-adaptive.js'
+      - 'qa/student-activity-sections-unit.cjs'
+      - 'lugati-complete.html'
+      - 'lugati-complete.js'
+      - 'tamakkun-teacher-workspace.js'
+      - 'tamakkun-teacher-workspace.css'
+      - 'platform-color-system.css'
+      - 'qa/platform-color-system-unit.cjs'
+      - 'tamakkun-ux-v3.css'
+      - 'qa/ux-engagement-v3-unit.cjs'
+      - 'supabase/migrations/20261004111500_lugati_ux_events.sql'
+      - 'supabase/migrations/20261003222000_teacher_management_workspace.sql'
+      - 'qa/teacher-management-workspace-unit.cjs'
+      - 'supabase/functions/lugati-adaptive-plan/**'
+      - 'qa/tamakkun-unified-plan-unit.cjs'
+      - 'qa/competition-unit.cjs'
+      - '.github/workflows/qa-tamakkun-unified.yml'
+  workflow_dispatch:
+
+jobs:
+  tamakkun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax
+        run: |
+          node --check tamakkun-unified-plan.js
+          node --check lugati-dashboard.js
+          node --check lugati-competition.js
+          node --check lugati-student-adaptive.js
+          node --check tamakkun-teacher-workspace.js
+          node --check lugati-complete.js
+      - name: Production manifest and page packaging
+        run: node question-bank/scripts/prepare-pages.mjs
+      - name: Unified plan contract
+        run: node qa/tamakkun-unified-plan-unit.cjs
+      - name: Competition regression
+        run: node qa/competition-unit.cjs
+      - name: Student activity sections
+        run: node qa/student-activity-sections-unit.cjs
+      - name: Teacher management workspace
+        run: node qa/teacher-management-workspace-unit.cjs
+      - name: Platform color system
+        run: node qa/platform-color-system-unit.cjs
+      - name: UX engagement v3
+        run: node qa/ux-engagement-v3-unit.cjs

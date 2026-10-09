@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#087f68"><title>مِنَصَّةُ تَمَكُّن التفاعلية</title>
+<link rel="stylesheet" href="./lugati-dashboard.css">
+<link rel="stylesheet" href="./lugati-modules.css">
+<link rel="stylesheet" href="./lugati-worksheet.css?v=20260917-0527">
+<link rel="stylesheet" href="./lugati-worksheet-v3.css?v=20260917-0638">
+<link rel="stylesheet" href="./tamakkun-design-system.css?v=20260925-game-journey-v4">
+<link rel="stylesheet" href="./tamakkun-unified-plan.css?v=20261003-dualsource1">
+  <link rel="stylesheet" href="./platform-color-system.css?v=20261004-v2" />
+</head>
+<body>
+<div id="sessionLoader" class="session-loader">جارٍ تحميل بيانات مِنَصَّةُ تَمَكُّن...</div>
+<div id="globalMessage" class="global-message"></div>
+<div id="toast" class="toast"></div>
+<div id="app" class="app-shell" hidden>
+<aside class="sidebar">
+  <div class="side-brand"><div class="brand-mark">لُ</div><div><b>مِنَصَّةُ تَمَكُّن</b><small>التفاعلية</small></div></div>
+  <nav class="nav">
+    <button class="nav-item active" data-scroll="home"><span>⌂</span><div><b>الرئيسية</b><small>نظرة عامة</small></div></button>
+    <button class="nav-item" data-scroll="learning"><span>▦</span><div><b>التعلّم والتدريب</b><small>دروس وأوراق عمل</small></div></button>
+    <button class="nav-item" data-scroll="analysis"><span>◫</span><div><b>تحليل نافس</b><small>قراءة · رياضيات · علوم</small></div></button>
+    <button class="nav-item" data-scroll="plans"><span>✦</span><div><b>العلاج والإثراء</b><small>مسارات مبنية على النتائج</small></div></button>
+    <button class="nav-item" data-scroll="support" data-teacher-only><span>♙</span><div><b>ملفات الطلاب</b><small>الدعم والمتابعة</small></div></button>
+    <button class="nav-item" data-scroll="recent"><span>▤</span><div><b>سجل النتائج</b><small>آخر الاختبارات</small></div></button>
+    <button class="nav-item" data-scroll="reports" data-teacher-only><span>▥</span><div><b>التقارير</b><small>طباعة وتصدير</small></div></button>
+  </nav>
+  <div class="side-note"><b>اتصال معلّمي</b><span class="dot"></span><p>قراءة فقط — لا يتم تعديل درجات منصة معلّمي.</p></div>
+</aside>
+
+<main class="main-content">
+  <header class="topbar">
+    <button id="mobileMenu" class="mobile-menu" type="button">☰</button>
+    <div class="top-title"><small>لوحة مِنَصَّةُ تَمَكُّن</small><h1>التعلّم والتحليل الشخصي</h1></div>
+    <div class="top-actions"><div class="sync"><span class="dot"></span><span id="lastSync">متصل</span></div><div class="profile-chip"><div class="avatar">ل</div><div><b id="profileName">—</b><small id="profileMeta">—</small></div><span id="roleBadge" class="role-badge">—</span></div><button id="logoutBtn" class="logout-btn">تسجيل الخروج</button></div>
+  </header>
+
+  <section id="home" class="hero section-anchor">
+    <div class="hero-copy"><span class="hero-tag">منصة تعليمية ذكية مبنية على الأداء الفعلي</span><h2 id="heroTitle">مرحبًا بك</h2><p id="heroText"></p></div>
+    <div id="heroStats" class="hero-stats"></div>
+  </section>
+
+  <section id="learning" class="section-block section-anchor">
+    <div class="section-head"><div><small>الوصول السريع</small><h2>أقسام مِنَصَّةُ تَمَكُّن</h2></div><p>اضغط على أي بطاقة لفتح القسم والعمل داخله مباشرة.</p></div>
+    <div class="quick-grid">
+      <button class="quick-card primary" data-module="lesson"><span>▣</span><b>الدروس التفاعلية</b><small>إنشاء ونشر ومتابعة الدروس</small></button>
+      <button class="quick-card" data-module="strategy"><span>◈</span><b>الاستراتيجيات</b><small>إنشاء استراتيجيات وتوجيهات صفية</small></button>
+      <button class="quick-card" data-module="game"><span>✺</span><b>الألعاب التعليمية</b><small>أنشطة وتحديات ينفذها الطلاب</small></button>
+      <button class="quick-card" data-module="worksheet"><span>▤</span><b>أوراق العمل</b><small>علاجية وتعزيزية وإثرائية</small></button>
+      <button class="quick-card" data-module="assignment"><span>✓</span><b>الواجبات</b><small>تكليف وتسليم ومتابعة الإنجاز</small></button>
+      <button class="quick-card" data-module="assessment"><span>◎</span><b>التقويم</b><small>تشخيصي وتكويني وختامي</small></button>
+      <button class="quick-card accent" data-scroll="analysis"><span>◫</span><b>تحليل نتائج نافس</b><small>من درجات معلّمي الحقيقية</small></button>
+      <button class="quick-card" data-scroll="plans"><span>✦</span><b>الخطة العلاجية والإثرائية</b><small>حسب نتيجة كل مؤشر</small></button>
+      <button class="quick-card" data-action="student-files" data-teacher-only><span>♙</span><b>ملفات الطلاب</b><small>فتح ملف الطالب ونتائجه الفعلية</small></button>
+      <button class="quick-card" data-action="reports" data-teacher-only><span>▥</span><b>التقارير</b><small>طباعة وتصدير الأداء</small></button>
+    </div>
+  </section>
+
+  <section id="workspace" class="section-block section-anchor module-workspace" hidden>
+    <div class="section-head"><div><small id="moduleEyebrow">قسم فعلي</small><h2 id="moduleTitle">—</h2></div><div class="module-head-actions"><select id="moduleSubjectFilter" aria-label="تصفية حسب المادة"><option value="">كل المواد</option><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option><option value="arabic">لغتي</option></select><button id="addContentBtn" class="module-primary" data-teacher-only>+ إضافة جديد</button></div></div>
+    <div id="moduleDescription" class="module-description"></div>
+    <div id="moduleContent" class="module-grid"></div>
+  </section>
+
+  <section id="analysis" class="section-block section-anchor">
+    <div class="section-head"><div><small>متصل بمنصة معلّمي</small><h2>تحليل نتائج نافس</h2></div><p>تظهر النسب من أحدث نتيجة فعلية لكل طالب في كل مادة.</p></div>
+    <div id="subjectCards" class="subject-grid"></div>
+    <div class="panel indicator-panel"><div class="panel-head"><div><small>تحليل دقيق</small><h3 id="indicatorHeading">أكثر المؤشرات حاجة إلى تدخل</h3></div><span class="live-pill">مؤشرات فعلية</span></div><div id="indicatorList" class="indicator-list"></div></div>
+  </section>
+
+  <section id="plans" class="section-block section-anchor">
+    <div class="section-head"><div><small>التدريب الشخصي</small><h2>الخطة العلاجية والتعزيزية والإثرائية</h2></div><p>الخطة ترتبط بمصدر النتيجة المحدد في معلّمي: اختبار المؤشرات الإلكتروني أو التصحيح الآلي الورقي، وتستخدم مؤشرات ذلك المصدر فقط دون خلط نتائج أخرى.</p></div>
+    <div class="plan-grid">
+      <article class="plan-card remedial" data-plan-route="remedial"><span class="plan-icon">↺</span><div><small>المسار العلاجي</small><h3><b id="planSupport">—</b> طالب</h3><p>طلاب صُنّفوا للورقة العلاجية وفق نتائج الاختبار.</p></div></article>
+      <article class="plan-card strengthen" data-plan-route="strengthen"><span class="plan-icon">↗</span><div><small>مسار التعزيز</small><h3><b id="planStrength">—</b> طالب</h3><p>طلاب صُنّفوا للورقة التعزيزية وفق القرار المتوازن.</p></div></article>
+      <article class="plan-card enrich" data-plan-route="enrich"><span class="plan-icon">★</span><div><small>المسار الإثرائي</small><h3><b id="planEnrich">—</b> طالب</h3><p>طلاب صُنّفوا للورقة الإثرائية بعد اجتياز شروط الإتقان المتوازن.</p></div></article>
+    </div>
+    <div class="tup-inline-launch"><div><b>📘 الخطة الموحدة للرياضيات والعلوم</b><span>اختر نتيجة الطالب: اختبار مؤشرات إلكتروني أو تصحيح آلي ورقي؛ ثم تُبنى الخطة وأسئلتها من مؤشرات ذلك المصدر فقط، والعلوم والرياضيات كل مادة على حدة.</span></div><button type="button" class="tup-launch-btn" data-tamakkun-unified-plan>عرض / طباعة الخطة</button></div>
+    <div class="info-strip"><b>ورقة العمل الفردية</b><span>يمكن إنشاء ونشر أوراق عمل فعلية من بطاقة «أوراق العمل»، بينما يعتمد اختيار الطالب والمسار على تحليله الحقيقي.</span></div>
+  </section>
+
+  <section id="support" class="section-block section-anchor">
+    <div class="panel"><div class="panel-head"><div><small>أولوية المتابعة</small><h3 id="supportPanelTitle">طلاب يحتاجون إلى دعم الآن</h3></div><span class="live-pill danger">حسب أحدث نتيجة</span></div><div id="supportContent"></div></div>
+  </section>
+
+  <section id="recent" class="section-block section-anchor">
+    <div class="panel"><div class="panel-head"><div><small>سجل حي</small><h3 id="recentTitle">أحدث نتائج الطلاب</h3></div><span class="live-pill">قراءة فقط من معلّمي</span></div><div id="recentContent"></div></div>
+  </section>
+
+  <section id="reports" class="section-block section-anchor" data-teacher-only>
+    <div class="section-head"><div><small>التوثيق والطباعة</small><h2>التقارير</h2></div><p>تقارير مبنية على البيانات الحالية الظاهرة من منصة معلّمي.</p></div>
+    <div class="report-actions"><button id="printSummaryReport" class="report-action"><span>🖨️</span><b>طباعة التقرير العام</b><small>ملخص المواد والدعم والمؤشرات</small></button><button id="downloadResultsCsv" class="report-action"><span>⬇️</span><b>تصدير النتائج CSV</b><small>نتائج فعلية قابلة للفتح في Excel</small></button></div>
+  </section>
+
+  <footer>مِنَصَّةُ تَمَكُّن التفاعلية · ابن سينا المتوسطة · البيانات التحليلية مرتبطة بمنصة معلّمي</footer>
+</main>
+</div>
+
+<div id="contentModal" class="module-modal" hidden>
+  <div class="module-modal-backdrop" data-close-modal></div>
+  <div class="module-modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button class="modal-close" type="button" data-close-modal>×</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script src="./lugati-dashboard.js"></script>
+<script src="./lugati-modules.js"></script>
+<script src="./lugati-worksheet.js?v=20260917-0527"></script>
+<script src="./lugati-teacher-pretest.js?v=20260924-unified-builder-v1"></script>
+<script src="./lugati-teacher-mastery.js?v=20260925-nafs-followup-subject-v1"></script>
+<script src="./lugati-student-pretest.js?v=20260922-teacher-bundle-v1"></script>
+<script src="./lugati-worksheet-v3.js?v=20260917-0638"></script>
+<script src="./tamakkun-unified-plan.js?v=20261003-dualsource1"></script>
+</body>
+</html>

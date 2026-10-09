@@ -23,14 +23,22 @@ assert.match(subject, /section_scores/);
 assert.match(general, /savedMeasure/);
 assert.match(general, /score\/total\*100/);
 
-assert.match(html, /analysis-achievement-fix\.js\?v=[^"\s]+/);
+assert.match(html, /analysis-data-service\.js\?v=[^"\s]+/);
+assert.doesNotMatch(html, /analysis-achievement-fix\.js|data-normalization-fix\.js|analysis-participation\.js/);
+assert.ok(fs.existsSync('analysis-data-service.js'));
+assert.ok(!fs.existsSync('analysis-achievement-fix.js'));
+assert.ok(!fs.existsSync('data-normalization-fix.js'));
+assert.ok(!fs.existsSync('analysis-participation.js'));
 assert.match(signature, /content:none!important/);
 assert.match(signature, /\.sar-signatures span::before/);
 assert.match(signature, /\.sar-signatures span::after/);
 
-assert.match(examHtml, /edge-retry\.js\?v=20260912-1/);
+assert.match(examHtml, /edge-retry\.js\?v=[^"\s]+/);
 assert.match(examHtml, /edge-retry-ui\.js\?v=20260913-advanced2/);
-assert.match(retry, /502,503,504/);
+assert.match(retry, /502/);
+assert.match(retry, /503/);
+assert.match(retry, /504/);
+assert.match(retry, /520/);
 assert.match(retry, /nafes:edge-retry/);
 assert.match(retryUi, /جارٍ إعادة الاتصال تلقائيًا/);
 assert.match(retryUi, /function setHidden\(el,value\)/);

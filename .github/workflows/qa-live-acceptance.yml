@@ -3,30 +3,45 @@ on:
   push:
     paths:
       - '.github/workflows/qa-live-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   acceptance:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      QA_TEACHER_KEY: ${{ secrets.QA_TEACHER_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Check QA credential
+        id: qa_key
+        shell: bash
+        run: |
+          if [ -n "$QA_TEACHER_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "QA_TEACHER_KEY is not configured; live acceptance skipped."
+          fi
       - name: Run live API acceptance v2
-        env:
-          QA_TEACHER_KEY: eb6694221458df1d0b9ea98040474100f1ed61d5c70bee3ffbc532226505dd89
+        if: steps.qa_key.outputs.available == 'true'
         run: node qa/acceptance-v2.mjs
       - name: Install browser driver
+        if: steps.qa_key.outputs.available == 'true'
         run: npm install --no-save playwright-core@1.55.0
       - name: Run live browser acceptance v2
-        env:
-          QA_TEACHER_KEY: eb6694221458df1d0b9ea98040474100f1ed61d5c70bee3ffbc532226505dd89
+        if: steps.qa_key.outputs.available == 'true'
         run: |
           CHROME_PATH="$(which google-chrome || which chromium || which chromium-browser || true)"
           test -n "$CHROME_PATH"
           export CHROME_PATH
           node qa/browser-v2.mjs
       - name: Summarize acceptance v2
+        if: steps.qa_key.outputs.available == 'true'
         run: |
           node - <<'NODE'
           const fs=require('fs');

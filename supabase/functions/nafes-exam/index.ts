@@ -50,6 +50,7 @@ type BankRow = {
   cognitive_level: string;
   question_no: number;
   model_no: number;
+  quality_version?: string;
 };
 
 function publicQuestions(items: Record<string, unknown>[]) {
@@ -106,6 +107,27 @@ async function settings(subject: string, outcome: string, indicator: number, mod
 }
 
 async function loadIndicatorBank(subject: string, outcome: string, indicator: number) {
+  if (subject === "science" || subject === "math") {
+    const qualityVersion = subject === "science" ? "science-curated-v4" : "math-curated-v4";
+    const { data, error } = await db
+      .from("nafes_indicator_curated_bank")
+      .select("id,indicator_key,indicator_text,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no,model_no,quality_version,image")
+      .eq("subject_key", subject)
+      .eq("outcome_code", outcome)
+      .eq("indicator_index", indicator)
+      .eq("quality_version", qualityVersion)
+      .lte("model_no", MODEL_COUNT)
+      .order("model_no", { ascending: true })
+      .order("question_no", { ascending: true });
+    if (error) throw error;
+    return (data || []).map((q: Record<string, unknown>) => ({
+      ...q,
+      measurement_focus: String(q.indicator_key || ""),
+      alignment_profile: qualityVersion,
+      alignment_verified: true,
+      alignment_evidence: { validator: qualityVersion, image: q.image || null },
+    })) as BankRow[];
+  }
   const { data, error } = await db
     .from("nafes_question_bank")
     .select("id,indicator_text,measurement_focus,alignment_profile,alignment_verified,alignment_evidence,context_text,question_text,options,correct_index,explanation,difficulty,cognitive_level,question_no,model_no")
@@ -123,7 +145,96 @@ async function loadIndicatorBank(subject: string, outcome: string, indicator: nu
   return (data || []) as BankRow[];
 }
 
+function inspectCuratedScienceBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string) {
+  const issues: string[] = [];
+  const levelCounts: Record<string, number> = { knowledge: 0, application: 0, reasoning: 0 };
+  const answerCounts = [0, 0, 0, 0];
+  const stems = new Set<string>();
+  const banned = /أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين|ما الإجابة التي تنقل مفهوم|لزم حل المهمة/;
+  if (rows.length !== QUESTION_COUNT) issues.push("count");
+  const positions = rows.map(q => Number(q.question_no));
+  const expectedPositions = Array.from({ length: QUESTION_COUNT }, (_, i) => i + 1);
+  if (positions.some((x, i) => x !== expectedPositions[i])) issues.push("positions");
+
+  for (const q of rows) {
+    const stem = norm(q.question_text);
+    const options = Array.isArray(q.options) ? q.options.map((x) => String(x).trim()) : [];
+    if (!stem || stems.has(stem)) issues.push("duplicate_stem");
+    stems.add(stem);
+    if (banned.test(q.question_text)) issues.push("templated_language");
+    const needsVisual=/(أي رسم(?! سهمي)|الرسم الآتي|الشكل الآتي|المخطط الآتي|الصورة الآتية|أي نقطة في الشكل)/.test(q.question_text);
+    const image=(q.alignment_evidence as any)?.image;
+    if(needsVisual&&(!image?.url||!image?.alt))issues.push("missing_visual");
+    if (norm(q.indicator_text) !== norm(expectedIndicatorText)) issues.push("indicator_mismatch");
+    if (q.measurement_focus !== expectedFocus) issues.push("measurement_focus_mismatch");
+    if (options.length !== 4 || new Set(options).size !== 4 || options.some(x => !x)) issues.push("options");
+    if (!Number.isInteger(q.correct_index) || q.correct_index < 0 || q.correct_index > 3) issues.push("correct_index");
+    else answerCounts[q.correct_index]++;
+    if (!(q.cognitive_level in levelCounts)) issues.push("cognitive_level");
+    else levelCounts[q.cognitive_level]++;
+    const expectedDifficulty = q.cognitive_level === "knowledge" ? "easy" : q.cognitive_level === "application" ? "medium" : q.cognitive_level === "reasoning" ? "hard" : "";
+    if (!expectedDifficulty || q.difficulty !== expectedDifficulty) issues.push("difficulty_level");
+    if (!String(q.explanation || "").trim()) issues.push("missing_explanation");
+  }
+  if (levelCounts.knowledge < 3 || levelCounts.application < 5 || levelCounts.reasoning < 5) issues.push("cognitive_distribution");
+  if (rows.length === QUESTION_COUNT && Math.max(...answerCounts) - Math.min(...answerCounts) > 2) issues.push("answer_distribution");
+  return {
+    ready: issues.length === 0,
+    issues: [...new Set(issues)],
+    approved_count: rows.length,
+    required_count: QUESTION_COUNT,
+    answer_distribution: answerCounts,
+    cognitive_distribution: levelCounts,
+  };
+}
+
+function inspectCuratedMathBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string) {
+  const issues: string[] = [];
+  const levelCounts: Record<string, number> = { knowledge: 0, application: 0, reasoning: 0 };
+  const answerCounts = [0, 0, 0, 0];
+  const stems = new Set<string>();
+  const banned = /أي إجابة يمكن اعتمادها|طُرحت المهمة|عند استرجاع المفهوم الأساسي|المهمة المسجلة في ملخص القواعد|استنادًا إلى.+اختبر صحة النتيجة|أي خيار يقدم تصحيحًا وبرهانًا متسقين|ما الإجابة التي تنقل مفهوم|لزم حل المهمة/;
+  if (rows.length !== QUESTION_COUNT) issues.push("count");
+  const positions = rows.map(q => Number(q.question_no));
+  const expectedPositions = Array.from({ length: QUESTION_COUNT }, (_, i) => i + 1);
+  if (positions.some((x, i) => x !== expectedPositions[i])) issues.push("positions");
+
+  for (const q of rows) {
+    const stem = norm(q.question_text);
+    const options = Array.isArray(q.options) ? q.options.map((x) => String(x).trim()) : [];
+    if (!stem || stems.has(stem)) issues.push("duplicate_stem");
+    stems.add(stem);
+    if (banned.test(q.question_text)) issues.push("templated_language");
+    if (norm(q.indicator_text) !== norm(expectedIndicatorText)) issues.push("indicator_mismatch");
+    if (q.measurement_focus !== expectedFocus) issues.push("measurement_focus_mismatch");
+    if (options.length !== 4 || new Set(options).size !== 4 || options.some(x => !x)) issues.push("options");
+    if (!Number.isInteger(q.correct_index) || q.correct_index < 0 || q.correct_index > 3) issues.push("correct_index");
+    else answerCounts[q.correct_index]++;
+    if (!(q.cognitive_level in levelCounts)) issues.push("cognitive_level");
+    else levelCounts[q.cognitive_level]++;
+    const expectedDifficulty = q.cognitive_level === "knowledge" ? "easy" : q.cognitive_level === "application" ? "medium" : q.cognitive_level === "reasoning" ? "hard" : "";
+    if (!expectedDifficulty || q.difficulty !== expectedDifficulty) issues.push("difficulty_level");
+    if (!String(q.explanation || "").trim()) issues.push("missing_explanation");
+  }
+  if (levelCounts.knowledge < 2 || levelCounts.application < 4 || levelCounts.reasoning < 3) issues.push("cognitive_distribution");
+  if (rows.length === QUESTION_COUNT && Math.max(...answerCounts) - Math.min(...answerCounts) > 2) issues.push("answer_distribution");
+  return {
+    ready: issues.length === 0,
+    issues: [...new Set(issues)],
+    approved_count: rows.length,
+    required_count: QUESTION_COUNT,
+    answer_distribution: answerCounts,
+    cognitive_distribution: levelCounts,
+  };
+}
+
 function inspectBank(rows: BankRow[], expectedIndicatorText: string, expectedFocus: string, subject: string) {
+  if (subject === "science" && rows.some(q => q.quality_version === "science-curated-v4")) {
+    return inspectCuratedScienceBank(rows, expectedIndicatorText, expectedFocus);
+  }
+  if (subject === "math" && rows.some(q => q.quality_version === "math-curated-v4")) {
+    return inspectCuratedMathBank(rows, expectedIndicatorText, expectedFocus);
+  }
   if (rows.some(q => q.alignment_evidence?.validator === REVIEW_VERSION)) {
     return inspectReviewedBank(rows, expectedIndicatorText, expectedFocus, subject);
   }
@@ -556,7 +667,7 @@ async function handleSimulationAction(body: Record<string, unknown>) {
       const storedConfig = parseSimulationConfig(active.config)!;
       return json({ attempt_id: active.id, resumed: true, submitted: false, expires_at: active.expires_at, current_section: active.current_section || 0, answers: active.answers || {}, sections: publicSimulationSections(active.rendered_sections || []), review: [] });
     }
-    if ((previous || []).length >= config.attempts) return json({ error: "استُنفد عدد المحاولات المسموح به." }, 409);
+    if (student?.is_demo !== true && (previous || []).length >= config.attempts) return json({ error: "استُنفد عدد المحاولات المسموح به." }, 409);
 
     const attemptNumber = (previous || []).length + 1;
     const sections: Record<string, unknown>[] = [];
@@ -577,6 +688,7 @@ async function handleSimulationAction(body: Record<string, unknown>) {
       config,
       rendered_sections: sections,
       expires_at: expiresAt,
+      is_demo: student?.is_demo === true,
     }).select().single();
     if (createError) throw createError;
     return json({ attempt_id: created.id, resumed: false, submitted: false, expires_at: expiresAt, current_section: 0, answers: {}, sections: publicSimulationSections(sections), review: [] });
@@ -685,11 +797,31 @@ Deno.serve(async (req: Request) => {
 
       const windowError = checkWindow(s);
       if (windowError) return json({ error: windowError }, 403);
-      const student = await verifyStudentIdentity(db, String(b.student_name || ""), String(b.student_no || b.national_id_last3 || ""), String(b.class_name || b.className || ""));
+      const requestedDemoCode = String(b.demo_code || "").trim();
+      let student;
+      if (requestedDemoCode) {
+        if (!/^\d{6}$/.test(requestedDemoCode)) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+        const { data: demoStudent, error: demoError } = await db
+          .from("nafes_students")
+          .select("id,full_name,class_name,national_id_last3,is_demo,is_active")
+          .eq("is_demo", true)
+          .eq("is_active", true)
+          .eq("demo_access_hash", await hashKey(requestedDemoCode))
+          .maybeSingle();
+        if (demoError) throw demoError;
+        if (!demoStudent) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+        student = demoStudent;
+      } else {
+        student = await verifyStudentIdentity(db, String(b.student_name || ""), String(b.student_no || b.national_id_last3 || ""), String(b.class_name || b.className || ""));
+      }
       const name = student.full_name;
       const no = student.national_id_last3;
       const studentKey = student.id;
       const studentId = student.id;
+      const isDemo = student.is_demo === true;
+      const rendered = reviewedRendered!;
+      const expires = new Date(Date.now() + (Number(s.duration_minutes) || 20) * 60000).toISOString();
+      const ids = rendered.map((q) => q.id);
 
       const { data: existing, error: existingError } = await db
         .from("nafes_exam_attempts")
@@ -701,6 +833,37 @@ Deno.serve(async (req: Request) => {
         .eq("student_key", studentKey)
         .maybeSingle();
       if (existingError) throw existingError;
+      if (existing && isDemo) {
+        const { data: reset, error: resetError } = await db.from("nafes_exam_attempts")
+          .update({
+            student_id: studentId,
+            student_name: name,
+            student_no: no,
+            question_ids: ids,
+            rendered_questions: rendered,
+            answers: {},
+            started_at: new Date().toISOString(),
+            expires_at: expires,
+            submitted_at: null,
+            score: null,
+            percent: null,
+            is_demo: true,
+          })
+          .eq("id", existing.id)
+          .select()
+          .single();
+        if (resetError) throw resetError;
+        return json({
+          attempt_id: reset.id,
+          resumed: false,
+          submitted: false,
+          expired: false,
+          demo_mode: true,
+          expires_at: reset.expires_at,
+          answers: {},
+          questions: publicQuestions(reset.rendered_questions || []),
+        });
+      }
       if (existing) {
         // Preserve the exact paper and answers from the moment this attempt began.
         const expired = Date.now() > new Date(existing.expires_at).getTime();
@@ -739,10 +902,6 @@ Deno.serve(async (req: Request) => {
             : [],
         });
       }
-
-      const rendered = reviewedRendered!;
-      const expires = new Date(Date.now() + (Number(s.duration_minutes) || 20) * 60000).toISOString();
-      const ids = rendered.map((q) => q.id);
       const { data: attempt, error: attemptError } = await db
         .from("nafes_exam_attempts")
         .insert({
@@ -757,6 +916,7 @@ Deno.serve(async (req: Request) => {
           question_ids: ids,
           rendered_questions: rendered,
           expires_at: expires,
+          is_demo: isDemo,
         })
         .select()
         .single();
@@ -769,6 +929,7 @@ Deno.serve(async (req: Request) => {
         expires_at: expires,
         answers: {},
         questions: publicQuestions(rendered),
+        demo_mode: isDemo,
       });
     }
 
@@ -779,12 +940,28 @@ Deno.serve(async (req: Request) => {
     const cls = String(b.class_name || b.className || "").trim();
     let studentKey = "";
     let studentId: string | null = null;
-    try {
-      const student = await verifyStudentIdentity(db, name, no, cls);
-      studentKey = student.id;
-      studentId = student.id;
-    } catch (_) {
-      studentKey = await hashKey(`${norm(name)}|${norm(no)}`);
+    const requestedDemoCode = String(b.demo_code || "").trim();
+    if (requestedDemoCode) {
+      if (!/^\d{6}$/.test(requestedDemoCode)) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+      const { data: demoStudent, error: demoError } = await db
+        .from("nafes_students")
+        .select("id,is_demo,is_active")
+        .eq("is_demo", true)
+        .eq("is_active", true)
+        .eq("demo_access_hash", await hashKey(requestedDemoCode))
+        .maybeSingle();
+      if (demoError) throw demoError;
+      if (!demoStudent) return json({ error: "رمز حساب الطالب التجريبي غير صحيح." }, 401);
+      studentKey = demoStudent.id;
+      studentId = demoStudent.id;
+    } else {
+      try {
+        const student = await verifyStudentIdentity(db, name, no, cls);
+        studentKey = student.id;
+        studentId = student.id;
+      } catch (_) {
+        studentKey = await hashKey(`${norm(name)}|${norm(no)}`);
+      }
     }
     const attemptId = String(b.attempt_id || "");
     if (!attemptId) return json({ error: "المحاولة غير موجودة." }, 400);

@@ -1,0 +1,73 @@
+/* Moallimi complete-logo contract — single source of truth */
+:root{
+  --moallimi-brand:#0f766e;
+  --moallimi-brand-dark:#123b5d;
+  --moallimi-brand-soft:#ecf8f2;
+  --moallimi-accent:#a86600;
+  --moallimi-ink:#102a43;
+}
+.platform-brand,.brand,.account-brand,.exam-top .brand{
+  min-height:64px;
+  overflow:visible!important;
+}
+.platform-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  text-decoration:none;
+  color:var(--moallimi-ink);
+}
+.moallimi-logo-full{
+  display:block!important;
+  inline-size:148px!important;
+  block-size:auto!important;
+  max-inline-size:100%!important;
+  max-block-size:72px!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  aspect-ratio:auto!important;
+  clip-path:none!important;
+  flex:0 1 auto!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.side .brand{
+  justify-content:center!important;
+  min-height:102px!important;
+  padding-block:8px!important;
+}
+.side .brand .moallimi-logo-full{
+  inline-size:min(190px,100%)!important;
+  max-inline-size:190px!important;
+  max-block-size:94px!important;
+  margin-inline:auto!important;
+}
+.top .brand .moallimi-logo-full{
+  inline-size:126px!important;
+  max-block-size:60px!important;
+}
+.exam-top .brand .moallimi-logo-full,
+.account-brand .moallimi-logo-full{
+  inline-size:136px!important;
+  max-block-size:66px!important;
+}
+.brand>div small,.account-brand>div small{display:block}
+.moallimi-logo-full[src=""],.moallimi-logo-full:not([src]){display:none!important}
+.platform-brand-fallback{display:none;font-weight:900;color:var(--moallimi-brand);letter-spacing:-.2px}
+.moallimi-logo-full[hidden]+.platform-brand-fallback{display:inline-flex}
+.moallimi-screen-brand{
+  display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-bottom:1px solid #d9e3ea;background:#fff;color:var(--moallimi-ink);overflow:visible
+}
+.moallimi-screen-brand img{inline-size:132px;block-size:auto;max-block-size:64px;object-fit:contain;object-position:center}
+@media print{.moallimi-screen-brand,.platform-brand{display:none!important}}
+@media(max-width:700px){
+  .moallimi-logo-full{inline-size:128px!important;max-block-size:62px!important}
+  .side .brand{min-height:88px!important}
+  .side .brand .moallimi-logo-full{inline-size:min(164px,100%)!important;max-block-size:82px!important}
+  .top .brand .moallimi-logo-full,
+  .exam-top .brand .moallimi-logo-full,
+  .account-brand .moallimi-logo-full{inline-size:118px!important;max-block-size:58px!important}
+  .moallimi-screen-brand img{inline-size:116px;max-block-size:56px}
+}

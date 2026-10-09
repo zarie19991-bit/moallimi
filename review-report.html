@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>التقرير الرسمي للاختبار الآلي | معلّمي</title>
+<link rel="stylesheet" href="review-results.css?v=20261003-autoexam4">
+<link rel="stylesheet" href="moallimi-brand.css?v=20261004-cognitive1">
+<script src="teacher-preboot.js?v=20260919-scope2"></script>
+</head>
+<body>
+<header class="top no-print">
+  <a href="review-correction.html">← الاختبار الآلي والتصحيح</a>
+  <nav>
+    <a href="review-analysis.html">التحليل</a>
+    <a class="active" href="review-report.html">التقرير الرسمي</a>
+    <a href="analysis.html">تقارير معلّمي العامة</a>
+  </nav>
+</header>
+
+<main class="page no-print">
+  <section class="hero">
+    <div><span class="eyebrow">تقرير شامل للاختبار الآلي</span><h1>التقرير الرسمي</h1><p>تقرير شامل للاختبار ونتائجه، مع تحليل مستقل لكل مادة ومؤشرات القياس والسهولة والتمييز والمشتتات والثبات عند توفر عينة كافية.</p></div>
+    <div class="hero-actions"><button id="printBtn" class="btn primary" type="button">طباعة / حفظ PDF</button></div>
+  </section>
+  <section class="card controls">
+    <label><span>الاختبار الآلي</span><select id="reviewSelect"><option value="">جارٍ التحميل…</option></select></label>
+    <label><span>الفصل</span><select id="classSelect"><option value="">جميع الفصول</option></select></label>
+    <label class="print-date"><span>تاريخ التقرير</span><input id="reportDate" type="text" placeholder="يُترك فارغًا إن لم ترغب بإظهاره"></label>
+  </section>
+  <div id="state" class="state">جارٍ إعداد التقرير…</div>
+</main>
+
+<section id="reportSheet" class="report-sheet" hidden></section>
+
+<script src="teacher-access.js?v=20260930-mainfix1"></script>
+<script src="review-results-core.js?v=20261003-autoexam4"></script>
+<script src="review-report.js?v=20261003-autoexam4"></script>
+<script src="print-audit-runtime.js?v=20261002-visual3"></script>
+</body>
+</html>

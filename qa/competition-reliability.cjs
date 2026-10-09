@@ -1,0 +1,40 @@
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+const {stripTypeScriptTypes}=require('node:module');
+const vm=require('node:vm');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const source=fs.readFileSync(path.join(root,'lugati-competition.js'),'utf8').replace('window.LugatiCompetition={mount};','window.LugatiCompetition={mount,S,render,renderPreview,renderStudentResult,renderTeacherResults,teacherCreate,renderAttempt,answer,questionImage};');
+async function main(){
+ const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+ const page=await browser.newPage({viewport:{width:390,height:844}});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.setContent('<html lang="ar" dir="rtl"><head></head><body><div id="lugatiCompetitionMount"></div></body></html>');
+ await page.evaluate(()=>{window.calls=[];window.alert=()=>{};window.fetch=async(url,opts)=>{const b=JSON.parse(opts.body);window.calls.push(b);return {ok:true,json:async()=>b.action==='answer'?{correct:true,question_completed:true,finished:false,message:'إجابة صحيحة.'}:{question:{id:'q2',position:2,question_text:'التالي',options:['أ','ب','ج','د']},attempt:{started_at:new Date().toISOString()}}}}});
+ await page.addScriptTag({content:source});
+ await page.evaluate(()=>{const {S,render}=window.LugatiCompetition;S.role='teacher';S.data={};S.catalog=[{outcome_code:'a',indicator_index:1,indicator_text:'مؤشر الاختبار'}];render()});
+ await page.fill('#compTitle','جولة محفوظة');await page.fill('#compClose','2026-10-01T12:00');await page.selectOption('#compCount','3');await page.click('[data-indicator-key]');
+ assert.equal(await page.inputValue('#compTitle'),'جولة محفوظة');assert.equal(await page.inputValue('#compClose'),'2026-10-01T12:00');assert.equal(await page.inputValue('#compCount'),'3');assert.equal(await page.isDisabled('#createCompRound'),false);
+ await page.evaluate(()=>{const x=window.LugatiCompetition;x.S.role='student';x.S.screen='attempt';x.S.round={id:'round',question_count:3};x.S.attempt={question:{id:'q1',position:1,question_text:'ما الإجابة؟',options:['واحد','اثنان','ثلاثة','أربعة']},attempt:{started_at:new Date().toISOString()}};x.render()});
+ await page.click('[data-comp-answer="1"]');
+ assert.match(await page.textContent('#compFeedback'),/صحيحة/);assert.equal(await page.locator('[data-comp-answer]:disabled').count(),4);
+ assert.equal((await page.evaluate(()=>window.calls[0])).question_id,'q1');assert.equal(await page.locator('#compNext').count(),1);
+ await page.click('#compNext');assert.match(await page.textContent('#questionCard'),/التالي/);
+ await page.evaluate(()=>{const x=window.LugatiCompetition;x.S.preview={round:{title:'معاينة'},questions:[{position:1,question_text:'السؤال',context_text:'نص القراءة كاملًا',options:['أ','ب','ج','د'],correct_index:0}]};x.renderPreview(document.getElementById('lugatiCompetitionMount'))});
+ assert.match(await page.textContent('body'),/نص القراءة كاملًا/);
+ await page.evaluate(()=>{const x=window.LugatiCompetition;x.S.screen='teacher-results';x.S.teacherResult={round:{title:'تقرير',question_count:3},students:[],classes:[],indicator_report:[{indicator_text:'فهم النص',students:[{full_name:'طالب فحص محلي',class_name:'ج',correct:1,total:3,unanswered:1,percent:33}],needs_support:[{}]}]};x.renderTeacherResults(document.getElementById('lugatiCompetitionMount'))});
+ assert.match(await page.textContent('body'),/طالب فحص محلي/);assert.match(await page.textContent('body'),/يحتاج دعمًا/);
+ const unsafe=await page.evaluate(()=>window.LugatiCompetition.questionImage({image:{url:'javascript:alert(1)'}}));assert.equal(unsafe,'');
+ assert.deepEqual(errors,[]);await browser.close();
+ // Parse deployed runtime TypeScript and test pure guards, without connecting to a database.
+ const backend=fs.readFileSync(path.join(root,'supabase/functions/lugati-competition/index.ts'),'utf8');
+ const js=stripTypeScriptTypes(backend,{mode:'strip'}).replace(/^import .*;\s*$/gm,'');
+ const context={createClient:()=>({}),Deno:{env:{get:()=>''},serve:()=>{}},console};vm.createContext(context);vm.runInContext(js+';globalThis.check={safeCompetitionQuestion,validateIndicators};',context);
+ const q={question_text:'اختر الإجابة الصحيحة',options:['a','b','c','d'],correct_index:2};assert.equal(context.check.safeCompetitionQuestion(q),true);
+ assert.equal(context.check.safeCompetitionQuestion({...q,options:['a','a','c','d']}),false);
+ assert.equal(context.check.safeCompetitionQuestion({...q,question_text:'انظر إلى الشكل ثم أجب'}),false);
+ const cat=[{outcome_code:'a',indicator_index:1,indicator_text:'مؤشر'}];assert.equal(context.check.validateIndicators({},cat,cat).length,1);
+ console.log('PASS: form preservation, single indicator, variable count, question-bound answer, visible feedback, locked options, next question, complete preview, teacher report, media guards, TypeScript parsing.');
+}
+main().catch(e=>{console.error(e);process.exit(1)});

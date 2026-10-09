@@ -1,0 +1,58 @@
+name: Generate complete logo PNG
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'moallimi-logo-complete.svg'
+      - '.github/workflows/generate-logo-png.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Render high-resolution PNG with the platform browser engine
+        run: |
+          cat > /tmp/logo-render.html <<'HTML'
+          <!doctype html>
+          <html><head><meta charset="utf-8"><style>
+          html,body{margin:0;width:2080px;height:1000px;overflow:hidden;background:transparent}
+          img{display:block;width:2080px;height:1000px;object-fit:contain;object-position:center}
+          </style></head>
+          <body><img src="file://${{ github.workspace }}/moallimi-logo-final.webp" alt=""></body></html>
+          HTML
+          google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
+            --window-size=2080,1000 --default-background-color=00000000 \
+            --virtual-time-budget=1500 \
+            --screenshot=moallimi-logo-complete-2x.png file:///tmp/logo-render.html
+          python -m pip install --disable-pip-version-check --quiet pillow
+          python - <<'PY'
+          from PIL import Image
+          im=Image.open('moallimi-logo-complete-2x.png').convert('RGBA')
+          assert im.size == (2080,1000), im.size
+          alpha=im.getchannel('A')
+          assert alpha.getbbox() is not None, 'transparent/empty logo screenshot'
+          print('PNG',im.size,im.mode,'bbox',alpha.getbbox())
+          PY
+      - name: Add production asset and commit
+        run: |
+          if ! grep -qx 'moallimi-logo-complete-2x.png' production-files.txt; then
+            printf '\nmoallimi-logo-complete-2x.png\n' >> production-files.txt
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add moallimi-logo-complete-2x.png production-files.txt
+          if git diff --cached --quiet; then
+            echo "No logo asset changes."
+          else
+            git commit -m "Generate high-resolution complete logo PNG"
+            git push origin HEAD:main
+          fi

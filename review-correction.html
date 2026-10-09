@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#065f46">
+<title>الاختبار الآلي والتصحيح | معلّمي</title>
+<link rel="stylesheet" href="review-correction.css?v=20261004-cognitive1">
+<link rel="stylesheet" href="moallimi-brand.css?v=20261004-cognitive1">
+<script src="teacher-preboot.js?v=20260919-scope2"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./"><img class="moallimi-logo-full" src="moallimi-logo-final.webp?v=20261004-cognitive1" alt="شعار منصة معلّمي"></a>
+  <nav class="top-links">
+    <a href="./">المؤشرات</a>
+    <a href="create.html">إنشاء اختبار</a>
+    <a class="active" href="review-correction.html">الاختبار الآلي والتصحيح</a>
+    <a href="analysis.html">تحليل النتائج</a>
+    <a href="teacher.html">حساب المعلم</a>
+  </nav>
+</header>
+
+<main class="page">
+  <section class="hero">
+    <div>
+      <span class="eyebrow">نظام الاختبارات الورقية الآلية</span>
+      <h1>الاختبار الآلي والتصحيح</h1>
+      <p>إنشاء اختبارات من ١٠ إلى ٦٠ سؤالًا من بنك المؤشرات، ثم توزيع النماذج وتجهيز التظليل والتصحيح والتحليل.</p>
+    </div>
+    <div class="hero-status">
+      <span>النماذج الافتراضية</span>
+      <b>٥ نماذج</b>
+      <small>قابلة للزيادة حتى ١٠</small>
+    </div>
+  </section>
+
+  <section class="review-tools" aria-label="أدوات الاختبار السريعة">
+    <a class="tool-main" href="review-scan.html"><strong>رفع أوراق الطلاب وتصحيحها</strong><span>ارفع PDF واحدًا بعد التظليل وابدأ التصحيح الآلي</span></a>
+    <a href="review-bubble-sheets.html?bv=20261004-optiontabs2"><strong>طباعة أوراق التظليل</strong><span>بأسماء الطلاب وQR</span></a>
+    <a href="review-question-papers.html?pv=20261004-reading4x5"><strong>طباعة أوراق الأسئلة</strong><span>النماذج المعتمدة</span></a>
+    <a href="review-analysis.html"><strong>تحليل الاختبار الورقي</strong><span>طلاب · مؤشرات · أسئلة · مستويات</span></a>
+    <a href="review-report.html"><strong>التقرير الرسمي</strong><span>تقرير مستقل للطباعة والحفظ</span></a>
+  </section>
+
+  <section class="progress" aria-label="مراحل العمل">
+    <div class="stage active"><b>١</b><span>إعداد الاختبار</span></div>
+    <div class="stage"><b>٢</b><span>بناء النماذج</span></div>
+    <div class="stage"><b>٣</b><span>توزيع الطلاب</span></div>
+    <div class="stage"><b>٤</b><span>أوراق التظليل</span></div>
+    <div class="stage"><b>٥</b><span>رفع وتصحيح</span></div>
+    <div class="stage"><b>٦</b><span>التحليل</span></div>
+  </section>
+
+  <div id="status" class="status">جارٍ تحميل بنك المؤشرات والطلاب…</div>
+
+  <section class="card review-archive-card" id="paperTests">
+    <header class="card-head"><span class="step-no">★</span><div><h2>اختباراتي الورقية</h2><p>كل اختبار ورقي أنشأته محفوظ هنا بصورة مستقلة. افتح إعداداته للتعديل أو انتقل مباشرة إلى الطباعة والتظليل والتصحيح والتحليل.</p></div></header>
+    <div class="archive-toolbar">
+      <button id="newPaperReview" type="button" class="primary">اختبار ورقي جديد</button>
+      <button id="refreshArchive" type="button" class="secondary">تحديث القائمة</button>
+      <span id="archiveState">جارٍ تحميل اختباراتك الورقية…</span>
+    </div>
+    <div id="activePaperReview" class="active-paper-review" hidden></div>
+    <div id="reviewArchive" class="review-archive"></div>
+  </section>
+
+  <section class="builder-grid">
+    <article class="card">
+      <header class="card-head"><span class="step-no">١</span><div><h2>بيانات الاختبار</h2><p>اضبط الاختبار مرة واحدة، والمنصة تبني النماذج المتكافئة ضمن نطاق ١٠–٦٠ سؤالًا.</p></div></header>
+      <div class="fields">
+        <label class="field wide"><span>اسم الاختبار</span><input id="reviewTitle" value="اختبار نافس" maxlength="160"></label>
+        <div class="field wide"><span>المواد داخل الاختبار</span><div id="subjectChoices" class="subject-choices"></div><select id="subject" hidden></select><small class="field-help">يمكن دمج القراءة والرياضيات والعلوم في اختبار واحد. ستظهر كل مادة في قسم مستقل ومنظم داخل الورقة.</small></div>
+        <label class="field"><span>الفصل</span><select id="className"><option value="">جميع الفصول</option></select></label>
+        <label class="field"><span>عدد الأسئلة الكلي</span><input id="questionCount" type="number" min="60" max="60" step="1" value="60" inputmode="numeric" readonly><small class="field-help">ثابت: ٦٠ سؤالًا. عدد الأسئلة المتاحة في البنك قد يكون أكبر بكثير، لكن الاختبار يسحب ٦٠ فقط.</small></label>
+        <label class="field"><span>عدد النماذج</span><select id="modelCount"><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label class="field"><span>اسم الطالب في ورقة التظليل</span><select id="bubbleNameMode"><option value="printed" selected>مطبوع</option><option value="blank">فارغ</option></select></label>
+      </div>
+      <div class="switches">
+        <label><input id="avoidRepeats" type="checkbox" checked><span>تقليل تكرار السؤال بين النماذج قدر الإمكان</span></label>
+        <label><input id="compactPrint" type="checkbox" checked><span>تحسين الطباعة وتقليل عدد الصفحات</span></label>
+        <label><input id="imageWhenNeeded" type="checkbox" checked><span>استخدام الصور والرسومات المرتبطة بالسؤال فقط</span></label>
+      </div>
+    </article>
+
+    <article class="card">
+      <header class="card-head"><span class="step-no">٢</span><div><h2>مستويات الأسئلة</h2><p>تستخدم كهدف لموازنة النماذج عند اختيار الأسئلة من البنك.</p></div></header>
+      <div class="levels">
+        <label><span>معرفة</span><input id="knowledge" type="number" min="0" max="100" value="25"><b>%</b></label>
+        <label><span>تطبيق</span><input id="application" type="number" min="0" max="100" value="40"><b>%</b></label>
+        <label><span>استدلال</span><input id="reasoning" type="number" min="0" max="100" value="35"><b>%</b></label>
+      </div>
+      <div id="levelSummary" class="mini-note"></div>
+    </article>
+  </section>
+
+  <section class="card">
+    <header class="card-head"><span class="step-no">٣</span><div><h2>اختيار المؤشرات من أكثر من مادة</h2><p>تظهر المؤشرات مجمعة حسب المادة. اختر أكثر من مؤشر ومن أكثر من مادة، وحدد عدد الأسئلة لكل مؤشر؛ ويبقى ترتيب المواد واضحًا في النماذج المطبوعة.</p></div></header>
+    <div class="indicator-tools">
+      <input id="indicatorSearch" type="search" placeholder="ابحث في المؤشرات…">
+      <button id="selectAllIndicators" type="button" class="secondary">اختيار الظاهر</button>
+      <button id="clearIndicators" type="button" class="secondary">مسح الاختيار</button>
+    </div>
+    <div id="indicators" class="indicators"></div>
+    <div id="indicatorSummary" class="selection-summary"></div>
+  </section>
+
+  <section class="card">
+    <header class="card-head"><span class="step-no">٤</span><div><h2>الطلاب وتوزيع النماذج</h2><p>يقرأ القسم سجل الطلاب الحالي، ويُوزع النماذج أ، ب، ج، د، هـ… تلقائيًا.</p></div></header>
+    <div class="student-toolbar">
+      <label class="check-all"><input id="selectAllStudents" type="checkbox" checked> اختيار جميع الطلاب في الفصل</label>
+      <span id="studentCount">٠ طالب</span>
+    </div>
+    <div id="students" class="students"></div>
+  </section>
+
+  <section class="action-card">
+    <div>
+      <h2>جاهز لبناء النماذج؟</h2>
+      <p>لن يتم نشر اختبار للطلاب. هذه الخطوة تنشئ نماذج الاختبار للمعلم لمعاينتها قبل الطباعة.</p>
+    </div>
+    <button id="buildModels" type="button" class="primary">إنشاء النماذج ومعاينتها</button>
+  </section>
+
+  <section id="previewSection" class="card hidden">
+    <header class="card-head"><span class="step-no">٥</span><div><h2>معاينة النماذج</h2><p>قارن النماذج قبل الاعتماد. يظهر التكرار والتوزيع الفعلي للمؤشرات والمستويات المتاحة في بيانات البنك.</p></div></header>
+    <div id="quality" class="quality-grid"></div>
+    <div id="modelTabs" class="model-tabs"></div>
+    <div id="modelPreview" class="model-preview"></div>
+    <div class="preview-actions">
+      <button id="assignModels" type="button" class="primary">اعتماد التوزيع وتجهيز أوراق التظليل</button>
+      <button id="rebuildModels" type="button" class="secondary">إعادة بناء النماذج</button>
+    </div>
+  </section>
+
+  <section id="assignmentSection" class="card hidden">
+    <header class="card-head"><span class="step-no">٦</span><div><h2>توزيع النماذج على الطلاب</h2><p>توزيع دائري متوازن على الطلاب المحددين. هذه البيانات ستكون أساس طباعة ورقة التظليل باسم الطالب.</p></div></header>
+    <div id="assignmentStats" class="quality-grid"></div>
+    <div id="assignments" class="assignment-list"></div>
+    <div class="preview-actions"><a id="printQuestionPapers" class="primary" href="review-question-papers.html">طباعة أوراق الأسئلة حسب النماذج</a><a id="printBubbleSheets" class="secondary" href="review-bubble-sheets.html">طباعة أوراق التظليل بأسماء الطلاب</a><a class="secondary" href="review-scan.html">رفع أوراق الطلاب وتصحيحها</a></div><div class="next-phase">
+      <b>المرحلة التالية في التنفيذ</b>
+      <span>بعد التظليل امسح أوراق الطلاب في PDF واحد، ثم ارفع الملف للتصحيح الجماعي ومراجعة الحالات غير الواضحة.</span>
+    </div>
+  </section>
+</main>
+
+<script src="nafes-reading.js?v=20260909-final"></script>
+<script src="nafes-math.js?v=20260909-final"></script>
+<script src="nafes-science.js?v=20260909-final"></script>
+<script src="teacher-access.js?v=20260930-mainfix1"></script>
+<script src="review-correction.js?v=20261004-optiontabs2"></script>
+<script src="platform-auto-correct.js?v=20261003-corrector1"></script>\n</body>
+</html>

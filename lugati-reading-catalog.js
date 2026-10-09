@@ -1,0 +1,20 @@
+(()=>{
+'use strict';
+const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-content',SESSION='lugati_session_v1';let rows=[];
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ar=n=>Number(n||0).toLocaleString('ar-SA');
+function token(){for(const s of [sessionStorage,localStorage]){try{const v=s.getItem(SESSION);if(v)return v}catch(_){}}return''}
+async function load(){const t=token();if(!t)return;try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${t}`},body:JSON.stringify({action:'list',kind:'worksheet'}),cache:'no-store'}),d=await r.json();if(!r.ok||d.error)return;rows=(d.items||[]).filter(x=>x.subject_key==='reading'&&Number(x?.body?.worksheet_v2?.version||0)>=5).sort((a,b)=>Number(a.body.worksheet_v2.indicator_no)-Number(b.body.worksheet_v2.indicator_no)||Number(a.body.worksheet_v2.variant)-Number(b.body.worksheet_v2.variant));render()}catch(_){}}
+function ready(){const w=document.getElementById('workspace'),title=document.getElementById('moduleTitle');return w&&!w.hidden&&title?.textContent?.trim()==='أوراق العمل'}
+function render(){const workspace=document.getElementById('workspace'),grid=document.getElementById('moduleContent');if(!workspace||!grid)return;if(!ready()){workspace.classList.remove('reading-catalog-active');document.getElementById('readingCatalog')?.remove();return}if(rows.length<1)return;
+ let cat=document.getElementById('readingCatalog');if(!cat){cat=document.createElement('section');cat.id='readingCatalog';cat.className='reading-catalog';grid.before(cat)}
+ const by=new Map();for(const item of rows){const w=item.body.worksheet_v2,n=Number(w.indicator_no),v=Number(w.variant);if(!by.has(n))by.set(n,{});by.get(n)[v]=item}
+ const count=[...by.keys()].filter(n=>by.get(n)[1]&&by.get(n)[2]).length;
+ cat.innerHTML=`<div class="rc-head"><div><small>أوراق عمل القراءة</small><h3>جميع مؤشرات القراءة</h3><p>١٦ مؤشرًا مرتبة، ولكل مؤشر ورقتان مختلفتان في الأسئلة والأسلوب.</p></div><div class="rc-total"><b>${ar(count)}</b><span>مؤشر مكتمل</span><small>${ar(rows.length)} ورقة منشورة</small></div></div><div class="rc-groups">${Array.from({length:16},(_,i)=>{const n=i+1,one=by.get(n)?.[1],two=by.get(n)?.[2],w=window.LUGATI_READING_WORKSHEETS?.[`r${n}v1`]||window.LUGATI_READING_WORKSHEETS?.[`r${n}v2`],name=w?.title||`المؤشر ${ar(n)}`;return`<article class="rc-card ${one&&two?'complete':'incomplete'}"><div class="rc-num">${ar(n)}</div><div class="rc-info"><small>المؤشر ${ar(n)}</small><h4>${esc(name)}</h4><div class="rc-actions">${button(one,1)}${button(two,2)}</div></div></article>`}).join('')}</div>`;
+ workspace.classList.add('reading-catalog-active');cat.querySelectorAll('[data-rc-open]').forEach(b=>b.onclick=()=>openOriginal(b.dataset.rcOpen));
+}
+function button(item,v){if(!item)return`<button class="rc-btn missing" disabled>النموذج ${ar(v)} غير متاح</button>`;const score=item.progress?.total?` · ${ar(item.progress.score)}/${ar(item.progress.total)}`:'';return`<button class="rc-btn ${v===1?'lab':'challenge'}" data-rc-open="${esc(item.id)}"><span>${v===1?'◇':'★'}</span><b>${v===1?'مختبر المهارة':'مهمة التحدّي'}</b><small>${v===1?'شرح وتدريب موجّه':'تطبيق واستدلال أعلى'}${score}</small></button>`}
+function openOriginal(id){const btn=document.querySelector(`[data-open-content="${CSS.escape(String(id))}"]`);if(btn){btn.click();return}setTimeout(()=>{document.querySelector(`[data-open-content="${CSS.escape(String(id))}"]`)?.click()},350)}
+const obs=new MutationObserver(()=>{if(ready()){if(rows.length)render();else load()}else render()});obs.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
+document.addEventListener('change',e=>{if(e.target?.id==='moduleSubjectFilter')setTimeout(render,0)});load();window.addEventListener('focus',load);
+})();

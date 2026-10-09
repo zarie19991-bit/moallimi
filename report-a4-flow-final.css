@@ -1,0 +1,175 @@
+/* Final print contract for analysis.html. Keep this after the legacy visual
+   styles. Explicit specificity also defeats their html body #printRoot rules.
+   Screen styling and report/data generation are intentionally unaffected. */
+@page { size: A4 portrait; margin: 10mm; }
+@media print {
+  html, body, html body #printRoot {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    zoom: 1 !important;
+    transform: none !important;
+    background: #fff !important;
+  }
+  html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet) {
+    box-sizing: border-box !important;
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    zoom: 1 !important;
+    transform: none !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    font: 700 12pt/1.5 Tahoma, Arial, sans-serif !important;
+  }
+  /* Flow containers must not reserve an A4 sheet or move as one large unit. */
+  html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)
+  :is(.sar-chart-group,.sar-analysis-grid,.sar-chart-card,.sar-stats,.sar-achievement,.sar-student-table,
+      .wr-focus,.wr-performance,.wr-remedial,.wr-remedial-diagnostic,.wr-student-table-wrap,
+      .wr-two,.wr-triple,.wr-band,.wr-indicator-grid,.wr-indicator-card,.wr-callout,
+      .wr-performance-grid,.wr-kpis,.analysis-card,.analysis-section,.report-section,
+      table,tbody) {
+    break-before: auto !important;
+    page-break-before: auto !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  /* Preserve the report's existing multi-column/grid composition. Only the
+     page-break rules are changed; print should remain visually close to preview. */
+  html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet)
+  :is(.sar-stats,.sar-achievement,.wr-callout,.wr-indicator-card) {
+    margin-bottom: 3mm !important;
+  }
+  html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)
+  :is(p,li,span,small,b,strong,th,td,label,.wr-student-ind,.wr-more-note,.wr-remedial) {
+    font-family: Tahoma, Arial, sans-serif !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+  }
+  html body #printRoot table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  html body #printRoot thead { display: table-header-group !important; }
+  html body #printRoot tfoot { display: table-footer-group !important; }
+  html body #printRoot tr,
+  html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)
+  :is(.wr-kpis>article,.wr-performance-card,.wr-indicator-card,.wr-callout,
+      .wr-report-meta>div,.na-counts>div,.sar-ring,.sar-bar-item,
+      .sar-rings,.sar-bars,.wr-signatures,.sar-signatures,.na-footer) {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  /* Absolute chart captions can be painted on the preceding printed page. */
+  html body #printRoot :is(.official-analysis-sheet,.subject-analysis-sheet) .sar-chart-card > h2 {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    white-space: normal !important;
+    margin: 0 0 3mm !important;
+  }
+  /* A measured section may move together, never an unbounded student table. */
+  html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)
+  .print-keep-section {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  html body #printRoot :is(.wr-signatures,.sar-signatures,.na-footer) {
+    position: static !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+    margin-top: 5mm !important;
+  }
+  html body #printRoot :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet)
+  :is(h1,h2,h3,h4,.wr-title-pill,.wr-section-title) {
+    break-before: auto !important;
+    page-break-before: auto !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+  html body #printRoot .sar-student-table {
+    padding-top: 0 !important;
+    margin-top: 4mm !important;
+  }
+  html body #printRoot .manual-print-date-line {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 2mm !important;
+    margin: 2mm 0 3mm !important;
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  html body #printRoot .manual-print-date-line > * {
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+  }
+  html body #printRoot .wr-footer-curve,
+  html body #printRoot .official-analysis-sheet::after {
+    display: none !important;
+  }
+  html body #printRoot > .weekly-report.report-sheet:not(:first-child) > .wr-topbar {
+    display: none !important;
+  }
+  html body #printRoot > :is(.nafes-absence-sheet,.weekly-report.report-sheet.nafes-absence-sheet) {
+    margin-top: 4mm !important;
+  }
+  /* report-absentees.css has a higher-specificity legacy selector for weekly
+     absence chunks. Override it explicitly so those chunks can share A4 space. */
+  html body #printRoot > .weekly-report.report-sheet.nafes-absence-sheet {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    overflow: visible !important;
+  }
+  html body #printRoot > :is(.weekly-report.report-sheet,.official-analysis-sheet,.subject-analysis-sheet,.nafes-absence-sheet):first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    top: auto !important;
+  }
+}

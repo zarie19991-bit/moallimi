@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#17324d">
+<title>رفع أوراق الطلاب وتصحيحها | معلّمي</title>
+<link rel="stylesheet" href="review-scan.css?v=20261008-otsu25">
+<script src="teacher-preboot.js?v=20260919-scope2"></script>
+</head>
+<body>
+<header class="topbar">
+  <a href="review-correction.html">← المراجعة والتصحيح الآلي</a>
+  <div><b>رفع أوراق الطلاب وتصحيحها</b><span id="reviewMeta"></span></div>
+  <a href="review-bubble-sheets.html">طباعة أوراق التظليل</a>
+</header>
+
+<main class="page">
+  <section class="hero">
+    <div>
+      <span class="eyebrow">التصحيح الورقي الآلي</span>
+      <h1>ارفع دفعة تصل إلى ٢٠٠ صفحة دفعة واحدة</h1>
+      <p>تقرأ المنصة QR لكل طالب، وتحدد النموذج، ثم تقرأ التظليل وتعرض الحالات غير الواضحة قبل اعتماد النتيجة.</p>
+    </div>
+    <div class="hero-badge"><b>MR2</b><span>نموذج التظليل الحالي</span></div>
+  </section>
+
+  <section id="noDraft" class="notice error hidden">
+    لا توجد مراجعة معتمدة على هذا الجهاز. أنشئ النماذج ووزعها على الطلاب أولًا ثم اطبع أوراق التظليل.
+  </section>
+
+  <section class="card upload-card">
+    <div class="upload-copy">
+      <h2>١. رفع دفعة الأوراق</h2>
+      <p>يمكن رفع PDF أو مجموعة صور JPEG / PNG / TIFF في دفعة واحدة، حتى ٢٠٠ صفحة. يمكن أن يحتوي وجه A4 على ورقتي تظليل أو ورقة واحدة.</p>
+    </div>
+    <label class="dropzone" id="dropzone">
+      <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,image/jpeg,image/png,image/tiff,application/pdf" multiple>
+      <b>اختر PDF أو صورًا متعددة أو اسحبها هنا</b>
+      <span>يفضل مسح واضح بدقة 200–300 dpi ومن دون قص حواف الورقة.</span>
+    </label>
+    <div class="actions">
+      <button id="processBtn" class="primary" type="button" disabled>بدء القراءة والتصحيح</button>
+      <button id="clearBtn" class="secondary" type="button">مسح الدفعة</button>
+    </div>
+    <div id="progressWrap" class="progress-wrap hidden">
+      <div class="progress"><i id="progressBar"></i></div>
+      <span id="progressText">جاهز</span>
+    </div>
+  </section>
+
+  <section class="card journal-card">
+<h2>جلسات المراجعة المحفوظة</h2>
+<div class="actions"><select id="sessionPicker" aria-label="جلسة المراجعة"></select><button id="resumeSessionBtn" class="secondary" type="button">استئناف الجلسة</button><button id="retryUploadBtn" class="secondary hidden" type="button">إعادة استكمال الرفع</button><button id="journalExportBtn" class="secondary" type="button">تقرير الحالات والتكرار CSV</button></div>
+<p id="journalStatus" class="notice" role="status" aria-live="polite">اختر جلسة محفوظة أو ارفع ملفًا جديدًا.</p>
+<p id="duplicateLive" role="alert" aria-live="assertive"></p><details id="alertLog"></details><details id="deleteLog"></details>
+</section>
+<section id="summarySection" class="hidden">
+    <div id="summaryCards" class="summary-grid"></div>
+  </section>
+
+  <section id="qualitySection" class="card hidden">
+    <header class="section-head">
+      <div>
+        <h2>تقرير التحقق قبل المراجعة</h2>
+        <p>يصنف النظام الأوراق حسب خطورة القراءة ويعرض سبب الشك قبل أي اعتماد يدوي. الهدف التشغيلي للدقة 99.5% ولا يُعد متحققًا إلا بعد اختبار مرجعي موثق.</p>
+      </div>
+      <div class="actions"><button id="qualityExportBtn" class="secondary" type="button">تصدير تقرير الجودة CSV</button></div>
+    </header>
+    <div id="qualityCards" class="summary-grid"></div>
+    <div class="table-wrap quality-table-wrap">
+      <table>
+        <thead><tr><th>الطالب</th><th>النموذج</th><th>الدرجة الحالية</th><th>الخطورة</th><th>جودة القراءة</th><th>سبب المراجعة</th><th>الإجراء</th></tr></thead>
+        <tbody id="qualityBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="resultsSection" class="card hidden">
+    <header class="section-head">
+      <div><h2>٢. مراجعة الأوراق</h2><p>تحقق من كل ورقة بالترتيب. يمكنك تعديل أي إجابة؛ يحفظ السجل القراءة الأصلية وتعديلاتك.</p></div>
+      <div class="actions">
+        <button id="reviewNextBtn" class="secondary" type="button">متابعة المراجعة</button><button id="rereadAllBtn" class="secondary" type="button">إعادة قراءة التظليل بدقة</button><button id="selectAllBtn" class="secondary" type="button">تحديد الكل</button><button id="deleteSelectedBtn" class="secondary" type="button" disabled>حذف التصحيحات المحددة</button>
+        <button id="approveBtn" class="primary" type="button">اعتماد النتائج</button>
+      </div>
+    </header>
+    <div class="review-toolbar"><strong id="sessionProgress"></strong><label><input id="selectAllSheets" type="checkbox"> تحديد الكل</label><label><input id="alertFilter" type="checkbox"> عرض الأوراق ذات تنبيهات التكرار فقط</label></div>
+<div class="legend"><span class="state-blank">أحمر: غير محلول</span><span class="state-multiple">أصفر: متعدد الإجابات</span><span class="state-correct">أخضر: صحيح مؤكد</span><span>نص رمادي: خاطئ / قراءة غير مؤكدة</span></div>
+<div class="table-wrap">
+      <table>
+        <thead><tr><th>اختيار</th><th>الطالب</th><th>النموذج</th><th>الدرجة</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="approvedSection" class="card hidden">
+    <header class="section-head"><div><h2>٣. النتائج المعتمدة</h2><p>تم حفظ نتيجة هذه الدفعة في منصة معلّمي وربط كل إجابة بمؤشرها، وأصبحت متاحة في تحليل النتائج.</p></div><div class="actions"><a id="paperAnalysisLink" class="analysis-link" href="review-analysis.html">فتح التحليل المستقل</a><a id="paperReportLink" class="analysis-link" href="review-report.html">فتح التقرير الرسمي</a><button id="exportBtn" class="secondary" type="button">تصدير CSV</button></div></header>
+    <div id="indicatorSummary" class="indicator-summary"></div>
+  </section>
+</main>
+
+<div id="sheetModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-card">
+    <header><div><b id="modalTitle"></b><span id="modalSub"></span></div><button id="closeModal" type="button">×</button></header>
+    <div class="modal-grid">
+      <div class="scan-preview"><img id="scanImage" alt="صورة ورقة التظليل الممسوحة"></div>
+      <div>
+        <div id="manualAssignmentWrap" class="manual-assignment hidden"><label>تعذر تأكيد هوية الورقة — اختر الطالب:<select id="manualAssignment"></select></label><button id="applyManualAssignmentBtn" class="secondary" type="button">تأكيد اسم الطالب</button></div>
+        <p id="sheetWarning" role="status"></p><p id="modalFeedback" role="status" aria-live="polite"></p><label class="edit-mode"><input id="editMode" type="checkbox"> تحديد أكثر من إجابة للسؤال (اختياري)</label><div id="answerEditor" class="answer-editor"></div>
+      </div>
+    </div>
+    <details id="editHistoryDetails"><summary>سجل تعديلات الإجابات</summary><button id="loadEditHistoryBtn" class="secondary" type="button">عرض سجل التعديلات</button><div id="sheetEditHistory"></div></details>
+    <footer class="review-footer">
+<label><input id="verifiedCheck" type="checkbox"> تحققت من صورة الورقة وحالات الإجابات وتعديلاتي عليها.</label>
+<label id="duplicateConfirm" class="hidden"><input id="duplicateCheck" type="checkbox"> اطلعت على تنبيه تكرار الرفع؛ يبقى التنبيه محفوظًا في السجل.</label>
+<div class="actions"><button id="saveSheetBtn" class="primary" type="button">حفظ التحقق من الورقة</button><button id="nextSheetBtn" class="secondary" type="button" disabled>التالي</button><button id="finishReviewBtn" class="primary" type="button" disabled>تم المراجعة</button></div>
+</footer>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<script src="review-omr-template.js?v=20261001-v3"></script>
+<script src="teacher-access.js?v=20260920-scope5"></script>
+<script src="review-draft-sync.js?v=20260930-2"></script>
+<script src="review-scan-journal.js?v=20261008-omrv9"></script>
+<script src="review-scan.js?v=20261008-omrv9"></script>
+</body>
+</html>

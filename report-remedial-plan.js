@@ -49,17 +49,23 @@ function patch(){
    page2.dataset.compactRemedial='1';
    const title=page2.querySelector('.wr-title-pill');if(title)title.textContent='المتابعة والخطة العلاجية للأسبوع القادم';
    const tbody=page2.querySelector('.wr-student-table tbody');
-   if(tbody){
-     page2.querySelectorAll('.wr-more-note').forEach(n=>n.remove());
-   }
+   let total=0;
+   if(tbody){const rows=[...tbody.children];total=rows.length;rows.slice(8).forEach(r=>r.remove());if(total>8){const note=document.createElement('p');note.className='wr-more-note';note.textContent=`تم عرض أكثر 8 طلاب حاجة للمتابعة في التقرير المختصر. يوجد ${total-8} طالبًا إضافيًا تظهر تفاصيلهم كاملة في شاشة التحليل.`;page2.querySelector('.wr-student-table-wrap')?.after(note);}}
    const plans=extractPlans(page1,page2);
-   const sig=page2.querySelector('.wr-signatures');if(sig)sig.insertAdjacentHTML('beforebegin',planHtml(plans));else page2.insertAdjacentHTML('beforeend',planHtml(plans));
+   const sig=page2.querySelector('.wr-signatures');
+   const remedialPage=document.createElement('article');
+   remedialPage.className='weekly-report report-sheet wr-remedial-sheet';
+   remedialPage.dataset.referenceContinuation='1';
+   remedialPage.innerHTML=planHtml(plans);
+   if(sig)remedialPage.appendChild(sig);
+   remedialPage.insertAdjacentHTML('beforeend','<div class="wr-footer-curve"></div>');
+   page2.insertAdjacentElement('afterend',remedialPage);
  }
  cleanSchoolLogo(host);
 }
 function init(){
  const host=$('reportPreview');if(!host)return;
- new MutationObserver(()=>queueMicrotask(patch)).observe(host,{childList:true,subtree:true,characterData:true});
+ let patchPending=false;new MutationObserver(()=>{if(patchPending)return;patchPending=true;queueMicrotask(()=>{patchPending=false;patch()})}).observe(host,{childList:true});
  patch();
  const print=$('printReportBtn');if(print)print.onclick=()=>{patch();const pages=[...host.querySelectorAll('.weekly-report.report-sheet')];if(!pages.length)return;const root=$('printRoot');root.innerHTML=pages.map(p=>p.outerHTML).join('');cleanSchoolLogo(root);root.setAttribute('aria-hidden','false');window.print();};
  addEventListener('beforeprint',()=>{cleanSchoolLogo(host);cleanSchoolLogo($('printRoot'));});

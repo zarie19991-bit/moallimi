@@ -11,7 +11,10 @@ const key=`nafes_active_student_${scope}`;
 const nativeFetch=window.fetch.bind(window);
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const retryableSaveStatuses=new Set([408,425,429,500]);
-let autoTried=false;
+let autoTried=false,manualSubmitStarted=false;
+
+function clearLegacyPersistentIdentity(){try{localStorage.removeItem('nafes_student');localStorage.removeItem('nafes_student_identity');}catch(_){}}
+clearLegacyPersistentIdentity();
 
 function read(){
   try{
@@ -21,10 +24,8 @@ function read(){
     return data;
   }catch(_){return null;}
 }
-function write(data){
-  try{sessionStorage.setItem(key,JSON.stringify({...data,saved_at:Date.now()}));}catch(_){}
-}
-function clear(){try{sessionStorage.removeItem(key);}catch(_){} }
+function write(data){try{sessionStorage.setItem(key,JSON.stringify({...data,saved_at:Date.now()}));}catch(_){}}
+function clear(){try{sessionStorage.removeItem(key);}catch(_){}clearLegacyPersistentIdentity();}
 function parseBody(init){try{return typeof init?.body==='string'?JSON.parse(init.body):null;}catch(_){return null;}}
 function identity(body){
   return {
@@ -62,6 +63,7 @@ window.fetch=async function(input,init={}){
   response.clone().json().then(data=>{
     if(!response.ok||data?.error)return;
     if(isStart(action)){
+      clearLegacyPersistentIdentity();
       if(data?.submitted||data?.expired){clear();return;}
       const id=identity(body);
       if(id.name&&id.no)write({...id,attempt_id:String(data?.attempt_id||id.attempt_id||'')});
@@ -86,29 +88,38 @@ function visibleForm(){
   return null;
 }
 function tryRecover(){
-  if(autoTried)return true;
+  if(autoTried||manualSubmitStarted)return true;
   const data=read();if(!data)return true;
   const form=visibleForm();if(!form)return false;
+  const submit=form.querySelector('button[type="submit"],#startBtn');
+  if(submit?.disabled)return true;
   autoTried=true;
   setValue('studentName',data.name);setValue('studentNo',data.no);setValue('className',data.className);
   const msg=document.getElementById('message')||document.getElementById('readiness');
   if(msg)msg.textContent='جارٍ استعادة محاولتك السابقة تلقائيًا…';
   setTimeout(()=>{
+    if(manualSubmitStarted)return;
     try{form.requestSubmit();}
-    catch(_){const btn=form.querySelector('button[type="submit"]');btn?.click();}
-  },80);
+    catch(_){submit?.click();}
+  },120);
   return true;
 }
 function beginRecoveryWatch(){
   const data=read();if(!data)return;
   let tries=0;
-  const timer=setInterval(()=>{
-    tries++;
-    if(tryRecover()||tries>=60)clearInterval(timer);
-  },200);
+  const timer=setInterval(()=>{tries++;if(tryRecover()||tries>=60)clearInterval(timer);},200);
   tryRecover();
 }
 
+document.addEventListener('submit',e=>{
+  const form=e.target;
+  if(!(form instanceof HTMLFormElement)||!form.matches('#startForm,#identity'))return;
+  manualSubmitStarted=true;
+  autoTried=true;
+  setTimeout(clearLegacyPersistentIdentity,0);
+},true);
+
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',beginRecoveryWatch,{once:true});else beginRecoveryWatch();
-addEventListener('pageshow',()=>{if(!autoTried)beginRecoveryWatch();});
+addEventListener('pageshow',()=>{clearLegacyPersistentIdentity();if(!autoTried&&!manualSubmitStarted)beginRecoveryWatch();});
+addEventListener('pagehide',clearLegacyPersistentIdentity);
 })();

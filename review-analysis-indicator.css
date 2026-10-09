@@ -1,0 +1,62 @@
+.section-control-card{margin-top:18px}
+.analysis-scope-summary{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.analysis-scope-summary span{background:#f6faf8;border:1px solid var(--line);border-radius:999px;padding:7px 11px;font-size:11px;color:#526871}
+.analysis-scope-summary b{color:var(--brand)}
+#content{margin-top:16px}
+#studentsPanel .data-table{min-width:660px}
+#indicatorsPanel .rank-list,#cognitiveBars.rank-list{max-height:520px;overflow:auto;padding-left:3px}
+.rank-row b{font-size:12px;color:var(--brand);text-align:left}
+.absent-chips{display:flex;flex-wrap:wrap;gap:8px}
+.absent-chips span{display:inline-flex;padding:7px 10px;border-radius:999px;background:#f8fbfa;border:1px solid var(--line);font-size:11px;font-weight:800;color:#526871}
+.recommendations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.recommendation{border:1px solid var(--line);background:#f8fbfa;border-radius:12px;padding:12px 14px;line-height:1.8;font-size:12px}
+#subjectPerformanceCard .subject-card .sub{line-height:1.6}
+@media(max-width:900px){.recommendations{grid-template-columns:1fr}.analysis-scope-summary{display:grid;grid-template-columns:1fr 1fr}}
+
+@media print{
+  @page{size:A4 portrait;margin:8mm}
+  html,body{background:#fff!important;color:#111!important}
+  body{margin:0!important}
+  .top,.no-print{display:none!important}
+  .shell{max-width:none!important;width:auto!important;margin:0!important;padding:0!important}
+  #content{display:grid!important;gap:5mm!important;margin:0!important}
+  #content[hidden]{display:none!important}
+  .metrics{grid-template-columns:repeat(3,1fr)!important;gap:2.5mm!important}
+  .metric{border:1px solid #cfd9d6!important;border-radius:3mm!important;padding:3mm!important;box-shadow:none!important;break-inside:avoid!important}
+  .metric span{font-size:8.5pt!important;margin-bottom:1mm!important}
+  .metric b{font-size:15pt!important;color:var(--brand)!important}
+  .section-card{border:1px solid #cfd9d6!important;border-radius:3mm!important;padding:4mm!important;box-shadow:none!important;margin:0!important;break-inside:avoid-page!important}
+  .section-head{margin-bottom:2.5mm!important}
+  .section-head h2{font-size:12pt!important}
+  .muted{font-size:8pt!important;line-height:1.5!important}
+  .two-col{grid-template-columns:1.15fr .85fr!important;gap:4mm!important}
+  .data-table{font-size:8.2pt!important}
+  .data-table th,.data-table td{padding:1.8mm 1.5mm!important}
+  .data-table th{position:static!important;background:#f4f8f6!important}
+  .rank-list{max-height:none!important;overflow:visible!important}
+  .rank-row{grid-template-columns:minmax(38mm,1fr) 15mm!important;gap:2mm!important}
+  .rank-row small{font-size:7.8pt!important}
+  .bar{height:2.2mm!important}
+  .subject-cards{grid-template-columns:repeat(3,1fr)!important;gap:3mm!important}
+  .subject-card{border-radius:3mm!important;padding:3mm!important;box-shadow:none!important}
+  .subject-card h3{font-size:10pt!important;margin-bottom:2mm!important}
+  .subject-card .big{font-size:16pt!important}
+  .subject-card .sub{font-size:8pt!important}
+  .recommendations{grid-template-columns:1fr 1fr!important;gap:2.5mm!important}
+  .recommendation{font-size:8.2pt!important;border-radius:2.5mm!important;padding:2.5mm!important}
+  .absent-chips span{font-size:8pt!important;padding:1.5mm 2mm!important}
+}
+
+.analysis-overview-sheet,.subject-detail-sheet{margin-bottom:18px}
+.subject-detail-sheet .sar-chart-card table{width:100%;border-collapse:collapse;font-size:8.4pt}
+.subject-detail-sheet .sar-chart-card th,.subject-detail-sheet .sar-chart-card td{border:1px solid #d5dfdc;padding:1.4mm 1.7mm;text-align:right;vertical-align:top}
+.subject-detail-sheet .sar-chart-card th{background:#f2f7f5;color:#31574e}
+.subject-detail-sheet .sar-chart-card td:nth-child(2){max-width:78mm}
+@media print{
+ #officialAnalysisPreview>.subject-analysis-sheet:not(:first-child),
+ #printRoot>.subject-analysis-sheet:not(:first-child){break-before:page!important;page-break-before:always!important}
+ .subject-analysis-sheet{break-inside:avoid-page!important}
+ .subject-detail-sheet .sar-chart-card{break-inside:avoid!important}
+ .subject-detail-sheet .sar-chart-card table{font-size:7.6pt!important}
+ .subject-detail-sheet .sar-chart-card th,.subject-detail-sheet .sar-chart-card td{padding:1.1mm 1.3mm!important}
+}

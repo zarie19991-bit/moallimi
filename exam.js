@@ -1,25 +1,79 @@
 (()=>{
 const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
 const MODEL_COUNT=2;
-const qs=new URLSearchParams(location.search);const P={subject:qs.get('s')||'',outcome:qs.get('o')||'',indicator:Number(qs.get('i')||0),model:Number(qs.get('m')||0)};
+const LEGACY_IDENTITY_KEY='nafes_legacy_student_identity',DEMO_IDENTITY_KEY='nafes_demo_student_identity_v1';
+const qs=new URLSearchParams(location.search),demoAccessCode=qs.get('demo_code')||'';const P={subject:qs.get('s')||'',outcome:qs.get('o')||'',indicator:Number(qs.get('i')||0),model:Number(qs.get('m')||0)};
 const SUBJECTS=[window.NAFES_READING,window.NAFES_MATH,window.NAFES_SCIENCE].filter(Boolean);const subj=SUBJECTS.find(s=>s.key===P.subject),out=subj?.outcomes?.find(o=>o.code===P.outcome),indicatorText=out?.indicators?.[P.indicator-1]||'';
-const $=id=>document.getElementById(id);const letters=['أ','ب','ج','د'];let attempt=null,questions=[],answers={},current=0,timerId=null,saving=false,finishing=false;
+const $=id=>document.getElementById(id);const letters=['أ','ب','ج','د'];let attempt=null,questions=[],answers={},current=0,timerId=null,saving=false,finishing=false,answerVersion=0,lastAckVersion=0,saveAgain=false,retryTimer=null,retryCount=0;
 const code=()=>`N3-${({reading:'R',math:'M',science:'S'}[P.subject]||'X')}-${String(P.outcome).replace(/[^0-9A-Za-z]/g,'')}-I${String(P.indicator).padStart(2,'0')}-M${String(P.model).padStart(2,'0')}`;
+const ACTIVE_EXAM_KEY=()=>'nafes_active_exam_'+code(),DURABLE_DRAFT_KEY=()=>'nafes_legacy_draft_v2_'+code(),ACTIVE_EXAM_MAX_AGE=12*60*60*1000;
+function clearActiveSession(){try{localStorage.removeItem(ACTIVE_EXAM_KEY());sessionStorage.removeItem(ACTIVE_EXAM_KEY())}catch(_){}}
+function readDurableDraft(){try{const d=JSON.parse(localStorage.getItem(DURABLE_DRAFT_KEY())||'null');if(!d?.attempt_id)return null;const stale=Date.now()-Number(d.saved_at||0)>ACTIVE_EXAM_MAX_AGE,expired=d.expires_at&&Date.now()>new Date(d.expires_at).getTime()+5*60*1000;if(stale||expired){localStorage.removeItem(DURABLE_DRAFT_KEY());return null}return d}catch(_){return null}}
+function writeDurableDraft(extra={}){try{if(!attempt)return;const old=readDurableDraft()||{};const record={...old,attempt_id:attempt,answers:{...answers},current,answer_version:answerVersion,server_version:lastAckVersion,expires_at:old.expires_at||'',saved_at:Date.now(),...extra};localStorage.setItem(DURABLE_DRAFT_KEY(),JSON.stringify(record));window.NafesDurableStore?.put(DURABLE_DRAFT_KEY(),record).catch(()=>{})}catch(_){}}
+async function readAnyDurableDraft(){const local=readDurableDraft();if(local)return local;try{const d=await window.NafesDurableStore?.get(DURABLE_DRAFT_KEY());if(!d?.attempt_id)return null;try{localStorage.setItem(DURABLE_DRAFT_KEY(),JSON.stringify(d))}catch(_){}return readDurableDraft()}catch(_){return null}}
+function clearDurableDraft(){try{localStorage.removeItem(DURABLE_DRAFT_KEY())}catch(_){}window.NafesDurableStore?.remove(DURABLE_DRAFT_KEY()).catch(()=>{})}
+
+function validActive(x){if(!x?.attempt_id)return null;const expired=x.expires_at&&Date.now()>new Date(x.expires_at).getTime(),stale=x.saved_at&&Date.now()-Number(x.saved_at)>ACTIVE_EXAM_MAX_AGE;if(expired||stale){clearActiveSession();return null}return x}
+function readActiveSession(){try{return validActive(JSON.parse(sessionStorage.getItem(ACTIVE_EXAM_KEY())||'null'))}catch(_){return null}}
+function readActiveMarker(){try{return validActive(JSON.parse(localStorage.getItem(ACTIVE_EXAM_KEY())||'null'))}catch(_){return null}}
+function saveActiveSession(extra={}){try{const cur=readActiveSession()||{},record={...cur,attempt_id:attempt||cur.attempt_id||'',student_name:$('studentName')?.value?.trim()||cur.student_name||'',student_no:$('studentNo')?.value?.trim()||cur.student_no||'',class_name:$('className')?.value?.trim()||cur.class_name||'',answers:{...answers},current,answer_version:answerVersion,saved_at:Date.now(),...extra};if(!record.attempt_id)return;sessionStorage.setItem(ACTIVE_EXAM_KEY(),JSON.stringify(record));localStorage.setItem(ACTIVE_EXAM_KEY(),JSON.stringify({attempt_id:record.attempt_id,expires_at:record.expires_at||'',saved_at:record.saved_at}));writeDurableDraft({expires_at:record.expires_at||''})}catch(_){}}
 $('modelCode').textContent=code();$('examTitle').textContent=subj?`${subj.title} · اختبار ${String(P.model).padStart(2,'0')}`:'اختبار نافس';$('indicatorText').textContent=indicatorText||'تعذر تحديد المؤشر من الرابط.';
 async function call(body){const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...P,indicator_text:indicatorText,outcome_title:out?.title||'',...body})});const d=await r.json().catch(()=>({error:'تعذر قراءة استجابة الخادم'}));if(!r.ok)throw new Error(d.error||'تعذر تنفيذ الطلب');return d}
 function readiness(type,text){$('readiness').className='readiness '+type;$('readiness').textContent=text}
 const normalizeDigits=str=>String(str??'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+function clearPersistentLegacyIdentity(){try{localStorage.removeItem('nafes_student')}catch(_){}}
+function readSessionIdentity(){try{return JSON.parse(sessionStorage.getItem(LEGACY_IDENTITY_KEY)||'{}')}catch(_){return{}}}
+function readDemoIdentity(){try{const d=JSON.parse(sessionStorage.getItem(DEMO_IDENTITY_KEY)||'null');return d?.demo===true?d:null}catch(_){return null}}
+const hasDemoCode=()=>/^\d{6}$/.test(demoAccessCode);
+function seedDemoIdentity(){
+ if(!hasDemoCode())return readDemoIdentity();
+ const current=readDemoIdentity()||{demo:true,name:'طالب تجريبي',no:'000',class:'أ'};
+ try{sessionStorage.setItem(DEMO_IDENTITY_KEY,JSON.stringify(current));}catch(_){}
+ return current;
+}
+async function resolveDemoIdentity(){
+ const seeded=seedDemoIdentity();
+ if(!hasDemoCode())return seeded;
+ try{
+  const d=await call({action:'assessment_demo_catalog',demo_code:demoAccessCode});
+  const student=d?.student||{};
+  const demo={demo:true,name:student.full_name||'طالب تجريبي',no:String(student.national_id_last3||'000'),class:student.class_name||'أ'};
+  try{sessionStorage.setItem(DEMO_IDENTITY_KEY,JSON.stringify(demo));}catch(_){}
+  return demo;
+ }catch(_){
+  return seeded;
+ }
+}
+function saveSessionIdentity(name,cls){try{sessionStorage.setItem(LEGACY_IDENTITY_KEY,JSON.stringify({name,class:cls}))}catch(_){}}
 async function init(){
+ clearPersistentLegacyIdentity();
  if(!subj||!out||!indicatorText||P.model<1||P.model>MODEL_COUNT){readiness('bad','رابط الاختبار غير صحيح.');return}
  try{
+  seedDemoIdentity();
+  await resolveDemoIdentity();
   const p=await call({action:'preview'});
   if(!p.ready){readiness('bad',p.error||'تعذر تجهيز اختبار هذا المؤشر.');return}
   readiness('good',`الاختبار جاهز · ${p.settings.question_count||15} سؤالًا · ${p.settings.duration_minutes||20} دقيقة · تُحفظ نتيجتك لقياس إتقان المؤشر.`);
-  $('startForm').classList.remove('hidden');
-  const saved=JSON.parse(localStorage.getItem('nafes_student')||'{}');
-  $('studentName').value=saved.name||'';
-  $('studentNo').value=saved.no||'';
-  if(saved.class&&$('className'))$('className').value=saved.class;
+  const demo=readDemoIdentity();
+  if(!demo)$('startForm').classList.remove('hidden');
+  if(demo)clearActiveSession();
+  const active=demo?null:readActiveSession(),marker=demo?null:readActiveMarker(),saved=demo||readSessionIdentity();
+  $('studentName').value=active?.student_name||saved.name||'';
+  $('studentNo').value=active?.student_no||saved.no||'';
+  if((active?.class_name||saved.class)&&$('className'))$('className').value=active?.class_name||saved.class;
+  if(demo){
+   $('studentName').readOnly=true;$('studentNo').readOnly=true;$('className').disabled=false;
+   $('startForm').noValidate=true;
+   $('startForm').classList.add('hidden');
+   document.querySelector('.student-instructions-box')?.classList.add('hidden');
+   readiness('good','وضع الطالب التجريبي — جارٍ فتح الاختبار تلقائيًا، ولن تدخل هذه المحاولة في التحليل أو التقارير.');
+   queueMicrotask(()=>$('startForm').requestSubmit());
+  }else if(active?.attempt_id&&active?.student_name&&active?.student_no&&active?.class_name){
+   readiness('good','تم العثور على محاولة سارية — جارٍ استعادتها...');
+   queueMicrotask(()=>$('startForm').requestSubmit());
+  }else if(marker?.attempt_id){
+   readiness('good','توجد محاولة سابقة سارية على هذا الجهاز. أدخل بياناتك للتحقق واستئنافها.');
+  }
  }catch(e){readiness('bad',e.message||'تعذر الاتصال بمحرك الاختبار.')}
 }
 $('studentNo')?.addEventListener('input',e=>{e.target.value=normalizeDigits(e.target.value).replace(/\D/g,'').slice(0,3);});
@@ -28,32 +82,42 @@ $('startForm').addEventListener('submit',async e=>{
  const name=$('studentName').value.trim();
  const no=normalizeDigits($('studentNo').value.trim()).replace(/\D/g,'').slice(0,3);
  const cls=($('className')?.value||'').trim();
- if(!name||name.length<3){alert('يرجى كتابة اسم الطالب كاملًا.');return;}
- if(no.length!==3){alert('يرجى إدخال آخر ٣ أرقام من الهوية الوطنية بدقة.');return;}
- if(!cls){alert('يرجى اختيار الفصل (أ / ب / ج / د).');return;}
- localStorage.setItem('nafes_student',JSON.stringify({name,no,class:cls}));
+ const demoMode=hasDemoCode();
+ if(!demoMode&&!name||!demoMode&&name.length<3){alert('يرجى كتابة اسم الطالب كاملًا.');return;}
+ if(!demoMode&&no.length!==3){alert('يرجى إدخال آخر ٣ أرقام من الهوية الوطنية بدقة.');return;}
+ if(!demoMode&&!cls){alert('يرجى إدخال الفصل كما هو في كشف المدرسة.');return;}
+ if(!demoMode){clearPersistentLegacyIdentity();saveSessionIdentity(name,cls);}
  const btn=$('startBtn')||e.submitter;btn.disabled=true;btn.textContent='جارٍ تجهيز نموذجك...';
  try{
-  const d=await call({action:'start',student_name:name,student_no:no,national_id_last3:no,class_name:cls});
-  attempt=d.attempt_id;questions=d.questions||[];answers=d.answers||{};
-  if(d.submitted){showResult(d.percent,d.score,questions.length,'تم تسليم هذه المحاولة سابقًا.',d.review||[],name);return}
-  if(d.expired){showResult(d.percent||0,d.score||0,questions.length,'انتهى وقت هذه المحاولة.',d.review||[],name);return}
-  $('intro').classList.add('hidden');$('examArea').classList.remove('hidden');current=0;render();startTimer(d.expires_at);
+  const d=await call(demoMode?{action:'start',demo_code:demoAccessCode}:{action:'start',student_name:name,student_no:no,national_id_last3:no,class_name:cls});
+  const local=readActiveSession();
+   attempt=d.attempt_id;questions=d.questions||[];const durable=await readAnyDurableDraft();const localMatch=local?.attempt_id===d.attempt_id,durableMatch=durable?.attempt_id===d.attempt_id;answers={...(d.answers||{}),...((localMatch&&local.answers)||{}),...((durableMatch&&durable.answers)||{})};current=Number(durableMatch?durable.current:(localMatch?local.current:0))||0;lastAckVersion=Math.max(0,Number(d.version)||0);const recoveredVersion=Math.max(Number(localMatch?local.answer_version:0)||0,Number(durableMatch?durable.answer_version:0)||0);const recoveredChanged=(localMatch&&Object.keys(local.answers||{}).length>0)||(durableMatch&&Object.keys(durable.answers||{}).length>0);answerVersion=Math.max(lastAckVersion,recoveredVersion,recoveredChanged&&recoveredVersion<=lastAckVersion?lastAckVersion+1:0);
+  if(d.submitted){clearActiveSession();clearDurableDraft();showResult(d.percent,d.score,d.total||questions.length,'تم تسليم هذه المحاولة سابقًا.',d.review||[],name,d.submission_receipt);return}
+  if(d.expired){clearActiveSession();clearDurableDraft();showResult(d.percent||0,d.score||0,d.total||questions.length,'انتهى وقت هذه المحاولة.',d.review||[],name,d.submission_receipt);return}
+  saveActiveSession({expires_at:d.expires_at});
+  $('intro').classList.add('hidden');$('examArea').classList.remove('hidden');render();startTimer(d.expires_at);
+   if(answerVersion>lastAckVersion)saveSoon(100);
  }catch(err){readiness('bad',err.message);btn.disabled=false;btn.textContent='دخول الاختبار';}
 });
-function render(){if(!questions.length)return;const q=questions[current];$('questionMeta').textContent=`السؤال ${current+1} من ${questions.length}`;$('questionTitle').textContent=out?.title||'مؤشر نافس';$('progress').innerHTML=questions.map((x,i)=>`<button type="button" data-i="${i}" class="${i===current?'current ':''}${answers[x.id]!==undefined?'done':''}">${i+1}</button>`).join('');$('progress').querySelectorAll('button').forEach(b=>b.onclick=()=>{current=Number(b.dataset.i);render()});$('questionCard').innerHTML=`${q.context?`<div class="context">${escapeHtml(q.context)}</div>`:''}${window.NafesMedia.render(q)}<div class="stem">${escapeHtml(q.question)}</div><div class="choices">${q.options.map((x,i)=>`<label class="choice ${Number(answers[q.id])===i?'selected':''}"><input type="radio" name="q" value="${i}" ${Number(answers[q.id])===i?'checked':''}><span class="letter">${letters[i]}</span><span class="text">${escapeHtml(x)}</span></label>`).join('')}</div>`;$('questionCard').querySelectorAll('input').forEach(inp=>inp.onchange=()=>{answers[q.id]=Number(inp.value);render();saveSoon()});$('prevBtn').disabled=current===0;$('nextBtn').disabled=current===questions.length-1;$('prevBtn').onclick=()=>{if(current>0){current--;render()}};$('nextBtn').onclick=()=>{if(current<questions.length-1){current++;render()}};$('reviewBtn').onclick=showReview}
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let saveTimer=null;function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(saveAnswers,500)}async function saveAnswers(){if(!attempt||saving||finishing)return;saving=true;saveState('يتم حفظ إجاباتك...');try{await call({action:'save',attempt_id:attempt,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers});saveState('تم الحفظ')}catch(_){saveState('تعذر الحفظ — سيعاد تلقائيًا')}finally{saving=false}}
+function render(){if(!questions.length)return;const q=questions[current];$('questionMeta').textContent=`السؤال ${current+1} من ${questions.length}`;$('questionTitle').textContent=out?.title||'مؤشر نافس';$('progress').innerHTML=questions.map((x,i)=>`<button type="button" data-i="${i}" class="${i===current?'current ':''}${answers[x.id]!==undefined?'done':''}">${i+1}</button>`).join('');$('progress').querySelectorAll('button').forEach(b=>b.onclick=()=>{current=Number(b.dataset.i);render()});$('questionCard').innerHTML=`${q.context?`<div class="context">${escapeHtml(q.context)}</div>`:''}${window.NafesMedia.render(q)}<div class="stem">${escapeHtml(q.question)}</div><div class="choices">${q.options.map((x,i)=>`<label class="choice ${Number(answers[q.id])===i?'selected':''}"><input type="radio" name="q" value="${i}" ${Number(answers[q.id])===i?'checked':''}><span class="letter">${letters[i]}</span><span class="text">${escapeHtml(x)}</span></label>`).join('')}</div>`;$('questionCard').querySelectorAll('input').forEach(inp=>inp.onchange=()=>{answers[q.id]=Number(inp.value);answerVersion++;saveActiveSession();render();saveSoon()});$('prevBtn').disabled=current===0;$('nextBtn').disabled=current===questions.length-1;$('prevBtn').onclick=()=>{if(current>0){current--;render()}};$('nextBtn').onclick=()=>{if(current<questions.length-1){current++;render()}};$('reviewBtn').onclick=showReview}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]))}
+let saveTimer=null;function saveSoon(delay=500){clearTimeout(saveTimer);saveTimer=setTimeout(saveAnswers,delay)}async function saveAnswers(){if(!attempt||finishing)return;if(saving){saveAgain=true;return}writeDurableDraft();if(!navigator.onLine){saveState('محفوظ على الجهاز — بانتظار الاتصال');return}saving=true;const snapshotVersion=answerVersion,snapshotAnswers={...answers};saveState('يتم حفظ إجاباتك...');try{const d=await call({action:'save',attempt_id:attempt,answer_version:snapshotVersion,demo_code:/^\d{6}$/.test(demoAccessCode)?demoAccessCode:undefined,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers:snapshotAnswers});lastAckVersion=Math.max(lastAckVersion,Number(d.version)||snapshotVersion);retryCount=0;clearTimeout(retryTimer);writeDurableDraft({server_version:lastAckVersion});saveState(snapshotVersion===answerVersion?'تم الحفظ على الخادم':'تم حفظ نسخة — جارٍ مزامنة الأحدث')}catch(_){writeDurableDraft();retryCount=Math.min(retryCount+1,6);const delay=Math.min(15000,1500*Math.pow(2,retryCount-1))+Math.floor(Math.random()*400);clearTimeout(retryTimer);retryTimer=setTimeout(()=>saveAnswers(),delay);saveState(navigator.onLine?'تعذر الحفظ — سيعاد تلقائيًا':'محفوظ على الجهاز — بانتظار الاتصال')}finally{saving=false;if(saveAgain||answerVersion>snapshotVersion){saveAgain=false;saveSoon(100)}}}
 function saveState(t){let x=$('saveState');if(!x){x=document.createElement('div');x.id='saveState';x.className='save-state';document.body.appendChild(x)}x.textContent=t;x.classList.add('show');setTimeout(()=>x.classList.remove('show'),1200)}
-function showReview(){const done=questions.filter(q=>answers[q.id]!==undefined).length;$('questionCard').innerHTML=`<div class="review-panel"><b>مراجعة قبل التسليم</b><p>أجبت عن ${done} من ${questions.length} أسئلة.</p><div class="review-grid">${questions.map((q,i)=>`<button type="button" class="${answers[q.id]!==undefined?'done':''}" data-i="${i}">السؤال ${i+1} · ${answers[q.id]!==undefined?'تمت الإجابة':'بدون إجابة'}</button>`).join('')}</div><div class="submit-row"><button type="button" id="backToQ">العودة للأسئلة</button><button type="button" class="submit" id="submitExam">تسليم الاختبار</button></div></div>`;$('questionCard').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{current=Number(b.dataset.i);render()});$('backToQ').onclick=render;$('submitExam').onclick=()=>finish(false)}
-async function finish(auto){if(finishing)return;if(!auto&&!confirm('هل تريد تسليم الاختبار نهائيًا؟'))return;finishing=true;clearInterval(timerId);try{const d=await call({action:'finish',attempt_id:attempt,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers});showResult(d.percent,d.score,d.total,auto?'انتهى الوقت وتم تسليم الإجابات المحفوظة تلقائيًا.':'تم تسليم الاختبار بنجاح.',d.review||[],$('studentName').value.trim())}catch(e){finishing=false;alert(e.message);if(!auto)startTimer(new Date(Date.now()+60000).toISOString())}}
-function showResult(percent,score,total,msg,review=[],studentName=''){
+function showReview(){const done=questions.filter(q=>answers[q.id]!==undefined).length;$('questionCard').innerHTML=`<div class="review-panel"><b>مراجعة قبل التسليم</b><p>أجبت عن ${done} من ${questions.length} أسئلة.</p><div class="review-grid">${questions.map((q,i)=>`<button type="button" class="${answers[q.id]!==undefined?'done':''}" data-i="${i}">السؤال ${i+1} · ${answers[q.id]!==undefined?'تمت الإجابة':'بدون إجابة'}</button>`).join('')}</div><div class="submit-row"><button type="button" id="backToQ">العودة للأسئلة</button><button type="button" class="submit" id="submitExam">تسليم الاختبار</button></div></div>`;$('questionCard').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{current=Number(b.dataset.i);render()});$('backToQ').onclick=render;$('submitExam').onclick=()=>{const b=$('submitExam');if(b?.disabled)return;finish(false)}}
+async function finish(auto){if(finishing)return;if(!auto&&!confirm('هل تريد تسليم الاختبار نهائيًا؟'))return;writeDurableDraft({finish_requested:true,finish_requested_at:Date.now(),auto_expiry:auto===true});finishing=true;clearInterval(timerId);const b=$('submitExam');if(b){b.disabled=true;b.textContent='جارٍ التسليم...'}try{const d=await call({action:'finish',attempt_id:attempt,answer_version:answerVersion,demo_code:/^\d{6}$/.test(demoAccessCode)?demoAccessCode:undefined,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers});clearActiveSession();clearDurableDraft();showResult(d.percent,d.score,d.total,auto?'انتهى الوقت وتم تسليم الإجابات المحفوظة تلقائيًا.':'تم تسليم الاختبار بنجاح.',d.review||[],$('studentName').value.trim(),d.submission_receipt)}catch(e){finishing=false;writeDurableDraft({finish_requested:true,finish_requested_at:Date.now()});if(b){b.disabled=false;b.textContent='تسليم الاختبار'}saveState(navigator.onLine?'تعذر تأكيد التسليم — ستتم إعادة المحاولة تلقائيًا':'التسليم محفوظ على الجهاز — بانتظار الاتصال');if(!auto)startTimer(new Date(Date.now()+60000).toISOString())}}
+function showResult(percent,score,total,msg,review=[],studentName='',receipt=null){
+ clearActiveSession();
  $('intro').classList.add('hidden');$('examArea').classList.add('hidden');$('result').classList.remove('hidden');
+ clearDurableDraft();
+ const receiptHtml=receipt?.receipt_no?`<div style="margin:12px 0;padding:10px 12px;border-radius:10px;background:#eef8f4;border:1px solid #c6e2d7;color:#155d4f;font-weight:900">إيصال التسليم: ${escapeHtml(receipt.receipt_no)}${receipt.submitted_at?` · ${escapeHtml(new Date(receipt.submitted_at).toLocaleString('ar-SA'))}`:''}</div>`:'';
  const reviewMap=new Map((review||[]).map(x=>[String(x.id),x]));
  const reviewHtml=review.length?`<section class="answer-review"><div class="review-heading"><span>مراجعة الإجابات</span><h3>التصحيح بعد التسليم</h3><p>راجع إجابتك، ثم اقرأ سبب الإجابة الصحيحة.</p></div>${questions.map((q,i)=>{const r=reviewMap.get(String(q.id));if(!r)return'';const student=answers[q.id];const correct=Number(r.correct_index);const ok=Number(student)===correct;return `<article class="answer-review-card ${ok?'correct':'wrong'}"><div class="answer-review-top"><b>السؤال ${i+1}</b><span>${ok?'إجابة صحيحة':'إجابة غير صحيحة'}</span></div><p class="answer-review-question">${escapeHtml(q.question)}</p><div class="answer-lines"><p><b>إجابتك:</b> ${student===undefined?'لم تُجب':`${letters[Number(student)]}) ${escapeHtml(q.options[Number(student)]||'')}`}</p><p><b>الإجابة الصحيحة:</b> ${letters[correct]}) ${escapeHtml(q.options[correct]||'')}</p></div>${r.explanation?`<p class="answer-explanation"><b>السبب:</b> ${escapeHtml(r.explanation)}</p>`:''}</article>`}).join('')}</section>`:'';
- $('result').innerHTML=`<div class="completion-container"><div class="completion-badge">✓</div><h1>تم تسليم الاختبار بنجاح</h1>${studentName?`<div class="completion-student-info"><b>${escapeHtml(studentName)}</b></div>`:''}<div class="result-score"><b>${Math.round(Number(percent||0))}%</b></div><h2>الدرجة: ${score??0} من ${total||questions.length}</h2><p class="completion-msg">${escapeHtml(msg||'تم حفظ نتيجتك بنجاح في سجلات المعلم.')}<br>يمكنك إغلاق هذه الصفحة الآن بأمان.</p>${reviewHtml}</div>`;
+ $('result').innerHTML=`<div class="completion-container"><div class="completion-badge">✓</div><h1>تم تسليم الاختبار بنجاح</h1>${studentName?`<div class="completion-student-info"><b>${escapeHtml(studentName)}</b></div>`:''}${receiptHtml}<div class="result-score"><b>${Math.round(Number(percent||0))}%</b></div><h2>الدرجة: ${score??0} من ${total||questions.length}</h2><p class="completion-msg">${escapeHtml(msg||'تم حفظ نتيجتك بنجاح في سجلات المعلم.')}<br>يمكنك إغلاق هذه الصفحة الآن بأمان.</p>${reviewHtml}</div>`;
 }
 function startTimer(expiresAt){clearInterval(timerId);const end=new Date(expiresAt).getTime();const tick=()=>{const ms=end-Date.now();if(ms<=0){$('timer').textContent='00:00';clearInterval(timerId);finish(true);return}const sec=Math.floor(ms/1000),m=Math.floor(sec/60),s=sec%60;$('timer').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;$('timer').className='timer'+(sec<=60?' danger':sec<=300?' warn':'')};tick();timerId=setInterval(tick,1000)}
-window.addEventListener('beforeunload',()=>{if(attempt&&!finishing){try{navigator.sendBeacon?.(EDGE,new Blob([JSON.stringify({...P,indicator_text:indicatorText,outcome_title:out?.title||'',action:'save',attempt_id:attempt,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),answers})],{type:'application/json'}))}catch(_){}}});
+window.addEventListener('beforeunload',()=>{if(attempt&&!finishing){writeDurableDraft();try{navigator.sendBeacon?.(EDGE,new Blob([JSON.stringify({...P,indicator_text:indicatorText,outcome_title:out?.title||'',action:'save',attempt_id:attempt,answer_version:answerVersion,demo_code:/^\d{6}$/.test(demoAccessCode)?demoAccessCode:undefined,student_name:$('studentName').value.trim(),student_no:$('studentNo').value.trim(),class_name:($('className')?.value||'').trim(),answers})],{type:'application/json'}))}catch(_){}}});
+addEventListener('offline',()=>{if(attempt){writeDurableDraft();saveState('محفوظ على الجهاز — الاتصال منقطع')}});
+addEventListener('online',()=>{if(attempt){clearTimeout(retryTimer);saveState('عاد الاتصال — جارٍ المزامنة');saveAnswers();const d=readDurableDraft();if(d?.attempt_id===attempt&&d.finish_requested&&!finishing)setTimeout(()=>finish(true),500)}});
+setInterval(()=>{const d=readDurableDraft();if(attempt&&navigator.onLine&&d?.attempt_id===attempt&&d.finish_requested&&!finishing)finish(true);},10000);
 init();
 })();

@@ -1,0 +1,38 @@
+name: Package Lugati for AI Studio
+
+on:
+  push:
+    paths:
+      - '.github/workflows/package-lugati-ai.yml'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare package
+        shell: bash
+        run: |
+          set -e
+          mkdir -p lugati-ai-studio
+          cp lugati-complete.html lugati-ai-studio/
+          cp lugati-complete.css lugati-ai-studio/
+          cp lugati-complete.js lugati-ai-studio/
+          cp lugati-role-router.js lugati-ai-studio/
+          cp lugati-roster-bridge.js lugati-ai-studio/
+          cp lugati-student.html lugati-ai-studio/
+          cp lugati-student-adaptive.js lugati-ai-studio/
+          cp lugati-teacher-adaptive.js lugati-ai-studio/
+          cp lugati-indicators.js lugati-ai-studio/
+          cp .ai-studio/README-AI-STUDIO.md lugati-ai-studio/
+          cp .ai-studio/AI-STUDIO-PROMPT.txt lugati-ai-studio/
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lugati-ai-studio-package
+          path: lugati-ai-studio/
+          if-no-files-found: error

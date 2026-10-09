@@ -22,11 +22,9 @@ async function callResultsAdmin(action,payload){
   return body;
 }
 
-T.api=async function(action,payload){
-  if(action==='teacher_tests_bulk_clear')return callResultsAdmin(action,payload);
-  return baseApi(action,payload);
-};
-
+// Bulk result clearing now uses the main NAFES teacher API directly.
+ // That API supports both legacy master keys and 10-digit teacher login numbers.
+ // Keep the compatibility bridge below only for the old individual-delete endpoint.
 // Compatibility bridge for the legacy individual-delete code in reset-results.js.
 // The old nafes-admin function no longer exists; route only that exact endpoint
 // to the unified, authenticated results administration function.
