@@ -306,7 +306,7 @@ function locateBubbleGrid(im:GrayImage,scale:number){
   const scored=[] as {start:number;step:number;score:number}[];
   for(const start of starts)for(const step of steps){
     const values:number[]=[];
-    for(const right of rights)for(const row of [0,7,14])for(const off of offs)
+    for(const right of rights)for(let row=0;row<15;row++)for(const off of offs)
        values.push(ringEvidence(right,row,off,start,step));
     scored.push({start,step,score:median(values)});
   }
