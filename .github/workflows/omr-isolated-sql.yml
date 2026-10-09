@@ -1,0 +1,53 @@
+name: OMR isolated PostgreSQL safety test
+on:
+  push:
+    branches:
+      - fix/omr-production-integration
+  pull_request:
+    paths:
+      - 'qa/omr/**'
+      - 'supabase/functions/nafes-exam/**'
+      - 'review-scan*'
+      - 'review-omr-safety.js'
+      - '.github/workflows/omr-isolated-sql.yml'
+  workflow_dispatch:
+jobs:
+  isolated-omr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: omr_isolated
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d omr_isolated"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: synthetic-ci-only
+      PGDATABASE: omr_isolated
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check isolated database client
+        run: psql --version
+      - name: Create synthetic test schema with zero live student records
+        run: psql -X -v ON_ERROR_STOP=1 -f qa/omr/isolation/synthetic-schema.sql
+      - name: Execute development-only SQL on synthetic database
+        run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/development/manual-review-repairs.sql
+      - name: Test ACL, atomic publication, replay, review, tamper and rollback
+        run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/isolation/smoke.sql
+      - name: Check browser safety contract syntax
+        run: |
+          node --check review-omr-safety.js
+          node --check review-scan.js
+          node --check review-scan-journal.js
