@@ -1,6 +1,7 @@
 // Auth is performed by handleAssessments before invoking this module.
 import { fail, hash } from './assessment-engine.ts';
 import { readOmrJpeg } from './omr-server.ts';
+import { gradeScan } from './scan-grade-policy.ts';
 type Row=Record<string,any>;
 const must=(r:any)=>{if(r.error)fail(r.error.message,400);return r.data;};
 const uuid=(v:any)=>/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(String(v));
@@ -117,6 +118,7 @@ async function reprocessServerSheet(db:any,session:Row,row:Row){
  catch(e:any){
    const msg=String(e?.message||e);
    const failed={...current,omr_policy:OMR_POLICY+'_error',markers_ok:false,marker_confidence:0,omr_reader_error:msg,
+     ...gradeScan([],Number(p.question_count),{markers_ok:false,reader_error:msg}),
      omr_verification:{risk:'high',quality_score:0,reasons:[msg],requires_manual_review:true,auto_accept:false,
        counts:{ambiguous:p.question_count,multiple:0,blank:0,low_margin:0,clear:0}}};
    const updated=must(await db.from('nafes_scan_sheets').update({effective_snapshot:failed,answer_version:row.answer_version+1,reviewed_at:null,reviewed_by:null,disposition:null})
@@ -127,7 +129,7 @@ async function reprocessServerSheet(db:any,session:Row,row:Row){
  const uncertain=answers.filter((a:Row)=>a.state==='uncertain'||a.state==='multiple').length;
  const next={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,
    markers_ok:rr.markers_ok===true,marker_confidence:finite(rr.marker_confidence,0,1),answers,
-   score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
+   ...gradeScan(answers,Number(p.question_count),{markers_ok:rr.markers_ok===true,identity_valid:true,key_complete:true}),total:p.question_count,
    counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
    omr_policy:OMR_POLICY,omr_detector:String(rr.detector||'').slice(0,64),marker_points:rr.marker_points||null,
    omr_verification:classificationVerification(rr.verification,answers),omr_calibration:compactCalibration(rr.calibration),
@@ -241,7 +243,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const snapshot={
      student_name:identityValid?assignment.student_name:'غير معروف — يلزم إعادة المسح',model,identity_valid:identityValid,
      markers_ok:markersOk,marker_confidence:finite(rr?.marker_confidence,0,1),
-     answers,score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
+     answers,...gradeScan(answers,Number(p.question_count),{markers_ok:markersOk,reader_error:readerError,identity_valid:identityValid,key_complete:keyComplete}),total:p.question_count,
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
      page_no:Number(raw.page_no)||1,region_no:Number(raw.region_no)||1,
      omr_policy:OMR_POLICY,
@@ -287,7 +289,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    });
    if(typeof b.reason!=='string'||b.reason.trim().length<3||b.reason.trim().length>1000)fail('سبب تعديل الهوية مطلوب.');
    const effective={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,identity_source:'manual',identity_manual_reason:b.reason.trim(),answers,
-     score:answers.filter((a:Row)=>a.correct).length,
+     ...gradeScan(answers,Number(p.question_count),{markers_ok:current.markers_ok===true,reader_error:current.omr_reader_error,identity_valid:true,key_complete:true}),
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
      omr_verification:classificationVerification(current.omr_reading_verification||current.omr_verification,answers),...classificationDiagnostics(answers)};
    const sheet=must(await db.rpc('nafes_scan_assign_identity',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_student:assignment.student_id,p_sheet_no:assignment.sheet_no,p_student_name:assignment.student_name,p_model:assignment.model,p_effective:effective,p_version:b.answer_version}));
@@ -356,6 +358,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
 function assertReviewedSheet(sheet:Row,questionCount:number){
    const snapshot=sheet.effective_snapshot||sheet.snapshot||{};
    if(snapshot.identity_valid!==true||!uuid(sheet.student_id))fail('هوية الورقة غير مؤكدة؛ لا يمكن اعتمادها.',409);
+   if(snapshot.markers_ok!==true||snapshot.omr_reader_error)fail('فشلت قراءة علامات المحاذاة؛ لا توجد درجة قابلة للاعتماد. أعد المسح أو عالج الصورة أولًا.',409);
    if(!Array.isArray(snapshot.answers)||snapshot.answers.length!==questionCount)
      fail('إجابات الورقة غير مكتملة؛ لا يمكن اعتمادها.',409);
    for(const a of snapshot.answers){
