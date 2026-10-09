@@ -65,6 +65,9 @@ tamakkun-unified-plan.js
 tamakkun-competition-polish.css
 tamakkun-teacher-workspace.css
 tamakkun-ux-v3.css
+tamakkun-rally-identity.css
+tamakkun-showcase.css
+tamakkun-worksheet-studio.js
 tamakkun-teacher-workspace.js
 lugati-complete.js
 lugati-encouragement.js

@@ -3,7 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#047857" />
+  <meta name="theme-color" content="#075446" />
+  <meta name="description" content="مِنَصَّةُ تَمَكُّن: مسابقات نافس والتدريبات وأوراق العمل التفاعلية للعلوم والقراءة والرياضيات." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" />
   <title>مِنَصَّةُ تَمَكُّن | نافس الثالث متوسط</title>
   <link rel="stylesheet" href="./lugati-complete.css?v=20260921-responsive-v2" />
   <link rel="stylesheet" href="./tamakkun-design-system.css?v=20260925-game-journey-v4" />
@@ -18,6 +22,121 @@
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <link rel="stylesheet" href="./platform-color-system.css?v=20261004-v2" />
   <link rel="stylesheet" href="./tamakkun-ux-v3.css?v=20261004-ux3" />
+  <style>
+/* TAMAKKUN • Rally visual language • designed for existing platform components */
+:root{color-scheme:light;--r-forest:#073e36;--r-deep:#075446;--r-green:#0b755e;--r-mint:#12ac8b;--r-leaf:#d9f7eb;--r-sun:#f6ba57;--r-coral:#f07e60;--r-paper:#fff;--r-ink:#142f2b;--r-soft:#f2f7f3;--r-muted:#647b72;--r-line:#dbe9e2;--r-elevation:0 18px 48px rgba(8,67,54,.10);--r-elevation-strong:0 28px 70px rgba(8,67,54,.17);--tk-font:"Tajawal","IBM Plex Sans Arabic",Tahoma,Arial,sans-serif;--pv-hero:linear-gradient(116deg,#064638 0%,#0a795e 58%,#0b8575 100%);--pv-navy-900:#073e36;--pv-heading:#17382f;--pv-teal-700:#076951;--pv-page:#f3f7f4;--pv-shadow-md:var(--r-elevation)}
+html{scroll-behavior:smooth}body.bg-slate-100{background:radial-gradient(circle at 84% -12%,#dff4e9 0%,transparent 30%),linear-gradient(145deg,#f2f8f3,#f8faf7)!important;color:var(--r-ink)}
+::selection{background:#b6efdc;color:#043f34}
+#app .main-shell{background:transparent}
+#app .desktop-sidebar{background:linear-gradient(177deg,#063a33 0%,#075647 51%,#0a6958 100%)!important;border:0!important;box-shadow:-8px 0 36px rgba(5,63,50,.17)}
+#app .desktop-sidebar>div:first-child{padding:22px 16px!important;gap:18px!important}
+#app .desktop-sidebar .font-extrabold.text-slate-800{color:#fff!important;font-size:19px}
+#app .desktop-sidebar .text-emerald-600{color:#b8eddb!important}
+#app .desktop-sidebar nav{gap:7px!important}
+#app .desktop-sidebar [data-nav]{color:rgba(238,255,249,.83)!important;border:1px solid transparent;background:transparent!important;min-height:59px;border-radius:17px!important;padding:9px 12px!important;transition:background .2s ease,transform .2s ease,box-shadow .2s ease,border-color .2s ease!important}
+#app .desktop-sidebar [data-nav] [data-lucide]{color:#afd9cc!important;stroke-width:2}
+#app .desktop-sidebar [data-nav] span:not(.text-\[11px\]){line-height:1.55}
+#app .desktop-sidebar [data-nav] .text-slate-400{color:#bfd9d1!important}
+#app .desktop-sidebar [data-nav]:hover{background:rgba(255,255,255,.10)!important;transform:translateX(-2px)}
+#app .desktop-sidebar [data-nav].bg-emerald-700{background:linear-gradient(110deg,rgba(38,202,157,.34),rgba(242,197,109,.14))!important;color:#fff!important;border:1px solid rgba(190,255,226,.35);box-shadow:0 10px 24px rgba(0,0,0,.09)!important}
+#app .desktop-sidebar .border-t.border-slate-100{background:rgba(255,255,255,.09)!important;border:1px solid rgba(255,255,255,.1)!important;margin:10px 15px 15px!important}
+#app .desktop-sidebar .border-t [data-nav] .text-slate-800{color:#fff!important}
+#app .desktop-sidebar .border-t [data-nav] .text-slate-500{color:#c9e6dc!important}
+#app .desktop-sidebar .bg-gradient-to-br.from-emerald-600{background:linear-gradient(145deg,#ffc866,#ffad55)!important;color:#12463b!important;box-shadow:0 12px 24px #021c1733!important}
+#app .main-shell>header{background:rgba(255,255,255,.88)!important;backdrop-filter:blur(18px);border-color:#ddece3!important;box-shadow:0 3px 20px rgba(10,69,53,.05)!important;padding-block:15px!important}
+#app .main-shell>main{background:transparent;padding:24px clamp(16px,2.5vw,36px) 88px!important}
+#app #view{max-width:1450px}
+#app #view .bg-white.rounded-3xl,#app #view .bg-white.border.rounded-3xl,#app #view .bg-white.border.rounded-2xl,#app #view .txv3-panel,#app #view .tmw-panel{background:var(--r-paper)!important;border-color:var(--r-line)!important;border-radius:26px!important;box-shadow:0 10px 28px rgba(9,67,54,.055)!important;transition:box-shadow .24s ease,transform .24s ease}
+#app #view button.bg-white.rounded-3xl:hover,#app #view button.bg-slate-50\/70:hover{transform:translateY(-4px)!important;box-shadow:var(--r-elevation)!important;border-color:#a6dec4!important}
+#app #view .bg-gradient-to-l.from-emerald-900,#app #view .bg-gradient-to-l.from-emerald-800,#app #view .bg-gradient-to-l.from-slate-900,#app #view .bg-gradient-to-l.from-cyan-900,#app #view .bg-gradient-to-l.from-violet-900,#app #view .txv3-hero{background:linear-gradient(113deg,#064536 0%,#087b60 62%,#0b9582 100%)!important;border-radius:32px!important;box-shadow:0 20px 46px rgba(9,92,72,.21)!important;isolation:isolate;position:relative;overflow:hidden}
+#app #view .bg-gradient-to-l.from-emerald-900::after,#app #view .bg-gradient-to-l.from-emerald-800::after,#app #view .bg-gradient-to-l.from-slate-900::after,#app #view .bg-gradient-to-l.from-cyan-900::after,#app #view .bg-gradient-to-l.from-violet-900::after,#app #view .txv3-hero::after{content:"";position:absolute;width:270px;height:270px;left:-65px;bottom:-172px;border-radius:50%;border:35px solid rgba(255,255,255,.10);box-shadow:0 0 0 25px rgba(255,255,255,.035);pointer-events:none;z-index:0}
+#app #view .bg-gradient-to-l h1,#app #view .txv3-hero h1{font-size:clamp(25px,2.5vw,38px)!important;line-height:1.45!important;letter-spacing:-.035em}
+#app #view .bg-gradient-to-l p,#app #view .txv3-hero p{font-size:clamp(12px,1.08vw,15px)!important;line-height:1.95!important}
+#app #view .bg-gradient-to-l.from-emerald-900>*,#app #view .bg-gradient-to-l.from-emerald-800>*,#app #view .bg-gradient-to-l.from-slate-900>*,#app #view .txv3-hero>*{position:relative;z-index:1}
+#app #view .text-slate-900{color:var(--r-ink)}
+#app #view .text-emerald-700{color:#086d53}
+#app #view .bg-emerald-700{background:#08755d}
+#app #view .rounded-3xl{border-radius:23px}
+#app #view button{font-family:inherit}
+#app #view button:focus-visible,#app [data-nav]:focus-visible,.rws button:focus-visible{outline:3px solid #d5a34d!important;outline-offset:3px}
+#app #view .bg-slate-50\/70{background:#f8fbf8!important;border-color:#e2ece6!important;border-radius:21px!important;min-height:132px!important}
+#app #view .bg-slate-50\/70:hover{background:linear-gradient(135deg,#f2fff9,#fffaf0)!important}
+#app .mobile-nav{background:#ffffffed!important;backdrop-filter:blur(14px);box-shadow:0 -8px 28px #0a3c3017;border-top:1px solid #dcece1!important;padding-bottom:max(9px,env(safe-area-inset-bottom))!important}
+#app .mobile-nav button{min-width:43px;min-height:43px}
+#app .mobile-nav button.bg-emerald-50{background:#dcf7ea!important;color:#07634f!important;box-shadow:inset 0 0 0 1px #aedcc9}
+#app .tx-login-shell{background:radial-gradient(circle at 95% 3%,#d6f4e5,transparent 35%),#f5f8f4}
+#app .tx-login-story{background:radial-gradient(circle at 20% 70%,rgba(250,203,98,.22),transparent 30%),linear-gradient(150deg,#064332,#08785c 72%,#0ca184)!important}
+#app .tx-login-story h1{font-size:clamp(40px,4.6vw,66px)!important;line-height:1.35!important;letter-spacing:-.045em}
+#app .tx-login-card{border:1px solid #dcebe3!important;box-shadow:0 26px 70px rgba(9,67,54,.11)!important;border-radius:34px!important}
+#app .tx-login-submit{background:linear-gradient(105deg,#076b54,#0c9875)!important;box-shadow:0 14px 26px rgba(12,119,88,.19)!important;border-radius:17px!important}
+#app .tx-login-mark{background:#ffc56f!important;color:#104a3c!important;box-shadow:0 12px 34px rgba(5,49,36,.18)}
+#lugatiCompetitionMount .comp-hero{background:radial-gradient(circle at 9% 20%,rgba(250,196,97,.25),transparent 25%),linear-gradient(120deg,#053f34,#098267 74%,#0c947b)!important;box-shadow:0 26px 58px rgba(5,72,55,.20);border:1px solid rgba(255,255,255,.2);border-radius:34px!important}
+#lugatiCompetitionMount .comp-arena-card{border:1px solid #dfece2!important;border-radius:25px!important;background:linear-gradient(155deg,#fff,#f5fbf6)!important;box-shadow:0 16px 35px #0b4f3a12!important}
+#lugatiCompetitionMount .comp-arena-card:hover{transform:translateY(-3px);box-shadow:0 22px 45px #0b4f3a1c!important}
+#lugatiCompetitionMount .comp-podium{background:radial-gradient(circle at 20% 0%,#1aa689 0%,transparent 50%),linear-gradient(125deg,#073d35,#087b63 70%,#0c937f)!important}
+#lugatiCompetitionMount .comp-game-hud{background:linear-gradient(115deg,#08483a,#087c61)!important}
+#lugatiCompetitionMount .comp-question-card{border-radius:28px!important;border-color:#dfece5!important;box-shadow:0 17px 48px #0a423018!important}
+#lugatiCompetitionMount .comp-option{border-radius:17px!important;min-height:64px!important}
+#lugatiCompetitionMount .comp-option:hover:not(:disabled){border-color:#0b9477!important;background:#effbf5!important;box-shadow:0 8px 18px #0b544314!important}
+#lugatiCompetitionMount .comp-cta{background:linear-gradient(100deg,#f7bb63,#f5cb76)!important;color:#173f32!important;box-shadow:0 13px 28px #c4913b35!important}
+#lugatiCompetitionMount .comp-progress{background:linear-gradient(90deg,#f6bd60,#0eb08b)!important}
+.rws{font-family:var(--tk-font);color:var(--r-ink);display:grid;gap:22px;padding-bottom:54px}
+.rws *{box-sizing:border-box}
+.rws-hero{border-radius:32px;background:radial-gradient(circle at 84% 10%,#1aa786 0%,transparent 38%),linear-gradient(125deg,#063f34,#087860);padding:36px clamp(22px,3vw,45px);color:white;position:relative;overflow:hidden;box-shadow:0 22px 55px rgba(8,90,68,.20);display:flex;align-items:center;justify-content:space-between;gap:26px}
+.rws-hero:before{content:"";position:absolute;left:-38px;bottom:-88px;width:250px;height:250px;border:30px solid #ffffff12;border-radius:50%;pointer-events:none}
+.rws-hero>*,.rws-hero .rws-hero-art>*{position:relative}
+.rws-kicker{display:inline-flex;align-items:center;gap:8px;color:#b6f7e4;background:#ffffff19;border:1px solid #ffffff2d;border-radius:100px;font-size:12px;font-weight:900;padding:8px 13px}
+.rws-hero h1{font-size:clamp(27px,3vw,43px);font-weight:950;line-height:1.35;letter-spacing:-.05em;margin:15px 0 8px;color:#fff}
+.rws-hero p{font-size:13px;line-height:2;max-width:610px;color:#dbfff2;margin:0}
+.rws-hero-art{width:140px;height:140px;flex:none;border-radius:34px;background:#ffffff17;border:1px solid #ffffff38;display:grid;place-items:center;transform:rotate(-8deg);box-shadow:0 20px 38px #062a263e}
+.rws-hero-art svg{width:74px;height:74px;color:#f9c86b;transform:rotate(8deg);stroke-width:1.6}
+.rws-grid{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);gap:18px;align-items:start}
+.rws-panel{background:#fff;border:1px solid var(--r-line);border-radius:28px;box-shadow:0 15px 34px rgba(6,67,49,.055);padding:24px}
+.rws-panel h2{font-size:20px;font-weight:900;line-height:1.45;color:#18382f;margin:0 0 5px}
+.rws-panel p{font-size:12px;color:#687a72;line-height:1.9;margin:0}
+.rws-steps{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+.rws-step{display:inline-flex;align-items:center;gap:7px;background:#f2f7f3;border-radius:999px;border:1px solid #e0ece3;padding:8px 12px;color:#536e61;font-weight:800;font-size:11px}
+.rws-step em{width:22px;height:22px;display:grid;place-items:center;background:#dff4e6;border-radius:50%;font-style:normal;color:#11684e}
+.rws-label{font-size:12px;font-weight:900;color:#27483b;display:block;margin:17px 0 7px}
+.rws-select,.rws-input{display:block;min-height:48px;width:100%;border:1px solid #cfdfd6;border-radius:14px;padding:10px 13px;background:#f9fcfa;color:#254336;font:600 13px var(--tk-font);outline:none;appearance:auto}
+.rws-select:focus,.rws-input:focus{border-color:#0b9779;box-shadow:0 0 0 4px #16a47718}
+.rws-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0!important;background:linear-gradient(110deg,#087257,#0ca37e)!important;color:#fff!important;min-height:49px;padding:12px 24px;font-weight:900;font-size:13px;border-radius:15px;box-shadow:0 12px 23px #0a765129;cursor:pointer;transition:transform .2s,box-shadow .2s}
+.rws-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 17px 27px #0a765139}.rws-btn:disabled{opacity:.5;cursor:not-allowed}
+.rws-btn.secondary{background:#f1f7f3!important;color:#0b6f55!important;box-shadow:none!important;border:1px solid #cfe4d7!important}
+.rws-btn.sun{background:linear-gradient(110deg,#f2b658,#f9d18b)!important;color:#164837!important}
+.rws-chip{display:inline-flex;align-items:center;gap:7px;background:#e6f8ee;border:1px solid #c2ead6;border-radius:999px;padding:7px 11px;font-size:11px;color:#0c6b51;font-weight:800}
+.rws-alert{border-radius:16px;background:#fff7e8;border:1px solid #f6e0bb;color:#785018;padding:13px 16px;font-size:12px;line-height:1.8}
+.rws-indicator-list{display:grid;gap:10px;max-height:330px;overflow:auto;padding:3px}
+.rws-indicator{display:block;text-align:right;width:100%;border:1px solid #e0eae2;background:#f8faf8;color:#29483b;border-radius:14px;padding:12px 14px;font-size:12px;line-height:1.8;cursor:pointer;transition:all .2s}
+.rws-indicator:hover{border-color:#83cdb3;background:#f1faf5}
+.rws-indicator.active{border:2px solid #079476;background:#e5f8ec;box-shadow:0 5px 15px #04705413}
+.rws-indicator strong{font-weight:900;display:block;color:#0f674e;margin-bottom:4px}
+.rws-paper{border-radius:26px;overflow:hidden;background:white;border:1px solid #d9e8df;box-shadow:0 20px 60px #09492b10}
+.rws-paper-head{padding:28px 30px;background:linear-gradient(110deg,#075c49,#0a8e70);color:white;display:flex;justify-content:space-between;gap:16px;align-items:center}
+.rws-paper-head h2{font-size:25px;font-weight:900;color:white;margin:6px 0}
+.rws-paper-head p{color:#dcfff1;font-size:12px}
+.rws-paper-body{padding:28px}
+.rws-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rws-question{padding:20px;border:1px solid #e3ece6;background:#fcfdfb;border-radius:18px;margin-top:13px;break-inside:avoid}
+.rws-question-no{display:flex;align-items:center;gap:10px;color:#0c755b;font-size:11px;font-weight:900;margin-bottom:9px}
+.rws-question-no b{display:grid;place-items:center;background:#e5f7ec;border-radius:10px;width:29px;height:29px}
+.rws-question h3{font-size:15px;font-weight:900;line-height:1.9;color:#18372e;margin:0 0 13px}
+.rws-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rws-choice{border:1px solid #dae7df;border-radius:13px;background:white;color:#2d483b;padding:12px;display:flex;gap:10px;align-items:center;text-align:right;cursor:pointer;font-size:13px;min-height:56px}
+.rws-choice:hover{border-color:#0ca383;background:#f4fbf6}
+.rws-choice.selected{background:#dff7e9;border:2px solid #078261}
+.rws-choice .letter{display:grid;place-items:center;flex:none;border-radius:9px;background:#eff7f1;color:#087454;width:28px;height:28px;font-weight:900}
+.rws-choice.correct{background:#e8fbef;border-color:#078261}.rws-choice.wrong{background:#fff0ec;border-color:#d75f45}
+.rws-result{padding:22px;border-radius:18px;background:#eaf8f0;color:#075a44;display:grid;gap:7px;font-weight:900}
+.rws-small{font-size:11px;color:#72847a;line-height:1.7}
+.rws-empty{border:1px dashed #c8e0d2;border-radius:19px;padding:35px;text-align:center;color:#789084;background:#f9fcf9}
+.rws-controls{display:flex;gap:9px;flex-wrap:wrap;margin:17px 0 0}
+@media(max-width:960px){.rws-grid{grid-template-columns:1fr}.rws-hero-art{height:110px;width:110px}}
+@media(max-width:640px){#app .main-shell>main{padding:14px 12px 100px!important}.rws-hero{padding:25px 20px;border-radius:24px}.rws-hero-art{display:none}.rws-panel{padding:17px;border-radius:20px}.rws-paper-head{padding:20px}.rws-paper-body{padding:15px}.rws-choices{grid-template-columns:1fr}.rws-hero h1{font-size:28px}#app #view .bg-gradient-to-l h1{font-size:25px!important}#lugatiCompetitionMount .comp-hero{border-radius:23px!important}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+</style>
+  <link rel="stylesheet" href="./tamakkun-showcase.css?v=20261009-hassad-home2" />
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
   <div id="app"></div>
@@ -25,7 +144,46 @@
   <script src="./lugati-roster-bridge.js?v=20260917-1848"></script>
   <script src="./lugati-competition.js?v=20261003-live-results-v1"></script>
   <script src="./tamakkun-teacher-workspace.js?v=20261003-teacher1"></script>
-  <script src="./lugati-complete.js?v=20261004-ux3"></script>
+  <script>
+/* Tamakkun worksheet studio — local teacher drafts from approved indicator bank.
+   No client writes, no fabricated marks, no unapproved sharing of answer keys. */
+(function(){
+"use strict";
+var S={role:null,profile:null,questions:[],subject:"reading",indicator:"",count:5,draft:[],answers:{},graded:false};
+var names={reading:"القراءة",math:"الرياضيات",science:"العلوم",lughati:"لغتي الخالدة"};
+var icons={reading:"book-open-text",math:"calculator",science:"flask-conical"};
+function safe(v){return String(v==null?"":v).replace(/[&<>"']/g,function(x){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]})}
+function icon(n){return '<i data-lucide="'+n+'" aria-hidden="true"></i>'}
+function root(){return document.getElementById("tamakkunWorksheetsMount")}
+function valid(q){var o=q.options;return !!(q.question_text&&Array.isArray(o)&&o.length===4&&o.every(function(x){return String(x||"").trim()})&&Number.isInteger(Number(q.correct_index))&&Number(q.correct_index)>=0&&Number(q.correct_index)<4)}
+function eligible(){return S.questions.filter(function(q){return q.subject_key===S.subject&&valid(q)})}
+function groups(){var map=new Map();eligible().forEach(function(q){var key=String(q.indicator_text||"").trim()||("المؤشر "+(q.indicator_index||"—"));if(!map.has(key))map.set(key,[]);map.get(key).push(q)});return map}
+function filtered(){return groups().get(S.indicator)||[]}
+function chips(){return '<div class="rws-steps"><span class="rws-step"><em>١</em> اختر المادة</span><span class="rws-step"><em>٢</em> راجع المؤشر</span><span class="rws-step"><em>٣</em> كوّن الورقة</span><span class="rws-step"><em>٤</em> عاين واطبع</span></div>'}
+function header(){return '<section class="rws-hero"><div><span class="rws-kicker">'+icon("sparkles")+' استوديو التعلم التفاعلي</span><h1>ورقة عمل تليق بإنجاز طلابك</h1><p>اختر مؤشراً حقيقياً من بنك المادة؛ ثم ابنِ تدريباً واضحاً، وراجع الأسئلة قبل الطباعة. يُحفظ الأصل بلا تعديل، وهذه مسودة محلية وليست تكليفاً منشوراً.</p></div><div class="rws-hero-art">'+icon("notebook-pen")+'</div></section>'}
+function availableSubjects(){if(S.role!=="teacher")return ["reading","math","science"];if(S.profile&&["reading","math","science"].includes(S.profile.subject_scope))return [S.profile.subject_scope];return ["reading","math","science"]}
+function templateCards(){return '<div class="rws-template-grid"><article class="rws-template active"><span class="rws-template-icon">'+icon("layers-3")+'</span><strong>من بنك المؤشرات</strong><small>اختر مهارة وأضف تدريباتها</small><em>متاح للتجربة</em></article><article class="rws-template disabled"><span class="rws-template-icon">'+icon("file-scan")+'</span><strong>من اختبار خارجي</strong><small>PDF أو Word وربط الأسئلة بمؤشراتها</small><em>يحتاج ربط الاستيراد</em></article><article class="rws-template disabled"><span class="rws-template-icon">'+icon("clipboard-check")+'</span><strong>من اختبار داخل تمكّن</strong><small>إنشاء ورقة للمهارات التي أخفق فيها الطلاب</small><em>يحتاج ربط النتائج</em></article></div>'}
+function control(){var gg=groups(),all=availableSubjects();return '<section class="rws-panel"><h2>مصنع أوراق العمل</h2><p>اختر طريقة إنشاء الورقة، ثم راجع المؤشر والأسئلة قبل اعتمادها.</p>'+templateCards()+chips()+
+'<label for="rws-subject" class="rws-label">المادة الدراسية</label><select id="rws-subject" class="rws-select">'+all.map(function(k){return '<option value="'+k+'"'+(k===S.subject?' selected':'')+'>'+names[k]+'</option>'}).join("")+'</select>'+
+'<div class="rws-label">المؤشرات المتاحة <span class="rws-chip">'+gg.size+' مؤشرات</span></div>'+
+'<div class="rws-indicator-list">'+(gg.size?Array.from(gg.entries()).slice(0,100).map(function(entry,i){return '<button type="button" class="rws-indicator '+(entry[0]===S.indicator?"active":"")+'" data-rws-indicator="'+i+'"><strong>المؤشر '+(i+1)+' • '+entry[1].length+' أسئلة متاحة</strong>'+safe(entry[0])+'</button>'}).join(""):'<div class="rws-alert">لا توجد أسئلة اختيار من متعدد متاحة ومستوفية لشروط البنية من بنك '+names[S.subject]+' في هذه الجلسة. لن ننشئ أسئلة أو مؤشرات افتراضية.</div>')+'</div>'+
+'<label for="rws-count" class="rws-label">عدد الأسئلة</label><select id="rws-count" class="rws-select">'+[3,5,8,10].map(function(n){return '<option value="'+n+'"'+(n===S.count?' selected':'')+'>'+n+' أسئلة</option>'}).join("")+'</select>'+
+'<div class="rws-controls"><button class="rws-btn" id="rws-build" '+(filtered().length?"":"disabled")+'> '+icon("wand-sparkles")+' إنشاء ورقة المؤشر</button></div><div class="rws-alert" style="margin-top:17px">لإنشاء ورقة علاجية من اختبار تشخيصي خارجي، يلزم أولًا إدخال أسئلته وربطها بالمؤشرات ثم مراجعة المطابقة. استيراد PDF/Excel والنشر للطلاب غير مفعّلين في هذا الإصدار.</div></section>'}
+function blank(){return '<div class="rws-paper"><header class="rws-paper-head"><div><span class="rws-kicker">معاينة ورقة الطالب</span><h2>استعد للتمكّن!</h2><p>تظهر ورقة العمل في هذه المساحة فور اختيار المؤشر.</p></div>'+icon("clipboard-list")+'</header><div class="rws-paper-body"><div class="rws-empty">'+icon("file-plus-2")+'<h3>اختر مؤشرًا لإنشاء ورقة عمل</h3><p>لن نعرض نشاطًا عامًا لا يرتبط بالمهارة التي تريد قياسها.</p></div></div></div>'}
+function paper(){if(!S.draft.length)return blank();var evaluated=S.graded,score=S.draft.reduce(function(a,q,i){return a+(Number(S.answers[i])===Number(q.correct_index)?1:0)},0);return '<div class="rws-paper"><header class="rws-paper-head"><div><span class="rws-kicker">ورقة تفاعلية • '+safe(names[S.subject])+'</span><h2>تدريب على المؤشر</h2><p>'+safe(S.indicator)+'</p></div><div style="font-size:38px;opacity:.9">'+icon("book-open-check")+'</div></header><div class="rws-paper-body"><div class="rws-meta"><span class="rws-chip">'+icon("layers")+' '+S.draft.length+' أسئلة</span><span class="rws-chip">'+icon("shield-check")+' من بنك المؤشرات</span><span class="rws-chip">'+icon("pencil-ruler")+' معاينة محلية</span></div><div class="rws-small" style="margin:12px 0 20px">اسم الطالب: ..........................................　 الفصل: ...........　 التاريخ: ....../....../......</div>'+
+S.draft.map(function(q,i){return '<article class="rws-question"><div class="rws-question-no"><b>'+(i+1)+'</b><span>السؤال '+(i+1)+' من '+S.draft.length+'</span></div>'+(q.context_text?'<p class="rws-alert" style="margin:0 0 12px">'+safe(q.context_text)+'</p>':"")+'<h3>'+safe(q.question_text)+'</h3><div class="rws-choices">'+q.options.map(function(v,j){var chosen=Number(S.answers[i])===j,clazz=chosen?"selected":"";if(evaluated&&j===Number(q.correct_index))clazz+=" correct";if(evaluated&&chosen&&j!==Number(q.correct_index))clazz+=" wrong";return '<button type="button" data-rws-answer="'+i+":"+j+'" class="rws-choice '+clazz+'" '+(evaluated?"disabled":"")+'><span class="letter">'+["أ","ب","ج","د"][j]+'</span><span>'+safe(v)+'</span></button>'}).join("")+'</div>'+(evaluated?'<div class="rws-small" style="margin-top:10px">الإجابة الصحيحة: '+["أ","ب","ج","د"][Number(q.correct_index)]+(q.explanation?" • "+safe(q.explanation):"")+'</div>':"")+'</article>'}).join("")+
+(evaluated?'<div class="rws-result" role="status">'+icon("award")+' نتيجة المعاينة: '+score+' من '+S.draft.length+' <span class="rws-small">هذه نتيجة تدريب محلي فقط ولا تُحفظ في سجل الطالب.</span></div>':"")+
+'<div class="rws-controls"><button type="button" class="rws-btn" id="rws-grade">'+(evaluated?"إعادة التدريب":"تصحيح المعاينة")+'</button><button type="button" class="rws-btn secondary" id="rws-print">'+icon("printer")+' طباعة A4</button><button type="button" class="rws-btn secondary" id="rws-regenerate">تغيير الأسئلة</button></div></div></div>'}
+function students(){return '<section class="rws-panel"><h2>أوراق العمل التفاعلية</h2><p>ستظهر هنا أوراق العمل التي ينشرها معلم المادة بعد الربط بخدمة التكليف والحفظ.</p><div class="rws-alert" style="margin-top:20px">لا توجد في هذا القسم حاليًا أوراق منشورة مرتبطة بحسابك. يمكنك استخدام تدريبات نافس الموجودة في المنصة.</div><button type="button" class="rws-btn" id="rws-go-training" style="margin-top:18px">'+icon("graduation-cap")+' الذهاب إلى التدريبات</button></section>'}
+function render(){var el=root();if(!el)return;el.innerHTML='<div class="rws">'+header()+(S.role==="teacher"?'<div class="rws-grid">'+control()+'<div>'+paper()+'</div></div>':students())+'</div>';bind(el);try{window.lucide&&window.lucide.createIcons()}catch(e){}}
+function build(){var qs=filtered();if(!qs.length)return;S.draft=qs.slice(0,Math.min(S.count,qs.length));S.answers={};S.graded=false;render();var paperEl=root().querySelector(".rws-paper");if(paperEl)paperEl.scrollIntoView({behavior:"smooth",block:"start"})}
+function printSheet(){if(!S.draft.length)return;var w=window.open("","_blank");if(!w){window.alert("اسمح بفتح نافذة الطباعة من المتصفح.");return}var copy=S.draft.map(function(q,i){return '<div class="task"><div class="n">السؤال '+(i+1)+'</div>'+(q.context_text?'<p class="source">'+safe(q.context_text)+'</p>':"")+'<h3>'+safe(q.question_text)+'</h3><div class="choices">'+q.options.map(function(o,j){return '<div class="option"><span>'+["أ","ب","ج","د"][j]+'</span> '+safe(o)+'</div>'}).join("")+'</div></div>'}).join("");var doc='<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>ورقة عمل '+safe(names[S.subject])+'</title><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:Tahoma,Arial,sans-serif;color:#182d27;font-size:11pt;margin:0}.head{border:2px solid #08664d;border-radius:12px;padding:15px;margin-bottom:14px}.head small{color:#08664d;font-weight:800}.head h1{font-size:20pt;margin:6px 0}.indicator{font-size:10pt;line-height:1.6}.student{padding:10px;border:1px solid #c7d6ca;border-radius:8px;margin:14px 0;font-size:10pt}.task{border:1px solid #cfdcd2;border-radius:11px;padding:13px;margin:10px 0;page-break-inside:avoid;break-inside:avoid}.n{font-size:9pt;font-weight:700;color:#08664d}.task h3{font-size:11.5pt;line-height:1.8;margin:8px 0}.source{background:#f4f7f3;padding:9px;font-size:10pt}.choices{display:grid;grid-template-columns:1fr 1fr;gap:7px}.option{border:1px solid #d5ddd5;border-radius:8px;padding:9px;min-height:35px}.option span{font-weight:700;color:#08664d;margin-left:9px}footer{font-size:8pt;color:#617569;margin-top:18px;border-top:1px solid #dce4dc;padding-top:7px}@media screen{body{max-width:210mm;margin:20px auto;padding:12px}}</style></head><body><header class="head"><small>مِنَصَّةُ تَمَكُّن • ورقة تدريبية</small><h1>ورقة عمل — '+safe(names[S.subject])+'</h1><div class="indicator">المؤشر: '+safe(S.indicator)+'</div></header><div class="student">اسم الطالب: .....................................................　 الفصل: ............　 التاريخ: ............</div>'+copy+'<footer>أُعدت هذه الورقة من الأسئلة المتاحة في بنك المؤشرات، ويجب على المعلم مراجعتها قبل توزيعها.</footer></body></html>';w.document.open();w.document.write(doc);w.document.close();w.focus();w.setTimeout(function(){w.print()},350)}
+function bind(el){var sub=el.querySelector("#rws-subject");if(sub)sub.onchange=function(){S.subject=this.value;S.indicator=groups().keys().next().value||"";S.draft=[];S.answers={};S.graded=false;render()};var cnt=el.querySelector("#rws-count");if(cnt)cnt.onchange=function(){S.count=Number(this.value)||5};var ind=Array.from(groups().keys());el.querySelectorAll("[data-rws-indicator]").forEach(function(b){b.onclick=function(){S.indicator=ind[Number(b.dataset.rwsIndicator)];S.draft=[];render()}});var create=el.querySelector("#rws-build");if(create)create.onclick=build;el.querySelectorAll("[data-rws-answer]").forEach(function(b){b.onclick=function(){var p=b.dataset.rwsAnswer.split(":").map(Number);S.answers[p[0]]=p[1];render()}});var grade=el.querySelector("#rws-grade");if(grade)grade.onclick=function(){if(S.graded){S.answers={};S.graded=false}else if(Object.keys(S.answers).length!==S.draft.length){window.alert("أجب عن جميع الأسئلة أولًا.");return}else S.graded=true;render()};var pr=el.querySelector("#rws-print");if(pr)pr.onclick=printSheet;var gen=el.querySelector("#rws-regenerate");if(gen)gen.onclick=function(){var pool=filtered();if(pool.length>S.draft.length){pool=pool.slice(S.draft.length).concat(pool.slice(0,S.draft.length));S.draft=pool.slice(0,S.count);S.answers={};S.graded=false;render()}else build()};var train=el.querySelector("#rws-go-training");if(train)train.onclick=function(){var btn=document.querySelector('[data-nav="training"]');if(btn)btn.click();else window.alert("افتح التدريب على المؤشرات من القائمة")}}
+function mount(opts){opts=opts||{};var actor=String(opts.token||"")+":"+(opts.role||"");if(S.actor!==actor){S.actor=actor;S.draft=[];S.answers={};S.graded=false;S.indicator="";S.subject="reading"}S.role=opts.role||"student";S.profile=opts.profile||{};S.questions=Array.isArray(opts.questions)?opts.questions:[];var available=availableSubjects();if(!available.includes(S.subject))S.subject=available[0];var g=groups();if(!g.has(S.indicator)){S.indicator=g.keys().next().value||"";S.draft=[]}render()}
+window.TamakkunWorksheetStudio={mount:mount};
+})();
+</script>
+  <script src="./lugati-complete.js?v=20261009-hassad-home1"></script>
   <script src="./lugati-teacher-pretest.js?v=20260924-unified-builder-v1"></script>
   <script src="./tamakkun-unified-plan.js?v=20261003-dualsource1"></script>
   </body>
