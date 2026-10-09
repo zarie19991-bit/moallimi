@@ -170,6 +170,7 @@ review-scan.html
 review-scan.css
 review-scan.js
 review-scan-journal.js
+review-omr-safety.js
 
 review-draft-sync.js
 review-analysis.html

@@ -107,7 +107,11 @@
       <div class="scan-preview"><img id="scanImage" alt="صورة ورقة التظليل الممسوحة"></div>
       <div>
         <div id="manualAssignmentWrap" class="manual-assignment hidden"><label>تعذر تأكيد هوية الورقة — اختر الطالب:<select id="manualAssignment"></select></label><button id="applyManualAssignmentBtn" class="secondary" type="button">تأكيد اسم الطالب</button></div>
-        <p id="sheetWarning" role="status"></p><p id="modalFeedback" role="status" aria-live="polite"></p><label class="edit-mode"><input id="editMode" type="checkbox"> تحديد أكثر من إجابة للسؤال (اختياري)</label><div id="answerEditor" class="answer-editor"></div>
+        <p id="sheetWarning" role="status"></p><p id="modalFeedback" role="status" aria-live="polite"></p>
+        <div id="omrUncertaintyReasons" role="status" aria-live="polite"></div>
+        <label for="manualReviewReason">سبب التعديل اليدوي أو تصحيح الهوية (إلزامي)</label>
+        <textarea id="manualReviewReason" minlength="3" maxlength="1000" rows="2" placeholder="اذكر ما تحققت منه في صورة الورقة؛ لا تدخل بيانات شخصية."></textarea>
+        <label class="edit-mode"><input id="editMode" type="checkbox"> تحديد أكثر من إجابة للسؤال (اختياري)</label><div id="answerEditor" class="answer-editor"></div>
       </div>
     </div>
     <details id="editHistoryDetails"><summary>سجل تعديلات الإجابات</summary><button id="loadEditHistoryBtn" class="secondary" type="button">عرض سجل التعديلات</button><div id="sheetEditHistory"></div></details>
@@ -126,7 +130,8 @@
 <script src="review-omr-template.js?v=20261001-v3"></script>
 <script src="teacher-access.js?v=20260920-scope5"></script>
 <script src="review-draft-sync.js?v=20260930-2"></script>
-<script src="review-scan-journal.js?v=20261008-omrv9"></script>
-<script src="review-scan.js?v=20261008-omrv9"></script>
+<script src="review-omr-safety.js?v=20261009-integrated"></script>
+<script src="review-scan-journal.js?v=20261009-integrated"></script>
+<script src="review-scan.js?v=20261009-integrated"></script>
 </body>
 </html>

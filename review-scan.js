@@ -391,7 +391,14 @@ function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,
 function thumb(c){const w=Math.min(420,c.width),h=Math.round(c.height*w/c.width),o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(c,0,0,w,h);const out=o.toDataURL('image/jpeg',.58);o.width=1;o.height=1;return out;}
 function scoreResult(r){
  const key=keyForModel(r.model);let score=0,total=Math.min(Number(draft.question_count||20),key.length||20);
- r.answers.forEach((a,i)=>{const k=key[i];a.correctIndex=k?Number(k.correct_index):null;a.indicator=k?.indicator||'';a.correct=a.status==='clear'&&a.selected!==null&&a.correctIndex!==null&&Number(a.selected)===Number(a.correctIndex);if(a.correct)score++;});
+ r.answers.forEach((a,i)=>{
+   const k=key[i];a.correctIndex=k?Number(k.correct_index):null;a.indicator=k?.indicator||'';
+   const classified=NafesOmrSafety.classify(a,a.correctIndex,{identity_valid:r.qrValid,markers_ok:r.markersOk!==false});
+   a.state=classified.state;a.correct=classified.correct;a.uncertainty=classified.uncertainty;
+   if(a.status==='ambiguous')a.candidates=[...(a.marked||[])];
+   a.selected=classified.selected;
+   if(a.correct)score++;
+ });
  const confs=r.answers.map(a=>Number(a.originalConfidence??a.confidence)).filter(Number.isFinite),clearConfs=r.answers.filter(a=>a.status==='clear'||a.status==='manual').map(a=>Number(a.originalConfidence??a.confidence)).filter(Number.isFinite);
  const avg=confs.length?confs.reduce((s,x)=>s+x,0)/confs.length:0,minClear=clearConfs.length?Math.min(...clearConfs):0;
  const manual=r.answers.filter(a=>a.status==='manual'||a.manualChanged===true).length;
