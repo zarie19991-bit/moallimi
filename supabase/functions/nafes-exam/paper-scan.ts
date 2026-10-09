@@ -191,7 +191,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  if(b.action==='teacher_scan_quality_report'){
    const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
    const items=rows.map((r:Row)=>{const x=r.effective_snapshot||r.snapshot||{},v=x.omr_verification||{};return{
-     id:r.id,ordinal:r.ordinal,student_name:x.student_name||'',model:x.model||'',score:x.score||0,total:x.total||0,
+     id:r.id,ordinal:r.ordinal,student_name:x.student_name||'',model:x.model||'',score:(x.markers_ok===true&&!x.omr_reader_error&&x.grade_status!=='unreadable'&&x.grade_status!=='needs_review'&&Number.isFinite(x.score))?x.score:null,grade_status:(x.markers_ok!==true||x.omr_reader_error)?'unreadable':(x.grade_status||'needs_review'),total:x.total||0,
      risk:v.risk||(!x.markers_ok?'high':'medium'),quality_score:Number(v.quality_score||0),reasons:Array.isArray(v.reasons)?v.reasons:[],
      markers_ok:x.markers_ok===true,marker_confidence:Number(x.marker_confidence||0),counts:x.counts||{},image_quality:x.image_quality||null,
      reviewed_at:r.reviewed_at,disposition:r.disposition
