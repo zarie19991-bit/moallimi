@@ -117,7 +117,9 @@ async function reprocessServerSheet(db:any,session:Row,row:Row){
  try{rr=readOmrJpeg(String(row.image_data||''),Number(p.question_count||0),Number(p.question_start||1));}
  catch(e:any){
    const msg=String(e?.message||e);
-   const failed={...current,omr_policy:OMR_POLICY+'_error',markers_ok:false,marker_confidence:0,omr_reader_error:msg,
+   const diagnostic=e?.diagnostics&&typeof e.diagnostics==='object'?e.diagnostics:null;
+   const code=typeof e?.code==='string'?e.code:'OMR_READ_ERROR';
+   const failed={...current,omr_policy:OMR_POLICY+'_error',markers_ok:false,marker_confidence:0,omr_reader_error:msg,omr_reader_code:code,omr_reader_diagnostics:diagnostic,
      ...gradeScan([],Number(p.question_count),{markers_ok:false,reader_error:msg}),
      omr_verification:{risk:'high',quality_score:0,reasons:[msg],requires_manual_review:true,auto_accept:false,
        counts:{ambiguous:p.question_count,multiple:0,blank:0,low_margin:0,clear:0}}};
@@ -221,12 +223,14 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
 
    // Single source of truth: the server reads OMR from the stored JPEG.
    // Browser-provided bubble results are ignored for scoring.
-   let rr:any=null,readerError='';
+   let rr:any=null,readerError='',readerCode='';let readerDiagnostics:any=null;
    // Pixel reading does not need a student's identity or a grading key.
    try{
      rr=readOmrJpeg(String(raw.image_data),Number(p.question_count||0),Number(p.question_start||1));
    }catch(e:any){
      readerError=String(e?.message||e);
+     readerCode=typeof e?.code==='string'?e.code:'OMR_READ_ERROR';
+     readerDiagnostics=e?.diagnostics&&typeof e.diagnostics==='object'?e.diagnostics:null;
    }
 
    const sourceAnswers=rr?.answers||[];
@@ -253,7 +257,8 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
      omr_reading_verification:compactVerification(rr?.verification),
      ...classificationDiagnostics(answers),
      omr_calibration:compactCalibration(rr?.calibration),
-     omr_reader_error:readerError||null
+     omr_reader_error:readerError||null,omr_reader_code:readerCode||null,
+     omr_reader_diagnostics:readerDiagnostics
    };
    const legacy=identityValid?must(await db.from('nafes_assessment_attempts').select('submitted_at,events').eq('student_id',assignment.student_id).contains('config',{paper_review_id:review.review_id}).not('submitted_at','is',null).order('submitted_at').limit(20)):[];
    const legacyAt=(legacy||[]).find((x:Row)=>x.events?.some((e:Row)=>e.type==='paper_scan'&&e.review_id===review.review_id&&!e.scan_sheet_id))?.submitted_at||null;
