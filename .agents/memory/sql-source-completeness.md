@@ -37,3 +37,11 @@ dependencies or disabling original integrity checks.
 **How to apply:** Audit closure before local SQL execution. Keep prerequisites
 blocked rather than passed or business-logic failures. Distinguish dependencies
 of standalone scan RPC tests from those needed for the broader grade-attempt path.
+
+## خصوصية الحزم المرجعية
+
+يطلب صاحب المشروع عدم رفع حزم تعريفات الإنتاج المفكوكة إلى مستودع عام.
+
+**Why:** الحزمة الأصلية مسلّمة مشفّرة للاختبار المحلي فقط.
+
+**How to apply:** أبقِ المصدر المفكوك خارج شجرة المستودع في مجلد مؤقت خاص؛ احفظ في المشروع أدوات الاختبار والنتائج المنقحة فقط، ولا تضمّن كلمة الفتح أو أجسام المصدر الخاص في حزم المراجعة.

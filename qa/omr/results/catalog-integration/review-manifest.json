@@ -1,0 +1,14 @@
+{
+  "synthetic_only": true,
+  "production_connected": false,
+  "ready_to_publish": false,
+  "plaintext_catalog_included": false,
+  "regressions_passed": 155,
+  "new_original_catalog_tests_passed": 12,
+  "files": {
+    "qa/omr/sql/catalog-integration.py": "a5aac64e97c094d5f7f4383ebe9ba5f7050663a393d8374d09451d707ee0f843",
+    "qa/omr/CATALOG-INTEGRATION-REVIEW.md": "7ba8d60cd3360eb64ef9f7e56023f297345f9e4852072a19c88b7e9a6ba46b5e",
+    "qa/omr/results/catalog-integration/evidence.json": "0edf9281c1b6185feb472a0113f2fb90ca0a7654a0edef8fca1504246f56af87",
+    "qa/omr/results/catalog-integration/report.html": "55570276593431a127b30958ce7b697742e6891f0f3a1ea66d11205638ee9be3"
+  }
+}

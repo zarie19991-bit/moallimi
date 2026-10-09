@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>نتيجة تكامل OMR — معلّمي</title>
+<style>body{font:18px/1.8 system-ui,sans-serif;max-width:950px;margin:40px auto;padding:0 24px;color:#182b3b}h1,h2{line-height:1.4}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccd4db;padding:10px;text-align:right}.blocked{background:#fff2d8;padding:18px;border-right:5px solid #9a6000}code{direction:ltr;unicode-bidi:isolate;font-size:15px}@media print{body{margin:0;font-size:13pt}tr{break-inside:avoid}}</style>
+<h1>معلّمي: مراجعة حزمة تكامل التصحيح الآلي</h1>
+<p>9 أكتوبر 2026 — اختبار محلي ببيانات اصطناعية فقط.</p>
+<p class="blocked"><strong>الحكم: غير جاهز للنشر.</strong> لا نشر إلى Supabase أو GitHub Pages، ولا اتصال بقاعدة الإنتاج أو تعديل درجات الطلاب.</p>
+<h2>المصدر المستخدم</h2>
+<p>الحزمة المشفّرة من الفرع <code>qa/omr-catalog-locked-20261009</code> فُكّت خارج المستودع في مجلد مؤقت خاص. تحتوي تسعة جداول وتسع وظائف، بما فيها الجداول الثلاثة ووظيفتا المزامنة المطلوبتان. لم تُرفق التعريفات المفكوكة أو كلمة الفتح بهذا التقرير.</p>
+<h2>الأدلة الحالية</h2>
+<table><tr><th>الاختبار</th><th>النتيجة</th></tr>
+<tr><td>اختبارات الانحدار الحالية</td><td>155 ناجحًا، صفر فشل، 1166 تحققًا؛ أعيد تشغيلها.</td></tr>
+<tr><td>اختبارات أصلية جديدة</td><td>12 ناجحًا، صفر فشل: نطاق المعلم، رفض غير النشط، FK، حماية الاختبار المنشور، صلاحيات سجل التراجع وRLS.</td></tr>
+<tr><td>إدخال طالب بالمحفز الأصلي</td><td>محجوب فعليًا عند غياب <code>nafes_normalize_arabic(text)</code>.</td></tr>
+<tr><td>إنشاء المحاولات وتجميعها والتراجع عنها</td><td>لم تثبت دورة إيجابية كاملة.</td></tr>
+<tr><td>Supabase/PostgREST</td><td>لم يختبر النقل الفعلي؛ اختُبرت صلاحيات الجداول الأصلية للنطاق المحلي فقط.</td></tr>
+<tr><td>140 ورقة اصطناعية / 8400 اختيار متطابق</td><td>دليل سابق محفوظ؛ لم تُعد التجربة هنا، وليست دليلًا على نشر 140 محاولة.</td></tr></table>
+<p>الإجمالي المنفذ في هذه الجولة: <strong>167 اختبارًا ناجحًا</strong>، مع مسبار إدخال محجوب منفصل. لا تعني اختبارات الرفض نجاح نشر المحاولات أو التراجع.</p>
+<h2>النواقص المحددة</h2>
+<ul><li>تعريفات العلاقات: <code>auth.users</code> و<code>moallimi_classes</code> و<code>nafes_analysis_exclusion_audit</code>.</li>
+<li>تعريفات الوظائف الحالية: <code>nafes_normalize_arabic</code> و<code>lugati_require_source_for_auto_assignment</code> و<code>lugati_exam_adaptive_trigger</code> و<code>lugati_simulation_adaptive_trigger</code> و<code>nafes_standard_question_quality_guard</code>.</li>
+<li>ACL للوظائف التسع غير مرفق، وصلاحيات نواة جداول المسح الأصلية لا تزال غير مكتملة محليًا.</li></ul>
+<p>توجد نسخ تاريخية لبعض الوظائف في GitHub، لكن مطابقتها للإنتاج الحالي غير مثبتة؛ لم تستخدم بديلًا، ولم تُنشأ جداول أو دوال تعويضية، ولم تعطّل محفزات.</p>
+<h2>نسخة المراجعة</h2>
+<p>أضيف اختبار مستقل ودليل منقّح وتقرير تفصيلي. بقيت إصلاحات OMR والحفظ التنفيذية السابقة دون تغيير. حزمة المراجعة لا تحتوي المصدر المفكوك؛ ولا توجد خطوة نشر أو ترحيل إنتاجي مفعّلة.</p>
+</html>

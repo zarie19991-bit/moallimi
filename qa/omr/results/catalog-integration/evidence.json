@@ -1,0 +1,115 @@
+{
+  "catalog_sha256": "5038bc6d2f47bb008d36b086cca372062fb640265a5488b491f6b6eac85407ee",
+  "catalog_tables": [
+    "lugati_adaptive_assignments",
+    "nafes_assessment_attempts",
+    "nafes_assessments",
+    "nafes_exam_attempts",
+    "nafes_question_bank",
+    "nafes_scan_deletions",
+    "nafes_simulation_attempts",
+    "nafes_students",
+    "nafes_teacher_access"
+  ],
+  "catalog_functions": [
+    "lugati_sync_sections_attempt",
+    "lugati_sync_student_worksheets",
+    "lugati_upsert_adaptive_assignment",
+    "nafes_enforce_teacher_subject_scope",
+    "nafes_log_student_analysis_exclusion",
+    "nafes_log_student_demo_exclusion",
+    "nafes_preserve_published_test",
+    "nafes_set_updated_at",
+    "nafes_sync_student_name_normalized"
+  ],
+  "missing_original_relations": [
+    "auth.users",
+    "moallimi_classes",
+    "nafes_analysis_exclusion_audit"
+  ],
+  "missing_original_functions": [
+    "lugati_exam_adaptive_trigger",
+    "lugati_require_source_for_auto_assignment",
+    "lugati_simulation_adaptive_trigger",
+    "nafes_normalize_arabic",
+    "nafes_standard_question_quality_guard"
+  ],
+  "function_acl_not_in_bundle": true,
+  "synthetic_only": true,
+  "production_connected": false,
+  "publication_positive_tested": false,
+  "rollback_positive_tested": false,
+  "supabase_transport_tested": false,
+  "ready_to_publish": false,
+  "cases": [
+    {
+      "name": "scoped_teacher_original_trigger_allows_reading",
+      "passed": true,
+      "expected_error": null
+    },
+    {
+      "name": "scoped_teacher_original_trigger_rejects_math",
+      "passed": true,
+      "expected_error": "teacher_subject_scope_violation"
+    },
+    {
+      "name": "inactive_teacher_original_trigger_rejects",
+      "passed": true,
+      "expected_error": "teacher_scope_missing"
+    },
+    {
+      "name": "original_assessment_owner_fk_enforced",
+      "passed": true,
+      "expected_error": "foreign key constraint"
+    },
+    {
+      "name": "published_assessment_content_immutable",
+      "passed": true,
+      "expected_error": "Published tests are immutable"
+    },
+    {
+      "name": "published_assessment_can_be_archived",
+      "passed": true,
+      "expected_error": null
+    },
+    {
+      "name": "service_role_can_insert_original_deletion_audit",
+      "passed": true,
+      "expected_error": null
+    },
+    {
+      "name": "service_role_cannot_update_original_deletion_audit",
+      "passed": true,
+      "expected_error": "permission denied"
+    },
+    {
+      "name": "service_role_cannot_delete_original_deletion_audit",
+      "passed": true,
+      "expected_error": "permission denied"
+    },
+    {
+      "name": "anon_original_table_access_denied",
+      "passed": true,
+      "expected_error": "permission denied"
+    },
+    {
+      "name": "authenticated_original_table_access_denied",
+      "passed": true,
+      "expected_error": "permission denied"
+    },
+    {
+      "name": "native_original_rls_enabled",
+      "passed": true,
+      "expected_error": null
+    }
+  ],
+  "original_student_insert_probe": {
+    "completed": false,
+    "sqlstate_class": "undefined_function",
+    "missing_callee_confirmed": true
+  },
+  "native_version": "postgres (PostgreSQL) 17.6",
+  "listen_addresses": "",
+  "passed": 12,
+  "failed": 0
+}
