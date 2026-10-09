@@ -319,7 +319,7 @@ async function syncStudents(ids?:string[],scope:SubjectScope="all"){
   for(const u of updates){const {error}=await db.from("lugati_adaptive_assignments").update(u.payload).eq("id",u.id);if(error)throw error}
   return{students:students.length,performance_rows:perfs.length,created:inserts.length,updated:updates.length,subject_scope:scope};
 }
-async function myPlan(req:Request,access:Access){await syncStudents([access.student_id!]);const {data,error}=await db.from("lugati_adaptive_assignments").select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,status,priority,training_attempts,last_training_percent,assigned_at,completed_at,updated_at").eq("student_id",access.student_id!).order("priority",{ascending:true}).order("updated_at",{ascending:false});if(error)throw error;return json(req,{ok:true,assignments:data||[]})}
+async function myPlan(req:Request,access:Access){await syncStudents([access.student_id!]);const {data,error}=await db.from("lugati_adaptive_assignments").select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,status,priority,training_attempts,last_training_percent,assigned_at,completed_at,updated_at").eq("student_id",access.student_id!).order("priority",{ascending:true}).order("updated_at",{ascending:false});if(error)throw error;const perfs=await latestPerformances([access.student_id!]);return json(req,{ok:true,assignments:(data||[]).filter((a:any)=>taskHasVerifiedMoallimiAttempt(a,perfs))})}
 async function teacherOverview(req:Request,access:Access){
   const sync=await syncStudents(undefined,teacherScope(access));
   const [sr,ar]=await Promise.all([
@@ -363,6 +363,7 @@ async function submitTraining(req:Request,body:any,access:Access){
   if(error)throw error;
   if(!a)return json(req,{error:"التدريب غير موجود."},404);
   if(String(a.student_id)!==access.student_id)return json(req,{error:"غير مصرح بهذا التدريب."},403);
+   if(!taskHasVerifiedMoallimiAttempt(a,await latestPerformances([access.student_id!])))return json(req,{error:"لا توجد نتيجة مسلّمة في معلّمي تسمح بهذا التدريب."},403);
 
   const response=body?.response&&typeof body.response==="object"&&!Array.isArray(body.response)?body.response:null;
   const answers=response?.answers&&typeof response.answers==="object"&&!Array.isArray(response.answers)?response.answers:null;
@@ -393,7 +394,10 @@ async function submitTraining(req:Request,body:any,access:Access){
   if(ue)throw ue;
   return json(req,{ok:true,score,total,percent,mastered,assignment:updated});
 }
-async function startTraining(req:Request,body:any,access:Access){const id=tidy(body?.assignment_id);if(!id)return json(req,{error:"التدريب غير محدد."},400);const {data,error}=await db.from("lugati_adaptive_assignments").update({status:"in_progress",updated_at:new Date().toISOString()}).eq("id",id).eq("student_id",access.student_id!).select("id,status").maybeSingle();if(error)throw error;if(!data)return json(req,{error:"التدريب غير متاح."},404);return json(req,{ok:true,assignment:data})}
+async function startTraining(req:Request,body:any,access:Access){const id=tidy(body?.assignment_id);if(!id)return json(req,{error:"التدريب غير محدد."},400);
+  const {data:a,error:ae}=await db.from("lugati_adaptive_assignments").select("id,student_id,subject_key,outcome_code,indicator_index").eq("id",id).eq("student_id",access.student_id!).maybeSingle();if(ae)throw ae;if(!a)return json(req,{error:"التدريب غير متاح."},404);
+  if(!taskHasVerifiedMoallimiAttempt(a,await latestPerformances([access.student_id!])))return json(req,{error:"هذا المسار يتطلب نتيجة اختبار مسلّمة في معلّمي."},403);
+  const {data,error}=await db.from("lugati_adaptive_assignments").update({status:"in_progress",updated_at:new Date().toISOString()}).eq("id",id).eq("student_id",access.student_id!).select("id,status").maybeSingle();if(error)throw error;if(!data)return json(req,{error:"التدريب غير متاح."},404);return json(req,{ok:true,assignment:data})}
 
 
 async function teacherResponseTracking(req:Request,access:Access){
