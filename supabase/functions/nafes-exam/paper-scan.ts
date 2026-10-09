@@ -296,7 +296,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const answers=Array.from({length:p.question_count},(_,i)=>{
      const raw=rawAnswers[i]||{};
      // Assigning identity cannot resolve a bubble ambiguity, even on a reviewed row.
-     const classified=classifyAnswer(raw,key[i]||{},i,{identity_valid:true,key_complete:true,
+     const classified:Row=classifyAnswer(raw,key[i]||{},i,{identity_valid:true,key_complete:true,
        markers_ok:current.markers_ok===true,reader_error:!!current.omr_reader_error});
      // Changing the identity/key is not an explicit answer review.
      // Keep previously uncertain answers pending even if the new key matches.
