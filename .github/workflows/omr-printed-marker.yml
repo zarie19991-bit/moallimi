@@ -26,6 +26,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Type-check server scan and grading safety integration
+        run: deno check supabase/functions/nafes-exam/paper-scan.ts
       - name: Check the failed full-A4 geometry with legacy row spacing
         run: deno run --allow-read qa/omr/legacy-a4.synthetic.test.ts
       - name: Test all six printed image marker geometries without production writes
