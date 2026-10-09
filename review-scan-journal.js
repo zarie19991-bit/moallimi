@@ -33,7 +33,7 @@ function renderQualityReport(){
  rows.sort((x,y)=>(({high:0,medium:1,low:2}[x.risk]-{high:0,medium:1,low:2}[y.risk])||x.i-y.i));
  $('qualityBody').innerHTML=rows.map(({s,i,a,risk,v})=>{
    const reasons=(Array.isArray(v.reasons)&&v.reasons.length?v.reasons:(a.markers_ok?['لم تُسجل بعد بيانات تحقق كاملة لهذه القراءة']:['فشل تثبيت علامات المحاذاة'])).join('؛ ');
-   return '<tr data-risk="'+risk+'"><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+verifiedQuality(a)</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
+   return '<tr data-risk="'+risk+'"><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+verifiedQuality(a)+'</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
  }).join('');
 }
 function exportQualityReport(){
