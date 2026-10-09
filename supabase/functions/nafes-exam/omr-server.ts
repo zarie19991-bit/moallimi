@@ -112,22 +112,27 @@ function componentSquares(im:GrayImage,threshold:number){
     const size=(w+h)/2;
     out.push({x:(minX+maxX)/2,y:(minY+maxY)/2,size,core:density,score:density+.35,component:true});
   }
-  return out.sort((a,b)=>b.score-a.score).slice(0,48);
+  return out; // Preserve alignment markers lower on A4; global top-48 truncation discards them.
 }
 function detectMarkers(im:GrayImage){
  const threshold=otsuThreshold(im),I=binaryIntegral(im,threshold);
   const components=componentSquares(im,threshold);
   const candidates=(zone:number[],ex:number,ey:number)=>{
-    const c=components.filter(p=>p.x>=im.width*zone[0]&&p.x<=im.width*zone[1]&&p.y>=im.height*zone[2]&&p.y<=im.height*zone[3]);
+    const c=components.filter(p=>p.x>=im.width*zone[0]&&p.x<=im.width*zone[1]&&p.y>=im.height*zone[2]&&p.y<=im.height*zone[3])
+      .sort((a,b)=>(b.score-.45*(Math.abs(b.x/im.width-ex)+Math.abs(b.y/im.height-ey)))-
+                    (a.score-.45*(Math.abs(a.x/im.width-ex)+Math.abs(a.y/im.height-ey))));
     // Use the original detector as fallback for skewed/fragmented printed squares.
-    if(c.length>=2)return c.slice(0,24);
+    if(c.length>=2)return c.slice(0,16);
     const original=squareCandidates(I,zone,ex,ey,12);
-    return [...c,...original.filter(p=>!c.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<q.size))].slice(0,24);
+    return [...c,...original.filter(p=>!c.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<q.size))].slice(0,16);
   };
-  const TL=candidates([0,.45,0,.85],.10,.59),
-        TR=candidates([.55,1,0,.85],.88,.59),
-        BL=candidates([0,.45,.15,1],.10,.92),
-        BR=candidates([.55,1,.15,1],.88,.92);
+  // Printed A4 has its answer-template markers in the lower half.
+  // A pre-cropped answer panel has four corners near the edges.
+  const fullA4=im.height>im.width*1.08;
+  const TL=candidates(fullA4?[0,.25,.34,.72]:[0,.45,0,.85],fullA4?.06:.10,fullA4?.53:.59),
+        TR=candidates(fullA4?[.75,1,.34,.72]:[.55,1,0,.85],fullA4?.94:.88,fullA4?.53:.59),
+        BL=candidates(fullA4?[0,.25,.73,1]:[0,.45,.15,1],fullA4?.06:.10,fullA4?.97:.92),
+        BR=candidates(fullA4?[.75,1,.73,1]:[.55,1,.15,1],fullA4?.94:.88,fullA4?.97:.92);
  const target=172/104;let best:any=null;
  for(const tl of TL)for(const tr of TR){
     const topDx=tr.x-tl.x;if(topDx<im.width*.35||Math.abs(tr.y-tl.y)>im.height*.12)continue;
