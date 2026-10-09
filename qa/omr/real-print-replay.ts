@@ -35,7 +35,7 @@ for(let i=1;i<=6;i++){
     else if(examples.length<12)examples.push({page:i,question:j+1,issue:'wrong_choice'});
   }
   console.log(JSON.stringify({case:i,markers_verified:true,rotation:result.rotation,
-    grid_score:result.grid_alignment?.score,matched:localMatch,total:60,unreadable:localUnreadable}));
+    grid_score:result.grid_alignment?.score,row_start_mm:result.grid_alignment?.row_start_mm,row_step_mm:result.grid_alignment?.row_step_mm,layout:result.grid_alignment?.layout,matched:localMatch,total:60,unreadable:localUnreadable}));
  }catch(error:any){
   rejected++;count+=60;unreadable+=60;
   console.log(JSON.stringify({case:i,result:'rejected',code:error?.code||'OMR_UNKNOWN',
