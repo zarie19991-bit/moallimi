@@ -1,0 +1,35 @@
+name: OMR privacy-safe AI vision preview
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/nafes-exam/omr-vision-assist.ts'
+      - 'supabase/functions/nafes-exam/paper-scan.ts'
+      - 'qa/omr/vision-assist.test.ts'
+      - 'review-scan.html'
+      - 'review-scan-journal.js'
+      - '.github/workflows/omr-vision-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check server integration
+        run: deno check supabase/functions/nafes-exam/paper-scan.ts
+      - name: Type-check and test image privacy and AI proposals
+        run: |
+          deno check qa/omr/vision-assist.test.ts
+          deno run --allow-read qa/omr/vision-assist.test.ts
+      - name: JavaScript syntax for reviewer
+        run: node --check review-scan-journal.js
+      - name: No leaked provider keys or auto-grade on vision request
+        run: |
+          ! grep -E 'OPENAI_API_KEY.*=' review-scan-journal.js
+          grep -F 'save_performed:false' supabase/functions/nafes-exam/paper-scan.ts
