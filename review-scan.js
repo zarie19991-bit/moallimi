@@ -3,7 +3,24 @@
 const $=id=>document.getElementById(id);
 const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const letters=['أ','ب','ج','د'];
-let draft=null,files=[],results=[],processing=false;
+let draft=null,files=[],results=[],processing=false,journalReady=false,initTicket=0;
+function requirementsMessage(){
+ if(!window.NafesTeacher?.getKey?.()||window.NafesTeacher?.isQa?.())return 'سجّل دخول المعلم الحقيقي لعرض جلسات التصحيح وبدء قراءة أوراق الطلاب؛ الدخول التجريبي لا يتيح هذه البيانات.';
+ if(!draft)return 'لا يوجد اختبار ورقي مرتبط بحسابك. افتح «المراجعة والتصحيح الآلي» وأنشئ أو اختر الاختبار قبل رفع الأوراق.';
+ if(!journalReady)return 'جلسات المراجعة لم تُحمّل بعد. تحقق من الاتصال ثم اضغط «إعادة تحميل الجلسات».';
+ if(!files.length)return 'اختر ملفات PDF أو الصور أولًا، ثم اضغط «بدء القراءة والتصحيح».';
+ return '';
+}
+function updateScanGate(extra=''){
+ const missing=requirementsMessage(),notice=$('scanPrerequisite'),label=$('scanPrerequisiteText');
+ if(notice&&label){notice.classList.toggle('hidden',!missing&&!extra);label.textContent=extra||missing;}
+ if($('scanSignInBtn'))$('scanSignInBtn').hidden=!!window.NafesTeacher?.getKey?.()&&!window.NafesTeacher?.isQa?.();
+ if($('scanCreateReview'))$('scanCreateReview').hidden=!!draft||!window.NafesTeacher?.getKey?.();
+ if($('scanReloadBtn'))$('scanReloadBtn').hidden=!window.NafesTeacher?.getKey?.()||!draft;
+ $('processBtn').disabled=!!missing||processing||!!window.NafesScanJournal?.isBusy?.();
+ $('processBtn').title=missing||'بدء قراءة الأوراق والتحقق منها';
+}
+
 
 function keyForModel(model){return draft?.answer_keys?.find(x=>x.model===model)?.answers||[];}
 function assignmentBySheet(no){return draft?.assignments?.find(x=>Number(x.sheet_no)===Number(no))||null;}
@@ -481,7 +498,13 @@ function regionsForPage(c,forceSingle=false){
  return[page];
 }
 async function processFile(){
- if(!files.length||!draft||processing||window.NafesScanJournal.isBusy())return;
+ if(processing||window.NafesScanJournal?.isBusy?.())return;
+ const missing=requirementsMessage();
+ if(missing){
+   updateScanGate();
+   if(!window.NafesTeacher?.getKey?.())window.NafesTeacher?.requireKey?.('أدخل رقم دخول المعلم قبل قراءة أوراق التظليل.');
+   return;
+ }
  const inputFiles=[...files];processing=true;results=[];$('resultsSection').classList.add('hidden');$('approvedSection').classList.add('hidden');$('summarySection').classList.add('hidden');$('processBtn').disabled=true;$('clearBtn').disabled=true;$('fileInput').disabled=true;
  let sourcePageCount=0,queuedCount=0,savedCount=0,streamStarted=false,inflight=[];
  const cleanupResult=r=>{delete r.fullImage;delete r.thumbnail;delete r.answers;delete r.evidence;};
@@ -524,21 +547,59 @@ async function processFile(){
    try{if(inflight.length)await Promise.allSettled(inflight);}catch(_){}
    setProgress(0,'توقف التحليل بعد حفظ '+ar(savedCount)+' من '+ar(queuedCount)+' ورقة: '+e.message+(streamStarted?' — المحفوظ لا يضيع.':''));
  }finally{
-   results=[];inflight=[];processing=false;$('processBtn').disabled=!files.length;$('clearBtn').disabled=false;$('fileInput').disabled=false;
+   results=[];inflight=[];processing=false;$('clearBtn').disabled=false;$('fileInput').disabled=false;updateScanGate();
  }
 }
 async function init(){
- draft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(null));if(!draft){$('noDraft').classList.remove('hidden');$('processBtn').disabled=true;return;}const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'},subs=(Array.isArray(draft.subjects)&&draft.subjects.length?draft.subjects:[draft.subject]).filter(Boolean);$('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+subs.map(x=>subjectNames[x]||x).join(' + ')+' · '+(draft.assignments?.length||0)+' طالب';
- if(!NafesTeacher?.getKey())NafesTeacher.requireKey('أدخل مفتاح المعلم لرفع أوراق الطلاب وتصحيحها.');
- try{await window.NafesScanJournal.init(draft);}catch(e){setProgress(0,'تعذر تحميل جلسات المراجعة: '+e.message);}
+ const ticket=++initTicket;draft=null;journalReady=false;
+ $('noDraft').classList.add('hidden');$('reviewMeta').textContent='';
+ if(!window.NafesTeacher?.getKey?.()||window.NafesTeacher?.isQa?.()){
+   updateScanGate();
+   if(!window.NafesTeacher?.getKey?.())window.NafesTeacher?.requireKey?.('أدخل رقم دخول المعلم لعرض جلسات المراجعة المحفوظة.');
+   return;
+ }
+ updateScanGate('جارٍ التحقق من حساب المعلم وتحميل الاختبار الورقي…');
+ try{
+   await window.NafesTeacher.ensureProfile();
+   if(ticket!==initTicket)return;
+   const saved=await window.NafesPaperReviewDraft?.load?.();
+   if(ticket!==initTicket)return;
+   if(!saved?.review_id){
+     $('noDraft').classList.remove('hidden');
+     updateScanGate();
+     $('journalStatus').textContent='لا يوجد اختبار ورقي محفوظ لهذا الحساب. انتقل إلى «المراجعة والتصحيح الآلي» لإنشاء الاختبار أولًا.';
+     return;
+   }
+   draft=saved;
+   const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'},subs=(Array.isArray(draft.subjects)&&draft.subjects.length?draft.subjects:[draft.subject]).filter(Boolean);
+   $('reviewMeta').textContent=(draft.title||'مراجعة')+' · '+subs.map(x=>subjectNames[x]||x).join(' + ')+' · '+(draft.assignments?.length||0)+' طالب';
+   await window.NafesScanJournal.init(draft);
+   if(ticket!==initTicket)return;
+   journalReady=true;$('journalStatus').classList.remove('error');updateScanGate();
+ }catch(e){
+   if(ticket!==initTicket)return;
+   journalReady=false;
+   if(e?.status===401||e?.status===403){
+     window.NafesTeacher?.clearKey?.();
+     window.NafesTeacher?.requireKey?.('انتهت صلاحية دخول المعلم. أعد تسجيل الدخول.');
+     return;
+   }
+   const msg='تعذر تحميل جلسات المراجعة: '+(e?.message||'خطأ غير معروف.');
+   $('journalStatus').textContent=msg;$('journalStatus').classList.add('error');
+   updateScanGate(msg+' تحقق من الاتصال ثم اضغط «إعادة تحميل الجلسات».');
+ }
 }
 function setFiles(list){
- files=Array.from(list||[]).filter(f=>/\.(pdf|jpe?g|png|tiff?)$/i.test(f.name)||['application/pdf','image/jpeg','image/png','image/tiff'].includes(f.type));
- $('processBtn').disabled=!files.length;
+ const original=Array.from(list||[]);
+ files=original.filter(f=>/\.(pdf|jpe?g|png|tiff?)$/i.test(f.name)||['application/pdf','image/jpeg','image/png','image/tiff'].includes(f.type));
  $('dropzone').querySelector('b').textContent=files.length?(files.length===1?files[0].name:ar(files.length)+' ملفات في الدفعة'):'اختر PDF أو صورًا متعددة أو اسحبها هنا';
+ updateScanGate(original.length&&!files.length?'نوع الملف غير مدعوم. اختر PDF أو JPEG أو PNG أو TIFF.':'');
 }
 $('fileInput').addEventListener('change',e=>setFiles(e.target.files));
-$('processBtn').onclick=processFile;$('clearBtn').onclick=()=>{files=[];$('fileInput').value='';$('processBtn').disabled=true;$('dropzone').querySelector('b').textContent='اختر PDF أو صورًا متعددة أو اسحبها هنا';$('progressWrap').classList.add('hidden');};
+$('processBtn').onclick=processFile;
+$('clearBtn').onclick=()=>{files=[];$('fileInput').value='';$('dropzone').querySelector('b').textContent='اختر PDF أو صورًا متعددة أو اسحبها هنا';$('progressWrap').classList.add('hidden');updateScanGate();};
+$('scanSignInBtn').onclick=()=>{if(window.NafesTeacher?.isQa?.())window.NafesTeacher.setQa(false);window.NafesTeacher?.requireKey?.('أدخل رقم دخول المعلم للمتابعة.');};
+$('scanReloadBtn').onclick=()=>init();
 ['dragenter','dragover'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{e.preventDefault();$('dropzone').classList.add('drag');}));['dragleave','drop'].forEach(ev=>$('dropzone').addEventListener(ev,e=>{$('dropzone').classList.remove('drag');if(ev==='drop'){e.preventDefault();if(processing||window.NafesScanJournal.isBusy())return;setFiles(e.dataTransfer.files);}}));
 async function canvasFromDataUrl(src){
  const img=new Image();img.decoding='async';
@@ -577,6 +638,6 @@ function benchmarkOmr(samples){
  return{questions,accuracy:questions?exact/questions:0,precision,recall,f1,target_met:questions>=100&&exact/questions>=.995};
 }
 window.NafesScanReader={decodeStoredIdentity,readStoredOmr,benchmarkOmr};
-addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();});
+addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)init();else{++initTicket;draft=null;journalReady=false;updateScanGate();}});
 init();
 })();
