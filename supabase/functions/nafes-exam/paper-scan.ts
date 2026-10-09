@@ -187,7 +187,8 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  if(b.action==='teacher_scan_list'){
     const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
    const safe=rows.map((x:Row)=>{const {image_data,...rest}=x;return rest;});
-    return {ok:true,session:publicSession(session),sheets:safe,auto_reprocessed:0,omr_policy:OMR_POLICY};
+    return {ok:true,session:publicSession(session),sheets:safe,auto_reprocessed:0,omr_policy:OMR_POLICY,
+       vision_available:Deno.env.get('OMR_VISION_ASSIST_ENABLED')==='true'&&!!Deno.env.get('OPENAI_API_KEY')};
  }
  if(b.action==='teacher_scan_quality_report'){
    const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
