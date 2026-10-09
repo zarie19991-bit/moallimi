@@ -1,0 +1,129 @@
+{
+  "synthetic_only": true,
+  "production_connected": false,
+  "ready_to_publish": false,
+  "original_dependency_functions_loaded": [
+    "lugati_exam_adaptive_trigger",
+    "lugati_require_source_for_auto_assignment",
+    "lugati_simulation_adaptive_trigger",
+    "nafes_normalize_arabic",
+    "nafes_standard_question_quality_guard"
+  ],
+  "next_missing_function_definitions": [
+    "auth.uid",
+    "private.moallimi_touch_updated_at",
+    "public.lugati_norm_training_text",
+    "public.lugati_sync_exam_attempt",
+    "public.nafes_content_fingerprint",
+    "public.nafes_question_quality_checks",
+    "public.nafes_question_quality_hard_pass",
+    "public.nafes_reviewed_content_key"
+  ],
+  "source_metadata_limitations": [
+    "auth.users confirmed_at has a column-referencing expression labelled default, without generated metadata",
+    "nafes_analysis_exclusion_audit.id lacks default and identity metadata; audit insertion must be checked",
+    "schema/sequence ACL and original scan RPC ACL are absent",
+    "omr_table_acl contains scan_deletions but not paper_reviews"
+  ],
+  "publication_positive_tested": false,
+  "rollback_of_published_attempt_positive_tested": false,
+  "postgrest_transport_tested": false,
+  "cases": [
+    {
+      "name": "original_student_insert_with_normalization_and_all_student_triggers",
+      "passed": true
+    },
+    {
+      "name": "normalization_original_function_executed",
+      "passed": true
+    },
+    {
+      "name": "synthetic_student_is_regular_roster_for_attempt_test",
+      "passed": true
+    },
+    {
+      "name": "ambiguous_sheet_not_verified_without_resolution",
+      "passed": true
+    },
+    {
+      "name": "manual_resolution_version_incremented",
+      "passed": true
+    },
+    {
+      "name": "manual_reason_persisted_in_original_audit_table",
+      "passed": true
+    },
+    {
+      "name": "resolved_sheet_batch_accepted",
+      "passed": true
+    },
+    {
+      "name": "failed_publication_does_not_leave_partial_attempts",
+      "passed": true
+    },
+    {
+      "name": "failed_publication_rolls_back_new_assessment",
+      "passed": true
+    },
+    {
+      "name": "publication_failure_preserves_manual_audit",
+      "passed": true
+    },
+    {
+      "name": "scoped_teacher_denied_administrative_rollback",
+      "passed": true
+    },
+    {
+      "name": "unauthorized_rollback_leaves_no_audit_or_deletion",
+      "passed": true
+    },
+    {
+      "name": "unpublished_sheet_rollback_audit_preserved",
+      "passed": true
+    },
+    {
+      "name": "unpublished_sheet_rollback_removed_target_sheet",
+      "passed": true
+    },
+    {
+      "name": "unpublished_sheet_rollback_request_replay_detected",
+      "passed": true
+    },
+    {
+      "name": "unpublished_sheet_rollback_replay_does_not_duplicate_audit",
+      "passed": true
+    }
+  ],
+  "probes": {
+    "import_public.nafes_question_bank": {
+      "completed": false,
+      "error_first_line": "ERROR:  function nafes_reviewed_content_key(text, text, jsonb, text) does not exist"
+    },
+    "publish_original_triggers": {
+      "completed": false,
+      "missing_runtime_dependency": "public.nafes_exam_attempts",
+      "error_first_line": "ERROR:  relation \"public.nafes_exam_attempts\" does not exist"
+    },
+    "import_auth.users": {
+      "completed": false,
+      "error_first_line": "ERROR:  cannot use column reference in DEFAULT expression"
+    },
+    "import_public.moallimi_classes": {
+      "completed": false,
+      "error_first_line": "ERROR:  function auth.uid() does not exist"
+    },
+    "student_exclusion_audit": {
+      "completed": false,
+      "error_first_line": "ERROR:  null value in column \"id\" of relation \"nafes_analysis_exclusion_audit\" violates not-null constraint"
+    },
+    "rollback_unpublished_sheet": {
+      "completed": true,
+      "error_first_line": null
+    }
+  },
+  "scan_rpc_role": "service_role",
+  "paper_review_acl_original_not_supplied": true,
+  "native_version": "postgres (PostgreSQL) 17.6",
+  "passed": 16,
+  "failed_assertions": 0
+}

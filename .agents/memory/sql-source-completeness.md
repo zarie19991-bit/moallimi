@@ -44,6 +44,14 @@ dependencies or disabling original integrity checks.
 blocked rather than passed or business-logic failures. Distinguish dependencies
 of standalone scan RPC tests from those needed for the broader grade-attempt path.
 
+## وصف الأعمدة المولّدة والهوية
+
+لا تستنتج نوع العمود من حقل default وحده في حزمة metadata مبسّطة؛ يلزم وصف generated/identity والتسلسل الأصلي.
+
+**Why:** بعض المصادر المرفقة فقدت وصف توليد الأعمدة، فأصبح تعبير يعتمد على أعمدة أخرى ممثلًا كـDEFAULT غير صالح، وأصبح رقم تدقيق إلزامي بلا مصدر توليد. هذه أخطاء تمثيل المصدر المحلي وليست دليلًا على فساد مخطط الإنتاج.
+
+**How to apply:** عند هذه الأخطاء، ارجع إلى خصائص الكتالوج الأصلية؛ لا تحوّل التعبير إلى generated أو تضف identity/sequence بالتخمين لمجرد تمرير الاختبار.
+
 ## خصوصية الحزم المرجعية
 
 يطلب صاحب المشروع عدم رفع حزم تعريفات الإنتاج المفكوكة إلى مستودع عام.

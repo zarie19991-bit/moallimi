@@ -1,0 +1,28 @@
+<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>بوابة قبول تكامل معلّمي OMR</title>
+<style>body{font:18px/1.8 system-ui,sans-serif;max-width:950px;margin:36px auto;padding:0 24px;color:#18313b}table{border-collapse:collapse;width:100%}th,td{padding:10px;border:1px solid #cbd5dc;text-align:right}code{direction:ltr;unicode-bidi:isolate;font-size:15px}.warning{background:#fff3dc;border-right:5px solid #946000;padding:18px}@media print{body{font-size:12pt;margin:0}tr{break-inside:avoid}}</style>
+<h1>معلّمي: نتيجة قبول التكامل بعد الحزمة الثانية</h1>
+<p class="warning"><strong>غير جاهز للنشر.</strong> استُخدمت الحزمتان الأصليتان محليًا؛ لا اتصال بالإنتاج، ولا تعديل درجات أو نشر.</p>
+<h2>النتائج المثبتة</h2>
+<p><strong>16 تحققًا ناجحًا</strong> في PostgreSQL 17.6 ببيانات اصطناعية. اختبارات ذرية الفشل ليست نجاحًا لنشر المحاولات.</p>
+<table><tr><th>المسار</th><th>النتيجة</th></tr>
+<tr><td>إدخال الطالب ودالة التطبيع الأصلية</td><td>نجح؛ أُغلق عائق التطبيع السابق.</td></tr>
+<tr><td>إجابة ملتبسة ومراجعتها</td><td>رُفض الاعتماد قبل الحسم، ثم حُفظ السبب والإصدار وأُغلقت الدفعة.</td></tr>
+<tr><td>نشر محاولة الطالب</td><td>محجوب داخل المزامنة الأصلية؛ صفر محاولات منشورة.</td></tr>
+<tr><td>ذرية فشل النشر</td><td>لا اختبار أو محاولة جزئية؛ المراجعة اليدوية محفوظة.</td></tr>
+<tr><td>التراجع عن ورقة غير منشورة</td><td>نجح للمعلم العام، وسُجل التدقيق؛ إعادة الطلب لا تكرر السجل.</td></tr>
+<tr><td>منع غير المخوّل</td><td>المعلم محدود المادة لا يستطيع التراجع الإداري.</td></tr>
+<tr><td>التراجع عن محاولة منشورة ودرجتها</td><td>غير مثبت بعد.</td></tr>
+<tr><td>API/PostgREST الفعلي</td><td>غير مختبر؛ الاختبار المحلي لا يقوم مقامه.</td></tr></table>
+<h2>العائق: اكتمال المصدر الأصلي</h2>
+<p>الحزمة أغلقت الوظائف الخمس السابقة لكنها لا تضم جميع التبعيات التالية:</p>
+<ul><li><code>auth.uid</code> و<code>private.moallimi_touch_updated_at</code>.</li>
+<li><code>public.lugati_sync_exam_attempt</code> و<code>public.lugati_norm_training_text</code>.</li>
+<li><code>public.nafes_content_fingerprint</code> و<code>public.nafes_question_quality_checks</code> و<code>public.nafes_question_quality_hard_pass</code> و<code>public.nafes_reviewed_content_key</code>.</li></ul>
+<p>ثبت أيضًا أن تمثيل <code>auth.users.confirmed_at</code> كـDEFAULT غير قابل للاستيراد، وأن معلومات توليد <code>nafes_analysis_exclusion_audit.id</code> ناقصة. وتركيب بنك الأسئلة رفض لغياب دالة CHECK الأصلية. لم تُضف بدائل أو تُعطّل قيود.</p>
+<p>ACL الأصلي لـ<code>nafes_paper_reviews</code> وscan RPC والمخططات والتسلسلات غير مكتمل. لا تُنسب صلاحيات التطوير السابقة إلى الإنتاج.</p>
+<h2>الاستكمال الآمن</h2>
+<p>الاستعلام المعدّل الموجود في المشروع يجمع هذه الأنواع من التبعيات وخصائص identity/generated والصلاحيات. نحتاج ناتجه الكامل لإغلاق المصدر، لا إعادة طلب الحزمتين المستلمتين أو مفتاحهما.</p>
+<p>لم تتغير شيفرة القارئ أو الحفظ، ولم تُعد اختبارات الصور الـ140 أو الانحدار الـ155. نجاحها السابق محفوظ، ولا يثبت نشر محاولات الطلاب.</p>
+</html>

@@ -1,0 +1,11 @@
+{
+  "ready_to_publish": false,
+  "production_connected": false,
+  "private_catalog_included": false,
+  "files": {
+    "qa/omr/sql/dependencies-integration.py": "7ca1fd93ca0efcf86a041afb2edfd8429a80383853bd4db3c080cb5d3632f790",
+    "qa/omr/results/dependencies-integration/evidence.json": "e65134958b4a310fac50c7d7a032121050a32acfc37baa20ed5cb768d63473b4",
+    "qa/omr/DEPENDENCIES-ACCEPTANCE-REVIEW.md": "95d213c51b36cd62637e2acf04cafbf8faab2323a880296c91d49fb8e21b2196",
+    "qa/omr/results/dependencies-integration/report.html": "aaa32499c323efbb65cab14dbafff0cca34b24a86628c4bcba5656acbb562ef5"
+  }
+}
