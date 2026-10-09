@@ -111,3 +111,17 @@
 #lugatiCompetitionMount .comp-powerup{border-radius:17px!important}
 #lugatiCompetitionMount .comp-cta{font-weight:950!important;border-radius:16px!important}
 @media(max-width:640px){#lugatiCompetitionMount [data-comp-arena]{min-height:90px!important}#lugatiCompetitionMount .comp-hero{border-radius:25px!important}}
+
+/* Worksheet source-gallery cards: clear workflow and honest availability states */
+.rws-template-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:22px 0 19px}
+.rws-template{padding:15px 10px;border:1px solid #dceadf;background:linear-gradient(152deg,#f9fefb,#fff);border-radius:17px;text-align:center;display:flex;align-items:center;gap:6px;flex-direction:column;min-height:170px;justify-content:flex-start}
+.rws-template.active{background:linear-gradient(125deg,#eaf9ed,#f9fff7);border:2px solid #43b68b;box-shadow:0 9px 22px #0a6a4b0e}
+.rws-template.disabled{opacity:.75}
+.rws-template-icon{width:45px;height:45px;border-radius:14px;display:grid;place-items:center;background:#e7f7e9;color:#0b8060}
+.rws-template-icon svg{width:24px;height:24px}
+.rws-template strong{font-size:11px;font-weight:900;color:#19553c;line-height:1.6}
+.rws-template small{font-size:9px;line-height:1.7;color:#657a6b}
+.rws-template em{font-size:9px;font-style:normal;background:#edf6ef;border-radius:100px;padding:5px 7px;color:#2b7657;margin-top:auto;font-weight:800}
+.rws-template.disabled em{color:#8c6931;background:#f8efdf}
+@media(max-width:750px){.rws-template-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.rws-template{padding:12px 8px;min-height:165px}}
+@media(max-width:440px){.rws-template-grid{grid-template-columns:1fr}.rws-template{min-height:0;display:grid;grid-template-columns:40px 1fr;grid-template-rows:auto auto auto;align-items:center;text-align:right;column-gap:10px}.rws-template-icon{grid-row:1/4;grid-column:1}.rws-template strong,.rws-template small,.rws-template em{grid-column:2}.rws-template em{justify-self:start}}
