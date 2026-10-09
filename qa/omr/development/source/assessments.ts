@@ -1620,7 +1620,8 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
       if(questionSubject!==entry.subject||!subjects.includes(questionSubject))fail('مادة السؤال لا تطابق المؤشر في نموذج '+model+'.');
       return{
         id,subject:questionSubject,context:tidy(q.context,8000)||null,question:tidy(q.question,2400),options,
-        correctIndex,indicator_key:entry.key,indicator_text:entry.text,
+        correctIndex,outcome:entry.outcome,indicator:entry.indicator,
+        indicator_key:entry.key,indicator_text:entry.text,
         cognitive_level:tidy(q.cognitive_level,40)||null,difficulty:tidy(q.difficulty,40)||null,
         image:q.image_url?{url:tidy(q.image_url,800),alt:tidy(q.image_alt,300)}:null,
         paper_review:true

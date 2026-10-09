@@ -1,0 +1,17 @@
+<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>قبول HTTP وPostgREST لمعلّمي</title><style>body{font:18px/1.8 system-ui,sans-serif;max-width:950px;margin:35px auto;padding:0 24px;color:#19343d}table{border-collapse:collapse;width:100%}td,th{padding:12px;border:1px solid #cad5da;text-align:right}.ok{background:#eaf6ef;padding:20px;border-right:5px solid #286443}.warning{background:#fff2dd;padding:20px;border-right:5px solid #9c6818}code{direction:ltr;unicode-bidi:isolate}@media print{body{font-size:12pt}tr{break-inside:avoid}}</style>
+<h1>معلّمي OMR: نتيجة HTTP/PostgREST الفعلي</h1>
+<p class="ok"><strong>31 تحققًا ناجحًا، صفر فشل.</strong> PostgREST 13 الحقيقي على قاعدة PostgreSQL 17.6 معزولة. نجح 155 اختبار انحدار بعد الإصلاح.</p>
+<h2>الإصلاح المثبت</h2><p>مسار API كان يحفظ الدرجة دون رمزي المخرج والمؤشر في الأسئلة؛ فتظل النتائج التابعة فارغة. أضيف الحقلان من FRAMEWORK الموثوق. قبل الإصلاح: صفر نتائج تابعة؛ بعده: نتيجة مرتبطة بالمحاولة، ويُعاد تجميعها بعد التراجع.</p>
+<table><tr><th>المسار</th><th>النتيجة</th></tr>
+<tr><td>المعلّم</td><td>401 للمفتاح المفقود والخاطئ وغير النشط؛ 403/404 للصلاحية أو ملكية المورد.</td></tr>
+<tr><td>المراجعة</td><td>409 لغير المحسوم، 400 لغياب السبب، ثم حفظ السبب وإعادة القراءة دون محو التعديل.</td></tr>
+<tr><td>الحفظ عبر API</td><td>طلبا اعتماد متزامنان من المتصفح نجحا: محاولة واحدة بدرجة 10/10 ونتيجة تحليل مرتبطة؛ إعادة الاعتماد لا تكررها.</td></tr>
+<tr><td>التراجع المنشور</td><td>200 للمشرف، و403 لغير المشرف؛ بقيت محاولة أخرى بدرجة 5/10 وأعيد التجميع إليها.</td></tr>
+<tr><td>الواجهة الفعلية</td><td>طلب من JavaScript الصفحة وصل إلى API ثم PostgREST واسترجع التدقيق المحفوظ.</td></tr>
+<tr><td>الاستعادة</td><td>نجحت استعادة dump اصطناعي خاص في قاعدة ثانية؛ الدرجة والتدقيق محفوظان.</td></tr></table>
+<p>93 طلب REST مسجلًا من التطبيق. بيانات وأسرار اختبار اصطناعية فقط. لم يُختبر النقر على كل زر أو نشر 140 محاولة في هذه الجولة.</p>
+<h2>حالة الوجهة الأصلية</h2><p>فُحص أحدث GitHub والصفحة الحية: 200 قبل النشر. ملف assessments أحدث ويختلف عن المصدر المرفق؛ لم يُستبدل. مصدر Supabase الحي الكامل والصلاحيات لم يُقارنا بعد عبر إدارة مخولة.</p>
+<p class="warning"><strong>لم يُنشر شيء. العائق: قناة إدارة ونشر مخولة إلى الوجهة الأصلية لم تُثبت.</strong> اختبارات HTTP نجحت، لكنها لا تسمح بادعاء جاهزية الإنتاج قبل مطابقة الصلاحيات والمصدر وحفظ نسخة إنتاجية قابلة للاستعادة.</p>
+<p>خطة النشر والتراجع محفوظة. لا إعادة قاعدة كاملة فوق درجات أحدث. النسخة الاحتياطية المجربة محلية واصطناعية، وليست نسخة إنتاجية.</p>
+</html>

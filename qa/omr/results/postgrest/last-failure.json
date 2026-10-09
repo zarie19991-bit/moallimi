@@ -1,0 +1,463 @@
+{
+  "failed_at": "actual_frontend_transport_browser_to_postgrest: {'result': '', 'error': '59157 |   else if (error.error.name === \"TargetClosedError\")\\n59158 |     e = new TargetClosedError2(error.error.message);\\n59159 |   else if (error.error.name === \"AbortError\")\\n59160 |     e = new AbortError2(error.error.message);\\n59161 |   else\\n59162 |     e = Object.assign(new PlaywrightError(error.error.message), { name: error.error.name });\\n                                  ^\\nerror: launch: Executable doesn\\'t exist at /tmp/moallimi-synthetic-sql-1gfk3nk3/.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell\\n╔════════════════════════════════════════════════════════════╗\\n║ Looks like Playwright was just installed or updated.       ║\\n║ Please run the following command to download new browsers: ║\\n║                                                            ║\\n║     npx playwright install                                 ║\\n║                                                            ║\\n║ <3 Playwright Team                                         ║\\n╚════════════════════════════════════════════════════════════╝\\n  log: [],\\n\\n      at /home/runner/workspace/node_modules/playwright-core/lib/coreBundle.js:59162:27\\n\\nBun v1.3.6 (Linux x64)'}",
+  "passed_before_failure": 27,
+  "cases": [
+    {
+      "name": "real_postgrest_service_http_200",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "missing_teacher_key",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "name": "unknown_teacher_key",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "name": "inactive_teacher_key",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "name": "wrong_subject_teacher_denied",
+      "passed": true,
+      "status": 404
+    },
+    {
+      "name": "teacher_list_through_edge_and_postgrest",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "ambiguous_not_confirmed_over_http",
+      "passed": true,
+      "status": 409
+    },
+    {
+      "name": "manual_reason_required_over_http",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "manual_edit_http_200",
+      "passed": true,
+      "status": 200,
+      "response": {
+        "ok": true,
+        "sheet": {
+          "id": "c705addf-5e2a-4b8d-9146-67820db4f68c",
+          "ordinal": 1,
+          "sheet_no": 1,
+          "snapshot": {
+            "model": "A",
+            "score": 9,
+            "total": 10,
+            "answers": [
+              {
+                "state": "uncertain",
+                "marked": [
+                  0,
+                  1
+                ],
+                "status": "ambiguous",
+                "correct": false,
+                "question": 1,
+                "selected": null,
+                "uncertainty": {
+                  "reading": [
+                    "bubble_ambiguous"
+                  ],
+                  "identity": [],
+                  "answer_key": []
+                },
+                "correct_index": 0,
+                "reading_status": "ambiguous"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 2,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 3,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 4,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 5,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 6,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 7,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 8,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 9,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 10,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              }
+            ],
+            "markers_ok": true,
+            "student_name": "طالب اصطناعي",
+            "identity_valid": true
+          },
+          "review_pk": "00000000-0000-4000-8000-000000001000",
+          "image_hash": "synthetic-image-1",
+          "session_id": "11111111-1111-4111-8111-111111111111",
+          "student_id": "22222222-2222-4222-8222-222222222222",
+          "disposition": null,
+          "reviewed_at": null,
+          "reviewed_by": null,
+          "uploaded_at": "2026-10-09T05:17:44.355844+00:00",
+          "duplicate_of": null,
+          "answer_version": 1,
+          "blocked_duplicate": false,
+          "effective_snapshot": {
+            "model": "A",
+            "score": 10,
+            "total": 10,
+            "counts": {
+              "blank": 0,
+              "correct": 10,
+              "multiple": 0,
+              "incorrect": 0,
+              "uncertain": 0
+            },
+            "answers": [
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 1,
+                "selected": 0,
+                "uncertainty": {
+                  "reading": [],
+                  "identity": [],
+                  "answer_key": []
+                },
+                "correct_index": 0,
+                "manual_reason": "synthetic image visually checked",
+                "reading_status": "clear",
+                "review_pending": false,
+                "reader_selected": null,
+                "reviewed_manually": true,
+                "requires_verification": false
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 2,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 3,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 4,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 5,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 6,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 7,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 8,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 9,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              },
+              {
+                "state": "correct",
+                "marked": [
+                  0
+                ],
+                "status": "clear",
+                "correct": true,
+                "question": 10,
+                "selected": 0,
+                "correct_index": 0,
+                "reading_status": "clear"
+              }
+            ],
+            "markers_ok": true,
+            "student_name": "طالب اصطناعي",
+            "identity_valid": true
+          },
+          "duplicate_legacy_at": null
+        }
+      }
+    },
+    {
+      "name": "manual_reason_visible_over_http",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "reread_proposal_only_over_http",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "reread_keeps_manual_answers",
+      "passed": true
+    },
+    {
+      "name": "verified_resolved_sheet_http_200",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "finish_batch_http_200",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "publish_attempt_from_actual_edge_http_200",
+      "passed": true,
+      "status": 200,
+      "response": {
+        "ok": true,
+        "review_id": "RQA01",
+        "assessment_id": "36f641c1-3cb2-45ac-a06b-7f4d7cf9fc45",
+        "subjects": [
+          "math"
+        ],
+        "saved_count": 1,
+        "results": [
+          {
+            "id": "62bbd1cc-7882-4978-9aa4-e1d44bd701db",
+            "model": "A",
+            "score": 10,
+            "total": 10,
+            "percent": 100,
+            "student_id": "22222222-2222-4222-8222-222222222222",
+            "student_name": "Synthetic OMR Student"
+          }
+        ]
+      }
+    },
+    {
+      "name": "http_publication_persisted_correct_attempt_and_grade",
+      "passed": true
+    },
+    {
+      "name": "edge_rendered_indicators_feed_original_adaptive_trigger",
+      "passed": true,
+      "observed_count": 1
+    },
+    {
+      "name": "http_publication_replay_200",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "http_replay_no_duplicate_grade",
+      "passed": true
+    },
+    {
+      "name": "non_owner_review_is_hidden_http_404",
+      "passed": true,
+      "status": 404
+    },
+    {
+      "name": "non_admin_own_review_rollback_http_403",
+      "passed": true,
+      "status": 403
+    },
+    {
+      "name": "admin_published_rollback_http_200",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "http_rollback_removes_only_target_grade_keeps_unrelated_grade",
+      "passed": true
+    },
+    {
+      "name": "http_rollback_recomputes_surviving_result",
+      "passed": true
+    },
+    {
+      "name": "http_rollback_audit_saved",
+      "passed": true
+    },
+    {
+      "name": "direct_anonymous_rest_teacher_access_denied",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "name": "invalid_jwt_rejected_by_actual_postgrest",
+      "passed": true,
+      "status": 401
+    }
+  ],
+  "real_http": true,
+  "production_connected": false,
+  "application_sha256": "481050efb1806423df27d8650def1ee8389bdcd4300359340f4788452665bbf8"
+}

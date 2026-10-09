@@ -89,7 +89,7 @@ def run():
         pg.sql(db, ddl)
         pg.sql(db, build_repairs(bodies))
         c = fixtures.Cases(pg, db, repaired=True)
-        row = c.reset("ambiguous")
+        row = c.reset("ambiguous",count=10 if os.environ.get("OMR_HTTP_TEST") else 4)
         roles = ["anon","authenticated","service_role","supabase_auth_admin","dashboard_user"]
         sequences = {}
         if unblock:
@@ -185,6 +185,11 @@ def run():
         c.json = service_json
         evidence["scan_rpc_role"] = "service_role"
         evidence["paper_review_acl_original_not_supplied"] = True
+        if os.environ.get("OMR_HTTP_TEST"):
+            assert unblock, "HTTP integration requires the complete latest bundle"
+            from postgrest_suite import run_http
+            run_http(pg,db,fixtures,row,evidence)
+            return
         student = fixtures.STUDENT
         result = pg.sql(db, "SET ROLE service_role; INSERT INTO public.nafes_students"
             f"(id,full_name,national_id_last3,class_name) VALUES('{student}','Synthetic Student','123','Synthetic class'); RESET ROLE;")

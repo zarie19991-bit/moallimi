@@ -1,0 +1,41 @@
+{
+  "github_revision": "6d2d40a1e84f02281b84384beca9e14a4a16a4d0",
+  "source_comparison": [
+    {
+      "file": "index.ts",
+      "github_sha256": "962b3fe25cf6a238d1b662e52e4a776401e1dd1ab596cd5f1c7d761e7f0a3a3b",
+      "provided_edge_sha256": "962b3fe25cf6a238d1b662e52e4a776401e1dd1ab596cd5f1c7d761e7f0a3a3b",
+      "local_sha256": "962b3fe25cf6a238d1b662e52e4a776401e1dd1ab596cd5f1c7d761e7f0a3a3b",
+      "github_equals_provided_edge": true
+    },
+    {
+      "file": "assessments.ts",
+      "github_sha256": "fa41bc3db85365bdd57bdd30b063cf617a5ab984f9a57ea2ec8678d9e9161c1a",
+      "provided_edge_sha256": "79b15ae1acaea3b991c78e4c279601c6f64ae33f1629642be30a46102da4dcc3",
+      "local_sha256": "481050efb1806423df27d8650def1ee8389bdcd4300359340f4788452665bbf8",
+      "github_equals_provided_edge": false
+    },
+    {
+      "file": "paper-scan.ts",
+      "github_sha256": "b9b468fe053f531eefb59ad28a7a0306a0969963c780b04288a68b54efd97f12",
+      "provided_edge_sha256": "b9b468fe053f531eefb59ad28a7a0306a0969963c780b04288a68b54efd97f12",
+      "local_sha256": "3cd182231380c3f1b4e6afe4f99b3ed03d5e9faaba415dc18aac2dbdca5037e2",
+      "github_equals_provided_edge": true
+    },
+    {
+      "file": "omr-server.ts",
+      "github_sha256": "99c98663192815b689b8bb5e52f21ba50e0a80a9c36ad82f6fe1badac29aa125",
+      "provided_edge_sha256": "99c98663192815b689b8bb5e52f21ba50e0a80a9c36ad82f6fe1badac29aa125",
+      "local_sha256": "e04c2c39e9b4539b3a464c6343766c8f30f5102479e985f6d024d97f8b22a413",
+      "github_equals_provided_edge": true
+    }
+  ],
+  "production_http_baseline": 200,
+  "github_pages_management_http": 404,
+  "github_write_permissions_confirmed": false,
+  "supabase_current_source_verified": false,
+  "supabase_management_connection": false,
+  "published": false,
+  "homepage": null,
+  "live_frontend_sha256": "726f7a945d9fa0ef532ddf126bca9d3776b48b50ccbc1f36b53493cc70628bee"
+}

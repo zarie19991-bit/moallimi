@@ -1,0 +1,23 @@
+{
+  "ready_to_publish": false,
+  "published": false,
+  "http_checks": 31,
+  "regressions": 155,
+  "production_connected": false,
+  "files": {
+    "qa/omr/development/source/assessments.ts": "481050efb1806423df27d8650def1ee8389bdcd4300359340f4788452665bbf8",
+    "qa/omr/development/frontend/local-transport.js": "a6caf0ac88d9ebac70285901e4c92fa537f6bb0341998b4376f863efb3308b29",
+    "qa/omr/sql/dependencies-integration.py": "445902bbd7a2354fa8d29171bc3f0db7dfc25f5213fa354539feda67ee09a5b3",
+    "qa/omr/sql/postgrest_suite.py": "d04d91475aa06f01b6a493dc7036ea5d80c0be5349522972eeae2668643d5ae8",
+    "qa/omr/sql/http-edge.ts": "8b5705ec801e31b5ab7c31c585602602ec5c36702114fd1d42c069c5b82961bb",
+    "qa/omr/sql/http-browser.ts": "2ba59d6f3cdf557f0a070ac9da00001bea804c1042e9468d8b1d71fbb4b1f23d",
+    "qa/omr/POSTGREST-ACCEPTANCE.md": "a5874cd8011c6deb1c07ead977b7f68a082a1d70213c72e5767b3d4d73a27f2b",
+    "package.json": "e66e514ff2c110a6f9ebe1c7923894b47546d82def1eaf4ac8341cb71830c28d",
+    "package-lock.json": "721a4cc4abe8a44cb506c1bd8c2ec8cf9087746b901ecfb535bc926e6253528c"
+  },
+  "regression_log_sha256": "d9a29e9b60acbd8827fda037d573c3ed371d90a29829f484a4503901e8ad011a",
+  "http_log_sha256": "01c7994db51dcc044142c1af28da31a52af7d86095ff03152fd58e777fee112d",
+  "http_log": "{\"http_passed\": 31, \"failed\": 0}\n",
+  "regression_summary": "bun test v1.3.6 (d530ed99)\n\n 155 pass\n 0 fail\n 1166 expect() calls\nRan 155 tests across 12 files. [51.69s]\n",
+  "rest_requests": 93
+}
