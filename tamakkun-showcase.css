@@ -76,3 +76,14 @@
 @media(max-width:1150px){.tk-home-services{gap:12px}.tk-home-feature p{max-width:80%}.tk-home-utilities{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:780px){.tk-home-hero{grid-template-columns:1fr;min-height:0;padding:30px 24px;border-radius:28px}.tk-home-art{height:215px;min-height:215px;max-width:300px;width:100%;margin:0 auto}.tk-home-emblem{height:140px;width:140px;border-radius:30px}.tk-home-emblem>svg{height:70px;width:70px}.tk-home-floating.one{top:5%;right:0}.tk-home-floating.two{bottom:5%;left:0}.tk-home-hero-copy{align-items:start}.tk-home-hero-copy>p{max-width:100%}.tk-home-services{grid-template-columns:1fr}.tk-home-utilities{grid-template-columns:1fr 1fr}.tk-home-banner{grid-template-columns:1fr 80px}.tk-home-banner-art svg{width:80px;height:80px}.tk-home-feature{min-height:265px}}
 @media(max-width:520px){.tk-home-welcome{align-items:start;flex-direction:column}.tk-home-current{padding:7px 12px}.tk-home-section-tag{display:none}.tk-home-feature h3{font-size:23px}.tk-home-feature p{max-width:73%}.tk-home-card-art{width:144px;left:-26px;top:82px}.tk-home-card-art svg{width:75px;height:75px}.tk-home-banner{grid-template-columns:1fr;padding:25px;border-radius:25px}.tk-home-banner-art{display:none}.tk-home-utilities{grid-template-columns:1fr}.tk-home-tool{min-height:88px}.tk-home-title{font-size:32px}}
+
+/* Discovery mode is full-width like a learning portal; workspaces retain the sidebar. */
+@media(min-width:901px){
+ #app:has(.tk-home-page) .desktop-sidebar{display:none!important}
+ #app:has(.tk-home-page) #view{max-width:1320px!important}
+ #app:has(.tk-home-page) .main-shell>main{padding-top:32px!important}
+ #app:has(.tk-home-page) .main-shell>header{padding-right:clamp(28px,5vw,90px)!important;padding-left:clamp(28px,5vw,90px)!important}
+}
+@media(min-width:1300px){
+ #app:has(.tk-home-page) .tk-home-feature{min-height:306px}
+}
