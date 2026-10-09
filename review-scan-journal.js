@@ -15,7 +15,7 @@ const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكرر�
 // A rejected optical read never has a valid numeric grade, even if old data stored 0.
 const failedRead=a=>!a||a.markers_ok!==true||!!a.omr_reader_error||a.grade_status==='unreadable';
 const noGrade=a=>failedRead(a)||a.grade_status==='needs_review'||a.score===null||a.score===undefined||!Number.isFinite(Number(a.score));
-const gradeText=a=>failedRead(a)?'فشل القراءة — بلا درجة':noGrade(a)?'بانتظار المراجعة — بلا درجة':gradeText(a);
+const gradeText=a=>failedRead(a)?'فشل القراءة — بلا درجة':noGrade(a)?'بانتظار المراجعة — بلا درجة':ar(a.score)+' / '+ar(a.total);
 const safeNumericGrade=a=>noGrade(a)?'':Number(a.score);
 const verifiedQuality=a=>failedRead(a)?'غير مقاسة':ar(Math.round(Number(a?.omr_verification?.quality_score)||0))+' / 100';
 const riskOf=s=>{const a=effective(s),r=a?.omr_verification?.risk;return ['low','medium','high'].includes(r)?r:(!a?.markers_ok?'high':((a?.counts?.uncertain||0)+(a?.counts?.multiple||0)>0?'high':'medium'));};
