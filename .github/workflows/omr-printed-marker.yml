@@ -5,6 +5,7 @@ on:
     paths:
       - 'supabase/functions/nafes-exam/omr-server.ts'
       - 'qa/omr/real-print-replay.ts'
+      - 'qa/omr/local-eight.ts'
       - 'qa/omr/legacy-a4.synthetic.test.ts'
       - '.github/workflows/omr-printed-marker.yml'
   workflow_dispatch:
@@ -28,6 +29,8 @@ jobs:
           deno-version: v2.x
       - name: Type-check server scan and grading safety integration
         run: deno check supabase/functions/nafes-exam/paper-scan.ts
+      - name: Type-check offline eight-photo runner
+        run: deno check qa/omr/local-eight.ts
       - name: Check the failed full-A4 geometry with legacy row spacing
         run: deno run --allow-read qa/omr/legacy-a4.synthetic.test.ts
       - name: Compare 360 archived visual choices to printed OMR output (no student identities)
