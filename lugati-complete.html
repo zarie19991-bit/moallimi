@@ -136,7 +136,7 @@ html{scroll-behavior:smooth}body.bg-slate-100{background:radial-gradient(circle 
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 </style>
-  <link rel="stylesheet" href="./tamakkun-showcase.css?v=20261009-hassad-home1" />
+  <link rel="stylesheet" href="./tamakkun-showcase.css?v=20261009-hassad-home2" />
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
   <div id="app"></div>
@@ -162,7 +162,8 @@ function filtered(){return groups().get(S.indicator)||[]}
 function chips(){return '<div class="rws-steps"><span class="rws-step"><em>١</em> اختر المادة</span><span class="rws-step"><em>٢</em> راجع المؤشر</span><span class="rws-step"><em>٣</em> كوّن الورقة</span><span class="rws-step"><em>٤</em> عاين واطبع</span></div>'}
 function header(){return '<section class="rws-hero"><div><span class="rws-kicker">'+icon("sparkles")+' استوديو التعلم التفاعلي</span><h1>ورقة عمل تليق بإنجاز طلابك</h1><p>اختر مؤشراً حقيقياً من بنك المادة؛ ثم ابنِ تدريباً واضحاً، وراجع الأسئلة قبل الطباعة. يُحفظ الأصل بلا تعديل، وهذه مسودة محلية وليست تكليفاً منشوراً.</p></div><div class="rws-hero-art">'+icon("notebook-pen")+'</div></section>'}
 function availableSubjects(){if(S.role!=="teacher")return ["reading","math","science"];if(S.profile&&["reading","math","science"].includes(S.profile.subject_scope))return [S.profile.subject_scope];return ["reading","math","science"]}
-function control(){var gg=groups(),all=availableSubjects();return '<section class="rws-panel"><h2>مصنع أوراق العمل</h2><p>أسئلة مشتقة من بنك المؤشرات الحالي، دون توليد معلومات أو مؤشرات غير موجودة.</p>'+chips()+
+function templateCards(){return '<div class="rws-template-grid"><article class="rws-template active"><span class="rws-template-icon">'+icon("layers-3")+'</span><strong>من بنك المؤشرات</strong><small>اختر مهارة وأضف تدريباتها</small><em>متاح للتجربة</em></article><article class="rws-template disabled"><span class="rws-template-icon">'+icon("file-scan")+'</span><strong>من اختبار خارجي</strong><small>PDF أو Word وربط الأسئلة بمؤشراتها</small><em>يحتاج ربط الاستيراد</em></article><article class="rws-template disabled"><span class="rws-template-icon">'+icon("clipboard-check")+'</span><strong>من اختبار داخل تمكّن</strong><small>إنشاء ورقة للمهارات التي أخفق فيها الطلاب</small><em>يحتاج ربط النتائج</em></article></div>'}
+function control(){var gg=groups(),all=availableSubjects();return '<section class="rws-panel"><h2>مصنع أوراق العمل</h2><p>اختر طريقة إنشاء الورقة، ثم راجع المؤشر والأسئلة قبل اعتمادها.</p>'+templateCards()+chips()+
 '<label for="rws-subject" class="rws-label">المادة الدراسية</label><select id="rws-subject" class="rws-select">'+all.map(function(k){return '<option value="'+k+'"'+(k===S.subject?' selected':'')+'>'+names[k]+'</option>'}).join("")+'</select>'+
 '<div class="rws-label">المؤشرات المتاحة <span class="rws-chip">'+gg.size+' مؤشرات</span></div>'+
 '<div class="rws-indicator-list">'+(gg.size?Array.from(gg.entries()).slice(0,100).map(function(entry,i){return '<button type="button" class="rws-indicator '+(entry[0]===S.indicator?"active":"")+'" data-rws-indicator="'+i+'"><strong>المؤشر '+(i+1)+' • '+entry[1].length+' أسئلة متاحة</strong>'+safe(entry[0])+'</button>'}).join(""):'<div class="rws-alert">لا توجد أسئلة اختيار من متعدد متاحة ومستوفية لشروط البنية من بنك '+names[S.subject]+' في هذه الجلسة. لن ننشئ أسئلة أو مؤشرات افتراضية.</div>')+'</div>'+
