@@ -15,7 +15,7 @@ export function gradeQuestions(qs:Row[],answers:Row) {let score=0;for(const q of
 export function gradeSections(sections:Row[],answers:Row) {const section_scores=sections.map(s=>({subject:s.subject,...gradeQuestions(s.questions,answers)}));const score=section_scores.reduce((a,s)=>a+s.score,0),total=section_scores.reduce((a,s)=>a+s.total,0);return{score,total,percent:total?Math.round(score*10000/total)/100:0,section_scores};}
 export function publicQuestions(qs:Row[]) {return qs.map(q=>({id:q.id,context:q.context,question:q.question,options:q.options,image:q.image||null}));}
 export function publicSections(ss:Row[]) {return ss.map(s=>({subject:s.subject,duration_minutes:s.duration_minutes,calculator:s.calculator,questions:publicQuestions(s.questions)}));}
-export function permuteQuestion(q:Row,r:()=>number) {const order=shuffle(q.options.map((_:unknown,i:number)=>i),r);return{...q,options:order.map((i:number)=>q.options[i]),correctIndex:order.indexOf(q.correctIndex)};}
+export function permuteQuestion(q:Row,r:()=>number) {const order=shuffle<number>(q.options.map((_:unknown,i:number)=>i) as number[],r);return{...q,options:order.map((i:number)=>q.options[i]),correctIndex:order.indexOf(q.correctIndex)};}
 export function normalizeConfig(raw:unknown):Row {
  if(!raw||typeof raw!=='object')fail('إعدادات الاختبار غير صحيحة.');const v=raw as Row;
  const kind=['indicator','multi_indicator','simulation'].includes(v.kind)?v.kind:'simulation';
