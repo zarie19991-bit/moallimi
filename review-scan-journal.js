@@ -12,14 +12,12 @@ const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,sess
 const effective=s=>s.effective_snapshot||s.snapshot;
 const duplicate=s=>!!(s.duplicate_of||s.duplicate_legacy_at);
 const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكررة':s.disposition==='requires_rescan'?'مراجَع — يلزم إعادة المسح':s.reviewed_at?'تم التحقق':'بانتظار التحقق';
-// Keep an unreadable scan distinct from a genuine, fully read 0/60 result.
-const gradeText=a=>{
- if(!a||a.markers_ok!==true||a.omr_reader_error||a.grade_status==='unreadable')return 'فشل القراءة — بلا درجة';
- if(a.grade_status==='needs_review'||a.score===null||a.score===undefined||!Number.isFinite(Number(a.score)))return 'بانتظار مراجعة — بلا درجة';
- return gradeText(a);
-};
-const qualityText=a=>a?.markers_ok===true&&!a?.omr_reader_error&&a?.grade_status!=='unreadable'
- ?ar(Math.round(Number(a?.omr_verification?.quality_score)||0))+' / ١٠٠':'غير مقاسة';
+// A rejected optical read never has a valid numeric grade, even if old data stored 0.
+const failedRead=a=>!a||a.markers_ok!==true||!!a.omr_reader_error||a.grade_status==='unreadable';
+const noGrade=a=>failedRead(a)||a.grade_status==='needs_review'||a.score===null||a.score===undefined||!Number.isFinite(Number(a.score));
+const gradeText=a=>failedRead(a)?'فشل القراءة — بلا درجة':noGrade(a)?'بانتظار المراجعة — بلا درجة':ar(a.score)+' / '+ar(a.total);
+const safeNumericGrade=a=>noGrade(a)?'':Number(a.score);
+const verifiedQuality=a=>failedRead(a)?'غير مقاسة':ar(Math.round(Number(a?.omr_verification?.quality_score)||0))+' / 100';
 const riskOf=s=>{const a=effective(s),r=a?.omr_verification?.risk;return ['low','medium','high'].includes(r)?r:(!a?.markers_ok?'high':((a?.counts?.uncertain||0)+(a?.counts?.multiple||0)>0?'high':'medium'));};
 const riskLabel=r=>r==='low'?'منخفضة':r==='medium'?'متوسطة':'مرتفعة';
 function renderQualityReport(){
@@ -35,13 +33,13 @@ function renderQualityReport(){
  rows.sort((x,y)=>(({high:0,medium:1,low:2}[x.risk]-{high:0,medium:1,low:2}[y.risk])||x.i-y.i));
  $('qualityBody').innerHTML=rows.map(({s,i,a,risk,v})=>{
    const reasons=(Array.isArray(v.reasons)&&v.reasons.length?v.reasons:(a.markers_ok?['لم تُسجل بعد بيانات تحقق كاملة لهذه القراءة']:['فشل تثبيت علامات المحاذاة'])).join('؛ ');
-   return '<tr data-risk="'+risk+'"><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+ar(Math.round(Number(v.quality_score||0)))+' / 100</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
+   return '<tr data-risk="'+risk+'"><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+verifiedQuality(a)+'</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
  }).join('');
 }
 function exportQualityReport(){
  const rows=[['الطالب','النموذج','الدرجة','الإجمالي','الخطورة','جودة القراءة','ثقة المحاذاة','المدى الضوئي','تفاوت الإضاءة','حدة الصورة','فارغ','متعدد','غير مؤكد','سبب المراجعة','سياسة القارئ']];
  for(const s of sheets){const a=effective(s),v=a.omr_verification||{},q=a.image_quality||{},c=a.counts||{},risk=riskOf(s);rows.push([
-   a.student_name,a.model,a.markers_ok===true&&!a.omr_reader_error&&Number.isFinite(a.score)?a.score:'',a.total,riskLabel(risk),a.markers_ok===true&&!a.omr_reader_error?v.quality_score||0:'',a.marker_confidence||0,q.dynamic_range||'',q.illumination_range||'',q.sharpness||'',
+   a.student_name,a.model,safeNumericGrade(a),a.total,riskLabel(risk),v.quality_score||0,a.marker_confidence||0,q.dynamic_range||'',q.illumination_range||'',q.sharpness||'',
    c.blank||0,c.multiple||0,c.uncertain||0,(v.reasons||[]).join('؛ '),a.omr_policy||''
  ]);}
  download(rows,'تقرير-جودة-قراءة-التظليل.csv');
@@ -70,7 +68,7 @@ function ensureSelectAll(){
 }
 function renderButtons(){
  const s=sheets[active];
- $('saveSheetBtn').disabled=busy||!ready()||!s||safety.unresolvedSheet(s)||loadedImage!==s.id||!!s.reviewed_at||!$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
+ $('saveSheetBtn').disabled=busy||!ready()||!s||safety.unresolvedSheet(s)||failedRead(effective(s))||loadedImage!==s.id||!!s.reviewed_at||!$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
  const target=$('omrUncertaintyReasons');
  if(target&&s){
    const answers=effective(s).answers||[];
@@ -80,7 +78,7 @@ function renderButtons(){
  $('nextSheetBtn').disabled=busy||!s?.reviewed_at||active>=sheets.length-1;
  $('finishReviewBtn').disabled=busy||!ready()||firstPending()>=0||!!session.completed_at;
  $('approveBtn').disabled=busy||!session?.completed_at||!sheets.some(s=>s.disposition==='verified')||
-   sheets.some(s=>!s.blocked_duplicate&&safety.unresolvedSheet(s));
+   sheets.some(s=>!s.blocked_duplicate&&(safety.unresolvedSheet(s)||failedRead(effective(s))));
  if($('deleteSelectedBtn')){$('deleteSelectedBtn').disabled=busy||selected.size===0;$('deleteSelectedBtn').textContent=selected.size?'حذف التصحيحات المحددة ('+ar(selected.size)+')':'حذف التصحيحات المحددة';}if($('selectAllBtn')){$('selectAllBtn').disabled=busy||!sheets.length;$('selectAllBtn').textContent=sheets.length&&selected.size===sheets.length?'إلغاء تحديد الكل':'تحديد الكل';}
  if($('applyManualAssignmentBtn'))$('applyManualAssignmentBtn').disabled=busy||!s||effective(s).identity_valid===true||!!session?.completed_at||!$('manualAssignment')?.value;
  document.querySelectorAll('[data-edit-question]').forEach(b=>{b.disabled=busy||!ready()||!s||loadedImage!==s.id||!!session?.completed_at;});
@@ -308,7 +306,7 @@ async function editHistory(){
  }catch(e){message('تعذر عرض سجل التعديلات: '+e.message,true);}
 }
 async function verify(){
- if(busy||$('saveSheetBtn').disabled||safety.unresolvedSheet(sheets[active]))return;lock(true);
+ if(busy||$('saveSheetBtn').disabled||safety.unresolvedSheet(sheets[active])||failedRead(effective(sheets[active])))return;lock(true);
  try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0,verified:true});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(effective(r.sheet))+' · '+status(r.sheet);message('حُفظ التحقق من الورقة. يمكنك الانتقال إلى التالية.');render();}
  catch(e){message('لم يُحفظ التحقق: '+e.message,true);}finally{lock(false);}
 }
