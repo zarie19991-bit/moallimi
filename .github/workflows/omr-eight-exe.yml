@@ -1,0 +1,29 @@
+name: Build private offline eight-sheet OMR Windows tool
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'qa/omr/local-eight.ts'
+      - '.github/workflows/omr-eight-exe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck OMR eight-sheet tester
+        run: deno check qa/omr/local-eight.ts
+      - name: Build offline Windows EXE (no network permission)
+        run: deno compile --allow-read --allow-write --target x86_64-pc-windows-msvc --output omr-eight-tester.exe qa/omr/local-eight.ts
+      - name: Upload executable (contains no student images)
+        uses: actions/upload-artifact@v4
+        with:
+          name: omr-eight-tester-windows
+          path: omr-eight-tester.exe
+          retention-days: 7
