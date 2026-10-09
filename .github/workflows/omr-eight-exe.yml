@@ -21,6 +21,23 @@ jobs:
         run: deno check qa/omr/local-eight.ts
       - name: Build offline Windows EXE (no network permission)
         run: deno compile --allow-read --allow-write --target x86_64-pc-windows-msvc --output omr-eight-tester.exe qa/omr/local-eight.ts
+      - name: Checkout existing anonymized six printed-sheet test fixtures
+        uses: actions/checkout@v4
+        with:
+          ref: dev/omr-production-integration
+          path: fixture
+          sparse-checkout: |
+            qa/omr/results/real-six
+      - name: Verify compiled Windows EXE reads eight photos and writes 480 CSV rows
+        shell: pwsh
+        run: |
+          $files = 1..6 | ForEach-Object { "fixture/qa/omr/results/real-six/page-$_.jpg" }
+          $files = @($files) + @($files[0],$files[1])
+          & ./omr-eight-tester.exe @files
+          if ($LASTEXITCODE -ne 0) { throw "Windows OMR EXE failed" }
+          $rows = @(Import-Csv ./omr-eight-result.csv).Count
+          if ($rows -ne 480) { throw "Expected 480 answer rows; got $rows" }
+          Write-Output "PRIVATE_EIGHT_EXE_480_ROWS_PASS"
       - name: Upload executable (contains no student images)
         uses: actions/upload-artifact@v4
         with:
