@@ -93,7 +93,10 @@ jobs:
           ! grep -q 'analysis-achievement-fix.js' analysis.html
           ! grep -q 'data-normalization-fix.js' analysis.html
           ! grep -q 'teacher_tests_bulk_clear' analysis-data-service.js
-          grep -q 'teacher_tests_bulk_clear' results-clear-fix.js
+          # Bulk clearing belongs to the main teacher API; the legacy bridge only reroutes individual delete.
+          ! grep -q 'teacher_tests_bulk_clear' results-clear-fix.js
+          grep -q "const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-results-admin'" results-clear-fix.js
+          grep -q 'if(url===OLD_ADMIN)return baseFetch(ENDPOINT,init)' results-clear-fix.js
           ! grep -q 'analysis-participation.js' analysis-section-router.js
           ! test -e analysis-achievement-fix.js
           ! test -e data-normalization-fix.js
