@@ -22,6 +22,26 @@ function decodeDataUrl(src:string):GrayImage{
  for(let i=0,j=0;i<rgba.length;i+=4,j++)g[j]=Math.round(rgba[i]*.299+rgba[i+1]*.587+rgba[i+2]*.114);
   return{width:d.width,height:d.height,gray:g,rgba};
 }
+// This is a *secondary* alignment-only pass, never an automatic grade repair.
+// Local averaging removes isolated camera noise and percentile stretching
+// recovers weak printed square edges when the original marker pass was rejected.
+function enhanceGeometryGray(im:GrayImage){
+ const hist=new Uint32Array(256);
+ for(let i=0;i<im.gray.length;i+=7)hist[im.gray[i]]++;
+ const total=hist.reduce((a,b)=>a+b,0);
+ const quantile=(p:number)=>{let c=0;for(let k=0;k<256;k++){c+=hist[k];if(c>=total*p)return k;}return 255;};
+ const lo=quantile(.012),hi=quantile(.99),range=hi-lo;
+ if(range<18)throw new OMRReadFailure('OMR_LOW_DYNAMIC_RANGE','التباين منخفض جدًا لتأكيد علامات القالب.',{percentile_low:lo,percentile_high:hi});
+ const gain=clamp(175/range,1,2.5),out=new Uint8Array(im.gray.length);
+ const {width:w,height:h,gray:g}=im;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const i=y*w+x;
+   const mixed=x===0||y===0||x+1===w||y+1===h?g[i]:
+     (g[i]*4+g[i-1]+g[i+1]+g[i-w]+g[i+w])/8;
+   out[i]=Math.round(clamp(55+(mixed-lo)*gain,0,255));
+ }
+ return{image:{...im,gray:out},diagnostics:{percentile_low:lo,percentile_high:hi,gain:Number(gain.toFixed(3)),noise_filter:'weighted_5_point'}};
+}
 function rotate90(im:GrayImage):GrayImage{
  const nw=im.height,nh=im.width,outG=new Uint8Array(im.width*im.height),outRgba=new Uint8Array(im.width*im.height*4);
  for(let y=0;y<im.height;y++)for(let x=0;x<im.width;x++){
@@ -345,7 +365,23 @@ function orientTemplate(source:GrayImage,scale:number){
 }
 export function readOmrJpeg(src:string,total:number,startNo=1){
   if(!Number.isInteger(total)||total<1||total>60)throw new Error('عدد أسئلة القالب لا يطابق الاختبار.');
-  const source=decodeDataUrl(src),scale=5,{m,im,grid,rotation}=orientTemplate(source,scale),radius=2.08*scale;
+  const source=decodeDataUrl(src),scale=5;
+  let oriented:any,preprocessing:any={mode:'original'};
+  try{oriented=orientTemplate(source,scale);}
+  catch(e:any){
+    if(e?.code!=='OMR_GRID_NOT_VERIFIED')throw e;
+    try{
+      const enhanced=enhanceGeometryGray(source);
+      oriented=orientTemplate(enhanced.image,scale);
+      preprocessing={mode:'enhanced_geometry_requires_review',...enhanced.diagnostics};
+    }catch(second:any){
+      throw new OMRReadFailure('OMR_GRID_NOT_VERIFIED',e.message,{
+        ...e.diagnostics,preprocessing_attempted:true,
+        enhanced_failure_code:second?.code||'OMR_FALLBACK_REJECTED',
+        enhanced_failure_reason:String(second?.message||second).slice(0,160)});
+    }
+  }
+  const {m,im,grid,rotation}=oriented,radius=2.08*scale;
  const rights=[171,128,85,42],offs=[7.5,15.5,23.5,31.5],raw:any[]=[];
  const rowGap=grid.rowStep*scale,optionGap=8*scale;
  for(let i=0;i<Math.min(total,60);i++){
@@ -430,12 +466,14 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
   const geometryUncertain=m.confidence<.85||grid.score<.10;
-  const requiresReview=!!(ambiguous||multiple||geometryUncertain);
-  return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,
+  const enhancedPreprocessing=preprocessing.mode!=='original';
+   const requiresReview=!!(ambiguous||multiple||geometryUncertain||enhancedPreprocessing);
+  return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,preprocessing,
    color_calibration:{method:'local-paper-annular-median',weak_second_ink:'manual-review'},
    grid_alignment:{score:Number(grid.score.toFixed(4)),row_start_mm:grid.rowStart,row_step_mm:grid.rowStep,layout:grid.layout,blocks:grid.blocks.map((b:any)=>({dx:b.dx,dy:b.dy,score:Number(b.score.toFixed(4))}))},
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
-   verification:{risk:requiresReview?'high':'low',quality_score:requiresReview?70:100,reasons:[...(ambiguous||multiple?['توجد إجابات غير حاسمة أو متعددة']:[]),...(geometryUncertain?['هندسة علامات المحاذاة أو شبكة الفقاعات تحتاج مراجعة']:[])],requires_manual_review:requiresReview,auto_accept:!requiresReview,counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
+   verification:{risk:requiresReview?'high':'low',quality_score:requiresReview?70:100,reasons:[...(ambiguous||multiple?['توجد إجابات غير حاسمة أو متعددة']:[]),...(geometryUncertain?['هندسة علامات المحاذاة أو شبكة الفقاعات تحتاج مراجعة']:[]),
+      ...(enhancedPreprocessing?['تحسين تعرض وضجيج الصورة؛ تتطلب مراجعة بشرية قبل اعتماد الدرجة']:[])],requires_manual_review:requiresReview,auto_accept:!requiresReview,counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
  };
 }
