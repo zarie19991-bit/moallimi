@@ -406,6 +406,7 @@ async function teacherResponseTracking(req:Request,access:Access){
   ]);
   for(const x of [rr,ar,tr,dr]) if((x as any).error) throw (x as any).error;
   const students=(rr as any).data||[], sm=new Map<string,any>(); for(const s of students) sm.set(String(s.id),s);
+   const eligiblePerfs=students.length?await latestPerformances(students.map((s:any)=>String(s.id))):[];
   const latest=new Map<string,any>(); for(const a of (tr as any).data||[]){const k=String(a.assignment_id);if(!latest.has(k))latest.set(k,a)}
   const auto=((ar as any).data||[]).filter((a:any)=>teacherAllows(access,a.subject_key)&&["starter","remedial","reinforcement","enrichment"].includes(String(a.tier))).map((a:any)=>{const st=sm.get(String(a.student_id))||null,la=latest.get(String(a.id))||null;return{
     source:"auto",id:a.id,student_id:a.student_id,student_name:st?.full_name||"طالب",class_name:st?.class_name||"",grade:st?.grade||"",
@@ -413,7 +414,7 @@ async function teacherResponseTracking(req:Request,access:Access){
     tier:a.tier,status:a.status,responded:!!la,score:la?.score??null,total:la?.total??null,percent:la?.percent??a.last_training_percent??null,
     assigned_at:a.assigned_at,submitted_at:la?.submitted_at??null,updated_at:a.updated_at
   }});
-  const direct=((dr as any).data||[]).map((a:any)=>{const st=sm.get(String(a.student_id))||null;return{
+  const direct=((dr as any).data||[]).filter((a:any)=>taskHasVerifiedMoallimiAttempt(a,eligiblePerfs)).map((a:any)=>{const st=sm.get(String(a.student_id))||null;return{
     source:"direct",id:a.id,student_id:a.student_id,student_name:st?.full_name||"طالب",class_name:st?.class_name||"",grade:st?.grade||"",
     subject_key:a.subject_key,outcome_code:a.outcome_code,indicator_index:a.indicator_index,indicator_text:a.indicator_text,title:a.title||"تدريب من المعلم",
     tier:a.tier,status:a.status,responded:a.status==="completed",score:a.score??null,total:a.total??null,percent:a.percent??null,
@@ -537,6 +538,7 @@ async function startTeacherTask(req:Request,body:any,access:Access){
   let q=db.from("lugati_teacher_tasks").select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,title,instructions,tier,question_count,status,question_ids,score,total,percent").eq("id",id).neq("status","revoked");
   if(!access.is_demo)q=q.eq("student_id",access.student_id!);
   const {data:t,error:te}=await q.maybeSingle();if(te)throw te;if(!t)return json(req,{error:"تم سحب هذا التدريب من المعلم أو أنه غير متاح."},410);
+  if(!access.is_demo&&!taskHasVerifiedMoallimiAttempt(t,await latestPerformances([access.student_id!])))return json(req,{error:"لا توجد نتيجة اختبار مسلّمة في معلّمي تتيح هذا التدريب."},403);
   let ids=Array.isArray(t.question_ids)?t.question_ids.map(String):[];
   if(!ids.length){
     ids=await pickTaskQuestionIds(t.subject_key,t.outcome_code,Number(t.indicator_index),Number(t.question_count||8));
@@ -549,9 +551,10 @@ async function startTeacherTask(req:Request,body:any,access:Access){
 async function submitTeacherTask(req:Request,body:any,access:Access){
   if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);
   const id=tidy(body?.task_id),answers=body?.answers&&typeof body.answers==="object"?body.answers:null;if(!id||!answers)return json(req,{error:"إجابات التدريب غير مكتملة."},400);
-  let q=db.from("lugati_teacher_tasks").select("id,student_id,question_ids,status").eq("id",id).neq("status","revoked");
+  let q=db.from("lugati_teacher_tasks").select("id,student_id,subject_key,outcome_code,indicator_index,question_ids,status").eq("id",id).neq("status","revoked");
   if(!access.is_demo)q=q.eq("student_id",access.student_id!);
   const {data:t,error:te}=await q.maybeSingle();if(te)throw te;if(!t)return json(req,{error:"تم سحب هذا التدريب من المعلم أو أنه غير متاح."},410);
+  if(!access.is_demo&&!taskHasVerifiedMoallimiAttempt(t,await latestPerformances([access.student_id!])))return json(req,{error:"لا توجد نتيجة اختبار مسلّمة في معلّمي تتيح تسليم هذا التدريب."},403);
   const ids=Array.isArray(t.question_ids)?t.question_ids.map(String):[];if(!ids.length)return json(req,{error:"لا توجد أسئلة محفوظة لهذا التدريب."},409);
   const {data:qs,error:qe}=await db.from("nafes_question_bank").select("id,correct_index").in("id",ids);if(qe)throw qe;const cm=new Map((qs||[]).map((q:any)=>[String(q.id),Number(q.correct_index)]));let score=0;for(const qid of ids){if(Number(answers[qid])===cm.get(qid))score++}
   const total=ids.length,percent=total?Math.round(score*1000/total)/10:0;
