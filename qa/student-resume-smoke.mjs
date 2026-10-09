@@ -27,6 +27,10 @@ await page.fill('#studentName','طالب أول');
 await page.fill('#studentNo','123');
 await page.fill('#className','أ');
 await page.click('#startBtn');
+// The student must explicitly confirm academic integrity in the current pre-exam flow.
+await page.waitForSelector('#preExamGate:not([hidden])',{timeout:15000});
+await page.check('#integrityCheck');
+await page.click('#confirmExamStart');
 await page.waitForSelector('#player:not([hidden])',{timeout:30000});
 if(starts!==1)throw new Error(`start count ${starts}`);
 const stored=await page.evaluate(()=>({resume:sessionStorage.getItem('nafes_attempt_resume-smoke'),identity:sessionStorage.getItem('nafes_student_identity'),persistent:localStorage.getItem('nafes_student_identity'),browserSession:localStorage.getItem('nafes_browser_session_resume-smoke')}));
