@@ -29,6 +29,15 @@
     لا توجد مراجعة معتمدة على هذا الجهاز. أنشئ النماذج ووزعها على الطلاب أولًا ثم اطبع أوراق التظليل.
   </section>
 
+  <section id="scanPrerequisite" class="notice hidden" role="status" aria-live="polite" style="margin:0 0 16px;padding:16px;border:1px solid #e2a853;background:#fff7e9;border-radius:12px;color:#49321a">
+    <strong style="display:block;margin-bottom:8px">متطلبات بدء القراءة</strong>
+    <p id="scanPrerequisiteText" style="margin:0 0 12px;line-height:1.8"></p>
+    <div class="actions" style="display:flex;gap:10px;flex-wrap:wrap">
+      <button id="scanSignInBtn" class="primary" type="button">دخول المعلم</button>
+      <button id="scanReloadBtn" class="secondary" type="button" hidden>إعادة تحميل الجلسات</button>
+      <a id="scanCreateReview" href="review-correction.html" class="secondary" hidden>إنشاء أو اختيار اختبار ورقي</a>
+    </div>
+  </section>
   <section class="card upload-card">
     <div class="upload-copy">
       <h2>١. رفع دفعة الأوراق</h2>
@@ -132,6 +141,6 @@
 <script src="review-draft-sync.js?v=20260930-2"></script>
 <script src="review-omr-safety.js?v=20261009-integrated"></script>
 <script src="review-scan-journal.js?v=20261009-integrated"></script>
-<script src="review-scan.js?v=20261009-integrated"></script>
+<script src="review-scan.js?v=20261009-auth-read-fix1"></script>
 </body>
 </html>
