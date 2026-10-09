@@ -52,7 +52,7 @@ const TEACHER_NAV=[
  ['teachers','المعلمون والأعمال','الإنجاز والتقارير','users-round'],
  ['games','مسابقة المؤشرات','إدارة الجولات والنتائج',ICONS.games,'بطولة'],
  ['worksheets','مصنع أوراق العمل','أنشطة من بنك المؤشرات','notebook-pen','جديد'],
- ['plans','العلاج والإثراء','حسب نتائج المؤشرات',ICONS.remedial],
+ ['plans','العلاج والتعزيز والإثراء','لمن اختبر في معلّمي',ICONS.remedial],
  ['analytics','تحليل نافس','النتائج والمؤشرات',ICONS.analytics],
  ['students','الطلاب والمتابعة','الملفات والتقدم',ICONS.students],
  ['reports','الطباعة والتقارير','الأوراق والتقارير',ICONS.reports]
@@ -240,7 +240,7 @@ function viewShowcaseDashboard(){
  const tools=teacher?[
    ['analytics','chart-no-axes-combined','التحليل والمؤشرات','نتائج حقيقية ومهارات تحتاج تحسينًا'],
    ['students','users-round','ملفات الطلاب','متابعة الدرجات والمحاولات'],
-   ['plans','clipboard-check','العلاج والإثراء','تدريبات بناءً على نتائج المؤشرات'],
+   ['plans','clipboard-check','العلاج والتعزيز والإثراء','للمختبرين في معلّمي فقط'],
    ['reports','files','التقارير','طباعة وتحميل التقارير'],
    ['teachers','panel-top','المعلمون والأعمال','متابعة المهام والإنجاز'],
    ['games','award','إدارة المسابقات','الجولات والمشاركات والنتائج']
@@ -364,7 +364,7 @@ function viewPlans(){
    <section class="bg-gradient-to-l from-slate-950 via-slate-900 to-emerald-900 text-white rounded-3xl p-6 sm:p-8">
     <span class="text-xs text-emerald-200 font-black">مصدر التصنيف: اختبارات معلّمي المسلّمة فقط</span>
     <h1 class="text-2xl sm:text-3xl font-black mt-2">العلاج • التعزيز • الإثراء</h1>
-    <p class="text-xs text-slate-300 mt-2">يُصنّف الطالب في كل مؤشر وفق نتيجته الفعلية في معلّمي. الطالب الذي لم يختبر يبقى في قائمة «لم يختبر» ولا يدخل أيًّا من المسارات الثلاثة.</p>
+    <p class="text-xs text-slate-300 mt-2">يُصنّف الطالب في كل مؤشر وفق نتيجته الفعلية في معلّمي. الطالب الذي لم يختبر تُعرض حالته منفصلة عن المسارات الثلاثة، ولا يُصنّف أو تُرسل له هذه التدريبات.</p>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
       ${tabs.map(t=>`<button data-plan-kind="${t.id}" class="rounded-2xl p-4 text-right border ${kind===t.id?t.active:'bg-white/10 border-white/10 text-slate-200'}"><b class="block text-sm">${t.title}</b><span class="text-[11px]">${fmt(t.count)} حالة · ${fmt(t.indicators)} مؤشرًا</span></button>`).join('')}
     </div>
