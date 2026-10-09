@@ -131,9 +131,10 @@ async function reprocessServerSheet(db:any,session:Row,row:Row){
  const uncertain=answers.filter((a:Row)=>a.state==='uncertain'||a.state==='multiple').length;
  const next={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,
    markers_ok:rr.markers_ok===true,marker_confidence:finite(rr.marker_confidence,0,1),answers,
-   ...gradeScan(answers,Number(p.question_count),{markers_ok:rr.markers_ok===true,identity_valid:true,key_complete:true}),total:p.question_count,
+   ...gradeScan(answers,Number(p.question_count),{markers_ok:rr.markers_ok===true,identity_valid:true,key_complete:true,reader_requires_review:rr.verification?.requires_manual_review===true}),total:p.question_count,
    counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
    omr_policy:OMR_POLICY,omr_detector:String(rr.detector||'').slice(0,64),marker_points:rr.marker_points||null,
+   omr_grid_alignment:rr.grid_alignment||null,omr_preprocessing:rr.preprocessing||{mode:'original'},
    omr_verification:classificationVerification(rr.verification,answers),omr_calibration:compactCalibration(rr.calibration),
    omr_reading_verification:compactVerification(rr.verification),
    ...classificationDiagnostics(answers),
@@ -247,12 +248,13 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const snapshot={
      student_name:identityValid?assignment.student_name:'غير معروف — يلزم إعادة المسح',model,identity_valid:identityValid,
      markers_ok:markersOk,marker_confidence:finite(rr?.marker_confidence,0,1),
-     answers,...gradeScan(answers,Number(p.question_count),{markers_ok:markersOk,reader_error:readerError,identity_valid:identityValid,key_complete:keyComplete}),total:p.question_count,
+     answers,...gradeScan(answers,Number(p.question_count),{markers_ok:markersOk,reader_error:readerError,identity_valid:identityValid,key_complete:keyComplete,reader_requires_review:rr?.verification?.requires_manual_review===true}),total:p.question_count,
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
      page_no:Number(raw.page_no)||1,region_no:Number(raw.region_no)||1,
      omr_policy:OMR_POLICY,
      omr_detector:String(rr?.detector||'').slice(0,64),
-     marker_points:rr?.marker_points||null,
+     marker_points:rr?.marker_points||null,omr_grid_alignment:rr?.grid_alignment||null,
+     omr_preprocessing:rr?.preprocessing||null,
      omr_verification:classificationVerification(verification,answers),
      omr_reading_verification:compactVerification(rr?.verification),
      ...classificationDiagnostics(answers),
@@ -294,7 +296,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    });
    if(typeof b.reason!=='string'||b.reason.trim().length<3||b.reason.trim().length>1000)fail('سبب تعديل الهوية مطلوب.');
    const effective={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,identity_source:'manual',identity_manual_reason:b.reason.trim(),answers,
-     ...gradeScan(answers,Number(p.question_count),{markers_ok:current.markers_ok===true,reader_error:current.omr_reader_error,identity_valid:true,key_complete:true}),
+     ...gradeScan(answers,Number(p.question_count),{markers_ok:current.markers_ok===true,reader_error:current.omr_reader_error,identity_valid:true,key_complete:true,reader_requires_review:current.omr_verification?.requires_manual_review===true}),
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),
      omr_verification:classificationVerification(current.omr_reading_verification||current.omr_verification,answers),...classificationDiagnostics(answers)};
    const sheet=must(await db.rpc('nafes_scan_assign_identity',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_student:assignment.student_id,p_sheet_no:assignment.sheet_no,p_student_name:assignment.student_name,p_model:assignment.model,p_effective:effective,p_version:b.answer_version}));
