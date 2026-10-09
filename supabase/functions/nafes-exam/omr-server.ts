@@ -296,7 +296,10 @@ function locateBubbleGrid(im:GrayImage,scale:number){
   // The current printable SVG uses 20/5.45 mm. Older actual MR2 A4 prints
   // have different row origin/pitch: calibrate from printed empty bubble rings,
   // not answer choices, colors, or a student's score.
-  const starts=[19,20,21,23,25,27,29,30,31],steps=[4.65,4.8,4.95,5.1,5.25,5.45,5.55];
+  // Registered print profiles only: the unconstrained Cartesian search aliases
+  // bubble rings and silently shifted the grid on three of six actual sheets.
+  // Unknown geometries must be rejected, never auto-graded.
+  const registeredProfiles=[{start:20,step:5.45,name:'current_print'},{start:29,step:4.8,name:'legacy_candidate_requires_review'}];
   const ringEvidence=(right:number,row:number,off:number,rowStart:number,rowStep:number,dx=0,dy=0)=>{
     const x=(right-off)*scale+dx,y=(rowStart+row*rowStep)*scale+dy;
     const ring=meanAt(im,x,y,radius*1.13,radius*.87);
@@ -304,7 +307,7 @@ function locateBubbleGrid(im:GrayImage,scale:number){
     return Math.max(0,(paper-ring)/255);
   };
   const scored=[] as {start:number;step:number;score:number}[];
-  for(const start of starts)for(const step of steps){
+  for(const {start,step} of registeredProfiles){
     const values:number[]=[];
     for(const right of rights)for(let row=0;row<15;row++)for(const off of offs)
        values.push(ringEvidence(right,row,off,start,step));
@@ -333,7 +336,7 @@ function locateBubbleGrid(im:GrayImage,scale:number){
   return{blocks,score:median(blocks.map(b=>b.score)),
     rowStart,rowStep,nominal:rowStart===20&&rowStep===5.45,
     candidate_margin:Number((candidate.score-(runner?.score||0)).toFixed(4)),
-    layout:rowStart===20&&rowStep===5.45?'current_print':'calibrated_legacy_print'};
+    layout:rowStart===20&&rowStep===5.45?'current_print':'legacy_candidate_requires_review'};
 }
 
 function orientTemplate(source:GrayImage,scale:number){
@@ -466,7 +469,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
  });
  const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
   const geometryUncertain=m.confidence<.85||grid.score<.10;
-  const enhancedPreprocessing=preprocessing.mode!=='original';
+  const enhancedPreprocessing=preprocessing.mode!=='original'||grid.layout!=='current_print';
    const requiresReview=!!(ambiguous||multiple||geometryUncertain||enhancedPreprocessing);
   return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,preprocessing,
    color_calibration:{method:'local-paper-annular-median',weak_second_ink:'manual-review'},
