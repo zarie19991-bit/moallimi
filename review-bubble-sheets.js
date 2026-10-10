@@ -40,7 +40,7 @@ function makeSheet(item,index,d){
 }
 function renderOmrQr(box,payload){
  const lib=window.qrcodegen;if(!lib?.QrCode)throw new Error('تعذر تحميل مولّد QR.');
- const qr=lib.QrCode.encodeText(String(payload||''),lib.QrCode.Ecc.MEDIUM),quiet=4,scale=6,side=(qr.size+quiet*2)*scale;
+ const qr=lib.QrCode.encodeText(String(payload||''),lib.QrCode.Ecc.MEDIUM),quiet=4,scale=12,side=(qr.size+quiet*2)*scale;
  const canvas=document.createElement('canvas');canvas.width=canvas.height=side;
  canvas.style.cssText='display:block;width:100%;height:auto;image-rendering:pixelated;background:#fff';
  const g=canvas.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,side,side);g.fillStyle='#000';
