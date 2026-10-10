@@ -3,7 +3,7 @@
 "use strict";
 const API="https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-exam-classifications";
 const labels={all:"الكل",remedial:"علاجي",reinforcement:"تعزيز",enrichment:"إثرائي",unmeasured:"لم يُقَس"};
-const A={host:null,tests:[],detail:null,testId:"",scope:"",filter:"all",loading:false,sending:false,error:"",notice:"",ready:false,query:"",groupKeys:[],groupOpen:false};
+const A={host:null,tests:[],detail:null,testId:"",scope:"",filter:"all",loading:false,sending:false,error:"",notice:"",ready:false,query:"",groupKeys:[],groupOpen:false,statusFilter:"all"};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const num=n=>n==null||!Number.isFinite(Number(n))?"—":new Intl.NumberFormat("ar-SA",{maximumFractionDigits:2}).format(Number(n));
 const date=s=>s?new Date(s).toLocaleDateString("ar-SA",{year:"numeric",month:"long",day:"numeric"}):"—";
@@ -26,7 +26,7 @@ function style(){
 }
 function draw(){
  if(!A.host?.isConnected)return;
- const d=A.detail,c=d?.counts||{},ps=d?.percentages||{},all=d?.rows||[],filtered=all.filter(x=>A.filter==="all"||x.classification===A.filter),needle=A.query.trim().toLowerCase(),shown=filtered.filter(x=>!needle||String(x.student_name).toLowerCase().includes(needle)||String(x.class_name).toLowerCase().includes(needle));
+ const d=A.detail,c=d?.counts||{},ps=d?.percentages||{},all=d?.rows||[],filtered=all.filter(x=>(A.filter==="all"||x.classification===A.filter)&&(A.statusFilter==="all"||x.plan_status===A.statusFilter)),needle=A.query.trim().toLowerCase(),shown=filtered.filter(x=>!needle||String(x.student_name).toLowerCase().includes(needle)||String(x.class_name).toLowerCase().includes(needle));
  const options=A.tests.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===A.testId?'selected':'')+'>'+esc(x.title)+' • '+esc(date(x.date))+'</option>').join("");
  const scopes=(d?.scopes||[]).map(x=>'<option value="'+esc(x.key)+'" '+(x.key===d.scope?'selected':'')+'>'+esc(x.label)+'</option>').join("");
  A.host.innerHTML='<div class="tkc">'+
@@ -62,6 +62,7 @@ function draw(){
  ].map(x=>'<div><small>'+x[0]+'</small><b>'+num(x[1])+'</b></div>').join("")+'</div></section>'+
  '<section class="tkc-box"><div class="tkc-heading"><div><h2>أسماء الطلاب ودرجاتهم</h2><p>'+esc(d.test.title)+' · '+esc((d.test.subject_keys||[]).map(sub).join("، "))+' · '+esc(d.test.grade)+' · '+esc(date(d.test.date))+'</p></div><span class="tkc-note">'+num(shown.length)+' من '+num(all.length)+' طالب</span></div>'+
  '<div class="tkc-tabs">'+["all","remedial","reinforcement","enrichment","unmeasured"].map(k=>'<button class="tkc-tab '+(k===A.filter?'active':'')+'" data-tkc-filter="'+k+'">'+labels[k]+' ('+num(k==="all"?all.length:c[k]||0)+')</button>').join("")+'</div>'+
+ '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:13px"><label for="tkc-status" style="margin:0">حالة متابعة الخطة</label><select id="tkc-status" style="max-width:230px"><option value="all">كل الحالات</option>'+[["none","لم تُسند خطة"],["assigned","لم يبدأ"],["in_progress","قيد التنفيذ"],["completed","مكتمل"]].map(x=>'<option value="'+x[0]+'" '+(A.statusFilter===x[0]?'selected':'')+'>'+x[1]+'</option>').join("")+'</select><span class="tkc-note">الترتيب حسب أولوية التدخل ودرجة الطالب ثم الفصل.</span></div>'+
  '<div class="tkc-tablebox"><table class="tkc-table" style="min-width:1450px"><thead><tr><th>م</th><th>اسم الطالب</th><th>الفصل</th><th>الدرجة القبلية</th><th>الدرجة الكلية</th><th>النسبة</th><th>التصنيف</th><th>الخطة وورقة العمل</th><th>حالة التنفيذ</th><th>تاريخ الإسناد/الإنجاز</th><th>القياس البعدي</th><th>التحسن</th><th>قياس الأثر</th></tr></thead><tbody>'+
  (shown.length?shown.map((r,i)=>'<tr><td>'+num(i+1)+'</td><td><b>'+esc(r.student_name)+'</b></td><td>'+esc(r.class_name||"—")+'</td><td>'+(r.tested?num(r.score):"—")+'</td><td>'+(r.tested?num(r.total):"—")+'</td><td>'+(r.tested?num(r.percent)+"%":"—")+'</td><td><span class="tkc-pill '+r.classification+'">'+labels[r.classification]+'</span></td>'+
  '<td>'+(r.plans?.length?r.plans.map(x=>'<div style="padding:5px 0"><b>'+esc(x.title)+'</b><div>'+esc(x.indicator_text||"")+'</div><button class="tkc-print-small" data-tkc-sheet="'+esc(x.id)+'">طباعة الورقة</button></div>').join(""):"لم تُسند")+'</td>'+
@@ -77,12 +78,13 @@ function draw(){
 function wire(){
  if(!A.host?.isConnected)return;
  const $=id=>A.host.querySelector("#"+id);
- const t=$("tkc-test");if(t)t.onchange=()=>{A.testId=t.value;A.scope="";A.filter="all";A.query="";A.groupKeys=[];A.groupOpen=false;loadDetail()};
+ const t=$("tkc-test");if(t)t.onchange=()=>{A.testId=t.value;A.scope="";A.filter="all";A.query="";A.groupKeys=[];A.groupOpen=false;A.statusFilter="all";loadDetail()};
  const s=$("tkc-scope");if(s)s.onchange=()=>{A.scope=s.value;A.filter="all";loadDetail()};
  const q=$("tkc-search");if(q)q.oninput=()=>{A.query=q.value;const pos=q.selectionStart;draw();const r=$("tkc-search");r?.focus();r?.setSelectionRange(pos,pos)};
  const b=$("tkc-reload");if(b)b.onclick=()=>A.testId?loadDetail():loadList(true);
  const z=$("tkc-retry");if(z)z.onclick=()=>A.testId?loadDetail():loadList(true);
- A.host.querySelectorAll("[data-tkc-filter]").forEach(b=>b.onclick=()=>{A.filter=b.dataset.tkcFilter;A.notice="";draw()});
+ A.host.querySelectorAll("[data-tkc-filter]").forEach(b=>b.onclick=()=>{A.filter=b.dataset.tkcFilter;A.statusFilter="all";A.notice="";draw()});
+ const status=$("tkc-status");if(status)status.onchange=()=>{A.statusFilter=status.value;draw()};
  const a=$("tkc-assign");if(a)a.onclick=assign;
  const p=$("tkc-print");if(p)p.onclick=print;
  const g=$("tkc-group-toggle");if(g)g.onclick=()=>{A.groupOpen=!A.groupOpen;draw()};
@@ -130,7 +132,7 @@ async function printSheet(id){
 
 function print(){
  const d=A.detail;if(!d)return;const w=window.open("","_blank","width=1100,height=850");if(!w){alert("اسمح بفتح نافذة جديدة ثم اطبع التقرير.");return}
- const c=d.counts,p=d.percentages,r=d.rows.filter(x=>A.filter==="all"||x.classification===A.filter);
+ const c=d.counts,p=d.percentages,r=d.rows.filter(x=>(A.filter==="all"||x.classification===A.filter)&&(A.statusFilter==="all"||x.plan_status===A.statusFilter));
  const fx=d.effect||{};
  const table=r.map((s,i)=>'<tr><td>'+num(i+1)+'</td><td>'+esc(s.student_name)+'</td><td>'+esc(s.class_name)+'</td><td>'+(s.tested?num(s.score):"—")+'/'+(s.tested?num(s.total):"—")+'</td><td>'+(s.tested?num(s.percent)+"%":"—")+'</td><td>'+labels[s.classification]+'</td><td>'+(s.plans?.length?s.plans.map(p=>esc(p.title)+' — '+esc(p.indicator_text||"")).join('<p>'):"لم تُسند")+'</td><td>'+statusName(s.plan_status)+'</td><td>'+(s.assigned_at?date(s.assigned_at):"—")+'</td><td>'+(s.completed_at?date(s.completed_at):"—")+'</td><td>'+(s.post_percent!=null?num(s.post_percent)+"%":"لم يُقَس")+'</td><td>'+(s.improvement!=null?((s.improvement>0?"+":"")+num(s.improvement)):"—")+'</td><td>'+esc(s.effect_status||"—")+'</td></tr>').join("");
  const style='@page{size:A4 landscape;margin:8mm}body{font-family:Tahoma,Arial,sans-serif;color:#19362b;font-size:10pt}h1{color:#056849;border-bottom:3px solid #056849;padding-bottom:8px;font-size:20pt}.meta,.summary{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.meta span,.summary b{border:1px solid #d9e7de;background:#f2f8f4;padding:8px;flex:1;min-width:130px}.summary b{text-align:center}.summary em{display:block;font-style:normal;color:#087858;font-size:16pt}table{width:100%;border-collapse:collapse;font-size:7.4pt;table-layout:auto}th,td{border:1px solid #d9e2db;padding:5px;text-align:right;vertical-align:top;overflow-wrap:anywhere}th{background:#e2f0e8}tr{break-inside:avoid}thead{display:table-header-group}.note{font-size:8.5pt;color:#586b5e;margin-top:14px}';
