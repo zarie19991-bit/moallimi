@@ -171,14 +171,30 @@ function renderButtons(){
  const s=sheets[active];
  if($('visionReadBtn'))$('visionReadBtn').disabled=busy||!visionAvailable||!s;
  if($('resetOmrAttemptsBtn'))$('resetOmrAttemptsBtn').disabled=busy||!draft||!session;
- $('saveSheetBtn').disabled=busy||!ready()||!s||safety.unresolvedSheet(s)||failedRead(effective(s))||loadedImage!==s.id||!!s.reviewed_at||!$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
+ $('saveSheetBtn').disabled=busy||!ready()||!s||safety.unresolvedSheet(s)||
+ pendingAnswerCount(effective(s))>0||scoreMismatch(effective(s))||
+ failedRead(effective(s))||loadedImage!==s.id||!!s.reviewed_at||
+ !$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
+ if($('reviewEligibilityNote')){
+  const e=s?effective(s):null;
+  let msg='اختر ورقة للمراجعة.';
+  if(s?.reviewed_at)msg='تم حفظ التحقق من هذه الورقة.';
+  else if(e&&!ready())msg='انتظر اكتمال رفع العدد المستهدف قبل حفظ التحقق.';
+  else if(e&&(!e.identity_valid||!s.student_id))msg='تحتاج هذه الورقة إلى تأكيد هويتها قبل الاعتماد.';
+  else if(e&&failedRead(e))msg='فشل تحديد مواضع التظليل؛ يجب إعادة المسح.';
+  else if(e&&(pendingAnswerCount(e)>0||safety.unresolvedSheet(s)||scoreMismatch(e)))
+    msg='هذه الورقة بها إجابات غير محسومة. افتح الصورة وصحح أو أكد الإجابات المطلوبة أولًا؛ الأوراق السليمة الأخرى يمكن مراجعتها مستقلًا.';
+  else if(e)msg='قراءة هذه الورقة مكتملة؛ راجع صورتها، ثم ضع علامة التحقق واحفظها دون انتظار الورقة الأولى.';
+  $('reviewEligibilityNote').textContent=msg;
+ }
  const target=$('omrUncertaintyReasons');
  if(target&&s){
    const answers=effective(s).answers||[];
    target.innerHTML=answers.map((a,i)=>safety.reasons(a).map(reason=>
      '<p>س '+ar(i+1)+': '+esc(reason)+'</p>').join('')).join('');
  }
- $('nextSheetBtn').disabled=busy||!s?.reviewed_at||active>=sheets.length-1;
+ // Browsing and checking a clean page must not be blocked by an earlier uncertain page.
+ $('nextSheetBtn').disabled=busy||!s||active>=sheets.length-1;
  $('finishReviewBtn').disabled=busy||!ready()||firstPending()>=0||!!session.completed_at;
  $('approveBtn').disabled=busy||!session?.completed_at||!sheets.some(s=>s.disposition==='verified')||
    sheets.some(s=>!s.blocked_duplicate&&(safety.unresolvedSheet(s)||failedRead(effective(s))));
@@ -460,8 +476,10 @@ async function editHistory(){
  }catch(e){message('تعذر عرض سجل التعديلات: '+e.message,true);}
 }
 async function verify(){
- if(busy||$('saveSheetBtn').disabled||safety.unresolvedSheet(sheets[active])||failedRead(effective(sheets[active])))return;lock(true);
- try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0,verified:true});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(effective(r.sheet))+' · '+status(r.sheet);message('حُفظ التحقق من الورقة. يمكنك الانتقال إلى التالية.');render();}
+ if(busy||$('saveSheetBtn').disabled||safety.unresolvedSheet(sheets[active])||
+ pendingAnswerCount(effective(sheets[active]))>0||
+ scoreMismatch(effective(sheets[active]))||failedRead(effective(sheets[active])))return;lock(true);
+ try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0,verified:true});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(effective(r.sheet))+' · '+status(r.sheet);message('حُفظ التحقق من الورقة بشكل مستقل. يمكنك اختيار أي ورقة أخرى؛ الاعتماد النهائي للدفعة يتطلب استكمال بقية الأوراق.');render();}
  catch(e){message('لم يُحفظ التحقق: '+e.message,true);}finally{lock(false);}
 }
 async function finish(){
