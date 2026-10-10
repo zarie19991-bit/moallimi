@@ -258,10 +258,13 @@ async function readPrintedStudentName(){
  const sheet=sheets[active],index=active;
  if(printedNameOcrBusy||busy||!sheet||effective(sheet)?.identity_valid||
     sheet.reviewed_at||!window.NafesPrintedNameOCR)return;
- const status=$('printedNameOcrStatus'),candidates=$('printedNameOcrCandidates');
+ const status=$('printedNameOcrStatus'),candidates=$('printedNameOcrCandidates'),
+  detail=$('printedNameOcrDetails'),raw=$('printedNameOcrRaw');
  printedNameOcrBusy=true;renderButtons();
  if(status)status.textContent='بدء القراءة العربية من الجزء العلوي للصورة…';
  if(candidates)candidates.innerHTML='';
+ if(detail)detail.classList.add('hidden');
+ if(raw)raw.textContent='';
  try{
   let src=imageCache.get(sheet.id);
   if(!src){
@@ -270,14 +273,28 @@ async function readPrintedStudentName(){
    imageCache.set(sheet.id,src);
   }
   if(sheets[index]?.id!==sheet.id)throw new Error('تغيرت الورقة أثناء القراءة.');
+  const roster=draft?.assignments||[];
+  const used=sheets.filter(x=>x.id!==sheet.id&&x.student_id).map(x=>x.student_id);
+  const available=roster.filter(a=>!used.some(id=>String(id)===String(a.student_id)));
   const result=await window.NafesPrintedNameOCR.readPrintedName(src,text=>{
    if(sheets[active]?.id===sheet.id&&status)status.textContent=text;
-  });
+  },available);
   if(sheets[active]?.id!==sheet.id)return;
-  const used=sheets.filter(x=>x.id!==sheet.id&&x.student_id).map(x=>x.student_id);
-  const found=window.NafesPrintedNameOCR.proposals(result.text,draft?.assignments||[],used);
+  const samples=Array.isArray(result.samples)&&result.samples.length?result.samples:
+    [{region:'أعلى الصورة',text:result.text||'',confidence:result.ocrConfidence||0}];
+  if(detail&&raw){
+   raw.textContent=samples.map(x=>'['+x.region+']\n'+(x.text.trim()||'(لم يُستخرج نص)')).join('\n\n');
+   detail.classList.remove('hidden');
+  }
+  const scored=samples.map(sample=>({
+   sample,found:window.NafesPrintedNameOCR.proposals(sample.text,roster,used)
+  })).sort((a,b)=>(b.found.matches[0]?.score||0)-(a.found.matches[0]?.score||0));
+  const found=scored[0]?.found||{matches:[],unique:false};
   if(!found.matches.length){
-   if(status)status.textContent='لم أجد مطابقة عربية موثوقة من نص رأس الورقة. ابحث بالاسم في كشف الطلاب، أو قارن الصورة بنفسك. لم تتغير أي درجة.';
+   const hasArabic=samples.some(x=>/[\u0621-\u064a]{3}/.test(x.text));
+   if(status)status.textContent=hasArabic?
+    'استُخرج نص عربي، لكن لا توجد مطابقة كافية مع كشف الطلاب. افتح «إظهار النص» لمعرفة الكلمة التي أخطأ فيها القارئ، أو ابحث بالاسم أدناه. لم تتغير أي درجة.':
+    'لم يستخرج المحرك كلمات عربية واضحة من مناطق الاسم؛ افتح «إظهار النص» للتحقق أو ابحث باسم الطالب أدناه. لا حاجة لإعادة المسح.';
    return;
   }
   if(status)status.textContent=(found.unique?'وُجد اقتراح متفرد، تحقق منه قبل الربط.':
@@ -308,6 +325,8 @@ async function open(i){
    if($('printedNameOcrStatus'))$('printedNameOcrStatus').textContent=
      'يمكن قراءة الاسم المطبوع من الصورة واقتراح مطابقته بكشف الاختبار. اختر الطالب بعد التحقق؛ لا تُعد النتيجة معتمدة بمجرد اقتراح الاسم.';
    if($('printedNameOcrCandidates'))$('printedNameOcrCandidates').innerHTML='';
+   if($('printedNameOcrDetails'))$('printedNameOcrDetails').classList.add('hidden');
+   if($('printedNameOcrRaw'))$('printedNameOcrRaw').textContent='';
    populateStudentNames();
  }else $('manualAssignmentWrap').classList.add('hidden');
  $('answerEditor').innerHTML=a.answers.map(x=>{
