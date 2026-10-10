@@ -437,28 +437,44 @@ async function teacherResponseTracking(req:Request,access:Access){
 }
 
 
-async function pickTaskQuestionIds(subject:string,outcome:string,indicator:number,count:number){
+function lessonSeed(text:string){let h=2166136261;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+async function pickTaskQuestionIds(subject:string,outcome:string,indicator:number,count:number,tier:string="remedial",studentSeed:string="",cached?:Map<string,any[]>){
+ const key=[subject,outcome,indicator].join(":");
+ let rows:any[]=cached?.get(key)||[];
+ if(!cached?.has(key)){
   const {data,error}=await db.from("nafes_question_bank")
-    .select("id,cognitive_level,options,correct_index")
+    .select("id,cognitive_level,difficulty,options,correct_index,question_text,context_text")
     .eq("is_active",true).eq("review_status","approved").eq("alignment_verified",true)
-    .eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator).limit(120);
+    .eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator).limit(200);
   if(error)throw error;
-  const ids=(data||[]).map((q:any)=>q.id);
+  const raw=(data||[]).filter((q:any)=>Array.isArray(q.options)&&q.options.length===4&&new Set(q.options.map((x:any)=>String(x).trim())).size===4&&Number.isInteger(Number(q.correct_index))&&Number(q.correct_index)>=0&&Number(q.correct_index)<=3&&!/(?:في الشكل|من الشكل|كما في الشكل|الشكل الآتي|الشكل التالي|الشكل الموضح|الرسم الآتي|الرسم التالي|الرسم الموضح|المخطط الآتي|المخطط التالي|المخطط الموضح|الجدول الآتي|الجدول التالي|الجدول الموضح|أي صيغة سؤال تقيس|ما الذي يجب أن تتقنه)/.test(String(q.context_text||"")+" "+String(q.question_text||"")));
   let excluded=new Set<string>();
-  if(ids.length){const {data:ex,error:xe}=await db.from("lugati_remedial_question_exclusions").select("question_id").in("question_id",ids);if(xe)throw xe;excluded=new Set((ex||[]).map((x:any)=>String(x.question_id)))}
-  const badVisual=/(?:في الشكل|من الشكل|كما في الشكل|الشكل الآتي|الشكل التالي|الشكل الموضح|الرسم الآتي|الرسم التالي|الرسم الموضح|المخطط الآتي|المخطط التالي|المخطط الموضح|الجدول الآتي|الجدول التالي|الجدول الموضح)/;
-  const badMeta=/(?:أي صيغة سؤال تقيس|ما الذي يجب أن تتقنه|أي وصف يعبّر بدقة عن المهارة|أفضل خطوة تبدأ بها|أي سؤال من الآتي يرتبط مباشرة بهذا المؤشر|أي علامة في السؤال تساعدك أكثر)/;
-  const rows=(data||[]).filter((q:any)=>{
-    const text=String(q.context_text||"")+" "+String(q.question_text||"");
-    return !excluded.has(String(q.id))&&!badVisual.test(text)&&!badMeta.test(text)&&Array.isArray(q.options)&&q.options.length===4&&new Set(q.options.map((x:any)=>String(x).trim())).size===4&&Number.isInteger(Number(q.correct_index));
-  });
-  if(!rows.length)throw Object.assign(new Error("لا توجد أسئلة علاجية صالحة كافية لهذا المؤشر."),{status:409});
-  const shuffle=(a:any[])=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
-  const pools:any={knowledge:shuffle(rows.filter((q:any)=>q.cognitive_level==="knowledge")),application:shuffle(rows.filter((q:any)=>q.cognitive_level==="application")),reasoning:shuffle(rows.filter((q:any)=>q.cognitive_level==="reasoning"))};
-  const target=count>=8?{knowledge:3,application:3,reasoning:2}:{knowledge:Math.max(1,Math.floor(count/3)),application:Math.max(1,Math.floor(count/3)),reasoning:Math.max(1,count-2*Math.floor(count/3))};
-  const chosen:any[]=[];for(const lv of ["knowledge","application","reasoning"]){chosen.push(...(pools[lv]||[]).slice(0,target[lv]||0))}
-  for(const q of shuffle(rows))if(chosen.length<count&&!chosen.some((x:any)=>String(x.id)===String(q.id)))chosen.push(q);
-  return chosen.slice(0,count).map((q:any)=>String(q.id));
+  if(raw.length){
+   const {data:ex,error:xe}=await db.from("lugati_remedial_question_exclusions").select("question_id").in("question_id",raw.map((q:any)=>q.id));
+   if(xe)throw xe;excluded=new Set((ex||[]).map((x:any)=>String(x.question_id)))
+  }
+  rows=raw.filter((q:any)=>!excluded.has(String(q.id)));
+  cached?.set(key,rows);
+ }
+ // The buckets are stable PER INDICATOR (not per student), making all three
+ // achievement tiers mutually exclusive in the same indicator.
+ const stable=(a:any,b:any)=>lessonSeed(key+"|tier-separated-v2|"+String(a.id))-lessonSeed(key+"|tier-separated-v2|"+String(b.id));
+ const knowledge=rows.filter((q:any)=>q.cognitive_level==="knowledge"&&q.difficulty==="easy").sort(stable);
+ const application=rows.filter((q:any)=>q.cognitive_level==="application"&&q.difficulty==="medium").sort(stable);
+ const reasoning=rows.filter((q:any)=>q.cognitive_level==="reasoning"&&q.difficulty==="hard").sort(stable);
+ const remApplication=application.slice(0,Math.max(0,application.length-7)),reinforcement=application.slice(-7);
+ const vary=(a:any,b:any)=>lessonSeed(studentSeed+"|"+String(a.id))-lessonSeed(studentSeed+"|"+String(b.id));
+ let chosen:any[]=[];
+ if(tier==="remedial"){
+  const k=Math.min(knowledge.length,Math.max(2,6-remApplication.length));
+  chosen=[...knowledge.sort(vary).slice(0,k),...remApplication.sort(vary).slice(0,6-k)];
+  if(chosen.length<6)chosen.push(...knowledge.filter((q:any)=>!chosen.includes(q)).sort(vary).slice(0,6-chosen.length));
+ }else if(tier==="reinforcement")chosen=reinforcement.sort(vary).slice(0,7);
+ else if(tier==="enrichment")chosen=reasoning.sort(vary).slice(0,8);
+ const n=Math.min(chosen.length,Math.max(3,count));
+ if(n<3||new Set(chosen.map((x:any)=>String(x.id))).size!==chosen.length)
+  throw Object.assign(new Error("أسئلة المؤشر غير كافية لتكوين ورقة مستقلة للمستوى المطلوب."),{status:409});
+ return chosen.slice(0,n).map((q:any)=>String(q.id));
 }
 async function taskQuestions(ids:string[]){
   if(!ids.length)return[];
@@ -486,9 +502,10 @@ async function teacherSendIndicator(req:Request,body:any,access:Access){
   const studentIds=[...new Set(targets.map((p:any)=>String(p.student_id)))];
   const {data:existing,error:xe}=await db.from("lugati_teacher_tasks").select("student_id,source_attempt_id,status").eq("teacher_access_id",access.teacher_access_id!).eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator).eq("tier",tier).in("student_id",studentIds);if(xe)throw xe;
   const existingActive=new Set((existing||[]).filter((x:any)=>x.source_attempt_id&&["assigned","in_progress"].includes(String(x.status))).map((x:any)=>String(x.student_id)));
-  const qcount=Math.max(5,Math.min(12,Number(body?.question_count||8))),questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount),now=new Date().toISOString(),rows:any[]=[];let skipped=0;
+  const qcount=Math.max(5,Math.min(12,Number(body?.question_count||8))),questionCache=new Map<string,any[]>(),now=new Date().toISOString(),rows:any[]=[];let skipped=0;
   for(const p of targets){
     if(existingActive.has(String(p.student_id))){skipped++;continue}
+    const questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount,tier,String(p.student_id)+"|"+String(p.source_attempt_id||""),questionCache);
     rows.push({teacher_access_id:access.teacher_access_id,student_id:p.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||p.indicator_text||("المؤشر "+indicator),
       title:tier==="remedial"?"مسار علاجي للمؤشر":tier==="reinforcement"?"مسار تعزيزي للمؤشر":"مسار إثرائي للمؤشر",
       instructions:tier==="remedial"?"تدريب علاجي بناءً على نتيجة اختبار معلّمي المسلّم.":tier==="reinforcement"?"تدريب تعزيز بناءً على نتيجة اختبار معلّمي المسلّم.":"تدريب إثرائي بناءً على نتيجة اختبار معلّمي المسلّم.",
@@ -505,7 +522,7 @@ async function teacherSendTask(req:Request,body:any,access:Access){
   if(!studentId||!["reading","math","science"].includes(subject)||!indicator)return json(req,{error:"بيانات التدريب غير مكتملة."},400);if(!teacherAllows(access,subject))return json(req,{error:"هذه المادة خارج صلاحية حسابك."},403);
   const {data:s,error:se}=await db.from("nafes_students").select("id,is_active").eq("id",studentId).eq("is_active",true).maybeSingle();if(se)throw se;if(!s)return json(req,{error:"الطالب غير موجود."},404);
   const tested=(await latestPerformances([studentId])).find((p:any)=>matchesAssessedIndicator(p,subject,outcome,indicator));if(!tested)return json(req,{error:"لا يمكن إرسال مسار علاجي أو تعزيز أو إثراء: لا توجد نتيجة مسلّمة في معلّمي لهذا الطالب والمؤشر."},409);
-  const qcount=Math.max(3,Math.min(20,Number(body?.question_count||8))),questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount);const payload={teacher_access_id:access.teacher_access_id,student_id:studentId,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||`المؤشر ${indicator}`,title:tidy(body?.title)||"تدريب من المعلم",instructions:tidy(body?.instructions).slice(0,2000),tier:["remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",question_count:questionIds.length,question_ids:questionIds,source_percent:Number(tested.percent),source_attempt_id:tested.source_attempt_id,source_submitted_at:tested.source_submitted_at,status:"assigned",assigned_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  const qcount=Math.max(3,Math.min(20,Number(body?.question_count||8))),taskTier=["remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount,taskTier,studentId+"|"+String(tested.source_attempt_id||""));const payload={teacher_access_id:access.teacher_access_id,student_id:studentId,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||`المؤشر ${indicator}`,title:tidy(body?.title)||"تدريب من المعلم",instructions:tidy(body?.instructions).slice(0,2000),tier:["remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",question_count:questionIds.length,question_ids:questionIds,source_percent:Number(tested.percent),source_attempt_id:tested.source_attempt_id,source_submitted_at:tested.source_submitted_at,status:"assigned",assigned_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   const {data,error}=await db.from("lugati_teacher_tasks").insert(payload).select("*").single();if(error)throw error;
   return json(req,{ok:true,task:data},201);
 }
