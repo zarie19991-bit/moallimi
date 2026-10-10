@@ -7,7 +7,6 @@ const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const labels={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
 const MAX_CROSS_MODEL_REPEATS=10;
-const PAPER_QUESTION_TARGET=60;
 const selectedQuestionCount=()=>Math.max(5,Math.min(60,Math.trunc(Number(document.getElementById('questionCount')?.value)||60)));
 function minimumRequiredRepeats(){
  if(!catalog)return 0;
@@ -877,7 +876,7 @@ $('subjectChoices').addEventListener('change',e=>{
  if(document.querySelector('.indicator-check:checked'))distributeIndicatorCounts();
 });
 $('className').addEventListener('change',renderStudents);
-$('questionCount').addEventListener('input',()=>{$('questionCount').value=String(Math.max(5,Math.min(60,Number($('questionCount').value)||60)));distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
+$('questionCount').addEventListener('input',()=>{const n=Number($('questionCount').value);if(!Number.isInteger(n)||n<5||n>60)return;distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
 $('questionCount').addEventListener('change',()=>{$('questionCount').value=String(Math.max(5,Math.min(60,Number($('questionCount').value)||60)));distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
 ['knowledge','application','reasoning'].forEach(id=>$(id).addEventListener('input',updateLevelSummary));
 $('indicatorSearch').addEventListener('input',renderIndicators);
