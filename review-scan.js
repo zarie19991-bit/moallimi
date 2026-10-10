@@ -133,38 +133,49 @@ function thresholdCanvas(src,threshold=176){
  }
  g.putImageData(out,0,0);return o;
 }
+// Search only plausible QR positions/contrasts; never derive student identity
+// from page order, student name recognition or answer choices.
+function qrFallbackSpecs(){
+ return [
+  // The current printed OMR template has QR in the upper-left header.
+  [0,0,.30,.23,900],[0,0,.24,.20,1100],[.01,.01,.20,.18,1200],
+  // Older versions, mirrored layouts, and phone rotations may move the QR.
+  [.63,0,.37,.30,1050],[0,0,.39,.34,1100],
+  [.60,.01,.40,.37,1100],[0,.67,.37,.33,1000],[.63,.67,.37,.33,1000]
+ ];
+}
 function qrDecode(c){
  const full=scaledCanvas(c,1600),owned=[];
  const tryOne=x=>{
    if(!x||x.width<40||x.height<40)return null;
-   const q=qrDecodeOnce(x);return q;
+   const q=qrDecodeOnce(x);
+   // Ignore unrelated QR codes (e.g., logos/links), not a valid student ID.
+   return q&&parseQr(q.data)?q:null;
  };
  const useCrop=(x,y,w,h,scale=0)=>{
-   const c=cropCanvas(full,x,y,w,h);owned.push(c);
-   if(scale>0){const z=resizeCanvas(c,scale);owned.push(z);return z;}
-   return c;
+   const clipped=cropCanvas(full,x,y,w,h);owned.push(clipped);
+   if(scale>0){const z=resizeCanvas(clipped,scale);owned.push(z);return z;}
+   return clipped;
  };
  let q=tryOne(full);
  if(!q){
    const h=full.height,w=full.width;
-   // Fast path for the current OMR template: QR in the upper-left header.
-   const specs=[
-     [0,0,.30,.23,900],
-     [0,0,.24,.20,1100],
-     [.01,.01,.20,.18,1200]
-   ];
-   for(const [xf,yf,wf,hf,target] of specs){
-     const c=useCrop(Math.round(w*xf),Math.round(h*yf),Math.round(w*wf),Math.round(h*hf),target);
-     q=tryOne(c);
+   for(const [xf,yf,wf,hf,target] of qrFallbackSpecs()){
+     const patch=useCrop(Math.round(w*xf),Math.round(h*yf),
+       Math.round(w*wf),Math.round(h*hf),target);
+     q=tryOne(patch);
      if(!q){
-       const t=thresholdCanvas(c,175);owned.push(t);q=tryOne(t);
+       for(const threshold of [175,205,145]){
+         const bin=thresholdCanvas(patch,threshold);owned.push(bin);
+         q=tryOne(bin);if(q)break;
+       }
      }
      if(q)break;
    }
-   // Wider header fallback only if exact-zone attempts fail.
-   if(!q)q=tryOne(useCrop(0,0,w,Math.min(h,Math.round(h*.38))));
+   // Whole-header retries only after the targeted sectors have failed.
+   if(!q)q=tryOne(useCrop(0,0,w,Math.min(h,Math.round(h*.41))));
  }
- for(const c of owned){try{c.width=1;c.height=1;}catch(_){}}
+ for(const patch of owned){try{patch.width=1;patch.height=1;}catch(_){}}
  return q;
 }
 function parseQr(raw){
@@ -404,7 +415,7 @@ function validateOmrRead(answers,total){
  if(rows.some(a=>!Array.isArray(a.scores)||a.scores.length!==4||a.scores.some(x=>!Number.isFinite(Number(x)))))return{ok:false,reason:'بيانات قياس التظليل غير صالحة.'};
  return{ok:true,clear,blanks,bad};
 }
-function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,1400/c.width);o.width=Math.round(c.width*scale);o.height=Math.round(c.height*scale);o.getContext('2d').drawImage(c,0,0,o.width,o.height);const out=o.toDataURL('image/jpeg',.76);o.width=1;o.height=1;return out;}
+function fullImage(c){const o=document.createElement('canvas'),scale=Math.min(1,1600/c.width);o.width=Math.round(c.width*scale);o.height=Math.round(c.height*scale);o.getContext('2d').drawImage(c,0,0,o.width,o.height);const out=o.toDataURL('image/jpeg',.83);o.width=1;o.height=1;return out;}
 function thumb(c){const w=Math.min(420,c.width),h=Math.round(c.height*w/c.width),o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(c,0,0,w,h);const out=o.toDataURL('image/jpeg',.58);o.width=1;o.height=1;return out;}
 function scoreResult(r){
  const key=keyForModel(r.model);let score=0,total=Math.min(Number(draft.question_count||20),key.length||20);
