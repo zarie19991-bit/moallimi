@@ -176,13 +176,96 @@ async function assign(testId:string,scope:string,tier:string,t:any){
  let sent=0;for(let i=0;i<inserts.length;i+=100){const {data,error}=await db.from("lugati_teacher_tasks").insert(inserts.slice(i,i+100)).select("id");if(error)throw error;sent+=(data||[]).length}
  return {sent,skipped:duplicate,unavailable,total_targets:chosen.length,message:sent?"تم إسناد الخطط إلى "+sent+" طالبًا من نتيجة الاختبار المحدد.":"لم تُنشأ خطط جديدة. راجع توافر الأسئلة أو الإسنادات السابقة."};
 }
+
+const planScopeMatches=(p:any,scope:string)=>{
+ const key=["indicator",clean(p.subject_key),clean(p.outcome_code),Number(p.indicator_index||0)].join(":");
+ return scope==="overall"||scope.startsWith("subject:")&&clean(p.subject_key)===scope.slice(8)||scope.startsWith("group:")&&scope.slice(6).split("|").includes(key)||scope===key;
+};
+function sameIndicatorKeys(at:any,scope:string){
+ return questionParts(at).filter((g:any)=>scope==="overall"||scope.startsWith("subject:")&&g.subject_key===scope.slice(8)||scope.startsWith("group:")&&scope.slice(6).split("|").includes(g.key)||scope===g.key).map((x:any)=>x.key);
+}
+async function addProgress(view:any,access:any){
+ const tested=(view.rows||[]).filter((r:any)=>r.tested&&r.attempt_id);
+ const effects:any={assigned:0,in_progress:0,completed:0,post_tested:0,improved:0,mastered_after:0,new_mastery:0,still_remedial:0,declined:0,pending_post:0};
+ const byStudent=new Map<string,any[]>();
+ const mapPlans=new Map<string,any[]>();
+ if(tested.length){
+  const aid=[...new Set(tested.map((r:any)=>String(r.attempt_id)))];
+  for(let i=0;i<aid.length;i+=150){
+   const {data,error}=await db.from("lugati_teacher_tasks").select("id,student_id,source_attempt_id,subject_key,outcome_code,indicator_index,indicator_text,title,tier,question_count,status,assigned_at,started_at,completed_at,percent").eq("teacher_access_id",access.id).in("source_attempt_id",aid.slice(i,i+150)).neq("status","revoked").order("assigned_at",{ascending:false}).limit(2500);
+   if(error)throw error;
+   for(const p of data||[]){
+    if(!planScopeMatches(p,view.scope))continue;
+    const key=String(p.student_id)+"|"+String(p.source_attempt_id);
+    if(!mapPlans.has(key))mapPlans.set(key,[]);
+    mapPlans.get(key)!.push(p);
+   }
+  }
+ }
+ const completedDates=[...mapPlans.values()].flat().filter((p:any)=>p.status==="completed"&&p.completed_at).map((p:any)=>p.completed_at).sort();
+ if(completedDates.length){
+  const ids=[...new Set(tested.map((r:any)=>String(r.student_id)))];
+  for(let i=0;i<ids.length;i+=100){
+   const {data,error}=await db.from("nafes_assessment_attempts").select("id,student_id,assessment_id,rendered_sections,answers,submitted_at,is_demo").in("student_id",ids.slice(i,i+100)).gt("submitted_at",completedDates[0]).order("submitted_at",{ascending:true}).limit(2500);
+   if(error)throw error;if((data||[]).length===2500)throw httpError("هناك نتائج لاحقة كثيرة، ولا يمكن إصدار تقرير أثر ناقص.",409);
+   for(const a of data||[]){if(a.is_demo===true)continue;const k=String(a.student_id);if(!byStudent.has(k))byStudent.set(k,[]);byStudent.get(k)!.push(a)}
+  }
+ }
+ for(const row of view.rows||[]){
+  row.plans=[];row.plan_status="none";row.assigned_at=null;row.completed_at=null;row.post_score=null;row.post_total=null;row.post_percent=null;row.post_at=null;row.post_attempt_id=null;row.improvement=null;row.mastered_after=null;row.effect_status=row.tested?"لم تُسند خطة":"لم يُقَس";
+  if(!row.tested)continue;
+  const plans=mapPlans.get(String(row.student_id)+"|"+String(row.attempt_id))||[];
+  if(!plans.length)continue;
+  row.plans=plans.map((p:any)=>({id:p.id,title:p.title,tier:p.tier,status:p.status,assigned_at:p.assigned_at,started_at:p.started_at,completed_at:p.completed_at,indicator_text:p.indicator_text,subject_key:p.subject_key,percent:p.percent,question_count:p.question_count}));
+  row.assigned_at=plans.map((p:any)=>p.assigned_at).filter(Boolean).sort()[0]||null;
+  row.completed_at=plans.map((p:any)=>p.completed_at).filter(Boolean).sort().at(-1)||null;
+  row.plan_status=plans.every((p:any)=>p.status==="completed")?"completed":plans.some((p:any)=>p.status==="completed"||p.status==="in_progress")?"in_progress":"assigned";
+  effects[row.plan_status]++;
+  if(row.plan_status!=="completed"||!row.completed_at){row.effect_status="بانتظار إكمال الخطة";continue}
+  const before=view._attempts.get(String(row.student_id));
+  const keys=sameIndicatorKeys(before,view.scope);
+  if(!keys.length){row.effect_status="لا توجد مهارات قابلة للمقارنة";effects.pending_post++;continue}
+  const later=(byStudent.get(String(row.student_id))||[]).filter((a:any)=>a.id!==row.attempt_id&&a.submitted_at>row.completed_at);
+  let found:any=null;
+  for(const attempt of later){
+   const group=new Map(questionParts(attempt).map((x:any)=>[x.key,x]));
+   if(keys.some((k:string)=>!group.has(k)))continue;
+   const metric=keys.reduce((v:any,k:string)=>({score:v.score+group.get(k).score,total:v.total+group.get(k).total}),{score:0,total:0});
+   const valid=validScore(metric.score,metric.total);if(valid){found={attempt,valid};break}
+  }
+  if(!found){row.effect_status="بانتظار اختبار بعدي لنفس المؤشر";effects.pending_post++;continue}
+  row.post_score=found.valid.score;row.post_total=found.valid.total;row.post_percent=Math.round(row.post_score/row.post_total*10000)/100;row.post_at=found.attempt.submitted_at;row.post_attempt_id=found.attempt.id;
+  row.improvement=Math.round((row.post_percent-row.percent)*100)/100;row.mastered_after=row.post_percent>=80;
+  row.effect_status=row.mastered_after?"متقن":row.improvement>0?"تحسّن ويحتاج متابعة":row.improvement<0?"انخفض أداؤه":"لم يتغير";
+  effects.post_tested++;
+  if(row.improvement>0)effects.improved++;
+  if(row.improvement<0)effects.declined++;
+  if(row.mastered_after){effects.mastered_after++;if(row.percent<80)effects.new_mastery++}
+  if(row.post_percent<50)effects.still_remedial++;
+ }
+ view.effect=effects;
+ return view;
+}
+async function planSheet(req:Request,body:any,access:any){
+ const id=clean(body?.task_id);if(!/^[0-9a-f-]{36}$/i.test(id))throw httpError("اختر ورقة عمل صحيحة.",400);
+ const {data:t,error}=await db.from("lugati_teacher_tasks").select("id,student_id,teacher_access_id,source_attempt_id,title,subject_key,indicator_text,tier,question_ids,status,assigned_at").eq("id",id).eq("teacher_access_id",access.id).neq("status","revoked").maybeSingle();
+ if(error)throw error;if(!t)throw httpError("ورقة العمل غير موجودة.",404);
+ const {data:student,error:se}=await db.from("nafes_students").select("full_name,class_name").eq("id",t.student_id).maybeSingle();if(se)throw se;
+ const ids=(Array.isArray(t.question_ids)?t.question_ids:[]).map(String).slice(0,40);
+ if(!ids.length)throw httpError("لا توجد أسئلة محفوظة في الورقة.",409);
+ const {data:questions,error:qe}=await db.from("nafes_question_bank").select("id,question_text,context_text,options").in("id",ids);if(qe)throw qe;
+ const map=new Map((questions||[]).map((q:any)=>[String(q.id),q]));
+ return reply(req,{ok:true,student_name:student?.full_name||"طالب",class_name:student?.class_name||"",title:t.title,indicator_text:t.indicator_text,tier:t.tier,assigned_at:t.assigned_at,questions:ids.map((id:string)=>map.get(id)).filter(Boolean)});
+}
+
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:headers(req)});
  if(req.method!=="POST")return reply(req,{error:"الطريقة غير مدعومة."},405);
  try{
   const access=await teacher(req),body=await req.json().catch(()=>({})),action=clean(body.action||"list");
   if(action==="list")return reply(req,{ok:true,tests:await listTests(access)});
-  if(action==="detail"){const d=await build(clean(body.test_id),clean(body.scope),access);delete d._attempts;return reply(req,{ok:true,...d})}
+  if(action==="detail"){const d=await addProgress(await build(clean(body.test_id),clean(body.scope),access),access);delete d._attempts;return reply(req,{ok:true,...d})}
+  if(action==="plan_sheet")return await planSheet(req,body,access);
   if(action==="assign")return reply(req,{ok:true,...await assign(clean(body.test_id),clean(body.scope),clean(body.tier),access)});
   return reply(req,{error:"إجراء غير مدعوم."},400);
  }catch(e:any){console.error("tamakkun-exam-classifications",e);return reply(req,{error:(e?.status&&e.status<500)?clean(e.message):"تعذر معالجة نتائج هذا الاختبار. حاول مرة أخرى.",details:e?.status&&e.status<500?undefined:"server_error"},e?.status||500)}
