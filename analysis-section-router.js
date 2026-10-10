@@ -91,7 +91,7 @@ function install(){
   document.querySelectorAll('.main-tab').forEach(b=>{
     b.onclick=e=>{e.preventDefault();show(b.dataset.view);};
   });
-  show(document.querySelector('.main-tab.active')?.dataset.view||'overview');
+  show(new URLSearchParams(location.search).get('view')==='indicatorReport'?'indicatorReport':(document.querySelector('.main-tab.active')?.dataset.view||'overview'));
   installSemesterControls();
   bindAnalysisPrintFidelity();
 
