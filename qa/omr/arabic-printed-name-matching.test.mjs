@@ -27,6 +27,9 @@ test('OCR names match only consecutive lines/words, not common first names alone
  assert(r.matches[0].score>=.82);
  assert.equal(r.unique,true);
  assert.equal(proposals('اسم الطالب محمد',roster).matches.length,0);
+ const partial=proposals('اسم الطالب فهد ابراهيم محمد',roster);
+ assert.equal(partial.matches[0]?.student_id,'1','Three distinctive printed-name words should be a review suggestion');
+ assert.equal(partial.unique,false,'Partial name is NEVER a verified unique identity');
  assert.equal(proposals('اسم الطالب ورقة التظليل نموذج',roster).matches.length,0);
  assert.equal(matchCandidate('محمد علي حسن القحطاني',roster[1].student_name).score,1);
 });
