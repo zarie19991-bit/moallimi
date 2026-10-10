@@ -55,6 +55,7 @@
       <button class="main-tab" data-view="joint">الاختبارات المشتركة</button>
       <button class="main-tab" data-view="subject">تحليل مادة منفصلة</button>
       <button class="main-tab" data-view="subjectReport">تقرير رسمي لمادة</button>
+      <button class="main-tab" data-view="indicatorReport">تقرير اختبار المؤشرات التفصيلي</button>
       <button class="main-tab" data-view="report">التقرير العام الرسمي</button>
     </nav>
 
@@ -80,6 +81,11 @@
       <div id="subjectOfficialReport" class="subject-official-preview"><div class="report-preview-empty">اختر المادة والاختبار والفصل، ثم اضغط «إنشاء تقرير المادة».</div></div>
     </section>
 
+    <section id="indicatorReportView" class="view-panel" hidden>
+      <section class="card subject-report-controls"><div class="section-head"><div><h2>تقرير اختبار المؤشرات التفصيلي</h2><p class="muted">تقرير مستقل لتحليل الطالب والسؤال والمؤشر وقياس الأثر، دون تغيير التقرير الرسمي السابق.</p></div></div>
+      <div class="toolbar subject-report-toolbar"><label><span>المادة</span><select id="indicatorReportSubject"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label><label class="wide"><span>الاختبار</span><select id="indicatorReportTest"><option value="">جارٍ تحميل الاختبارات…</option></select></label><label><span>الفصل</span><select id="indicatorReportClass"><option value="">جميع الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label><button id="buildIndicatorReportBtn" class="btn primary" type="button">إنشاء تحليل المؤشرات</button><button id="printIndicatorReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button></div><p id="indicatorReportState" class="muted"></p></section>
+      <div id="indicatorReportPreview" class="subject-official-preview"><div class="report-preview-empty">اختر المادة والاختبار والفصل لإنشاء تقرير المؤشرات المستقل.</div></div>
+    </section>
     <section id="reportView" class="view-panel" hidden>
       <section class="card"><div class="section-head"><div><h2>التقرير العام الرسمي</h2><p class="muted">يجمع الاختبارات المختارة ويعرض المشاركة والطلاب الذين يحتاجون دعمًا وغير المختبرين.</p></div></div></section>
       <div class="toolbar card report-controls"><label class="wide"><span>الاختبارات</span><select id="reportTest"></select></label><label><span>الأسبوع / الفترة</span><input id="reportWeek" type="text" placeholder="مثال: الأسبوع الرابع"></label><button id="buildReportBtn" class="btn primary" type="button">إنشاء التقرير العام</button><button id="printReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button></div>
