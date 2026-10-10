@@ -26,8 +26,36 @@ function shortReadingContext(context:string,question:string){
  chosen.sort((a,b)=>sents.indexOf(a)-sents.indexOf(b));let out=chosen.join(" ");if(out.length>520)out=out.slice(0,520).replace(/\s+\S*$/,"")+"…";return out;
 }
 function archiveReadingRows(rows:any[],subject:string){return subject==="reading"?rows.map((q:any)=>({...q,context_text:shortReadingContext(q.context_text,q.question_text)})):rows;}
-function sectionPerfs(r:any,source:string){const answers=(r?.answers&&typeof r.answers==="object")?r.answers:{};const groups=new Map<string,any>();for(const sec of(Array.isArray(r?.rendered_sections)?r.rendered_sections:[])){for(const q of(Array.isArray(sec?.questions)?sec.questions:[])){const subject=tidy(q?.subject||sec?.subject),outcome=tidy(q?.outcome),indicator=Number(q?.indicator||0),key=`${subject}:${outcome}:i${indicator}`;if(!["reading","math","science"].includes(subject)||!indicator||!q?.id)continue;if(!groups.has(key))groups.set(key,{student_id:r.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(q?.indicator_text),correct:0,total:0,source,source_attempt_id:String(r.id),source_submitted_at:r.submitted_at});const g=groups.get(key);g.total++;if(Object.prototype.hasOwnProperty.call(answers,String(q.id))&&answers[q.id]!==null&&answers[q.id]!==""&&q.correctIndex!=null&&Number.isInteger(Number(q.correctIndex))&&Number.isInteger(Number(answers[q.id]))&&Number(answers[q.id])===Number(q.correctIndex))g.correct++;}}return[...groups.values()].map(g=>({...g,percent:g.total?Math.round((g.correct/g.total)*1000)/10:0}))}
-function examPerfs(r:any){const answers=(r?.answers&&typeof r.answers==="object")?r.answers:{},qs=Array.isArray(r?.rendered_questions)?r.rendered_questions:[],groups=new Map<string,any>();for(const q of qs){const subject=tidy(q?.subject||r.subject_key),outcome=tidy(q?.outcome||r.outcome_code),indicator=Number(q?.indicator||r.indicator_index||0),key=`${subject}:${outcome}:i${indicator}`;if(!["reading","math","science"].includes(subject)||!indicator||!q?.id)continue;if(!groups.has(key))groups.set(key,{student_id:r.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(q?.indicator_text),correct:0,total:0,source:"exam",source_attempt_id:String(r.id),source_submitted_at:r.submitted_at});const g=groups.get(key);g.total++;if(Object.prototype.hasOwnProperty.call(answers,String(q.id))&&answers[q.id]!==null&&answers[q.id]!==""&&q.correctIndex!=null&&Number.isInteger(Number(q.correctIndex))&&Number.isInteger(Number(answers[q.id]))&&Number(answers[q.id])===Number(q.correctIndex))g.correct++;}return[...groups.values()].map(g=>({...g,percent:g.total?Math.round((g.correct/g.total)*1000)/10:Number(r.percent||0)}))}
+function sectionPerfs(r:any,source:string){
+ const answers=(r?.answers&&typeof r.answers==="object")?r.answers:{},groups=new Map<string,any>();
+ for(const sec of(Array.isArray(r?.rendered_sections)?r.rendered_sections:[])){
+  for(const q of(Array.isArray(sec?.questions)?sec.questions:[])){
+   const subject=tidy(q?.subject||sec?.subject),outcome=tidy(q?.outcome),indicator=Number(q?.indicator||0),key=subject+":"+outcome+":i"+indicator;
+   if(!["reading","math","science"].includes(subject)||!indicator||!q?.id)continue;
+   if(!groups.has(key))groups.set(key,{student_id:r.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(q?.indicator_text),correct:0,total:0,source,source_attempt_id:String(r.id),source_submitted_at:r.submitted_at,missed:[],seen:[],errors:{knowledge:0,application:0,reasoning:0}});
+   const g=groups.get(key);g.total++;g.seen.push(String(q.id));
+   const has=Object.prototype.hasOwnProperty.call(answers,String(q.id));
+   const right=has&&answers[q.id]!==null&&answers[q.id]!==""&&q.correctIndex!=null&&Number.isInteger(Number(q.correctIndex))&&Number.isInteger(Number(answers[q.id]))&&Number(answers[q.id])===Number(q.correctIndex);
+   if(right)g.correct++;
+   else{const level=tidy(q.cognitive_level);g.missed.push({id:String(q.id),level,text:tidy(q.question||q.question_text)});if(level in g.errors)g.errors[level]++}
+  }
+ }
+ return [...groups.values()].map(g=>({...g,percent:g.total?Math.round(g.correct/g.total*1000)/10:0}));
+}
+function examPerfs(r:any){
+ const answers=(r?.answers&&typeof r.answers==="object")?r.answers:{},qs=Array.isArray(r?.rendered_questions)?r.rendered_questions:[],groups=new Map<string,any>();
+ for(const q of qs){
+  const subject=tidy(q?.subject||r.subject_key),outcome=tidy(q?.outcome||r.outcome_code),indicator=Number(q?.indicator||r.indicator_index||0),key=subject+":"+outcome+":i"+indicator;
+  if(!["reading","math","science"].includes(subject)||!indicator||!q?.id)continue;
+  if(!groups.has(key))groups.set(key,{student_id:r.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(q?.indicator_text),correct:0,total:0,source:"exam",source_attempt_id:String(r.id),source_submitted_at:r.submitted_at,missed:[],seen:[],errors:{knowledge:0,application:0,reasoning:0}});
+  const g=groups.get(key);g.total++;g.seen.push(String(q.id));
+  const has=Object.prototype.hasOwnProperty.call(answers,String(q.id));
+  const right=has&&answers[q.id]!==null&&answers[q.id]!==""&&q.correctIndex!=null&&Number.isInteger(Number(q.correctIndex))&&Number.isInteger(Number(answers[q.id]))&&Number(answers[q.id])===Number(q.correctIndex);
+  if(right)g.correct++;
+  else{const level=tidy(q.cognitive_level);g.missed.push({id:String(q.id),level,text:tidy(q.question||q.question_text)});if(level in g.errors)g.errors[level]++}
+ }
+ return [...groups.values()].map(g=>({...g,percent:g.total?Math.round(g.correct/g.total*1000)/10:Number(r.percent||0)}));
+}
 function tierFor(p:number|null){if(p==null)return"unclassified";if(p<50)return"remedial";if(p<80)return"reinforcement";return"enrichment"}
 function priorityFor(p:number|null){if(p==null)return 0;if(p<50)return Math.max(1,Math.round(p));if(p<80)return 100+Math.round(p);return 200+Math.round(p)}
 async function roster(ids?:string[]){let q=db.from("nafes_students").select("id,full_name,class_name,grade,is_active,is_demo").eq("is_active",true).order("class_name").order("full_name");if(ids?.length)q=q.in("id",ids);else q=q.eq("is_demo",false);const {data,error}=await q;if(error)throw error;return data||[]}
@@ -43,9 +71,9 @@ async function latestPerformances(ids?:string[]){
   for(const p of perfs){
     if(!p.student_id)continue;
     const k=`${p.student_id}:${p.subject_key}:${p.outcome_code}:i${p.indicator_index}`;
-    if(!groups.has(k))groups.set(k,{student_id:p.student_id,subject_key:p.subject_key,outcome_code:p.outcome_code,indicator_index:p.indicator_index,indicator_text:p.indicator_text||"",correct:0,total:0,evidence_count:0,latest_percent:null,previous_percent:null,best_percent:null,source_attempt_id:p.source_attempt_id||null,source_submitted_at:p.source_submitted_at||null,source:p.source||"assessment"});
+    if(!groups.has(k))groups.set(k,{student_id:p.student_id,subject_key:p.subject_key,outcome_code:p.outcome_code,indicator_index:p.indicator_index,indicator_text:p.indicator_text||"",correct:0,total:0,evidence_count:0,latest_percent:null,previous_percent:null,best_percent:null,source_attempt_id:p.source_attempt_id||null,source_submitted_at:p.source_submitted_at||null,source:p.source||"assessment",missed:[],seen:[],errors:{knowledge:0,application:0,reasoning:0}});
     const g=groups.get(k);
-    if(g.evidence_count===0){g.latest_percent=Number(p.percent||0);g.indicator_text=p.indicator_text||g.indicator_text;g.source_attempt_id=p.source_attempt_id||null;g.source_submitted_at=p.source_submitted_at||null;g.source=p.source||g.source}
+    if(g.evidence_count===0){g.latest_percent=Number(p.percent||0);g.indicator_text=p.indicator_text||g.indicator_text;g.source_attempt_id=p.source_attempt_id||null;g.source_submitted_at=p.source_submitted_at||null;g.source=p.source||g.source;g.missed=p.missed||[];g.seen=p.seen||[];g.errors=p.errors||g.errors}
     else if(g.evidence_count===1)g.previous_percent=Number(p.percent||0);
     g.correct+=Number(p.correct||0);g.total+=Number(p.total||0);g.evidence_count++;
     const pp=Number(p.percent||0);g.best_percent=g.best_percent==null?pp:Math.max(Number(g.best_percent),pp);
@@ -438,7 +466,7 @@ async function teacherResponseTracking(req:Request,access:Access){
 
 
 function lessonSeed(text:string){let h=2166136261;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
-async function pickTaskQuestionIds(subject:string,outcome:string,indicator:number,count:number,tier:string="remedial",studentSeed:string="",cached?:Map<string,any[]>){
+async function pickTaskQuestionIds(subject:string,outcome:string,indicator:number,count:number,tier:string="remedial",studentSeed:string="",cached?:Map<string,any[]>,personal?:any){
  const key=[subject,outcome,indicator].join(":");
  let rows:any[]=cached?.get(key)||[];
  if(!cached?.has(key)){
@@ -463,10 +491,16 @@ async function pickTaskQuestionIds(subject:string,outcome:string,indicator:numbe
  const application=rows.filter((q:any)=>q.cognitive_level==="application"&&q.difficulty==="medium").sort(stable);
  const reasoning=rows.filter((q:any)=>q.cognitive_level==="reasoning"&&q.difficulty==="hard").sort(stable);
  const remApplication=application.slice(0,Math.max(0,application.length-7)),reinforcement=application.slice(-7);
- const vary=(a:any,b:any)=>lessonSeed(studentSeed+"|"+String(a.id))-lessonSeed(studentSeed+"|"+String(b.id));
+ const words=(v:string)=>[...new Set(tidy(v).replace(/[أإآ]/g,"ا").replace(/ى/g,"ي").replace(/[^\\p{L}\\p{N}\\s]/gu," ").split(/\\s+/).filter((x:string)=>x.length>=4))];
+ const missed=Array.isArray(personal?.missed)?personal.missed:[],seen=new Set((personal?.seen||[]).map(String));
+ const relevance=(q:any)=>{
+  const terms=new Set(words(tidy(q.question_text)+" "+tidy(q.context_text)));
+  return Math.max(0,...missed.map((m:any)=>words(tidy(m.text)).filter((w:string)=>terms.has(w)).length));
+ };
+ const vary=(a:any,b:any)=>Number(seen.has(String(a.id)))-Number(seen.has(String(b.id)))||relevance(b)-relevance(a)||lessonSeed(studentSeed+"|"+String(a.id))-lessonSeed(studentSeed+"|"+String(b.id));
  let chosen:any[]=[];
  if(tier==="remedial"){
-  const k=Math.min(knowledge.length,Math.max(2,6-remApplication.length));
+  const k=Math.min(knowledge.length,Math.max(6-remApplication.length,Number(personal?.errors?.knowledge||0)>=Number(personal?.errors?.application||0)?4:2));
   chosen=[...knowledge.sort(vary).slice(0,k),...remApplication.sort(vary).slice(0,6-k)];
   if(chosen.length<6)chosen.push(...knowledge.filter((q:any)=>!chosen.includes(q)).sort(vary).slice(0,6-chosen.length));
  }else if(tier==="reinforcement")chosen=reinforcement.sort(vary).slice(0,7);
@@ -505,7 +539,7 @@ async function teacherSendIndicator(req:Request,body:any,access:Access){
   const qcount=Math.max(5,Math.min(12,Number(body?.question_count||8))),questionCache=new Map<string,any[]>(),now=new Date().toISOString(),rows:any[]=[];let skipped=0;
   for(const p of targets){
     if(existingActive.has(String(p.student_id))){skipped++;continue}
-    const questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount,tier,String(p.student_id)+"|"+String(p.source_attempt_id||""),questionCache);
+    const questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount,tier,String(p.student_id)+"|"+String(p.source_attempt_id||""),questionCache,p);
     rows.push({teacher_access_id:access.teacher_access_id,student_id:p.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||p.indicator_text||("المؤشر "+indicator),
       title:tier==="remedial"?"مسار علاجي للمؤشر":tier==="reinforcement"?"مسار تعزيزي للمؤشر":"مسار إثرائي للمؤشر",
       instructions:tier==="remedial"?"تدريب علاجي بناءً على نتيجة اختبار معلّمي المسلّم.":tier==="reinforcement"?"تدريب تعزيز بناءً على نتيجة اختبار معلّمي المسلّم.":"تدريب إثرائي بناءً على نتيجة اختبار معلّمي المسلّم.",
@@ -522,7 +556,7 @@ async function teacherSendTask(req:Request,body:any,access:Access){
   if(!studentId||!["reading","math","science"].includes(subject)||!indicator)return json(req,{error:"بيانات التدريب غير مكتملة."},400);if(!teacherAllows(access,subject))return json(req,{error:"هذه المادة خارج صلاحية حسابك."},403);
   const {data:s,error:se}=await db.from("nafes_students").select("id,is_active").eq("id",studentId).eq("is_active",true).maybeSingle();if(se)throw se;if(!s)return json(req,{error:"الطالب غير موجود."},404);
   const tested=(await latestPerformances([studentId])).find((p:any)=>matchesAssessedIndicator(p,subject,outcome,indicator));if(!tested)return json(req,{error:"لا يمكن إرسال مسار علاجي أو تعزيز أو إثراء: لا توجد نتيجة مسلّمة في معلّمي لهذا الطالب والمؤشر."},409);
-  const qcount=Math.max(3,Math.min(20,Number(body?.question_count||8))),taskTier=["remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount,taskTier,studentId+"|"+String(tested.source_attempt_id||""));const payload={teacher_access_id:access.teacher_access_id,student_id:studentId,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||`المؤشر ${indicator}`,title:tidy(body?.title)||"تدريب من المعلم",instructions:tidy(body?.instructions).slice(0,2000),tier:["remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",question_count:questionIds.length,question_ids:questionIds,source_percent:Number(tested.percent),source_attempt_id:tested.source_attempt_id,source_submitted_at:tested.source_submitted_at,status:"assigned",assigned_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  const qcount=Math.max(3,Math.min(20,Number(body?.question_count||8))),taskTier=["remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",questionIds=await pickTaskQuestionIds(subject,outcome,indicator,qcount,taskTier,studentId+"|"+String(tested.source_attempt_id||""),undefined,tested);const payload={teacher_access_id:access.teacher_access_id,student_id:studentId,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:tidy(body?.indicator_text)||`المؤشر ${indicator}`,title:tidy(body?.title)||"تدريب من المعلم",instructions:tidy(body?.instructions).slice(0,2000),tier:["remedial","reinforcement","enrichment"].includes(tidy(body?.tier))?tidy(body?.tier):"remedial",question_count:questionIds.length,question_ids:questionIds,source_percent:Number(tested.percent),source_attempt_id:tested.source_attempt_id,source_submitted_at:tested.source_submitted_at,status:"assigned",assigned_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   const {data,error}=await db.from("lugati_teacher_tasks").insert(payload).select("*").single();if(error)throw error;
   return json(req,{ok:true,task:data},201);
 }
