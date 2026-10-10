@@ -25,7 +25,7 @@ function testSubjects(a:any){
 }
 function inScope(a:any,t:any){return t.scope==="all"||testSubjects(a).includes(t.scope)}
 async function listTests(t:any){
- const {data,error}=await db.from("nafes_assessments").select("id,title,kind,status,config,rendered_sections,published_at,created_at").eq("status","published").order("published_at",{ascending:false,nullsFirst:false}).range(0,999);
+ const {data,error}=await db.from("nafes_assessments").select("id,title,kind,status,config,published_at,created_at").eq("status","published").order("published_at",{ascending:false,nullsFirst:false}).range(0,999);
  if(error)throw error;
  return (data||[]).filter((a:any)=>inScope(a,t)).map((a:any)=>({id:a.id,title:clean(a.title)||"اختبار نافس",kind:a.kind,subject_keys:testSubjects(a),grade:clean(a.config?.grade_key)==="middle_3"?"الثالث المتوسط":clean(a.config?.grade_key)||"—",class_name:clean(a.config?.class_name)||"جميع الفصول",date:a.published_at||a.created_at})).sort((a:any,b:any)=>clean(b.date).localeCompare(clean(a.date)));
 }
