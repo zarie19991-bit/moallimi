@@ -4,7 +4,10 @@
  */
 (function(root){
 'use strict';
-const scriptUrl='https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js';
+const scriptUrls=[
+ 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js',
+ 'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js'
+];
 let loading=null;
 function normalizeName(value){
  return String(value||'').normalize('NFKC')
@@ -80,45 +83,104 @@ function loadEngine(){
  if(loading)return loading;
  loading=new Promise((resolve,reject)=>{
   if(typeof document==='undefined')return reject(new Error('تتعذر قراءة الاسم خارج المتصفح.'));
-  const script=document.createElement('script');
-  script.src=scriptUrl;script.async=true;script.crossOrigin='anonymous';
-  script.onload=()=>root.Tesseract?.createWorker?resolve(root.Tesseract):reject(new Error('محرك OCR لم يعمل.'));
-  script.onerror=()=>reject(new Error('تعذر تحميل قارئ الاسم العربي. تأكد من الاتصال.'));
-  document.head.appendChild(script);
+  let index=0;
+  function next(){
+   if(index>=scriptUrls.length){
+     reject(new Error('تعذر تحميل محرك قراءة العربية من المصدرين. تحقق من اتصال المتصفح أو سياسات حجب الملفات، واستخدم البحث بالاسم.'));
+     return;
+   }
+   const script=document.createElement('script');
+   script.src=scriptUrls[index++];script.async=true;script.crossOrigin='anonymous';
+   script.onload=()=>{
+    if(root.Tesseract?.createWorker)resolve(root.Tesseract);
+    else{script.remove();next();}
+   };
+   script.onerror=()=>{script.remove();next();};
+   document.head.appendChild(script);
+  }
+  next();
  }).catch(e=>{loading=null;throw e;});
  return loading;
 }
-async function readPrintedName(imageData,notify=()=>{}){
+// Crop only text-bearing bands rather than asking OCR to read QR codes and
+// answer-grid borders as one long line. All recognition runs on a local canvas.
+function headerRegions(){
+ return [
+  {label:'رأس الورقة',x:0,y:0,w:1,h:.35,flip:false},
+  {label:'حقل الاسم الأيمن',x:.35,y:.05,w:.65,h:.27,flip:false},
+  {label:'حقل الاسم الأيسر',x:0,y:.05,w:.65,h:.27,flip:false},
+  {label:'رأس الورقة المقلوبة',x:0,y:.65,w:1,h:.35,flip:true}
+ ];
+}
+function makeOcrCrop(image,region){
+ const w=image.naturalWidth||image.width,h=image.naturalHeight||image.height;
+ const x=Math.floor(w*region.x),y=Math.floor(h*region.y),
+  sw=Math.max(1,Math.floor(w*region.w)),sh=Math.max(1,Math.floor(h*region.h));
+ const factor=Math.min(2.5,Math.max(1,2100/sw));
+ const canvas=document.createElement('canvas');
+ canvas.width=Math.round(sw*factor);canvas.height=Math.round(sh*factor);
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});
+ if(!ctx)throw new Error('تعذر إنشاء سطح معالجة الصورة.');
+ ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+ ctx.filter='grayscale(1) contrast(1.6)';
+ if(region.flip){
+  ctx.translate(canvas.width,canvas.height);ctx.rotate(Math.PI);
+ }
+ ctx.drawImage(image,x,y,sw,sh,0,0,canvas.width,canvas.height);
+ return canvas;
+}
+async function readPrintedName(imageData,notify=()=>{},roster=[]){
  if(typeof Image==='undefined'||typeof document==='undefined')throw new Error('المتصفح لا يدعم معالجة الصورة.');
- notify('جارٍ تحميل محرك القراءة العربية داخل المتصفح لأول مرة…');
+ notify('تحميل محرك القراءة العربية (يحتاج تنزيل اللغة أول مرة)…');
  const T=await loadEngine(),image=new Image();image.decoding='async';
  await new Promise((resolve,reject)=>{
-  image.onload=resolve;image.onerror=()=>reject(new Error('تعذر فتح صورة الورقة.'));
+  image.onload=resolve;image.onerror=()=>reject(new Error('تعذر فتح صورة الورقة المحفوظة.'));
   image.src=imageData;
  });
  const w=image.naturalWidth||image.width,h=image.naturalHeight||image.height;
  if(!w||!h)throw new Error('صورة الورقة غير صالحة.');
- // Names on the printed OMR form are in the page header. Keep the QR and
- // answer circles outside the OCR image where possible.
- const canvas=document.createElement('canvas'),cropH=Math.floor(h*.44);
- const scale=Math.min(2.3,Math.max(1,2000/w));
- canvas.width=Math.round(w*scale);canvas.height=Math.round(cropH*scale);
- const ctx=canvas.getContext('2d',{willReadFrequently:true});
- ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
- ctx.drawImage(image,0,0,w,cropH,0,0,canvas.width,canvas.height);
  let worker;
+ const samples=[];
  try{
-  notify('جارٍ تنزيل بيانات اللغة العربية وتشغيل OCR محليًا…');
+  notify('تحميل بيانات العربية محليًا. قد يستغرق ذلك قليلًا في أول استخدام…');
   worker=await T.createWorker('ara',1,{logger:m=>{
    if(m?.status==='recognizing text'&&Number.isFinite(m.progress))
-     notify('التعرّف على الاسم المطبوع… '+Math.round(m.progress*100)+'٪');
+    notify('التعرف على الاسم العربي… '+Math.round(m.progress*100)+'٪');
   }});
-  const result=await worker.recognize(canvas);
-  return {text:String(result?.data?.text||'').slice(0,3000),
-    ocrConfidence:Number(result?.data?.confidence||0)};
+  if(typeof worker.setParameters==='function'){
+   try{await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});}
+   catch(_){/* Run with engine defaults if optional page segmentation is unavailable. */}
+  }
+  const regions=headerRegions();
+  for(let i=0;i<regions.length;i++){
+   const region=regions[i],canvas=makeOcrCrop(image,region);
+   try{
+    notify('قراءة '+region.label+' ('+(i+1)+'/'+regions.length+')…');
+    const data=(await worker.recognize(canvas))?.data||{};
+    const text=String(data.text||'').slice(0,1800);
+    const confidence=Number(data.confidence||0);
+    samples.push({region:region.label,text,confidence});
+    if(Array.isArray(roster)&&roster.length){
+     const found=proposals(text,roster);
+     if(found.unique&&found.matches[0]?.score>=.90)break;
+    }
+   }finally{canvas.width=1;canvas.height=1;}
+  }
+  // Keep disjoint OCR regions separate for matching: joining them would create
+  // artificial full names across unrelated form labels.
+  let best=samples[0]||{region:'',text:'',confidence:0},rank=-1;
+  for(const candidate of samples){
+   const proposed=proposals(candidate.text,roster);
+   const priority=proposed.matches[0]?.score||0;
+   if(priority>rank){rank=priority;best=candidate;}
+  }
+  return {text:best.text,ocrConfidence:best.confidence,
+   samples,recognizedArabic:samples.some(x=>/[\u0621-\u064a]{3}/.test(x.text))};
+ }catch(error){
+  if(error?.message)throw new Error('محرك OCR العربي: '+error.message);
+  throw error;
  }finally{
   if(worker)await worker.terminate().catch(()=>{});
-  canvas.width=1;canvas.height=1;
  }
 }
 root.NafesPrintedNameOCR={normalizeName,matchCandidate,proposals,readPrintedName};
