@@ -125,10 +125,42 @@ async function assign(){
  const count=d.counts[tier]||0;if(!count)return;
  if(!confirm("هل تريد إسناد خطة "+labels[tier]+" إلى "+num(count)+" طالبًا ممن قيسوا في الاختبار «"+d.test.title+"»؟\nلن يتلقى الطالب غير المختبر خطة."))return;
  A.sending=true;A.error="";A.notice="";draw();
- try{const r=await api("assign",{test_id:A.testId,scope:d.scope,tier});A.notice=(r.message||"تمت العملية.")+" أُرسلت: "+num(r.sent||0)+"؛ مكررة: "+num(r.skipped||0)+"؛ لا توجد أسئلة أو مؤشر مطابق: "+num(r.unavailable||0)+"."}
+ try{const r=await api("assign",{test_id:A.testId,scope:d.scope,tier});const message=(r.message||"تمت العملية.")+" أُرسلت: "+num(r.sent||0)+"؛ موجودة: "+num(r.skipped||0)+"؛ تحتاج مراجعة: "+num(r.unavailable||0)+".";await loadDetail();A.notice=message}
  catch(e){A.error=e.message||"تعذر إسناد الخطط"}
  finally{A.sending=false;draw()}
 }
+
+async function ensureAll(){
+ const d=A.detail;if(!d||A.sending||!d.coverage?.missing)return;
+ const count=d.coverage.missing;
+ if(!confirm("سيتم استكمال الخطط المناسبة لكل طالب مختبر لا يملك خطة في «"+d.test.title+"» حسب التصنيف الحالي.\nالطلاب غير المختبرين لن تُسند لهم خطط.\nعدد الطلاب المطلوب استكمالهم: "+num(count)+".\nهل تعتمد الإسناد؟"))return;
+ A.sending=true;A.error="";A.notice="";draw();
+ let message="";
+ try{
+  const r=await api("ensure_all",{test_id:A.testId,scope:d.scope});
+  message=r.message||"اكتملت مراجعة التغطية.";
+  await loadDetail();
+  if(A.detail?.coverage?.missing)message+=" بعد التحقق بقي "+num(A.detail.coverage.missing)+" طالبًا دون خطة؛ راجع الأسئلة المتاحة والتفاصيل.";
+  else message+=" تم التأكد من تغطية جميع الطلاب المقاسين في النطاق.";
+  A.notice=message;
+ }catch(e){A.error=e.message||"تعذر استكمال خطط الجميع."}
+ finally{A.sending=false;draw()}
+}
+function printAbsentees(letter){
+ const d=A.detail,students=d?.absentees||[];if(!students.length)return;
+ const w=window.open("","_blank","width=1050,height=850");
+ if(!w){alert("اسمح بفتح نافذة الطباعة الجديدة.");return}
+ const day=new Date().toLocaleDateString("ar-SA",{timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"});
+ const school=esc(A.letterSchool.trim()||"اسم المدرسة"),addressee=esc(A.letterTo.trim()||"وكيل المدرسة لشؤون الطلاب"),count=students.length;
+ const table=students.map((r,i)=>'<tr><td>'+num(i+1)+'</td><td>'+esc(r.student_name)+'</td><td>'+esc(r.class_name)+'</td><td>'+(r.attempt_state==="started_unsubmitted"?"بدأ الاختبار ولم يكتمل التسليم":r.attempt_state==="not_submitted"?"محاولة غير مسلّمة":"لم تُرصد محاولة بدء")+'</td></tr>').join("");
+ const css='@page{size:A4;margin:14mm}body{font-family:Tahoma,Arial,sans-serif;color:#1a392e;font-size:11pt;line-height:1.8}header{display:flex;justify-content:space-between;border-bottom:3px solid #07583f;padding-bottom:12px}h1{font-size:18pt;text-align:center;color:#075c44;margin:16px 0}h2{font-size:13pt;color:#075c44}.meta{display:flex;justify-content:space-between;gap:12px;margin:12px 0}.formal{padding:10px 0;text-align:justify;line-height:2.15}table{width:100%;border-collapse:collapse;font-size:10pt;margin:16px 0}th,td{padding:8px;border:1px solid #aebfb4;text-align:right}th{background:#edf5ef}tr{break-inside:avoid}thead{display:table-header-group}.sign{display:flex;justify-content:space-between;gap:25px;margin-top:27px;font-size:10pt}.note{font-size:9pt;color:#566c5c}';
+ const header='<header><div><b>المملكة العربية السعودية</b><div>وزارة التعليم</div><div>'+school+'</div></div><div>الرقم: ....................<div>التاريخ: '+esc(day)+'</div><div>المرفقات: كشف بالأسماء ('+num(count)+')</div></div></header>';
+ const intro=letter?'<div class="formal"><b>سعادة '+addressee+' المحترم</b><p>السلام عليكم ورحمة الله وبركاته، وبعد:</p><p><b>الموضوع: متابعة الطلاب الذين لم ينجزوا الاختبار.</b></p><p>نفيدكم بأنه بعد مراجعة سجلات منصة تمكّن للاختبار الموضح أدناه، لم تُرصد نتائج مسلّمة للطلاب الواردة أسماؤهم في الكشف، وعددهم ('+num(count)+') طالبًا. نأمل منكم التكرم بمتابعة حالاتهم والتحقق من أسباب عدم البدء أو عدم اكتمال التسليم، واتخاذ ما يلزم لتمكينهم من أداء الاختبار، مع مراعاة الأعطال التقنية المحتملة.</p><p>وتفضلوا بقبول فائق الاحترام والتقدير.</p></div>':'<p class="formal">كشف متابعة الطلاب الذين لم يُرصد لهم تسليم مكتمل لهذا الاختبار. يُرجى التحقق من السجلات الفنية للطلاب الذين لديهم محاولات غير مسلّمة.</p>';
+ const foot=letter?'<div class="sign"><div>مُعدّ الخطاب: ________________________<div>التوقيع: _______________________</div></div><div>مدير المدرسة: _______________________<div>التوقيع: _______________________</div></div></div>':'';
+ w.document.open();w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>'+(letter?"خطاب متابعة الطلاب غير المختبرين":"كشف الطلاب الذين لم ينجزوا الاختبار")+'</title><style>'+css+'</style></head><body>'+header+'<h1>'+(letter?'خطاب متابعة الطلاب الذين لم ينجزوا الاختبار':'تقرير الطلاب الذين لم ينجزوا الاختبار')+'</h1><div class="meta"><span>الاختبار: '+esc(d.test.title)+'</span><span>الصف: '+esc(d.test.grade)+'</span></div><div class="meta"><span>الفصل المستهدف: '+esc(d.test.class_name)+'</span><span>تاريخ نشر الاختبار: '+esc(date(d.test.date))+'</span></div>'+intro+'<h2>كشف الأسماء ('+num(count)+' طلاب)</h2><table><thead><tr><th>م</th><th>اسم الطالب</th><th>الفصل</th><th>حالة التسليم</th></tr></thead><tbody>'+table+'</tbody></table><p class="note">تعني «لم تُرصد محاولة بدء» عدم وجود سجل لمحاولة دخول أو تسليم لهذا الاختبار، ولا تثبت غياب الطالب عن المدرسة. وتعني «بدأ ولم يكتمل التسليم» وجود نشاط دون نتيجة اختبار مسلّمة.</p>'+foot+'</body></html>');
+ w.document.close();w.focus();setTimeout(()=>w.print(),400);
+}
+
 async function printSheet(id){
  const popup=window.open("","_blank","width=950,height=850");
  if(!popup){alert("اسمح بالنوافذ المنبثقة لطباعة ورقة العمل.");return}
