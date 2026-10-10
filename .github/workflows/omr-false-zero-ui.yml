@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - 'review-scan-journal.js'
+      - 'review-scan.html'
+      - 'review-omr-safety.js'
+      - 'qa/omr/independent-sheet-review.test.mjs'
+      - 'supabase/migrations/20261010083000_omr_independent_sheet_review.sql'
       - 'qa/omr/hotfix-false-zero-ui.test.mjs'
       - 'qa/omr/blank-bubble-consensus.test.mjs'
       - 'supabase/functions/nafes-exam/omr-server.ts'
@@ -31,3 +35,5 @@ jobs:
         run: node --test qa/omr/blank-bubble-consensus.test.mjs
       - name: Validate center evidence and truthful diagnostic units
         run: node --test qa/omr/center-evidence-diagnostics.test.mjs
+      - name: Verify independent per-sheet OMR approval without unlocking uncertain answers
+        run: node --test qa/omr/independent-sheet-review.test.mjs
