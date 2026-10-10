@@ -1,5 +1,6 @@
 import jpeg from "npm:jpeg-js@0.4.4";
 import { isVerifiedBlankBubbleRow } from "./omr-blank.ts";
+import { hasIndependentCenterEvidence } from "./omr-center-evidence.ts";
 
 type GrayImage={width:number;height:number;gray:Uint8Array;rgba:Uint8Array};
 type Point={x:number;y:number;score?:number};
@@ -407,14 +408,23 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
   if(!relativeStrong&&(sep<sepThr||weakCompetition||(top.s<definite&&!relativeClear)))return{question:startNo+i,selected:top.j,status:'ambiguous',marked:[top.j],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(.79,.5+Math.max(0,lift)*1.8+sep*1.5),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
   return{question:startNo+i,selected:top.j,status:'clear',marked:[top.j],scores,blueScores,darkScores,centerValues,reader:'gray',confidence:Math.min(1,.93+Math.min(.06,sep*.12)+Math.min(.03,Math.max(0,lift)*.08)),topScore:top.s,secondScore:second.s,threshold:definite,separation:sep};
  });
- const ambiguous=answers.filter((a:any)=>a.status==='ambiguous').length,multiple=answers.filter((a:any)=>a.status==='multiple').length;
+ // Cross-check every machine-selected clear bubble against an independent
+ // central grayscale sample, not its outer printed ring or row ink mass.
+ // An unsupported selection is only a candidate, never a confirmed grade.
+ const verifiedAnswers=answers.map((answer:any,i:number)=>{
+   if(answer.status!=='clear'||!Number.isInteger(answer.selected))return answer;
+   if(hasIndependentCenterEvidence(raw[i],answer.selected))return answer;
+   return {...answer,status:'ambiguous',marked:[answer.selected],selected:null,
+     reader:'center-proof-review',confidence:Math.min(.49,Number(answer.confidence)||0)};
+ });
+ const ambiguous=verifiedAnswers.filter((a:any)=>a.status==='ambiguous').length,multiple=verifiedAnswers.filter((a:any)=>a.status==='multiple').length;
   const geometryUncertain=m.confidence<.85||grid.score<.10;
   const requiresReview=!!(ambiguous||multiple||geometryUncertain);
-  return{answers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,
+  return{answers:verifiedAnswers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,
    color_calibration:{method:'local-paper-annular-median',weak_second_ink:'manual-review'},
    grid_alignment:{score:Number(grid.score.toFixed(4)),blocks:grid.blocks.map((b:any)=>({dx:b.dx,dy:b.dy,score:Number(b.score.toFixed(4))}))},
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
-   verification:{risk:requiresReview?'high':'low',quality_score:requiresReview?70:100,reasons:[...(ambiguous||multiple?['توجد إجابات غير حاسمة أو متعددة']:[]),...(geometryUncertain?['هندسة علامات المحاذاة أو شبكة الفقاعات تحتاج مراجعة']:[])],requires_manual_review:requiresReview,auto_accept:!requiresReview,counts:{ambiguous,multiple,blank:answers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:answers.filter((a:any)=>a.status==='clear').length}}
+   verification:{risk:requiresReview?'high':'low',quality_score:requiresReview?70:100,reasons:[...(ambiguous||multiple?['توجد إجابات غير حاسمة أو متعددة']:[]),...(geometryUncertain?['هندسة علامات المحاذاة أو شبكة الفقاعات تحتاج مراجعة']:[])],requires_manual_review:requiresReview,auto_accept:!requiresReview,counts:{ambiguous,multiple,blank:verifiedAnswers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:verifiedAnswers.filter((a:any)=>a.status==='clear').length}}
  };
 }
