@@ -263,8 +263,12 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
      requires_manual_review:true,auto_accept:false,
      counts:{ambiguous:p.question_count,multiple:0,blank:0,low_margin:0,clear:0}
    };
+   const identityIssue=identityValid?null:
+     raw.qr_valid!==true?'qr_missing_or_unreadable':
+     !assignment?'qr_sheet_number_unassigned':'qr_model_mismatch';
    const snapshot={
-     student_name:identityValid?assignment.student_name:'غير معروف — يلزم إعادة المسح',model,identity_valid:identityValid,
+     student_name:identityValid?assignment.student_name:'هوية غير مرتبطة — تحقق من QR أو اربط الطالب يدويًا',
+     identity_issue:identityIssue,model,identity_valid:identityValid,
      markers_ok:markersOk,marker_confidence:finite(rr?.marker_confidence,0,1),
      answers,score:answers.filter((a:Row)=>a.correct).length,total:p.question_count,
      counts:answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),{blank:0,multiple:0,correct:0,incorrect:0,uncertain:0}),

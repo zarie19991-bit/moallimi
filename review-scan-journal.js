@@ -134,7 +134,7 @@ function renderQualityReport(){
  rows.sort((x,y)=>(({high:0,medium:1,low:2}[x.risk]-{high:0,medium:1,low:2}[y.risk])||x.i-y.i));
  $('qualityBody').innerHTML=rows.map(({s,i,a,risk,v})=>{
    const reasons=(Array.isArray(v.reasons)&&v.reasons.length?v.reasons:(a.markers_ok?['لم تُسجل بعد بيانات تحقق كاملة لهذه القراءة']:['فشل تثبيت علامات المحاذاة'])).join('؛ ');
-   return '<tr data-risk="'+risk+'"><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+verifiedQuality(a)+'</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
+   return '<tr data-risk="'+risk+'"><td>'+esc(a.identity_valid?a.student_name:'هوية غير مرتبطة — راجع QR')+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td><span class="quality-risk '+risk+'">'+riskLabel(risk)+'</span></td><td>'+verifiedQuality(a)+'</td><td class="quality-reasons">'+esc(reasons)+'</td><td><button class="secondary" type="button" data-quality-open="'+i+'">فتح الورقة</button></td></tr>';
  }).join('');
 }
 function exportQualityReport(){
@@ -227,7 +227,8 @@ function render(){
  }return m;},{});
  $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تمت مراجعتها',sheets.filter(s=>s.reviewed_at).length],['حالات تطابق الأوراق',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
  const only=$('alertFilter').checked;
- $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td>'+esc(status(s))+' <span class="quality-risk '+riskOf(s)+'">'+riskLabel(riskOf(s))+'</span>'+(duplicate(s)?' <strong class="duplicate-label" title="'+esc(duplicateExplanation(s))+'">'+esc(duplicateTitle(s))+'</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">إعادة قراءة الاسم</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
+ $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.identity_valid?a.student_name:'هوية غير مرتبطة — راجع QR')+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td>'+esc(status(s))+' <span class="quality-risk '+riskOf(s)+'">'+riskLabel(riskOf(s))+'</span>'+(duplicate(s)?' <strong class="duplicate-label" title="'+esc(duplicateExplanation(s))+'">'+esc(duplicateTitle(s))+'</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">محاولة قراءة رمز QR</button> '+
+ '<button class="secondary" data-assign-identity="'+i+'" type="button">ربط الطالب بعد مطابقة الورقة</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
  if($('duplicateLive')&&!sheets.some(duplicate))$('duplicateLive').textContent='';
  $('sessionProgress').textContent=session?(session.completed_at?'جلسة منتهية · ':'')+'تم التحقق من '+ar(sheets.filter(s=>s.reviewed_at).length)+' من '+ar(session.expected_count)+' ورقة':'';
  if($('selectAllSheets')){$('selectAllSheets').checked=sheets.length>0&&selected.size===sheets.length;$('selectAllSheets').indeterminate=selected.size>0&&selected.size<sheets.length;}
@@ -238,7 +239,7 @@ async function open(i){
  // Opening any selected paper is allowed; final acceptance still validates every sheet.
  active=i;loadedImage=null;const s=sheets[i],a=effective(s);
  if($('visionProposal'))$('visionProposal').innerHTML='';
- $('modalTitle').textContent=a.student_name+' — نموذج '+a.model;
+ $('modalTitle').textContent=(a.identity_valid?a.student_name:'هوية غير مرتبطة')+' — '+(a.model?'نموذج '+a.model:'النموذج ينتظر مطابقة الطالب');
  $('modalSub').textContent='الورقة '+ar(i+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(a)+' · '+status(s)+' · رفع '+new Date(s.uploaded_at).toLocaleString('ar-SA')+(duplicate(s)?' · '+duplicateExplanation(s):'');
  $('scanImage').removeAttribute('src');$('scanImage').alt='جارٍ تحميل الورقة كاملة…';
  if(!a.identity_valid){
@@ -309,6 +310,7 @@ async function visionReadProposal(){
 }
 async function recoverIdentity(sheetId){
  const i=sheets.findIndex(x=>x.id===sheetId),sheet=sheets[i];if(i<0||!sheet||busy)return;
+ let reopen=false;
  lock(true);
  try{
    let src=imageCache.get(sheet.id);
@@ -321,10 +323,13 @@ async function recoverIdentity(sheetId){
    const reason=(prompt('اذكر سبب تصحيح هوية الورقة بعد التحقق من QR (3 أحرف على الأقل):')||'').trim();
    if(reason.length<3)throw new Error('سبب تصحيح الهوية إلزامي؛ لم تُحفظ أي تغييرات.');
    const r=await api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:assignment.student_id,answer_version:sheet.answer_version||0,reason});
-   sheets[i]=r.sheet;selected.delete(sheet.id);render();message('تمت استعادة اسم الطالب تلقائيًا من QR المحفوظ: '+assignment.student_name);
- }catch(e){message('تعذر استعادة الاسم تلقائيًا: '+e.message,true);}
- finally{lock(false);}
+   sheets[i]=r.sheet;selected.delete(sheet.id);render();reopen=true;
+   message('تم ربط الورقة بالطالب والنموذج بعد مطابقة QR المحفوظ. راجع التظليل والدرجة قبل اعتماد الورقة.');
+ }catch(e){
+   message('تعذرت مطابقة QR في الصورة المحفوظة: '+e.message+'. يمكنك فتح الورقة وربط الطالب من كشف الاختبار يدويًا بعد فحص الصورة، دون إعادة المسح.',true);
+ }finally{lock(false);if(reopen)await open(i);}
 }
+
 async function rereadAllStrict(options={}){
  if(busy)return;
  const auto=options.auto===true,onlyStale=options.onlyStale===true;
@@ -703,7 +708,16 @@ $('saveSheetBtn').onclick=verify;$('nextSheetBtn').onclick=()=>open(active+1);$(
 $('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>open(Math.max(0,firstPending()));
 $('resultsBody').onclick=e=>{
  const openBtn=e.target.closest('[data-open]');if(openBtn){open(Number(openBtn.dataset.open));return;}
- const recover=e.target.closest('[data-recover-identity]');if(recover){recoverIdentity(recover.dataset.recoverIdentity);return;} const del=e.target.closest('[data-delete-sheet]');if(del)deleteCorrections([del.dataset.deleteSheet]);
+ const recover=e.target.closest('[data-recover-identity]');if(recover){recoverIdentity(recover.dataset.recoverIdentity);return;}
+ const assign=e.target.closest('[data-assign-identity]');if(assign){
+   const index=Number(assign.dataset.assignIdentity);
+   open(index).then(()=>{
+     if(sheets[index]&&!effective(sheets[index]).identity_valid){
+       $('manualAssignment')?.focus();
+       $('manualAssignmentWrap')?.scrollIntoView({block:'nearest'});
+     }
+   });return;
+ } const del=e.target.closest('[data-delete-sheet]');if(del)deleteCorrections([del.dataset.deleteSheet]);
 };
 $('resultsBody').onchange=e=>{
  const c=e.target.closest('[data-select-sheet]');if(!c)return;
