@@ -123,6 +123,12 @@ async function build(id:string,scope:string,t:any){
   const at=latest.get(String(s.id)),m=at?metric(at,requested):null,v=m?validScore(m.score,m.total):null,classification=classify(v);
   return {student_id:s.id,student_name:s.full_name,class_name:s.class_name,grade:s.grade,score:v?.score??null,total:v?.total??null,percent:v?Math.round(v.score/v.total*10000)/100:null,classification,tested:!!v,attempt_id:at?.id||null,submitted_at:at?.submitted_at||null};
  });
+ // Highest-priority educational interventions first; no random order.
+ const priority:any={remedial:0,reinforcement:1,enrichment:2,unmeasured:3};
+ rows.sort((a:any,b:any)=>priority[a.classification]-priority[b.classification]||
+ (a.tested&&b.tested?Number(a.percent)-Number(b.percent):0)||
+ clean(a.class_name).localeCompare(clean(b.class_name),"ar")||
+ clean(a.student_name).localeCompare(clean(b.student_name),"ar"));
  const counts={tested:rows.filter((r:any)=>r.tested).length,unmeasured:rows.filter((r:any)=>!r.tested).length,remedial:rows.filter((r:any)=>r.classification==="remedial").length,reinforcement:rows.filter((r:any)=>r.classification==="reinforcement").length,enrichment:rows.filter((r:any)=>r.classification==="enrichment").length};
  const percentages:any={};for(const k of ["remedial","reinforcement","enrichment"])percentages[k]=counts.tested?Math.round(counts[k]/counts.tested*10000)/100:0;
  return {test:{id:test.id,title:clean(test.title)||"اختبار نافس",kind:test.kind,grade:clean(test.config?.grade_key)==="middle_3"?"الثالث المتوسط":clean(test.config?.grade_key)||"—",class_name:clean(test.config?.class_name)||"جميع الفصول",date:test.published_at||test.created_at,subject_keys:allowedSubjects},scope:requested,scopes,indicators:[...indicatorMap.values()],counts,percentages,rows,_attempts:latest};
