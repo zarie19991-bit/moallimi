@@ -491,7 +491,7 @@ async function pickTaskQuestionIds(subject:string,outcome:string,indicator:numbe
  const application=rows.filter((q:any)=>q.cognitive_level==="application"&&q.difficulty==="medium").sort(stable);
  const reasoning=rows.filter((q:any)=>q.cognitive_level==="reasoning"&&q.difficulty==="hard").sort(stable);
  const remApplication=application.slice(0,Math.max(0,application.length-7)),reinforcement=application.slice(-7);
- const words=(v:string)=>[...new Set(tidy(v).replace(/[أإآ]/g,"ا").replace(/ى/g,"ي").replace(/[^\\p{L}\\p{N}\\s]/gu," ").split(/\\s+/).filter((x:string)=>x.length>=4))];
+ const words=(v:string)=>[...new Set(tidy(v).replace(/[أإآ]/g,"ا").replace(/ى/g,"ي").replace(/[^\p{L}\p{N}\s]/gu," ").split(/\s+/).filter((x:string)=>x.length>=4))];
  const missed=Array.isArray(personal?.missed)?personal.missed:[],seen=new Set((personal?.seen||[]).map(String));
  const relevance=(q:any)=>{
   const terms=new Set(words(tidy(q.question_text)+" "+tidy(q.context_text)));
