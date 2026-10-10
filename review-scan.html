@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#17324d">
 <title>رفع أوراق الطلاب وتصحيحها | معلّمي</title>
-<link rel="stylesheet" href="review-scan.css?v=20261010-identity-diagnostic2">
+<link rel="stylesheet" href="review-scan.css?v=20261010-arabic-text-match1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -116,7 +116,19 @@
     <div class="modal-grid">
       <div class="scan-preview"><img id="scanImage" alt="صورة ورقة التظليل الممسوحة"></div>
       <div>
-        <div id="manualAssignmentWrap" class="manual-assignment hidden"><label>تعذر مطابقة هوية الورقة برمز QR، وليس بالضرورة أن الاسم غير مقروء. طابق صورة الورقة مع كشف الطلاب ثم اختر الطالب:<select id="manualAssignment"></select></label><button id="applyManualAssignmentBtn" class="secondary" type="button">تأكيد ربط الورقة بالطالب</button></div>
+        <div id="manualAssignmentWrap" class="manual-assignment hidden">
+          <p><strong>الاسم المطبوع موجود في الورقة؟</strong> جرّب قراءة الاسم بالعربية ثم طابقه بالقائمة. فشل QR لا يعني أن الطالب مجهول أو أن التظليل فشل.</p>
+          <button id="printedNameOcrBtn" type="button" class="secondary">قراءة الاسم المطبوع من صورة الورقة (عربي)</button>
+          <p id="printedNameOcrStatus" role="status" aria-live="polite"></p>
+          <div id="printedNameOcrCandidates" aria-label="أسماء مقترحة من قراءة الصورة"></div>
+          <p class="ocr-privacy">قراءة تجريبية داخل المتصفح: تُحمَّل مكتبة وبيانات اللغة العربية أول مرة، ولا يرسل هذا الخيار صورة الطالب لخدمة OCR خارجية. لا تُحفظ الهوية أو الدرجة إلا بعد تأكيدك.</p>
+          <label for="studentNameSearch">أو ابحث باسم الطالب المطبوع في كشف الاختبار</label>
+          <input id="studentNameSearch" type="search" autocomplete="off" placeholder="اكتب جزءًا من الاسم المطبوع لعرض الطالب من القائمة">
+          <label for="manualAssignment">الطالب الموجود في كشف الاختبار
+            <select id="manualAssignment"></select>
+          </label>
+          <button id="applyManualAssignmentBtn" class="secondary" type="button">تأكيد ربط الورقة بالطالب بعد مطابقة الصورة</button>
+        </div>
         <div id="identityRefreshPanel" class="hidden" style="background:#f5f8fb;border:1px solid #b9d4dc;border-radius:9px;padding:12px;margin:12px 0">
           <p>تم تأكيد هوية الطالب يدويًا في السابق، لكن بقيت حالات الإجابات القديمة غير محسومة. يمكن إعادة تصنيف <strong>اختيارات التظليل الأصلية المحفوظة</strong> بمفتاح نموذج الطالب المؤكد، دون تخمين إجابات، أو تعديل صورة الورقة، أو اعتماد النتيجة تلقائيًا.</p>
           <button id="refreshIdentityGradeBtn" class="secondary" type="button">إعادة تصنيف الإجابات بعد تثبيت هوية الطالب</button>
@@ -153,7 +165,8 @@
 <script src="teacher-access.js?v=20260920-scope5"></script>
 <script src="review-draft-sync.js?v=20260930-2"></script>
 <script src="review-omr-safety.js?v=20261010-independent-verify"></script>
-<script src="review-scan-journal.js?v=20261010-qr-identity-recovery3"></script>
+<script src="review-scan-name-ocr.js?v=20261010-arabic-text-match1"></script>
+<script src="review-scan-journal.js?v=20261010-arabic-text-match1"></script>
 <script src="review-scan.js?v=20261010-qr-identity-recovery3"></script>
 </body>
 </html>

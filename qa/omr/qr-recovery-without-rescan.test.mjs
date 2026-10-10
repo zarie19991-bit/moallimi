@@ -52,7 +52,7 @@ test('misread or absent QR does not cause destructive rescan or fake score',()=>
  assert(journal.includes('manualAssignment'));
  assert(journal.includes('تعذرت مطابقة QR في الصورة المحفوظة'));
  assert(page.includes('review-scan.js?v=20261010-qr-identity-recovery3'));
- assert(page.includes('review-scan-journal.js?v=20261010-qr-identity-recovery3'));
+ assert(page.includes('review-scan-journal.js?v=20261010-'),'reviewer script must have a current cache-busting version');
  assert(scan.includes("typeof BarcodeDetector==='function'"));
  assert(scan.includes("toDataURL('image/jpeg',.83)"));
 });

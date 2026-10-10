@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'review-scan-journal.js'
+      - 'review-scan-name-ocr.js'
+      - 'qa/omr/arabic-printed-name-matching.test.mjs'
       - 'supabase/functions/nafes-exam/paper-scan.ts'
       - 'supabase/functions/nafes-exam/omr-multiple-review.ts'
       - 'supabase/functions/nafes-exam/omr-identity-fix.ts'
@@ -54,3 +56,5 @@ jobs:
         run: node --test qa/omr/identity-diagnostic-remediation.test.mjs
       - name: Verify local QR retry and identity link without forced rescan
         run: node --test qa/omr/qr-recovery-without-rescan.test.mjs
+      - name: Check printed Arabic student names only produce uncommitted roster suggestions
+        run: node --test qa/omr/arabic-printed-name-matching.test.mjs

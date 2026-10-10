@@ -7,7 +7,7 @@ const letters=['أ','ب','ج','د'];
 const OMR_POLICY='server_jpeg_homography_dev_grid';
 const safety=window.NafesOmrSafety;
 if(!safety)throw new Error('لم يُحمّل عقد سلامة مراجعة OMR؛ أعد تحميل الصفحة.');
-let visionAvailable=false;
+let visionAvailable=false,printedNameOcrBusy=false;
  let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
@@ -170,6 +170,9 @@ function ensureSelectAll(){
 function renderButtons(){
  const s=sheets[active];
  if($('visionReadBtn'))$('visionReadBtn').disabled=busy||!visionAvailable||!s;
+ if($('printedNameOcrBtn'))$('printedNameOcrBtn').disabled=busy||printedNameOcrBusy||
+  !s||effective(s)?.identity_valid||!imageCache.has(s.id);
+ if($('studentNameSearch'))$('studentNameSearch').disabled=busy||!s||effective(s)?.identity_valid;
  if($('resetOmrAttemptsBtn'))$('resetOmrAttemptsBtn').disabled=busy||!draft||!session;
  const effectiveCurrent=s?effective(s):null;
  const identityRefreshEligible=!!s&&!s.reviewed_at&&!s.blocked_duplicate&&!session?.completed_at&&
@@ -234,6 +237,63 @@ function render(){
  if($('selectAllSheets')){$('selectAllSheets').checked=sheets.length>0&&selected.size===sheets.length;$('selectAllSheets').indeterminate=selected.size>0&&selected.size<sheets.length;}
  renderQualityReport();renderButtons();
 }
+function populateStudentNames(filter='',selectedId=''){
+ const sheet=sheets[active],list=draft?.assignments||[],input=$('manualAssignment');
+ if(!input||!sheet)return;
+ const used=new Set(sheets.filter(x=>x.id!==sheet.id&&x.student_id)
+  .map(x=>String(x.student_id)));
+ const normalize=window.NafesPrintedNameOCR?.normalizeName||((x)=>String(x||'').trim());
+ const query=normalize(filter);
+ const choices=list.filter(a=>!query||normalize(a.student_name).includes(query));
+ input.innerHTML='<option value="">اختر الطالب بعد مطابقة اسمه بالصورة…</option>'+
+  choices.map(a=>'<option value="'+esc(a.student_id)+'"'+
+  (used.has(String(a.student_id))?' disabled':'')+
+  '>'+esc(a.student_name)+' — نموذج '+esc(a.model)+
+  (used.has(String(a.student_id))?' (مرتبط بورقة أخرى)':'')+'</option>').join('');
+ if(selectedId&&choices.some(a=>String(a.student_id)===String(selectedId)&&!used.has(String(a.student_id))))
+   input.value=String(selectedId);
+ renderButtons();
+}
+async function readPrintedStudentName(){
+ const sheet=sheets[active],index=active;
+ if(printedNameOcrBusy||busy||!sheet||effective(sheet)?.identity_valid||
+    sheet.reviewed_at||!window.NafesPrintedNameOCR)return;
+ const status=$('printedNameOcrStatus'),candidates=$('printedNameOcrCandidates');
+ printedNameOcrBusy=true;renderButtons();
+ if(status)status.textContent='بدء القراءة العربية من الجزء العلوي للصورة…';
+ if(candidates)candidates.innerHTML='';
+ try{
+  let src=imageCache.get(sheet.id);
+  if(!src){
+   const res=await api('teacher_scan_image',{sheet_id:sheet.id});
+   src=res.image_data;
+   imageCache.set(sheet.id,src);
+  }
+  if(sheets[index]?.id!==sheet.id)throw new Error('تغيرت الورقة أثناء القراءة.');
+  const result=await window.NafesPrintedNameOCR.readPrintedName(src,text=>{
+   if(sheets[active]?.id===sheet.id&&status)status.textContent=text;
+  });
+  if(sheets[active]?.id!==sheet.id)return;
+  const used=sheets.filter(x=>x.id!==sheet.id&&x.student_id).map(x=>x.student_id);
+  const found=window.NafesPrintedNameOCR.proposals(result.text,draft?.assignments||[],used);
+  if(!found.matches.length){
+   if(status)status.textContent='لم أجد مطابقة عربية موثوقة من نص رأس الورقة. ابحث بالاسم في كشف الطلاب، أو قارن الصورة بنفسك. لم تتغير أي درجة.';
+   return;
+  }
+  if(status)status.textContent=(found.unique?'وُجد اقتراح متفرد، تحقق منه قبل الربط.':
+    'النص غير كافٍ للجزم بالاسم؛ راجع الاقتراحات بالصورة.')+
+    ' مؤشر التشابه النصي ليس تأكيدًا للهوية أو دقة OCR.';
+  if(candidates){
+   candidates.innerHTML='<p><strong>أسماء مقترحة من الاسم المطبوع (لا تُربط تلقائيًا):</strong></p>'+
+     found.matches.map(a=>'<button type="button" class="secondary" data-ocr-student="'+
+       esc(a.student_id)+'">'+esc(a.student_name)+' — نموذج '+esc(a.model)+
+       ' · تشابه نصي '+Math.round(a.score*100)+'/100</button>').join(' ');
+  }
+ }catch(e){
+  if(status&&sheets[active]?.id===sheet.id)status.textContent='تعذرت قراءة الاسم آليًا: '+
+    String(e?.message||e)+'. اختر الطالب يدويًا بعد مطابقة الصورة. لا حاجة إلى إعادة رفع الورقة.';
+ }finally{printedNameOcrBusy=false;renderButtons();}
+}
 async function open(i){
  if(busy||!sheets[i])return;
  // Opening any selected paper is allowed; final acceptance still validates every sheet.
@@ -243,10 +303,12 @@ async function open(i){
  $('modalSub').textContent='الورقة '+ar(i+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(a)+' · '+status(s)+' · رفع '+new Date(s.uploaded_at).toLocaleString('ar-SA')+(duplicate(s)?' · '+duplicateExplanation(s):'');
  $('scanImage').removeAttribute('src');$('scanImage').alt='جارٍ تحميل الورقة كاملة…';
  if(!a.identity_valid){
-   const used=new Set(sheets.filter(x=>x.id!==s.id&&x.student_id).map(x=>String(x.student_id)));
-   const options=(draft.assignments||[]).map(x=>'<option value="'+esc(x.student_id)+'" '+(used.has(String(x.student_id))?'disabled':'')+'>'+esc(x.student_name)+' — نموذج '+esc(x.model)+(used.has(String(x.student_id))?' (مرتبط بورقة أخرى)':'')+'</option>').join('');
-   $('manualAssignment').innerHTML='<option value="">اختر الطالب…</option>'+options;
    $('manualAssignmentWrap').classList.remove('hidden');
+   if($('studentNameSearch'))$('studentNameSearch').value='';
+   if($('printedNameOcrStatus'))$('printedNameOcrStatus').textContent=
+     'يمكن قراءة الاسم المطبوع من الصورة واقتراح مطابقته بكشف الاختبار. اختر الطالب بعد التحقق؛ لا تُعد النتيجة معتمدة بمجرد اقتراح الاسم.';
+   if($('printedNameOcrCandidates'))$('printedNameOcrCandidates').innerHTML='';
+   populateStudentNames();
  }else $('manualAssignmentWrap').classList.add('hidden');
  $('answerEditor').innerHTML=a.answers.map(x=>{
    const original=s.snapshot.answers[x.question-1],originalText=original.marked.length?original.marked.map(j=>letters[j]).join(' + '):'فارغة';
@@ -702,6 +764,18 @@ $('answerEditor').onclick=e=>{
 };
 if($('visionReadBtn'))$('visionReadBtn').onclick=visionReadProposal;
  $('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;
+if($('printedNameOcrBtn'))$('printedNameOcrBtn').onclick=readPrintedStudentName;
+if($('studentNameSearch'))$('studentNameSearch').oninput=e=>populateStudentNames(e.target.value);
+if($('printedNameOcrCandidates'))$('printedNameOcrCandidates').onclick=e=>{
+ const btn=e.target.closest('[data-ocr-student]');if(!btn)return;
+ const id=btn.dataset.ocrStudent,student=(draft?.assignments||[]).find(a=>String(a.student_id)===id);
+ if(!student)return;
+ if($('studentNameSearch'))$('studentNameSearch').value=student.student_name;
+ populateStudentNames(student.student_name,id);
+ const notice=$('printedNameOcrStatus');
+ if(notice)notice.textContent='اخترت الاسم المقترح: '+student.student_name+
+   '. قارن الاسم وصورة الورقة والنموذج، ثم اكتب سبب التصحيح واضغط «تأكيد ربط الورقة بالطالب».';
+};
 if($('refreshIdentityGradeBtn'))$('refreshIdentityGradeBtn').onclick=refreshIdentityGrade;$('rereadAllBtn').onclick=()=>rereadAllStrict({auto:false,onlyStale:false});
 $('loadEditHistoryBtn').onclick=editHistory;
 $('saveSheetBtn').onclick=verify;$('nextSheetBtn').onclick=()=>open(active+1);$('finishReviewBtn').onclick=finish;
