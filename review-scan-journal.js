@@ -38,8 +38,30 @@ function duplicateExplanation(s,rows=sheets){
 const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكررة':s.disposition==='requires_rescan'?'مراجَع — يلزم إعادة المسح':s.reviewed_at?'تم التحقق':'بانتظار التحقق';
 // A rejected optical read never has a valid numeric grade, even if old data stored 0.
 const failedRead=a=>!a||a.markers_ok!==true||!!a.omr_reader_error||a.grade_status==='unreadable';
-const noGrade=a=>failedRead(a)||a.grade_status==='needs_review'||a.score===null||a.score===undefined||!Number.isFinite(Number(a.score));
-const gradeText=a=>failedRead(a)?'فشل القراءة — بلا درجة':noGrade(a)?'بانتظار المراجعة — بلا درجة':ar(a.score)+' / '+ar(a.total);
+// A stored numeric zero is NOT a verified zero when an answer is still uncertain.
+// This can happen after reassignment: visible bubble choices remain while all states await review.
+const pendingAnswerCount=a=>{
+ if(!Array.isArray(a?.answers))return 0;
+ const total=Number(a.total);
+ if(!Number.isInteger(total)||total<1||a.answers.length!==total)return Math.max(1,total||0);
+ return a.answers.filter(x=>!x||x.state==='uncertain'||x.status==='ambiguous'||
+  x.reading_status==='unavailable'||x.reading_status==='invalid'||
+  x.review_pending===true||x.requires_verification===true||
+  !['correct','incorrect','blank','multiple'].includes(x.state)||
+  (x.state==='correct'&&x.correct!==true)||
+  (x.state==='incorrect'&&x.correct!==false)).length;
+};
+const scoreMismatch=a=>Array.isArray(a?.answers)&&a.answers.length===Number(a.total)&&
+ Number.isFinite(Number(a.score))&&a.answers.filter(x=>x?.state==='correct'&&x.correct===true).length!==Number(a.score);
+const noGrade=a=>failedRead(a)||a.grade_status==='needs_review'||a.score===null||a.score===undefined||
+ !Number.isFinite(Number(a.score))||pendingAnswerCount(a)>0||scoreMismatch(a);
+const gradeText=a=>{
+ if(failedRead(a))return 'فشل القراءة — بلا درجة';
+ if(scoreMismatch(a))return 'الدرجة لا تطابق الإجابات — مراجعة مطلوبة';
+ const pending=pendingAnswerCount(a);
+ if(pending)return 'بانتظار مراجعة '+ar(pending)+' إجابة — بلا درجة معتمدة';
+ return noGrade(a)?'بانتظار المراجعة — بلا درجة':ar(a.score)+' / '+ar(a.total);
+};
 const safeNumericGrade=a=>noGrade(a)?'':Number(a.score);
 const verifiedQuality=a=>failedRead(a)?'غير مقاسة':ar(Math.round(Number(a?.omr_verification?.quality_score)||0))+' / 100';
 const riskOf=s=>{const a=effective(s),r=a?.omr_verification?.risk;return ['low','medium','high'].includes(r)?r:(!a?.markers_ok?'high':((a?.counts?.uncertain||0)+(a?.counts?.multiple||0)>0?'high':'medium'));};
@@ -148,6 +170,9 @@ async function open(i){
  $('editMode').disabled=!!session?.completed_at;
  const verificationReasons=Array.isArray(a.omr_verification?.reasons)?a.omr_verification.reasons:[];
  $('sheetWarning').textContent=!a.identity_valid?'تعذر تأكيد هوية الورقة من QR. اختر الطالب من القائمة بعد مطابقة الاسم الظاهر على الورقة؛ لن تعتمد النتيجة قبل تأكيد الهوية.':verificationReasons.length?'تصنيف الخطورة: '+riskLabel(riskOf(s))+' — '+verificationReasons.join('؛ '):!a.markers_ok||a.counts.uncertain?'توجد قراءة غير مؤكدة؛ يمكنك تعديل الإجابات بعد فحص الصورة، أو طلب إعادة المسح.':s.blocked_duplicate?'هذه نسخة مكررة؛ ستبقى في السجل ولن تُحتسب درجة إضافية.':duplicate(s)?'إعادة رفع بعد ورقة طلبت إعادة مسحها؛ يبقى تنبيه التكرار محفوظًا.':'';
+ if(pendingAnswerCount(a)>0||scoreMismatch(a)){
+  $('sheetWarning').textContent='لا تعتمد الدرجة الظاهرة على مجموع الإجابات قبل التحقق: '+gradeText(a)+'. الاختيار الملوّن يدل على ما قرأه الماسح، ولا يثبت صحة الإجابة.';
+ }
  $('duplicateConfirm').classList.toggle('hidden',!duplicate(s));
  $('duplicateCheck').checked=!!s.reviewed_at;$('verifiedCheck').checked=!!s.reviewed_at;
  $('verifiedCheck').disabled=!!s.reviewed_at;$('duplicateCheck').disabled=!!s.reviewed_at;
