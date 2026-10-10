@@ -89,10 +89,11 @@
     <header class="section-head">
       <div><h2>٢. مراجعة الأوراق</h2><p>تحقق من كل ورقة بالترتيب. يمكنك تعديل أي إجابة؛ يحفظ السجل القراءة الأصلية وتعديلاتك.</p></div>
       <div class="actions">
-        <button id="reviewNextBtn" class="secondary" type="button">متابعة المراجعة</button><button id="rereadAllBtn" class="secondary" type="button">إعادة قراءة التظليل بدقة</button><button id="selectAllBtn" class="secondary" type="button">تحديد الكل</button><button id="deleteSelectedBtn" class="secondary" type="button" disabled>حذف التصحيحات المحددة</button>
+        <button id="reviewNextBtn" class="secondary" type="button">متابعة المراجعة</button><button id="rereadAllBtn" class="secondary" type="button">إعادة قراءة التظليل بدقة</button><button id="selectAllBtn" class="secondary" type="button">تحديد الكل</button><button id="deleteSelectedBtn" class="secondary" type="button" disabled>حذف التصحيحات المحددة</button><button id="resetOmrAttemptsBtn" class="secondary" type="button" disabled title="حذف أوراق ومحاولات التصحيح الآلي لهذا الاختبار من قاعدة البيانات، دون حذف الاختبار أو المحاولات الإلكترونية">تصفير التصحيح الآلي نهائيًا</button>
         <button id="approveBtn" class="primary" type="button">اعتماد النتائج</button>
       </div>
     </header>
+    <p id="resetOmrScopeNote" style="margin:6px 0 10px;font-size:.85rem;color:#8b1e1e">زر التصفير يحذف جميع أوراق ومحاولات التصحيح الورقي لهذا الاختبار من قاعدة البيانات عبر كل جلساته، بما فيها النتائج المعتمدة المرتبطة بها إن وُجدت. لا يحذف الاختبار نفسه ولا محاولات الاختبارات الإلكترونية. يحتفظ النظام بسجل تدقيق مختصر.</p>
     <div class="review-toolbar"><strong id="sessionProgress"></strong><label><input id="selectAllSheets" type="checkbox"> تحديد الكل</label><label><input id="alertFilter" type="checkbox"> عرض الأوراق ذات تنبيهات التكرار فقط</label></div>
 <div class="legend"><span class="state-blank">أحمر: غير محلول</span><span class="state-multiple">أصفر: متعدد الإجابات</span><span class="state-correct">أخضر: صحيح مؤكد</span><span>نص رمادي: خاطئ / قراءة غير مؤكدة</span></div>
 <div class="table-wrap">
