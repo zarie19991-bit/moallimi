@@ -12,6 +12,29 @@ let visionAvailable=false;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
 const duplicate=s=>!!(s.duplicate_of||s.duplicate_legacy_at);
+// Distinguish a second image in the CURRENT batch from an attempt left over before reset.
+function duplicateSource(s,rows=sheets){
+ if(!duplicate(s))return {scope:'none',original:null};
+ const original=s.duplicate_of?rows.find(x=>String(x.id)===String(s.duplicate_of)):null;
+ if(original&&String(original.session_id)===String(s.session_id))return {scope:'current_batch',original};
+ if(s.duplicate_legacy_at)return {scope:'legacy_attempt',original};
+ return {scope:'previous_session',original};
+}
+function duplicateTitle(s,rows=sheets){
+ const kind=duplicateSource(s,rows).scope;
+ return kind==='current_batch'?'تطابق داخل الدفعة':kind==='legacy_attempt'?'نتيجة ورقية سابقة':'تطابق يحتاج مراجعة';
+}
+function duplicateExplanation(s,rows=sheets){
+ const {scope,original}=duplicateSource(s,rows);
+ if(scope==='none')return '';
+ if(scope==='current_batch'){
+  const no=s.sheet_no??original?.sheet_no;
+  return 'الورقتان '+ar(original.ordinal)+' و'+ar(s.ordinal)+' من الدفعة الحالية تحملان هوية الورقة نفسها'+
+   (no!=null?' (رقم '+ar(no)+')':'')+'. هذا ليس تصحيحًا قديمًا بقي بعد التصفير؛ تحقق من الصورتين ورمز QR قبل الاعتماد.';
+ }
+ if(scope==='legacy_attempt')return 'هناك نتيجة ورقية سابقة مرتبطة بهذا الاختبار؛ تحقق منها قبل اعتماد الورقة.';
+ return 'يوجد تطابق مع ورقة مسجلة سابقًا لهذا الاختبار. راجع رقم الورقة ورمز QR قبل الاعتماد.';
+}
 const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكررة':s.disposition==='requires_rescan'?'مراجَع — يلزم إعادة المسح':s.reviewed_at?'تم التحقق':'بانتظار التحقق';
 // A rejected optical read never has a valid numeric grade, even if old data stored 0.
 const failedRead=a=>!a||a.markers_ok!==true||!!a.omr_reader_error||a.grade_status==='unreadable';
@@ -93,9 +116,10 @@ function render(){
  const count=sheets.reduce((m,s)=>{for(const a of effective(s).answers||[]){
    const k=safety.unresolved(a)?'uncertain':a.state;m[k]=(m[k]||0)+1;
  }return m;},{});
- $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تمت مراجعتها',sheets.filter(s=>s.reviewed_at).length],['تنبيهات التكرار',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
+ $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تمت مراجعتها',sheets.filter(s=>s.reviewed_at).length],['حالات تطابق الأوراق',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
  const only=$('alertFilter').checked;
- $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td>'+esc(status(s))+' <span class="quality-risk '+riskOf(s)+'">'+riskLabel(riskOf(s))+'</span>'+(duplicate(s)?' <strong class="duplicate-label">رفع مكرر</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">إعادة قراءة الاسم</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
+ $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.student_name)+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td>'+esc(status(s))+' <span class="quality-risk '+riskOf(s)+'">'+riskLabel(riskOf(s))+'</span>'+(duplicate(s)?' <strong class="duplicate-label" title="'+esc(duplicateExplanation(s))+'">'+esc(duplicateTitle(s))+'</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">إعادة قراءة الاسم</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
+ if($('duplicateLive')&&!sheets.some(duplicate))$('duplicateLive').textContent='';
  $('sessionProgress').textContent=session?(session.completed_at?'جلسة منتهية · ':'')+'تم التحقق من '+ar(sheets.filter(s=>s.reviewed_at).length)+' من '+ar(session.expected_count)+' ورقة':'';
  if($('selectAllSheets')){$('selectAllSheets').checked=sheets.length>0&&selected.size===sheets.length;$('selectAllSheets').indeterminate=selected.size>0&&selected.size<sheets.length;}
  renderQualityReport();renderButtons();
@@ -106,7 +130,7 @@ async function open(i){
  active=i;loadedImage=null;const s=sheets[i],a=effective(s);
  if($('visionProposal'))$('visionProposal').innerHTML='';
  $('modalTitle').textContent=a.student_name+' — نموذج '+a.model;
- $('modalSub').textContent='الورقة '+ar(i+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(a)+' · '+status(s)+' · رفع '+new Date(s.uploaded_at).toLocaleString('ar-SA');
+ $('modalSub').textContent='الورقة '+ar(i+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(a)+' · '+status(s)+' · رفع '+new Date(s.uploaded_at).toLocaleString('ar-SA')+(duplicate(s)?' · '+duplicateExplanation(s):'');
  $('scanImage').removeAttribute('src');$('scanImage').alt='جارٍ تحميل الورقة كاملة…';
  if(!a.identity_valid){
    const used=new Set(sheets.filter(x=>x.id!==s.id&&x.student_id).map(x=>String(x.student_id)));
@@ -368,7 +392,14 @@ async function finish(){
 }
 async function refreshAlerts(){
  if(!draft)return;try{const r=await api('teacher_scan_alerts');alerts=r.alerts||[];
- $('alertLog').innerHTML=alerts.length?'<summary>سجل تنبيهات التكرار — أحدث '+ar(alerts.length)+' تنبيه</summary><div class="alert-list">'+alerts.map(a=>'<p><b>'+esc(a.sheet?.snapshot?.student_name)+'</b> · '+new Date(a.created_at).toLocaleString('ar-SA')+' · '+(a.kind==='same_image'?'نفس صورة الورقة':'نفس الطالب والاختبار')+' · '+(a.acknowledged_at?'تم الاطلاع':'بانتظار الاطلاع')+' <small>رقم التنبيه: '+esc(a.id)+'</small></p>').join('')+'</div>':'<summary>لا توجد تنبيهات تكرار لهذا الاختبار</summary>';
+ $('alertLog').innerHTML=alerts.length?'<summary>سجل تنبيهات تطابق الأوراق — أحدث '+ar(alerts.length)+' تنبيه</summary><div class="alert-list">'+alerts.map(a=>{
+  const current=sheets.find(x=>String(x.id)===String(a.sheet_id));
+  const prior=sheets.find(x=>String(x.id)===String(a.original_sheet_id));
+  const sameBatch=!!current&&!!prior&&String(current.session_id)===String(prior.session_id);
+  const scope=sameBatch?'داخل الدفعة الحالية (الورقتان '+ar(prior.ordinal)+' و'+ar(current.ordinal)+')':'مع جلسة أو نتيجة سابقة لنفس الاختبار';
+  const detail=a.kind==='same_image'?'صورة متطابقة':'الهوية/رقم الورقة متطابقان';
+  return '<p><b>'+esc(a.sheet?.snapshot?.student_name)+'</b> · '+new Date(a.created_at).toLocaleString('ar-SA')+' · '+esc(scope)+' · '+esc(detail)+' · '+(a.acknowledged_at?'تم الاطلاع':'بانتظار الاطلاع')+' <small>رقم التنبيه: '+esc(a.id)+'</small></p>';
+ }).join('')+'</div>':'<summary>لا توجد تنبيهات تطابق لهذا الاختبار</summary>';
  }catch(e){message('تعذر تحديث التنبيهات: '+e.message,true);}
 }
 async function sessions(){
@@ -400,14 +431,14 @@ async function streamHash(files){
 async function beginStream(files){
  const fileHash=await streamHash(files),id=crypto.randomUUID();
  const r=await api('teacher_scan_start',{session_id:id,file_hash:fileHash,expected_count:1});
- session=r.session;sheets=[];active=-1;pending=null;imageCache.clear();render();
+ session=r.session;sheets=[];active=-1;pending=null;imageCache.clear();if($('duplicateLive'))$('duplicateLive').textContent='';render();
  return {session_id:id,file_hash:fileHash};
 }
 async function appendStream(x,ordinal){
  if(!session?.id)throw Error('جلسة الحفظ غير جاهزة.');
  const r=await api('teacher_scan_register',{sheet:{ordinal,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,image_data:x.fullImage,page_no:x.pageNo,region_no:x.regionNo}});
  sheets.push(r.sheet);
- if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه فوري: تكرر رفع ورقة '+r.sheet.snapshot.student_name+'؛ سُجلت الحالة.';}
+ if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه أثناء الرفع: '+duplicateExplanation(r.sheet)+' لم تُعتمد أي نسخة تلقائيًا.';}
  return r.sheet;
 }
 async function finalizeStream(actualCount){
@@ -436,7 +467,7 @@ async function transfer(){
    const x=p.data[i];message('حفظ الورقة '+ar(i+1)+' من '+ar(p.data.length)+'…');
    const r=await api('teacher_scan_register',{sheet:{ordinal:i+1,sheet_no:x.qr?.sheetNo,qr_valid:x.qrValid===true&&!x.identitySource,model:x.model,image_data:x.fullImage||x.thumbnail,page_no:x.pageNo,region_no:x.regionNo}});
    sheets.push(r.sheet);render();
-   if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه فوري: تكرر رفع ورقة '+r.sheet.snapshot.student_name+'؛ سُجلت الحالة في قسم المراجعة.';await refreshAlerts();}
+   if(duplicate(r.sheet)){$('duplicateLive').textContent='تنبيه أثناء الرفع: '+duplicateExplanation(r.sheet)+' لم تُعتمد أي نسخة تلقائيًا.';await refreshAlerts();}
  }
  pending=null;render();await sessions();await refreshAlerts();message('حُفظت الأوراق. يمكنك تعديل أي إجابة، ثم حفظ التحقق من الورقة والانتقال بالترتيب.');
  }catch(e){message('توقف الحفظ: '+e.message+' — تقدمك محفوظ؛ اضغط إعادة استكمال الرفع.',true);throw e;}
