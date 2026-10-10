@@ -90,6 +90,34 @@ const gradeText=a=>{
  return noGrade(a)?'بانتظار المراجعة — بلا درجة':ar(a.score)+' / '+ar(a.total);
 };
 const safeNumericGrade=a=>noGrade(a)?'':Number(a.score);
+// These are physical ink and lightness readings, never percentages of correctness.
+function opticalEvidenceText(x){
+ const centers=Array.isArray(x?.center_values)?x.center_values:[];
+ const chosen=Number.isInteger(x?.selected)?x.selected:
+  Array.isArray(x?.marked)&&x.marked.length===1&&Number.isInteger(x.marked[0])?x.marked[0]:null;
+ const c=chosen!==null&&centers.length===4?Number(centers[chosen]):NaN;
+ const others=chosen!==null&&centers.length===4?centers.filter((_,i)=>i!==chosen).map(Number):[];
+ const name=String(x?.reader||'');
+ const kind=name==='blue-row'||name==='mixed-ink'?'كشف أثر الحبر الأزرق':
+  name==='dark-row'?'كشف سواد المنطقة':
+  name==='center-dark'?'كشف مركز الدائرة':
+  name==='gray'?'مقارنة تباين الرمادي':
+  name==='blank-interior-consensus'?'المراكز فارغة بلا تظليل مرصود':
+  name==='center-proof-review'?'الاختيار لم يجتز فحص مركز الدائرة':
+  'كشف آلي يحتاج تفسير القياسات';
+ let summary='دليل القراءة: '+kind;
+ if(Number.isFinite(c)){
+  summary+=' · إضاءة المركز '+c.toFixed(0)+'/255 (الأقل أغمق)';
+  if(others.length===3&&others.every(Number.isFinite))
+   summary+=' · فرق المركز عن أقرب بديل '+(Math.min(...others)-c).toFixed(0)+' درجة رمادية';
+ }else if(centers.length===4&&centers.every(v=>Number.isFinite(Number(v))))
+  summary+=' · المراكز '+centers.map(v=>Number(v).toFixed(0)).join('، ')+'/255';
+ const peak=Number(x?.top_score);
+ if(name==='blue-row'||name==='mixed-ink'||name==='mixed-ink-review'){
+  if(Number.isFinite(peak)&&peak>=0)summary+=' · كتلة الحبر '+(peak>=255?'255 أو أكثر':peak.toFixed(1))+' وحدة، وليست نسبة مئوية';
+ }
+ return summary+'.';
+}
 const verifiedQuality=a=>failedRead(a)?'غير مقاسة':ar(Math.round(Number(a?.omr_verification?.quality_score)||0))+' / 100';
 const riskOf=s=>{const a=effective(s),r=a?.omr_verification?.risk;return ['low','medium','high'].includes(r)?r:(!a?.markers_ok?'high':((a?.counts?.uncertain||0)+(a?.counts?.multiple||0)>0?'high':'medium'));};
 const riskLabel=r=>r==='low'?'منخفضة':r==='medium'?'متوسطة':'مرتفعة';
@@ -189,9 +217,8 @@ async function open(i){
  }else $('manualAssignmentWrap').classList.add('hidden');
  $('answerEditor').innerHTML=a.answers.map(x=>{
    const original=s.snapshot.answers[x.question-1],originalText=original.marked.length?original.marked.map(j=>letters[j]).join(' + '):'فارغة';
-   const top=Number(x.top_score),second=Number(x.second_score),sep=Number(x.separation),thr=Number(x.threshold);
-   const evidence=Number.isFinite(top)?'<small class="omr-evidence">دليل القراءة: الأقوى '+(top*100).toFixed(1)+'٪ · الثاني '+(Number.isFinite(second)?(second*100).toFixed(1):'—')+'٪ · الفارق '+(Number.isFinite(sep)?(sep*100).toFixed(1):'—')+'٪ · العتبة '+(Number.isFinite(thr)?(thr*100).toFixed(1):'—')+'٪</small>':'';
-   return '<div class="answer-row-edit state-'+x.state+'"><div><b>س '+ar(x.question)+'</b><small>'+labels[x.state]+' · '+(x.reviewed_manually?'معدلة يدويًا':'ثقة القراءة '+ar(Math.round(x.confidence*100))+'٪')+'</small>'+evidence+(x.reviewed_manually?'<small class="original-answer">القراءة الأصلية: '+esc(originalText)+' — '+labels[original.state]+'</small>':'')+'</div><div class="choice-buttons" aria-label="تعديل إجابة السؤال '+x.question+'">'+letters.map((l,j)=>'<button type="button" data-edit-question="'+x.question+'" data-choice="'+j+'" aria-pressed="'+x.marked.includes(j)+'" class="readonly-choice '+(x.marked.includes(j)?'selected':'')+'">'+l+'</button>').join('')+'<button type="button" data-edit-question="'+x.question+'" data-choice="blank" class="blank-choice" aria-pressed="'+(x.marked.length===0)+'">فارغة</button></div></div>';
+   const evidence='<small class="omr-evidence">'+esc(opticalEvidenceText(x))+'</small>';
+   return '<div class="answer-row-edit state-'+x.state+'"><div><b>س '+ar(x.question)+'</b><small>'+labels[x.state]+' · '+(x.reviewed_manually?'معدلة يدويًا':'تقدير آلي '+ar(Math.round(Number(x.confidence||0)*100))+'/100 (ليس قياسًا للدقة)')+'</small>'+evidence+(x.reviewed_manually?'<small class="original-answer">القراءة الأصلية: '+esc(originalText)+' — '+labels[original.state]+'</small>':'')+'</div><div class="choice-buttons" aria-label="تعديل إجابة السؤال '+x.question+'">'+letters.map((l,j)=>'<button type="button" data-edit-question="'+x.question+'" data-choice="'+j+'" aria-pressed="'+x.marked.includes(j)+'" class="readonly-choice '+(x.marked.includes(j)?'selected':'')+'">'+l+'</button>').join('')+'<button type="button" data-edit-question="'+x.question+'" data-choice="blank" class="blank-choice" aria-pressed="'+(x.marked.length===0)+'">فارغة</button></div></div>';
  }).join('');
  $('sheetEditHistory').innerHTML='';$('editHistoryDetails').open=false;
  $('editMode').disabled=!!session?.completed_at;
