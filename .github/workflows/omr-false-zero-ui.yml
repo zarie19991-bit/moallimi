@@ -10,6 +10,9 @@ on:
       - 'supabase/functions/nafes-exam/omr-multiple-evidence.ts'
       - 'supabase/functions/nafes-exam/omr-server.ts'
       - 'qa/omr/identity-diagnostic-remediation.test.mjs'
+      - 'qa/omr/qr-recovery-without-rescan.test.mjs'
+      - 'review-scan.js'
+      - 'supabase/functions/nafes-exam/paper-scan.ts'
       - 'qa/omr/multiple-adjudication.test.mjs'
       - 'review-scan.css'
       - 'review-scan.html'
@@ -49,3 +52,5 @@ jobs:
         run: node --test qa/omr/multiple-adjudication.test.mjs
       - name: Check that corrected identity does not falsely invalidate all OMR answers
         run: node --test qa/omr/identity-diagnostic-remediation.test.mjs
+      - name: Verify local QR retry and identity link without forced rescan
+        run: node --test qa/omr/qr-recovery-without-rescan.test.mjs
