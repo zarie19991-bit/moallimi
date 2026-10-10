@@ -21,7 +21,10 @@ BEGIN
     IF source_sql IS NULL OR length(source_sql)-length(replace(source_sql,guard,'')) <> length(guard) THEN
       RAISE EXCEPTION 'Sequential guard does not match %; no database changes committed',func;
     END IF;
-    IF position('answer_version' in source_sql)=0
+    -- Version is checked in the active verify_current wrapper; edit_answer
+    -- checks answer_version itself. Neither check may be weakened.
+    IF (func='public.nafes_scan_edit_answer(uuid,uuid,uuid,integer,integer[],integer,uuid,text)'::regprocedure
+        AND position('answer_version' in source_sql)=0)
        OR position('reviewed_at' in source_sql)=0
        OR position('session_id=s.id' in source_sql)=0 THEN
       RAISE EXCEPTION 'Core OMR safety checks not found in %',func;
