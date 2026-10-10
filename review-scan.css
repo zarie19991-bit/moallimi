@@ -22,3 +22,10 @@ button:disabled{opacity:.5;cursor:not-allowed}.scan-preview{overflow:auto;max-he
 .quality-reasons{max-width:420px;line-height:1.65;color:#526a73}
 
 .omr-evidence{display:block;margin-top:4px;font-size:9px;line-height:1.5;color:#526a73;font-variant-numeric:tabular-nums}
+
+/* Per-question adjudication: deliberate teacher action, never automatic bonus points. */
+.multiple-resolution{display:flex;flex-wrap:wrap;align-items:center;gap:7px;grid-column:1/-1;margin-top:8px;padding:8px 10px;border:1px solid #d5a546;border-radius:9px;background:#fff8e8;color:#60490f;line-height:1.8}
+.multiple-resolution small{display:block;flex-basis:100%;font-size:12px}
+.multiple-resolution button{white-space:normal;min-height:34px;padding:6px 10px;font-weight:600;border-radius:7px}
+.multiple-resolution button[data-resolution="credit_correct"]{border-color:#2b7565;color:#135344;background:#e4f4eb}
+.multiple-resolution button[data-resolution="count_wrong"]{border-color:#aa6a52;color:#783720;background:#fff0ea}
