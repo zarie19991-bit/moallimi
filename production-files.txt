@@ -197,3 +197,5 @@ attempt-timing-report.js
 
 review-indicator-detail.html
 review-indicator-detail.js
+
+analysis-impact.js
