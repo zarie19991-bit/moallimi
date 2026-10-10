@@ -4,7 +4,7 @@
  const option=n=>Number.isInteger(n)&&n>=0&&n<4;
  const provenMultiple=a=>a?.status==='multiple'&&a.selected===null&&Array.isArray(a.marked)&&
    a.marked.length>=2&&a.marked.every(option)&&new Set(a.marked).size===a.marked.length;
- const unresolved=a=>!a||a.state==='uncertain'||a.status==='ambiguous'||a.review_pending===true||
+ const unresolved=a=>!a||a.state==='uncertain'||a.status==='ambiguous'||a.review_pending===true||a.requires_verification===true||
    !['correct','incorrect','blank','multiple'].includes(a.state)||
    (a.state==='multiple'&&!provenMultiple(a))||
    Object.values(a.uncertainty||{}).some(xs=>Array.isArray(xs)&&xs.length>0);
@@ -47,7 +47,7 @@
    for(const [group,label] of groups)for(const code of u[group]||[])
      result.push(label+': '+(texts[code]||'تحتاج تحققًا ('+code+')'));
    if(a?.status==='ambiguous'&&!result.length)result.push(texts.bubble_ambiguous);
-   if(a?.state==='multiple')result.push(texts.confirmed_multiple_requires_review);
+   if(a?.state==='multiple'&&a?.requires_verification===true)result.push(texts.confirmed_multiple_requires_review);
    return [...new Set(result)];
  }
  globalThis.NafesOmrSafety=Object.freeze({provenMultiple,unresolved,unresolvedSheet,classify,reasons});
