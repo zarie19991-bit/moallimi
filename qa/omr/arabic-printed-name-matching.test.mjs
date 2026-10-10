@@ -8,7 +8,7 @@ const page=readFileSync('review-scan.html','utf8');
 const journal=readFileSync('review-scan-journal.js','utf8');
 const sandbox={window:{}};
 runInNewContext(code,sandbox);
-const {normalizeName,matchCandidate,proposals}=sandbox.window.NafesPrintedNameOCR;
+const {normalizeName,matchCandidate,proposals,headerRegions}=sandbox.window.NafesPrintedNameOCR;
 const roster=[
  {student_id:'1',student_name:'فهد إبراهيم محمد آل شيطه',model:'ب'},
  {student_id:'2',student_name:'محمد علي حسن القحطاني',model:'ج'},
@@ -39,7 +39,9 @@ test('neither OCR nor roster suggestions ever invoke the identity or grading API
  assert(!code.includes('teacher_scan_verify'));
  assert(!code.includes('teacher_scan_register'));
  assert(code.includes("T.createWorker('ara'"));
- assert(code.includes('cropH=Math.floor(h*.44)'));
+ assert(code.includes('const regions=headerRegions()'));
+ assert(code.includes('const canvas=document.createElement(\'canvas\')')||code.includes("document.createElement('canvas')"));
+ assert(code.includes("ctx.filter='grayscale(1) contrast(1.6)'"));
  assert(code.includes('await worker.recognize(canvas)'));
  assert(code.includes('await worker.terminate()'));
  assert(code.includes('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js'));
@@ -48,11 +50,30 @@ test('teacher must explicitly confirm printed name and model to attach original 
  assert(page.includes('id="printedNameOcrBtn"'));
  assert(page.includes('id="studentNameSearch"'));
  assert(page.includes('id="printedNameOcrCandidates"'));
- assert(page.includes('review-scan-name-ocr.js?v=20261010-arabic-text-match1'));
+ assert(page.includes('review-scan-name-ocr.js?v=20261010-crops-diagnostics2'));
  assert(journal.includes('async function readPrintedStudentName()'));
  assert(journal.includes("populateStudentNames(student.student_name,id)"));
- assert(journal.includes("window.NafesPrintedNameOCR.proposals(result.text"));
+ assert(journal.includes("window.NafesPrintedNameOCR.proposals(sample.text"));
  assert(journal.includes("const r=await api('teacher_scan_assign_identity'"));
  assert(journal.includes("if(reason.length<3)"));
+ assert(!journal.includes("api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:found.matches[0]"));
+});
+
+test('OCR retries bounded candidate name-field crops including upside-down paper',()=>{
+ const regions=headerRegions();
+ assert.equal(regions.length,4);
+ assert(regions[0].w===1&&regions[0].h<.5);
+ assert(regions.some(x=>x.x>.3&&x.w<1),'right-side name block');
+ assert(regions.some(x=>x.x===0&&x.w<1),'left-side name block');
+ assert(regions.some(x=>x.flip&&x.y>.5),'upside-down scanned page');
+ assert(code.includes('for(let i=0;i<regions.length;i++)'));
+ assert(code.includes('found.unique&&found.matches[0]?.score>=.90'),'strong match can skip extra costly OCR');
+ assert(code.includes('for(const candidate of samples)'),'compare each cropped region independently');
+ assert(code.includes('const scriptUrls=['),'fallback for blocked OCR library CDN');
+ assert(page.includes('id="printedNameOcrDetails"'));
+ assert(page.includes('id="printedNameOcrRaw"'));
+ assert(journal.includes("raw.textContent=samples.map"));
+ assert(journal.includes('const hasArabic=samples.some'));
+ assert(journal.includes('لم يستخرج المحرك كلمات عربية واضحة'));
  assert(!journal.includes("api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:found.matches[0]"));
 });
