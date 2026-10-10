@@ -68,7 +68,7 @@ function questionParts(at:any){
    if(!groups.has(key))groups.set(key,{key,subject_key:subject,outcome_code:outcome,indicator_index:indicator,indicator_text:clean(q.indicator_text)||"المؤشر "+indicator,score:0,total:0});
    const g=groups.get(key);g.total++;
    const has=Object.prototype.hasOwnProperty.call(answers,String(q.id));
-   if(has&&answers[q.id]!==null&&answers[q.id]!==""&&Number.isInteger(Number(answers[q.id]))&&Number(answers[q.id])===Number(q.correctIndex))g.score++;
+   if(has&&answers[q.id]!==null&&answers[q.id]!==""&&q.correctIndex!=null&&Number.isInteger(Number(q.correctIndex))&&Number.isInteger(Number(answers[q.id]))&&Number(answers[q.id])===Number(q.correctIndex))g.score++;
   }
  }
  return [...groups.values()];
@@ -93,6 +93,11 @@ function metric(at:any,scope:string){
   return validScore(sec.score,sec.total);
  }
  if(scope.startsWith("subject:"))return sectionsOf(at).get(scope.slice(8))||null;
+ if(scope.startsWith("group:")){
+   const keys=[...new Set(scope.slice(6).split("|").filter(Boolean))],groups=new Map(questionParts(at).map(g=>[g.key,g]));
+   if(keys.length<2||keys.some(k=>!groups.has(k)))return null;
+   return keys.reduce((v:any,k:string)=>({score:v.score+groups.get(k).score,total:v.total+groups.get(k).total}),{score:0,total:0});
+ }
  return questionParts(at).find(g=>g.key===scope)||null;
 }
 async function build(id:string,scope:string,t:any){
@@ -106,17 +111,21 @@ async function build(id:string,scope:string,t:any){
  for(const at of attempts)for(const g of questionParts(at))if(allowedSubjects.includes(g.subject_key)&&!indicatorMap.has(g.key))indicatorMap.set(g.key,{key:g.key,label:(subjects[g.subject_key]||g.subject_key)+" • "+g.indicator_text,subject_key:g.subject_key,outcome_code:g.outcome_code,indicator_index:g.indicator_index});
  const scopes=[...(t.scope==="all"?[{key:"overall",label:"الاختبار كامل"}]:[]),...allowedSubjects.map(s=>({key:"subject:"+s,label:"مادة "+subjects[s]})),...[...indicatorMap.values()]];
  const requested=scope||scopes[0]?.key||"overall";
- if(!scopes.some(s=>s.key===requested))throw httpError("النطاق المحدد غير متاح لهذا الاختبار.",400);
+ if(requested.startsWith("group:")){
+  const keys=[...new Set(requested.slice(6).split("|").filter(Boolean))];
+  if(keys.length<2||keys.length>25||keys.some(k=>!indicatorMap.has(k)))throw httpError("مجموعة المؤشرات غير صالحة للاختبار.",400);
+  scopes.push({key:requested,label:"مجموعة من "+keys.length+" مؤشرات"});
+ }else if(!scopes.some(s=>s.key===requested))throw httpError("النطاق المحدد غير متاح لهذا الاختبار.",400);
  const studentsMap=new Map(students.map((s:any)=>[String(s.id),s]));
  const latest=new Map<string,any>();
- for(const at of attempts){const sid=clean(at.student_id);if(studentsMap.has(sid)&&!latest.has(sid))latest.set(sid,at)}
+ for(const at of attempts){const sid=clean(at.student_id);if(studentsMap.has(sid)&&!latest.has(sid)&&metric(at,requested))latest.set(sid,at)}
  const rows=students.map((s:any)=>{
   const at=latest.get(String(s.id)),m=at?metric(at,requested):null,v=m?validScore(m.score,m.total):null,classification=classify(v);
   return {student_id:s.id,student_name:s.full_name,class_name:s.class_name,grade:s.grade,score:v?.score??null,total:v?.total??null,percent:v?Math.round(v.score/v.total*10000)/100:null,classification,tested:!!v,attempt_id:at?.id||null,submitted_at:at?.submitted_at||null};
  });
  const counts={tested:rows.filter((r:any)=>r.tested).length,unmeasured:rows.filter((r:any)=>!r.tested).length,remedial:rows.filter((r:any)=>r.classification==="remedial").length,reinforcement:rows.filter((r:any)=>r.classification==="reinforcement").length,enrichment:rows.filter((r:any)=>r.classification==="enrichment").length};
  const percentages:any={};for(const k of ["remedial","reinforcement","enrichment"])percentages[k]=counts.tested?Math.round(counts[k]/counts.tested*10000)/100:0;
- return {test:{id:test.id,title:clean(test.title)||"اختبار نافس",kind:test.kind,grade:clean(test.config?.grade_key)==="middle_3"?"الثالث المتوسط":clean(test.config?.grade_key)||"—",class_name:clean(test.config?.class_name)||"جميع الفصول",date:test.published_at||test.created_at,subject_keys:allowedSubjects},scope:requested,scopes,counts,percentages,rows,_attempts:latest};
+ return {test:{id:test.id,title:clean(test.title)||"اختبار نافس",kind:test.kind,grade:clean(test.config?.grade_key)==="middle_3"?"الثالث المتوسط":clean(test.config?.grade_key)||"—",class_name:clean(test.config?.class_name)||"جميع الفصول",date:test.published_at||test.created_at,subject_keys:allowedSubjects},scope:requested,scopes,indicators:[...indicatorMap.values()],counts,percentages,rows,_attempts:latest};
 }
 async function questionsFor(subject:string,outcome:string,indicator:number,cache:Map<string,string[]>){
  const key=[subject,outcome,indicator].join(":");if(cache.has(key))return cache.get(key)!;
@@ -142,7 +151,9 @@ async function assign(testId:string,scope:string,tier:string,t:any){
   let indicators=questionParts(at).filter((g:any)=>view.test.subject_keys.includes(g.subject_key)&&g.total>0);
   if(view.scope.startsWith("subject:"))indicators=indicators.filter((g:any)=>g.subject_key===view.scope.slice(8));
   if(view.scope.startsWith("indicator:"))indicators=indicators.filter((g:any)=>g.key===view.scope);
+  if(view.scope.startsWith("group:")){const chosenKeys=new Set(view.scope.slice(6).split("|"));indicators=indicators.filter((g:any)=>chosenKeys.has(g.key))}
   const matching=indicators.filter((g:any)=>classify(g)===tier);
+  if(!matching.length&&indicators.length)matching.push(...indicators);
   matching.sort((a:any,b:any)=>tier==="enrichment"?b.score/b.total-a.score/a.total:a.score/a.total-b.score/b.total);
   const p=matching[0];if(!p)continue;
   candidate.push({r,p});
