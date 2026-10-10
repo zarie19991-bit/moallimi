@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تقرير المؤشرات للاختبار الآلي | معلّمي</title>
+<link rel="stylesheet" href="analysis.css?v=20260911-unified4">
+<link rel="stylesheet" href="subject-analysis-report.css?v=20260911-2">
+<link rel="stylesheet" href="review-analysis-indicator.css?v=20261003-autoexam4">
+<link rel="stylesheet" href="moallimi-brand.css?v=20261004-cognitive1">
+<script src="teacher-preboot.js?v=20260919-scope2"></script>
+<style>
+.paper-indicator-shell{max-width:1220px;margin:auto;padding:18px}.paper-indicator-shell .toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:end}.paper-indicator-shell label{display:flex;flex-direction:column;gap:5px}.paper-indicator-shell select{min-width:170px;padding:10px}.paper-indicator-shell .card{padding:18px;margin-bottom:18px}.paper-indicator-shell button{padding:11px 16px;border-radius:7px;cursor:pointer}.paper-indicator-shell .iad-appendix[hidden]{display:none!important}
+@media print{header.top,.paper-indicator-shell,#indicatorReportView{display:none!important}#printRoot{display:block!important;position:static!important;visibility:visible!important}#printRoot *{visibility:visible!important}body{background:#fff!important}}
+</style></head>
+<body class="page-analysis"><header class="top no-print"><a href="review-correction.html">← التصحيح الآلي</a><nav><a href="review-analysis.html">التحليل الحالي</a><a href="review-report.html">التقرير الرسمي</a><a href="review-indicator-detail.html" class="active">تقرير المؤشرات التفصيلي</a></nav></header>
+<main id="indicatorReportView" class="paper-indicator-shell no-print"><h1>تقرير اختبار المؤشرات — التصحيح الآلي</h1>
+<p>يعتمد على نتائج أوراق التظليل المحفوظة بعد الاعتماد، ولا يعيد تصحيحها أو تعديل درجاتها.</p>
+<section class="card"><div class="toolbar">
+<label>الاختبار الآلي<select id="paperIndicatorTest"><option value="">جارٍ تحميل الاختبارات…</option></select></label>
+<label>الفصل<select id="paperIndicatorClass"><option value="">جميع الفصول</option></select></label>
+<label>المادة<select id="paperIndicatorSubject"><option value="">جميع المواد</option><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
+<button id="buildIndicatorReportBtn" type="button">إنشاء التقرير</button>
+</div><p id="paperIndicatorState" role="status" aria-live="polite"></p></section>
+<div id="indicatorReportPreview"><p>اختر الاختبار والفصل والمادة ثم اضغط إنشاء التقرير.</p></div></main>
+<section id="printRoot" class="print-root" aria-hidden="true"></section>
+<script src="teacher-access.js?v=20260930-mainfix1"></script>
+<script src="review-results-core.js?v=20261003-autoexam4"></script>
+<script src="indicator-detailed-report.js?v=20261010-final11b"></script>
+<script src="review-indicator-detail.js?v=20261010-paper1"></script>
+</body></html>
