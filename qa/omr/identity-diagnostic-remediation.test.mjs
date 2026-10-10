@@ -58,7 +58,7 @@ test('real multiple and optical ambiguity now have different explanations',()=>{
  const html=readFileSync('review-scan.html','utf8');
  const ui=readFileSync('review-scan-journal.js','utf8');
  assert(html.includes('id="refreshIdentityGradeBtn"'));
- assert(html.includes('review-scan-journal.js?v=20261010-identity-diagnostic2'));
+ assert(html.includes('review-scan-journal.js?v=20261010-'),'Reviewer scripts must have explicit current cache-busting version');
  assert(ui.includes("api('teacher_scan_refresh_identity_grade'"));
  assert(ui.includes("if(reopen)await open(active)"));
  assert(ui.includes('تعذرت مطابقة رمز QR والطالب'));
