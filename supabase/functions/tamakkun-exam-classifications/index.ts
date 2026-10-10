@@ -102,8 +102,14 @@ function metric(at:any,scope:string){
 }
 async function build(id:string,scope:string,t:any){
  const test=await getTest(id,t);
- const [students,res]=await Promise.all([roster(test),db.from("nafes_assessment_attempts").select("id,assessment_id,student_id,score,total,section_scores,rendered_sections,answers,submitted_at,is_demo").eq("assessment_id",id).not("submitted_at","is",null).order("submitted_at",{ascending:false}).limit(2500)]);
- if(res.error)throw res.error;
+ const [students,res,pending]=await Promise.all([
+  roster(test),
+  db.from("nafes_assessment_attempts").select("id,assessment_id,student_id,score,total,section_scores,rendered_sections,answers,submitted_at,is_demo").eq("assessment_id",id).not("submitted_at","is",null).order("submitted_at",{ascending:false}).limit(2500),
+  db.from("nafes_assessment_attempts").select("id,student_id,started_at,is_demo").eq("assessment_id",id).is("submitted_at",null).limit(2500)
+ ]);
+ if(res.error)throw res.error;if(pending.error)throw pending.error;
+ if((pending.data||[]).length===2500)throw httpError("هناك سجلات محاولات غير مكتملة أكثر من حد القراءة، لم يُصدر تقرير غير المختبرين حتى لا يكون ناقصًا.",409);
+ const startedIds=new Set((pending.data||[]).filter((a:any)=>a.is_demo!==true).map((a:any)=>clean(a.student_id)));
  const attempts=(res.data||[]).filter((a:any)=>a.is_demo!==true);
  if(attempts.length===2500)throw httpError("عدد المحاولات كبير، أوقف النظام حسابًا ناقصًا. يلزم تقسيم تحميل هذا الاختبار.",409);
  const allowedSubjects=testSubjects(test).filter(s=>t.scope==="all"||s===t.scope);
@@ -117,11 +123,16 @@ async function build(id:string,scope:string,t:any){
   scopes.push({key:requested,label:"مجموعة من "+keys.length+" مؤشرات"});
  }else if(!scopes.some(s=>s.key===requested))throw httpError("النطاق المحدد غير متاح لهذا الاختبار.",400);
  const studentsMap=new Map(students.map((s:any)=>[String(s.id),s]));
- const latest=new Map<string,any>();
- for(const at of attempts){const sid=clean(at.student_id);if(studentsMap.has(sid)&&!latest.has(sid)&&metric(at,requested))latest.set(sid,at)}
+ const latest=new Map<string,any>(),overall=new Set<string>();
+ for(const at of attempts){
+  const sid=clean(at.student_id);if(!studentsMap.has(sid))continue;
+  if(metric(at,"overall"))overall.add(sid);
+  if(!latest.has(sid)&&metric(at,requested))latest.set(sid,at);
+ }
  const rows=students.map((s:any)=>{
   const at=latest.get(String(s.id)),m=at?metric(at,requested):null,v=m?validScore(m.score,m.total):null,classification=classify(v);
-  return {student_id:s.id,student_name:s.full_name,class_name:s.class_name,grade:s.grade,score:v?.score??null,total:v?.total??null,percent:v?Math.round(v.score/v.total*10000)/100:null,classification,tested:!!v,attempt_id:at?.id||null,submitted_at:at?.submitted_at||null};
+  const examTested=overall.has(String(s.id));
+  return {student_id:s.id,student_name:s.full_name,class_name:s.class_name,grade:s.grade,score:v?.score??null,total:v?.total??null,percent:v?Math.round(v.score/v.total*10000)/100:null,classification,tested:!!v,exam_tested:examTested,attempt_state:examTested?"submitted":startedIds.has(String(s.id))?"started_unsubmitted":"not_started",attempt_id:at?.id||null,submitted_at:at?.submitted_at||null};
  });
  // Highest-priority educational interventions first; no random order.
  const priority:any={remedial:0,reinforcement:1,enrichment:2,unmeasured:3};
@@ -129,7 +140,7 @@ async function build(id:string,scope:string,t:any){
  (a.tested&&b.tested?Number(a.percent)-Number(b.percent):0)||
  clean(a.class_name).localeCompare(clean(b.class_name),"ar")||
  clean(a.student_name).localeCompare(clean(b.student_name),"ar"));
- const counts={tested:rows.filter((r:any)=>r.tested).length,unmeasured:rows.filter((r:any)=>!r.tested).length,remedial:rows.filter((r:any)=>r.classification==="remedial").length,reinforcement:rows.filter((r:any)=>r.classification==="reinforcement").length,enrichment:rows.filter((r:any)=>r.classification==="enrichment").length};
+ const counts={tested:rows.filter((r:any)=>r.tested).length,unmeasured:rows.filter((r:any)=>!r.tested).length,remedial:rows.filter((r:any)=>r.classification==="remedial").length,reinforcement:rows.filter((r:any)=>r.classification==="reinforcement").length,enrichment:rows.filter((r:any)=>r.classification==="enrichment").length,exam_absentees:rows.filter((r:any)=>!r.exam_tested).length,started_unsubmitted:rows.filter((r:any)=>r.attempt_state==="started_unsubmitted").length};
  const percentages:any={};for(const k of ["remedial","reinforcement","enrichment"])percentages[k]=counts.tested?Math.round(counts[k]/counts.tested*10000)/100:0;
  return {test:{id:test.id,title:clean(test.title)||"اختبار نافس",kind:test.kind,grade:clean(test.config?.grade_key)==="middle_3"?"الثالث المتوسط":clean(test.config?.grade_key)||"—",class_name:clean(test.config?.class_name)||"جميع الفصول",date:test.published_at||test.created_at,subject_keys:allowedSubjects},scope:requested,scopes,indicators:[...indicatorMap.values()],counts,percentages,rows,_attempts:latest};
 }
