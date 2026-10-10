@@ -5,6 +5,9 @@ on:
     paths:
       - 'review-scan-journal.js'
       - 'qa/omr/hotfix-false-zero-ui.test.mjs'
+      - 'qa/omr/blank-bubble-consensus.test.mjs'
+      - 'supabase/functions/nafes-exam/omr-server.ts'
+      - 'supabase/functions/nafes-exam/omr-blank.ts'
       - '.github/workflows/omr-false-zero-ui.yml'
   workflow_dispatch:
 permissions:
@@ -22,3 +25,5 @@ jobs:
         run: node --check review-scan-journal.js
       - name: Require real-zero vs failed-scan states
         run: node qa/omr/hotfix-false-zero-ui.test.mjs
+      - name: Prove empty bubbles produce zero and no invented selections
+        run: node --test qa/omr/blank-bubble-consensus.test.mjs
