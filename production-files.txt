@@ -69,6 +69,7 @@ tamakkun-rally-identity.css
 tamakkun-showcase.css
 tamakkun-worksheet-studio.js
 tamakkun-teacher-workspace.js
+tamakkun-exam-classifications.js
 lugati-complete.js
 lugati-encouragement.js
 lugati-competition.js
