@@ -619,8 +619,32 @@ async function canvasFromDataUrl(src){
  c.getContext('2d',{willReadFrequently:true}).drawImage(img,0,0);return c;
 }
 async function decodeStoredIdentity(src){
- const c=await canvasFromDataUrl(src),normed=normalizeOrientation(c),q=parseQr(normed.qr?.data||'');
- c.width=1;c.height=1;return q;
+ const c=await canvasFromDataUrl(src);
+ let oriented=null;
+ try{
+   const normed=normalizeOrientation(c);
+   oriented=normed.canvas;
+   let q=parseQr(normed.qr?.data||'');
+   // Additional local browser decoder, where supported. Never sends images
+   // off-device and never links a pupil without exact review/model checks.
+   if(!q&&typeof BarcodeDetector==='function'){
+     try{
+       const detector=new BarcodeDetector({formats:['qr_code']});
+       for(const canvas of [oriented]){
+         const found=await detector.detect(canvas);
+         for(const code of found){
+           q=parseQr(code.rawValue||'');
+           if(q)break;
+         }
+         if(q)break;
+       }
+     }catch(_){/* Native BarcodeDetector is optional; keep the manual route. */}
+   }
+   return q;
+ }finally{
+   c.width=1;c.height=1;
+   if(oriented&&oriented!==c){oriented.width=1;oriented.height=1;}
+ }
 }
 async function readStoredOmr(src,total,startNo){
  const c=await canvasFromDataUrl(src),canvas=c.height>=c.width?c:rotateCanvas(c,90),markers=detectTemplateMarkerSet(canvas);
