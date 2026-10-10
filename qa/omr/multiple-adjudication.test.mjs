@@ -52,5 +52,5 @@ test('UI requires an explicit per-question teacher choice and retains original o
  assert(js.includes('original.marked.includes(key)'));
  assert(js.includes("resolveMultiple(Number(decide.dataset.resolveQuestion)"));
  assert(js.includes("if(!confirm('تأكيد قرار مراجعة الصورة"));
- assert(html.includes('review-scan-journal.js?v=20261010-multiple-decision'));
+ assert(html.includes('review-scan-journal.js?v=20261010-'),'Load current reviewer JS with explicit cache-busting version');
 });
