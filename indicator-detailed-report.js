@@ -52,8 +52,8 @@ function render({test,subject,testId,className,recs,attempts,students,part}){
  }
  const indicators=[...inx.values()].map(g=>{const measured=g.persons.filter(p=>p.v!==null),masters=measured.filter(p=>p.v>=threshold);return {...g,mean:measured.length?measured.reduce((s,p)=>s+p.v,0)/measured.length:null,mastery:measured.length?masters.length/measured.length*100:null,measured:measured.length,masters:masters.length,not:measured.length-masters.length};}).sort((a,b)=>(a.mastery??101)-(b.mastery??101)||(a.mean??101)-(b.mean??101));
  const previous=new Map();
- const currentMax=Math.max(0,...recs.map(r=>time(r.a)));
- for(const a of attempts){if(!complete(a)||String(a.test_id||'')===String(testId)||(!uid(a))||time(a)>=currentMax||!eligible(a,subject))continue;
+ const currentByStudent=new Map(recs.filter(r=>uid(r.a)).map(r=>[uid(r.a),time(r.a)]));
+ for(const a of attempts){if(!complete(a)||String(a.test_id||'')===String(testId)||(!uid(a))||!currentByStudent.has(uid(a))||time(a)>=currentByStudent.get(uid(a))||!eligible(a,subject))continue;
   if(className&&String(a.class_name||'').trim()!==className)continue;
   const by=new Map();
   for(const q of filtered(a,subject)){const id=indicator(q),g=by.get(id)||{c:0,t:0};g.t++;if(q.correct)g.c++;by.set(id,g)}
