@@ -247,7 +247,7 @@ async function addProgress(view:any,access:any){
  for(const row of view.rows||[]){
   row.plans=[];row.plan_status="none";row.assigned_at=null;row.completed_at=null;row.post_score=null;row.post_total=null;row.post_percent=null;row.post_at=null;row.post_attempt_id=null;row.improvement=null;row.mastered_after=null;row.effect_status=row.tested?"لم تُسند خطة":"لم يُقَس";
   if(!row.tested)continue;
-  const plans=mapPlans.get(String(row.student_id)+"|"+String(row.attempt_id))||[];
+  const plans=(mapPlans.get(String(row.student_id)+"|"+String(row.attempt_id))||[]).filter((p:any)=>p.tier===row.classification);
   if(!plans.length)continue;
   row.plans=plans.map((p:any)=>({id:p.id,title:p.title,tier:p.tier,status:p.status,assigned_at:p.assigned_at,started_at:p.started_at,completed_at:p.completed_at,indicator_text:p.indicator_text,subject_key:p.subject_key,percent:p.percent,question_count:p.question_count}));
   row.assigned_at=plans.map((p:any)=>p.assigned_at).filter(Boolean).sort()[0]||null;
@@ -276,6 +276,11 @@ async function addProgress(view:any,access:any){
   if(row.mastered_after){effects.mastered_after++;if(row.percent<80)effects.new_mastery++}
   if(row.post_percent<50)effects.still_remedial++;
  }
+ const missing=(view.rows||[]).filter((r:any)=>r.tested&&r.plan_status==="none");
+ const groups:any={remedial:0,reinforcement:0,enrichment:0};
+ for(const r of missing)if(groups[r.classification]!=null)groups[r.classification]++;
+ view.coverage={tested:tested.length,covered:tested.length-missing.length,missing:missing.length,complete:missing.length===0,missing_by_tier:groups};
+ view.absentees=(view.rows||[]).filter((r:any)=>!r.exam_tested).map((r:any)=>({student_name:r.student_name,class_name:r.class_name,student_id:r.student_id,attempt_state:r.attempt_state}));
  view.effect=effects;
  return view;
 }
