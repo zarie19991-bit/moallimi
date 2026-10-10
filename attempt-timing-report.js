@@ -21,7 +21,7 @@ function summary(a,events){
 window.NafesTimingSummary=summary;
 async function load(force=false){
  if(busy||!T?.getKey?.())return;const generation=epoch;setBusy(true);$('timingState').textContent='جارٍ تحميل المحاولات…';
- try{if(force){T.clearReadCache?.();eventsCache.clear();}let cursor=0,all=[],seen=new Set();do{if(seen.has(cursor))throw Error('تكرر مؤشر صفحات النتائج');seen.add(cursor);const d=await T.api('teacher_data',{cursor,limit:100});if(generation!==epoch)return;if(cursor===0)tests=d.tests||[];all.push(...d.attempts||[]);cursor=d.next_cursor;}while(cursor!==null&&cursor!==undefined);attempts=all.filter(a=>a.is_demo!==true&&['exam','assessment'].includes(a.source)&&!a.events?.some(e=>e.type==='paper_scan'));
+ try{if(force){T.clearReadCache?.();eventsCache.clear();}const data=await T.loadAnalysis(force);if(generation!==epoch)return;tests=data.tests||[];const all=data.attempts||[];attempts=all.filter(a=>a.is_demo!==true&&['exam','assessment'].includes(a.source)&&!a.events?.some(e=>e.type==='paper_scan'));
  const catalog=new Map(tests.filter(t=>t.kind!=='simulation').map(t=>[String(t.id),t.title]));for(const a of attempts)catalog.set(String(a.test_id),catalog.get(String(a.test_id))||a.title||'اختبار');
  const old=$('timingTest').value;$('timingTest').innerHTML='<option value="">اختر الاختبار</option>'+[...catalog].map(([id,title])=>`<option value="${esc(id)}">${esc(title)} · ${esc(id.slice(0,8))}</option>`).join('');if(catalog.has(old))$('timingTest').value=old;loaded=true;$('timingState').textContent='اختر اختبارًا لعرض كشف محاولاته.';
  }catch(e){if(generation===epoch)$('timingState').textContent=e.message;}finally{setBusy(false);}

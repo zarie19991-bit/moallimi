@@ -84,7 +84,40 @@ T.api=async function(action,payload={}){
   }catch(error){console.error('analysis roster enrichment failed',error);return {...data,attempts:cleanAttempts};}
 };
 
-function clearAllCaches(){resetRoster();T.clearReadCache?.();delete window.__NAFES_ANALYSIS_DATA_CACHE__;}
+// All analysis panels share one complete load, including explicit refresh clicks.
+let dataEpoch=0;
+T.loadAnalysis=async function(force=false){
+ const key='__NAFES_ANALYSIS_DATA_CACHE__',cached=window[key];
+ if(cached?.promise)return cached.promise;
+ if(!force&&cached?.data&&Date.now()-cached.at<30000)return cached.data;
+ const epoch=dataEpoch;
+ const promise=(async()=>{
+  let cursor=0,all=[],tests=[],indicators=[],pages=0;const seen=new Set();
+  // Fetch the small roster alongside the first result page instead of after it.
+  const roster=rosterMap().catch(()=>null);
+  do{
+   if(seen.has(cursor)||pages++>=500)throw new Error('تعذر متابعة صفحات النتائج بالترتيب الصحيح.');seen.add(cursor);
+   let d;
+   for(let retry=0;retry<2;retry++){
+    try{d=await T.api('teacher_data',{cursor,limit:100});break;}
+    catch(e){if(retry||[400,401,403,404].includes(e.status))throw e;await new Promise(r=>setTimeout(r,500));}
+   }
+   if(epoch!==dataEpoch)throw new Error('تغير حساب المعلم؛ أعد فتح التحليل.');
+   all.push(...(d.attempts||[]));if(cursor===0){tests=d.tests||[];indicators=d.indicators||[];}
+   cursor=d.next_cursor;
+   if(typeof window.dispatchEvent==='function'&&typeof CustomEvent==='function')window.dispatchEvent(new CustomEvent('nafes:analysis-progress',{detail:{count:all.length,complete:cursor===null}}));
+  }while(cursor!==null);
+  await roster;
+  const unique=new Map();for(const a of all)unique.set(`${a.source}:${a.id}`,a);
+  return {attempts:[...unique.values()].map(a=>window.NafesAnalytics.normalizeAttempt(a)),tests,indicators};
+ })();
+ const entry={promise,at:Date.now()};window[key]=entry;
+ try{const data=await promise;if(epoch===dataEpoch&&window[key]===entry)window[key]={data,at:Date.now()};return data;}
+ catch(e){if(window[key]===entry)delete window[key];throw e;}
+};
+
+function clearAllCaches(){dataEpoch++;resetRoster();T.clearReadCache?.();delete window.__NAFES_ANALYSIS_DATA_CACHE__;}
+function refreshCaches(){if(window.__NAFES_ANALYSIS_DATA_CACHE__?.promise)return;resetRoster();T.clearReadCache?.();delete window.__NAFES_ANALYSIS_DATA_CACHE__;}
 addEventListener('nafes:auth-changed',clearAllCaches);
-document.addEventListener('click',e=>{if(e.target?.closest?.('#refreshBtn,#retryBtn,#resetTrialDataBtn'))clearAllCaches();},true);
+document.addEventListener('click',e=>{if(e.target?.closest?.('#refreshBtn,#retryBtn,#resetTrialDataBtn'))refreshCaches();},true);
 })();

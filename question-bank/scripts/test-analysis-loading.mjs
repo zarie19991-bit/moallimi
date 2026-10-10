@@ -117,3 +117,18 @@ test('teacher_students_list uses the same light roster cache',async()=>{
   assert.equal(second.students.length,1);
   assert.equal(fetches,1);
 });
+
+test('analysis panels share forced refresh and retry only the failed page',async()=>{
+ const calls=[];let failed=false;
+ const h=context({NafesTeacher:{getKey:()=>'',api:async(_action,b)=>{
+ calls.push(b.cursor);if(b.cursor===100&&!failed){failed=true;throw Object.assign(new Error('temporary'),{status:503})}
+ return {attempts:[{id:String(b.cursor),source:'assessment',questions:[]}],tests:b.cursor===0?[{id:'test'}]:[],indicators:b.cursor===0?[{key:'skill'}]:[],next_cursor:b.cursor===0?100:null};}},setTimeout(fn){queueMicrotask(fn);return 1}});
+ h.run('analysis-core.js');h.run('analysis-data-service.js');
+ const [a,b]=await Promise.all([h.ctx.NafesTeacher.loadAnalysis(true),h.ctx.NafesTeacher.loadAnalysis(true)]);
+ assert.equal(a,b);assert.deepEqual(calls,[0,100,100]);assert.equal(a.attempts.length,2);assert.equal(a.indicators[0].key,'skill');
+ await h.ctx.NafesTeacher.loadAnalysis(false);assert.equal(calls.length,3);
+});
+test('failed result pagination never publishes a partial result as complete',async()=>{
+ const h=context({NafesTeacher:{getKey:()=>'',api:async(_a,b)=>{if(b.cursor)throw Object.assign(new Error('forbidden'),{status:403});return{attempts:[{id:'a'}],next_cursor:100}}}});
+ h.run('analysis-core.js');h.run('analysis-data-service.js');await assert.rejects(h.ctx.NafesTeacher.loadAnalysis(),/forbidden/);assert.equal(h.ctx.__NAFES_ANALYSIS_DATA_CACHE__,undefined);
+});
