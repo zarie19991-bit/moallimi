@@ -7,9 +7,9 @@ const start=file.indexOf('const failedRead=a=>');
 const end=file.indexOf('const riskOf=s=>',start);
 assert(start>=0&&end>start,'Grade safety helpers not found');
 const helpers=file.slice(start,end);
-const {failedRead,noGrade,gradeText,safeNumericGrade,verifiedQuality,pendingAnswerCount,scoreMismatch}=runInNewContext(
+const {failedRead,noGrade,gradeText,safeNumericGrade,verifiedQuality,pendingAnswerCount,scoreMismatch,provisionalReading}=runInNewContext(
   "const ar=n=>new Intl.NumberFormat('ar-SA').format(n||0);\n"+helpers+
-  "\n({failedRead,noGrade,gradeText,safeNumericGrade,verifiedQuality,pendingAnswerCount,scoreMismatch});"
+  "\n({failedRead,noGrade,gradeText,safeNumericGrade,verifiedQuality,pendingAnswerCount,scoreMismatch,provisionalReading});"
 );
 const base={markers_ok:true,omr_reader_error:null,score:0,total:60,omr_verification:{quality_score:97}};
 const unreadable={...base,markers_ok:false};
@@ -32,6 +32,23 @@ const unresolved60={...base,answers:Array.from({length:60},(_,i)=>({
 assert.equal(pendingAnswerCount(unresolved60),60);
 assert.equal(noGrade(unresolved60),true);
 assert.equal(safeNumericGrade(unresolved60),'');
+const clearPending={...unresolved60,identity_valid:true,answers:unresolved60.answers.map(x=>({
+ ...x,marked:[x.selected],reading_status:'clear',
+ uncertainty:{reading:['prior_uncertainty_requires_explicit_review'],identity:[],answer_key:[]}
+}))};
+assert.equal(provisionalReading(clearPending).read,60);
+assert.equal(provisionalReading(clearPending).matches,60);
+assert(gradeText(clearPending).includes('قراءة مبدئية'));
+assert(gradeText(clearPending).includes('غير معتمدة'));
+assert.equal(safeNumericGrade(clearPending),'');
+assert.equal(provisionalReading({...clearPending,identity_valid:false}),null);
+assert.equal(provisionalReading({...clearPending,answers:clearPending.answers.map(x=>({
+ ...x,uncertainty:{...x.uncertainty,reading:['bubble_ambiguous']}
+}))}),null);
+const allMatchedButWrongScore={...clearPending,answers:clearPending.answers.map((x,i)=>({...x,correct_index:(i%3)?(x.selected+1)%4:x.selected}))};
+assert.equal(provisionalReading(allMatchedButWrongScore).matches,20);
+assert(file.includes('async function open(i){'),'Paper open function missing');
+assert(!file.includes("i=p;message('يجب التحقق من الورقة السابقة"),'Clicking any paper must not redirect to first pending paper');
 assert(!gradeText(unresolved60).includes('/'),'Pending marked answers must not be printed as 0/60');
 assert(gradeText(unresolved60).includes('بانتظار مراجعة'));
 const inconsistent={...base,total:2,answers:[
