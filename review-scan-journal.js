@@ -139,9 +139,27 @@ async function visionReadProposal(){
   const result=await api('teacher_scan_vision_proposal',{
    sheet_id:sheet.id,answer_version:sheet.answer_version||0,
    vision_consent:'I_AGREE_TO_SEND_REDACTED_OMR_IMAGE'});
-  if(sheets[active]?.id!==sheet.id)return;
+  if(sheets[active]?.id!==sheet.id||Number(sheets[active].answer_version||0)!==Number(result.answer_version)||String(result.sheet_id)!==String(sheet.id)){
+   message('تغيرت نسخة الورقة أثناء القراءة؛ رُفض الاقتراح القديم. حدّث الورقة وأعد المحاولة.',true);
+   return;
+  }
+  if(result.save_performed!==false||result.grade_changed!==false||result.unverified!==true){
+   throw new Error('استجابة غير آمنة: لم يؤكد الخادم أن القراءة اقتراح فقط دون تعديل الدرجات.');
+  }
   const proposal=result.proposal||{},answers=Array.isArray(proposal.answers)?proposal.answers:[],
    sum=proposal.summary||{};
+  const expected=Number(draft?.question_count||session?.review_snapshot?.question_count||effective(sheet)?.total);
+  if(!Number.isInteger(expected)||expected<10||expected>60||answers.length!==expected||
+     new Set(answers.map(a=>a.question)).size!==expected||
+     answers.some(a=>!Number.isInteger(a.question)||a.question<1||a.question>expected||
+       !['clear','blank','multiple','ambiguous'].includes(a.status)||
+       !Array.isArray(a.marked)||a.marked.some(v=>!Number.isInteger(v)||v<0||v>3)||
+       new Set(a.marked).size!==a.marked.length||
+       (a.status==='clear'&&a.marked.length!==1)||
+       (a.status==='blank'&&a.marked.length!==0)||
+       (a.status==='multiple'&&a.marked.length<2))){
+   throw new Error('القراءة البصرية غير مكتملة أو تتضمن تظليلًا غير صالح؛ رُفض عرض الاقتراح.');
+  }
   const names={clear:'تظليل واحد',blank:'بلا إجابة',multiple:'تظليل مزدوج',ambiguous:'غير واضح'},
    comps={agree:'متوافق',disagree:'مختلف — راجع',optical_reader_unavailable:'القارئ التقليدي فشل'};
   $('visionProposal').innerHTML='<p><b>اقتراح بصري غير معتمد — لم تُحفظ درجات أو تعديلات.</b> الأسئلة: '+ar(answers.length)+
