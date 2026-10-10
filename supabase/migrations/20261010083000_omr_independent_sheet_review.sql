@@ -6,7 +6,7 @@ DO $migration$
 DECLARE
   func regprocedure;
   source_sql text;
-  guard text := ' if exists(select 1 from public.nafes_scan_sheets where session_id=s.id and ordinal<r.ordinal and reviewed_at is null) then raise exception ''راجع الورقة السابقة أولًا'';end if;';
+  guard text;
   target_sql text;
 BEGIN
   FOREACH func IN ARRAY ARRAY[
@@ -14,6 +14,10 @@ BEGIN
     'public.nafes_scan_edit_answer(uuid,uuid,uuid,integer,integer[],integer,uuid,text)'::regprocedure
   ] LOOP
     SELECT pg_get_functiondef(func) INTO source_sql;
+    -- The production verify RPC uses "; end if;" while edit_answer uses ";end if;".
+    guard := ' if exists(select 1 from public.nafes_scan_sheets where session_id=s.id and ordinal<r.ordinal and reviewed_at is null) then raise exception ''راجع الورقة السابقة أولًا'';' ||
+      CASE WHEN func='public.nafes_scan_verify(uuid,uuid,uuid,boolean)'::regprocedure
+        THEN ' end if;' ELSE 'end if;' END;
     IF source_sql IS NULL OR length(source_sql)-length(replace(source_sql,guard,'')) <> length(guard) THEN
       RAISE EXCEPTION 'Sequential guard does not match %; no database changes committed',func;
     END IF;
