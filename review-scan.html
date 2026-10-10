@@ -120,6 +120,10 @@
           <p><strong>الاسم المطبوع موجود في الورقة؟</strong> جرّب قراءة الاسم بالعربية ثم طابقه بالقائمة. فشل QR لا يعني أن الطالب مجهول أو أن التظليل فشل.</p>
           <button id="printedNameOcrBtn" type="button" class="secondary">قراءة الاسم المطبوع من صورة الورقة (عربي)</button>
           <p id="printedNameOcrStatus" role="status" aria-live="polite"></p>
+          <details id="printedNameOcrDetails" class="hidden">
+            <summary>إظهار النص الذي قرأه النظام من صورة الورقة (للتشخيص)</summary>
+            <pre id="printedNameOcrRaw" dir="rtl" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:13px;max-height:230px;overflow:auto;padding:10px;background:#f2f7f8;border-radius:8px"></pre>
+          </details>
           <div id="printedNameOcrCandidates" aria-label="أسماء مقترحة من قراءة الصورة"></div>
           <p class="ocr-privacy">قراءة تجريبية داخل المتصفح: تُحمَّل مكتبة وبيانات اللغة العربية أول مرة، ولا يرسل هذا الخيار صورة الطالب لخدمة OCR خارجية. لا تُحفظ الهوية أو الدرجة إلا بعد تأكيدك.</p>
           <label for="studentNameSearch">أو ابحث باسم الطالب المطبوع في كشف الاختبار</label>
@@ -165,8 +169,8 @@
 <script src="teacher-access.js?v=20260920-scope5"></script>
 <script src="review-draft-sync.js?v=20260930-2"></script>
 <script src="review-omr-safety.js?v=20261010-independent-verify"></script>
-<script src="review-scan-name-ocr.js?v=20261010-arabic-text-match1"></script>
-<script src="review-scan-journal.js?v=20261010-arabic-text-match1"></script>
+<script src="review-scan-name-ocr.js?v=20261010-crops-diagnostics2"></script>
+<script src="review-scan-journal.js?v=20261010-crops-diagnostics2"></script>
 <script src="review-scan.js?v=20261010-qr-identity-recovery3"></script>
 </body>
 </html>
