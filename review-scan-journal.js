@@ -7,7 +7,8 @@ const letters=['أ','ب','ج','د'];
 const OMR_POLICY='server_jpeg_homography_dev_grid';
 const safety=window.NafesOmrSafety;
 if(!safety)throw new Error('لم يُحمّل عقد سلامة مراجعة OMR؛ أعد تحميل الصفحة.');
-let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
+let visionAvailable=false;
+ let draft=null,session=null,sheets=[],reviewInventory=[],active=-1,busy=false,pending=null,alerts=[],deletions=[],selected=new Set(),imageCache=new Map(),poll=null,loadedImage=null;
 const api=(action,b={})=>NafesTeacher.api(action,{review_id:draft.review_id,session_id:session?.id,...b});
 const effective=s=>s.effective_snapshot||s.snapshot;
 const duplicate=s=>!!(s.duplicate_of||s.duplicate_legacy_at);
@@ -48,7 +49,7 @@ function exportQualityReport(){
 function message(t,error=false){$('journalStatus').textContent=t;$('journalStatus').className='notice '+(error?'error':'');if($('modalFeedback')){$('modalFeedback').textContent=t;$('modalFeedback').className=error?'notice error':'notice';}}
 function firstPending(){return sheets.findIndex(s=>!s.reviewed_at);}
 function ready(){return session&&sheets.length===session.expected_count;}
-function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','applyManualAssignmentBtn','rereadAllBtn'])if($(id))$(id).disabled=value;renderButtons();}
+function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','applyManualAssignmentBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
 function ensureSelectAll(){
  let box=$('selectAllSheets');
  if(!box){
@@ -68,6 +69,7 @@ function ensureSelectAll(){
 }
 function renderButtons(){
  const s=sheets[active];
+ if($('visionReadBtn'))$('visionReadBtn').disabled=busy||!visionAvailable||!s;
  $('saveSheetBtn').disabled=busy||!ready()||!s||safety.unresolvedSheet(s)||failedRead(effective(s))||loadedImage!==s.id||!!s.reviewed_at||!$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
  const target=$('omrUncertaintyReasons');
  if(target&&s){
@@ -101,6 +103,7 @@ async function open(i){
  if(busy||!sheets[i])return;
  const p=firstPending();if(p>=0&&i>p){i=p;message('يجب التحقق من الورقة السابقة قبل الانتقال.');}
  active=i;loadedImage=null;const s=sheets[i],a=effective(s);
+ if($('visionProposal'))$('visionProposal').innerHTML='';
  $('modalTitle').textContent=a.student_name+' — نموذج '+a.model;
  $('modalSub').textContent='الورقة '+ar(i+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(a)+' · '+status(s)+' · رفع '+new Date(s.uploaded_at).toLocaleString('ar-SA');
  $('scanImage').removeAttribute('src');$('scanImage').alt='جارٍ تحميل الورقة كاملة…';
@@ -126,6 +129,33 @@ async function open(i){
  $('sheetModal').classList.remove('hidden');renderButtons();
  try{let src=imageCache.get(s.id);if(!src){const data=await api('teacher_scan_image',{sheet_id:s.id});src=data.image_data;if(imageCache.size>5)imageCache.delete(imageCache.keys().next().value);imageCache.set(s.id,src);}if(sheets[active]?.id===s.id){$('scanImage').onload=()=>{loadedImage=s.id;renderButtons();};$('scanImage').src=src;$('scanImage').alt='ورقة '+a.student_name+' كاملة — اضغط للتكبير';}}
  catch(e){message('تعذر تحميل الصورة: '+e.message,true);$('saveSheetBtn').disabled=true;}
+}
+async function visionReadProposal(){
+ const sheet=sheets[active];
+ if(!visionAvailable||!sheet||busy)return;
+ if(!confirm('سيُرسل الجزء السفلي من صورة الورقة إلى مزود ذكاء اصطناعي خارجي وقد يحتوي على معلومات من الورقة، وقد تنشأ رسوم على حساب مزود الخدمة. هل تحققت من سماح المدرسة بذلك وتوافق على إرسال صورة هذه الورقة تحديدًا؟'))return;
+ lock(true);
+ try{
+  const result=await api('teacher_scan_vision_proposal',{
+   sheet_id:sheet.id,answer_version:sheet.answer_version||0,
+   vision_consent:'I_AGREE_TO_SEND_REDACTED_OMR_IMAGE'});
+  if(sheets[active]?.id!==sheet.id)return;
+  const proposal=result.proposal||{},answers=Array.isArray(proposal.answers)?proposal.answers:[],
+   sum=proposal.summary||{};
+  const names={clear:'تظليل واحد',blank:'بلا إجابة',multiple:'تظليل مزدوج',ambiguous:'غير واضح'},
+   comps={agree:'متوافق',disagree:'مختلف — راجع',optical_reader_unavailable:'القارئ التقليدي فشل'};
+  $('visionProposal').innerHTML='<p><b>اقتراح بصري غير معتمد — لم تُحفظ درجات أو تعديلات.</b> الأسئلة: '+ar(answers.length)+
+   ' · التوافق: '+ar(sum.agreements||0)+' · الاختلاف: '+ar(sum.disagreements||0)+
+   ' · غير مؤكدة: '+ar((sum.ambiguous||0)+(sum.multiple||0))+'</p>'+
+   '<div style="overflow:auto;max-height:240px"><table><thead><tr><th>السؤال</th><th>الاقتراح</th><th>الحالة</th><th>المقارنة</th></tr></thead><tbody>'+
+   answers.map(x=>'<tr><td>'+ar(x.question)+'</td><td>'+
+    esc((x.marked||[]).map(i=>letters[i]).join(' + ')||'—')+'</td><td>'+
+    esc(names[x.status]||'غير واضح')+'</td><td>'+
+    esc(comps[x.comparison]||'غير مؤكد')+'</td></tr>').join('')+
+   '</tbody></table></div>';
+  message('اكتملت القراءة البصرية المقترحة؛ لم يُحفظ أي تعديل ولم تُعتمد أي درجة.');
+ }catch(e){message('تعذر اقتراح القراءة البصرية: '+e.message,true);}
+ finally{lock(false);}
 }
 async function recoverIdentity(sheetId){
  const i=sheets.findIndex(x=>x.id===sheetId),sheet=sheets[i];if(i<0||!sheet||busy)return;
@@ -325,7 +355,10 @@ async function sessions(){
 }
 async function resume(id){
  if(!id||busy)return;lock(true);
- try{session={id};const r=await api('teacher_scan_list');session=r.session;sheets=r.sheets;active=-1;pending=null;imageCache.clear();render();message(ready()?'استُعيدت حالة المراجعة المحفوظة.':'الرفع غير مكتمل. أعد اختيار الملف الأصلي واضغط إعادة استكمال الرفع.');await refreshAlerts();}
+ try{session={id};const r=await api('teacher_scan_list');session=r.session;sheets=r.sheets;
+  visionAvailable=r.vision_available===true;
+  $('visionAssistStatus').textContent=visionAvailable?'متاح بموافقة صريحة؛ النتائج اقتراح غير معتمد.':'غير مفعل على الخادم؛ لا تُرسل صور ولا تُحتسب رسوم.';
+  active=-1;pending=null;imageCache.clear();render();message(ready()?'استُعيدت حالة المراجعة المحفوظة.':'الرفع غير مكتمل. أعد اختيار الملف الأصلي واضغط إعادة استكمال الرفع.');await refreshAlerts();}
  catch(e){message(e.message,true);}finally{lock(false);}
 }
 async function shaFiles(files){
@@ -415,7 +448,10 @@ async function init(p){
      if((listed.sheets||[]).length){chosen=candidate;lr=listed;break;}
      if(!chosen){chosen=candidate;lr=listed;}
    }
-   session=lr.session;sheets=lr.sheets||[];active=-1;imageCache.clear();$('sessionPicker').value=chosen.id;render();
+   session=lr.session;sheets=lr.sheets||[];
+   visionAvailable=lr.vision_available===true;
+   $('visionAssistStatus').textContent=visionAvailable?'متاح بموافقة صريحة؛ النتائج اقتراح غير معتمد.':'غير مفعل على الخادم؛ لا تُرسل صور ولا تُحتسب رسوم.';
+   active=-1;imageCache.clear();$('sessionPicker').value=chosen.id;render();
    const stale=sheets.filter(sh=>{const e=effective(sh);return e?.identity_valid===true&&sh.student_id&&e?.omr_policy!==OMR_POLICY;}).length;
    if(stale){
      message('يوجد '+ar(stale)+' ورقة تحتاج إعادة قراءة خادمية بالإصدار الحالي؛ سيبدأ التحديث تلقائيًا.');
@@ -426,7 +462,8 @@ async function init(p){
  poll=setInterval(()=>{if(!document.hidden&&!busy){refreshAlerts();refreshDeletionLog();}},10000);
 }
 $('answerEditor').onclick=e=>{const b=e.target.closest('[data-edit-question]');if(b&&!b.disabled)editAnswer(Number(b.dataset.editQuestion),b.dataset.choice);};
-$('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;$('rereadAllBtn').onclick=()=>rereadAllStrict({auto:false,onlyStale:false});
+if($('visionReadBtn'))$('visionReadBtn').onclick=visionReadProposal;
+ $('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;$('rereadAllBtn').onclick=()=>rereadAllStrict({auto:false,onlyStale:false});
 $('loadEditHistoryBtn').onclick=editHistory;
 $('saveSheetBtn').onclick=verify;$('nextSheetBtn').onclick=()=>open(active+1);$('finishReviewBtn').onclick=finish;
 $('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>open(Math.max(0,firstPending()));
