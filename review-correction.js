@@ -44,7 +44,8 @@ function setReviewLinks(reviewId){
  const papers=document.querySelectorAll('a[href^="review-question-papers.html"]');
  const analysis=document.querySelectorAll('a[href^="review-analysis.html"]');
  const reports=document.querySelectorAll('a[href^="review-report.html"]');
- scan.forEach(a=>a.href='review-scan.html'+q);bubbles.forEach(a=>a.href='review-bubble-sheets.html'+bubbleQ);papers.forEach(a=>a.href='review-question-papers.html'+paperQ);analysis.forEach(a=>a.href='review-analysis.html'+q);reports.forEach(a=>a.href='review-report.html'+q);
+ const detailed=document.querySelectorAll('a[href^="review-indicator-detail.html"]');
+ scan.forEach(a=>a.href='review-scan.html'+q);bubbles.forEach(a=>a.href='review-bubble-sheets.html'+bubbleQ);papers.forEach(a=>a.href='review-question-papers.html'+paperQ);analysis.forEach(a=>a.href='review-analysis.html'+q);reports.forEach(a=>a.href='review-report.html'+q);detailed.forEach(a=>a.href='review-indicator-detail.html'+q);
 }
 function formatArchiveTime(v){
  if(!v)return'';
@@ -62,6 +63,7 @@ function archiveItem(row){
      '<a href="review-bubble-sheets.html?rid='+rid+'&bv=20261004-optiontabs2">ورق التظليل</a>'+
      '<a href="review-scan.html?rid='+rid+'">رفع وتصحيح</a>'+
      '<a href="review-analysis.html?rid='+rid+'">التحليل</a>'+
+     '<a href="review-indicator-detail.html?rid='+rid+'">تقرير المؤشرات التفصيلي</a>'+
      '<a href="review-report.html?rid='+rid+'">التقرير</a>'+
    '</div></article>';
 }
