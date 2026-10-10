@@ -6,6 +6,10 @@ on:
       - 'review-scan-journal.js'
       - 'supabase/functions/nafes-exam/paper-scan.ts'
       - 'supabase/functions/nafes-exam/omr-multiple-review.ts'
+      - 'supabase/functions/nafes-exam/omr-identity-fix.ts'
+      - 'supabase/functions/nafes-exam/omr-multiple-evidence.ts'
+      - 'supabase/functions/nafes-exam/omr-server.ts'
+      - 'qa/omr/identity-diagnostic-remediation.test.mjs'
       - 'qa/omr/multiple-adjudication.test.mjs'
       - 'review-scan.css'
       - 'review-scan.html'
@@ -43,3 +47,5 @@ jobs:
         run: node --test qa/omr/independent-sheet-review.test.mjs
       - name: Check teacher choices for multiple shading and audit
         run: node --test qa/omr/multiple-adjudication.test.mjs
+      - name: Check that corrected identity does not falsely invalidate all OMR answers
+        run: node --test qa/omr/identity-diagnostic-remediation.test.mjs
