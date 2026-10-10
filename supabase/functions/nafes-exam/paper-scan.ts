@@ -383,8 +383,8 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
       (current.uncertainty?.identity||[]).length>0||
       (current.uncertainty?.answer_key||[]).length>0)
      fail('التظليل متعدد الخيارات غير مثبت أو يتضمن قراءة غير محسومة؛ راجع الصورة أولًا.',409);
-   const key=Number(current.correct_index);
-   if(!validOption(key))fail('مفتاح الإجابة غير صالح.',409);
+   const key=current.correct_index;
+   if(!validOption(key)||source?.correct_index!==key)fail('مفتاح الإجابة غير صالح أو لا يطابق النموذج الأصلي.',409);
    if(mode==='credit_correct'&&
       (source?.status!=='multiple'||originalMarks.length<2||
        !marks.includes(key)||!originalMarks.includes(key)))
