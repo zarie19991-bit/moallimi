@@ -328,6 +328,7 @@ async function recoverIdentity(sheetId){
  }catch(e){
    message('تعذرت مطابقة QR في الصورة المحفوظة: '+e.message+'. يمكنك فتح الورقة وربط الطالب من كشف الاختبار يدويًا بعد فحص الصورة، دون إعادة المسح.',true);
  }finally{lock(false);if(reopen)await open(i);}
+}
 
 async function rereadAllStrict(options={}){
  if(busy)return;
