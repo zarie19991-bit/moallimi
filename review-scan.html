@@ -128,7 +128,7 @@
         </section>
         <label for="manualReviewReason">سبب التعديل اليدوي أو تصحيح الهوية (إلزامي)</label>
         <textarea id="manualReviewReason" minlength="3" maxlength="1000" rows="2" placeholder="اذكر ما تحققت منه في صورة الورقة؛ لا تدخل بيانات شخصية."></textarea>
-        <label class="edit-mode"><input id="editMode" type="checkbox"> تحديد أكثر من إجابة للسؤال (اختياري)</label><div id="answerEditor" class="answer-editor"></div>
+        <label class="edit-mode"><input id="editMode" type="checkbox"> تحديد أكثر من إجابة للسؤال (اختياري)</label><p class="omr-choice-explanation">الخيار الأزرق هو الاختيار الذي قرأه الجهاز من التظليل، وليس دليلًا على صحته. تظهر النتيجة النهائية فقط بعد حسم الإجابات ومراجعتها.</p><div id="answerEditor" class="answer-editor"></div>
       </div>
     </div>
     <details id="editHistoryDetails"><summary>سجل تعديلات الإجابات</summary><button id="loadEditHistoryBtn" class="secondary" type="button">عرض سجل التعديلات</button><div id="sheetEditHistory"></div></details>
