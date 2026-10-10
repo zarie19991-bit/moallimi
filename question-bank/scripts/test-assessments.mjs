@@ -15,11 +15,15 @@ test('automated non-simulation tests enforce total range 10 to 60',()=>{
   assert.throws(()=>normalizeConfig(withCount(9)));
   assert.throws(()=>normalizeConfig(withCount(61)));
 });
-test('paper review builder is hard-capped to exactly 60 questions',()=>{
-  const sixty={...config,paper_review_builder:true,sections:[{...config.sections[0],question_count:60}]};
-  assert.equal(normalizeConfig(sixty).sections.reduce((n,s)=>n+s.question_count,0),60);
-  assert.throws(()=>normalizeConfig({...sixty,sections:[{...sixty.sections[0],question_count:59}]}));
-  assert.throws(()=>normalizeConfig({...sixty,sections:[{...sixty.sections[0],question_count:61}]}));
+test('paper review builder accepts 5 to 60 questions while rejecting out-of-range totals',()=>{
+  const paper={...config,paper_review_builder:true,sections:[{...config.sections[0],question_count:60}]};
+  for(const n of [5,10,20,59,60]){
+    const candidate={...paper,sections:[{...paper.sections[0],question_count:n}]};
+    assert.equal(normalizeConfig(candidate).sections.reduce((sum,s)=>sum+s.question_count,0),n);
+  }
+  for(const n of [4,61]){
+    assert.throws(()=>normalizeConfig({...paper,sections:[{...paper.sections[0],question_count:n}]}));
+  }
 });
 test('paper reading structure requires five-question passage blocks',()=>{
   const readingSection={
