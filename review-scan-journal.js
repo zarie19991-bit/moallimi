@@ -738,7 +738,7 @@ async function transfer(){
 }
 async function approve(){
  if(busy||$('approveBtn').disabled)return;lock(true);
- try{const r=await api('teacher_paper_review_save');$('approvedSection').classList.remove('hidden');$('indicatorSummary').textContent='تم اعتماد '+ar(r.saved_count)+' ورقة وربط نتائجها بالتحليل. النسخ المكررة والأوراق المطلوب إعادة مسحها مستبعدة.';for(const [id,page]of [['paperAnalysisLink','review-analysis.html'],['paperReportLink','review-report.html']])$(id).href=page+'?rid='+encodeURIComponent(draft.review_id);message('حُفظت النتائج في المنصة.');}
+ try{const r=await api('teacher_paper_review_save');$('approvedSection').classList.remove('hidden');$('indicatorSummary').textContent='تم اعتماد '+ar(r.saved_count)+' ورقة وربط نتائجها بالتحليل. النسخ المكررة والأوراق المطلوب إعادة مسحها مستبعدة.';for(const [id,page]of [['paperAnalysisLink','review-analysis.html'],['paperReportLink','review-report.html'],['paperIndicatorLink','review-indicator-detail.html']])$(id).href=page+'?rid='+encodeURIComponent(draft.review_id);message('حُفظت النتائج في المنصة.');}
  catch(e){message('تعذر الاعتماد: '+e.message,true);}finally{lock(false);}
 }
 function download(rows,name){const safe=v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};const blob=new Blob(['\ufeff'+rows.map(r=>r.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
