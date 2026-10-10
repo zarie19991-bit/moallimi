@@ -310,7 +310,14 @@ function distributeIndicatorCounts(){
      }
    }
  }else{
-   allocateIndicatorRows(rows,selectedQuestionCount());
+   const reading=rows.filter(r=>r.dataset.subject==='reading'),other=rows.filter(r=>r.dataset.subject!=='reading'),target=selectedQuestionCount();
+   if(reading.length&&other.length){
+     const quota=Math.min(Math.floor((target-other.length)/5)*5,reading.reduce((n,r)=>n+5*Math.max(0,Number(r.dataset.passages5)||0),0));
+     const readingQuota=Math.max(5,quota);
+     allocateReadingIndicatorRows(reading,readingQuota);
+     allocateIndicatorRows(other,target-readingQuota);
+   }else if(reading.length)allocateReadingIndicatorRows(reading,target);
+   else allocateIndicatorRows(other,target);
  }
  captureIndicatorState();
  updateIndicatorSummary();
@@ -599,6 +606,8 @@ function validate(){
  if(zeroSelected.length)throw new Error('اخترت مؤشرات أكثر مما يمكن تمثيله داخل العدد المختار. قلل عدد مؤشرات الرياضيات أو العلوم المختارة حتى يحصل كل مؤشر على سؤال واحد على الأقل.');
  const badReading=checkedRows.filter(r=>r.dataset.subject==='reading'&&Number(r.dataset.passages5||0)<1);
  if(badReading.length)throw new Error('يوجد مؤشر قراءة مختار لا يملك نصًا محكّمًا يحتوي ٥ أسئلة على الأقل. ألغِ هذا المؤشر أو أضف له نصًا مناسبًا قبل بناء الورقة.');
+ if(subjects.includes('reading')&&inds.filter(x=>x.subject==='reading').some(x=>x.count%5!==0))throw new Error('مؤشرات القراءة تُوزع في مجموعات من ٥ أسئلة لكل نص.');
+ if(subjects.length===1&&subjects[0]==='reading'&&q%5!==0)throw new Error('عند اختيار القراءة وحدها يجب أن يكون العدد من مضاعفات ٥ للحفاظ على النص مع أسئلته الخمسة.');
  if(sum!==q)throw new Error('مجموع أسئلة المؤشرات يجب أن يساوي العدد المختار: '+q+'.');
  const targets=subjectQuestionTargets();
  if(targets){
@@ -757,7 +766,7 @@ function restoreReviewPayload(payload){
  if($('subject'))$('subject').value=selectedSubjects()[0]||payload.subject||'reading';
  if($('className')&&[...$('className').options].some(o=>o.value===String(payload.class_name||'')))$('className').value=String(payload.class_name||'');
  renderStudents();
- if($('questionCount'))$('questionCount').value=String(Math.max(5,Math.min(60,Number($('questionCount').value)||60)));
+ if($('questionCount'))$('questionCount').value=String(Math.max(5,Math.min(60,Number(payload.question_count)||60)));
  if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);
  if($('bubbleNameMode'))$('bubbleNameMode').value=payload.bubble_name_mode==='blank'?'blank':'printed';
  const ps=payload.paper_settings||{};
