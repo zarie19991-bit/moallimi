@@ -1,4 +1,5 @@
 import jpeg from "npm:jpeg-js@0.4.4";
+import { isVerifiedBlankBubbleRow } from "./omr-blank.ts";
 
 type GrayImage={width:number;height:number;gray:Uint8Array;rgba:Uint8Array};
 type Point={x:number;y:number;score?:number};
@@ -326,7 +327,24 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
  }
  if(raw.length!==total)throw new Error('عدد أسئلة القالب لا يطابق الاختبار.');
  const vals=raw.flat().map((x:any)=>Number(x.score)),base=median(vals),mad=median(vals.map((x:number)=>Math.abs(x-base))),possible=clamp(base+Math.max(.018,mad*2.4),.012,.032),definite=clamp(base+Math.max(.028,mad*3.5),.025,.052),sepThr=clamp(Math.max(.024,mad*2.2),.020,.042);
+ // A printed circle's outer ring can trigger dark-row detection even when every
+ // bubble interior is white. Do not invent a choice or a score from that artifact.
+ // Geometry must be established before a fully white row can be called blank.
+ const blankGeometryVerified=m.confidence>=.85&&grid.score>=.10;
  const answers=raw.map((ev:any[],i:number)=>{
+  if(isVerifiedBlankBubbleRow(ev)){
+   const scores=ev.map((e:any)=>Number(e.score.toFixed(4)));
+   const centerValues=ev.map((e:any)=>Number(e.center.toFixed(1)));
+   const blueScores=ev.map((e:any)=>Number(Number(e.blueRowScore||0).toFixed(4)));
+   const darkScores=ev.map((e:any)=>Number(Number(e.darkRowScore||0).toFixed(4)));
+   return{question:startNo+i,selected:null,marked:[],
+    status:blankGeometryVerified?'blank':'ambiguous',
+    scores,centerValues,blueScores,darkScores,
+    reader:blankGeometryVerified?'blank-interior-consensus':'blank-unverified-geometry',
+    confidence:blankGeometryVerified?.99:.4,
+    topScore:Math.max(...scores),secondScore:0,
+    threshold:possible,separation:0};
+  }
    const blueOrder=ev.map((e:any,j:number)=>({j,m:Number(e.blueInsideMass||0),h:Number(e.blueInsideHits||0),s:Number(e.blueRowScore||0)})).sort((a:any,b:any)=>b.m-a.m);
   const blueTop=blueOrder[0],blueSecond=blueOrder[1],blueSep=blueTop.m-blueSecond.m;
   const hasBlue=blueTop.m>=5&&blueTop.h>=4,strongBlue=blueTop.m>=9&&blueTop.h>=7&&blueSep>=3;
