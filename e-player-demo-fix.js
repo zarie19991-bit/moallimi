@@ -9,7 +9,8 @@ function examNow(){return serverAnchor?serverAnchor.time+(performance.now()-serv
 let info,state,access='',answers={},cursor=0,timer,saving=Promise.resolve(),saveDelay,active=false,lockRelease,locked=false,starting=false,lastEvent=0,telemetryFlushing=false,finalRetrying=false,pendingStart=null,lastIdentity={name:'',class:''};
 const identityKey='nafes_student_identity_session', demoIdentityKey='nafes_demo_student_identity_v1', legacyIdentityKey='nafes_student_identity', resumeKey='nafes_attempt_'+code, resumeMarkerKey='nafes_attempt_marker_'+code, draftKey='nafes_draft_v2_'+code, deliveryQueueKey='nafes_delivery_queue_v1_'+code, RESUME_MARKER_MAX_AGE=12*60*60*1000;
 try{localStorage.removeItem(legacyIdentityKey);}catch(_){}
-async function api(action,body={}){const ctrl=new AbortController(),timeoutMs=action==='assessment_finish'||action==='assessment_advance'?60000:action==='assessment_save'?45000:30000,timeout=setTimeout(()=>ctrl.abort(),timeoutMs);try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code,session_id:session,...body}),signal:ctrl.signal});const d=await r.json();if(!r.ok||d.error)throw new Error(d.error||'تعذر إتمام الطلب.');if(d.server_now&&Number.isFinite(Date.parse(d.server_now)))serverAnchor={time:Date.parse(d.server_now),tick:performance.now()};return d;}catch(e){throw new Error(e.name==='AbortError'?'تأخر الاتصال. إجاباتك محفوظة على الجهاز وسيعاد إرسالها تلقائيًا عند استقرار الاتصال.':e.message);}finally{clearTimeout(timeout);}}
+const activity=window.NafesActivity?.create({url:EDGE,now:()=>examNow(),isActive:()=>active&&!state?.submitted&&examNow()>=Date.parse(state?.section_started_at)&&examNow()<Date.parse(state?.expires_at),payload:()=>state?.attempt_id&&access?{action:'assessment_timing',code,session_id:session,attempt_id:state.attempt_id,access_token:access}:null});
+async function api(action,body={}){const ctrl=new AbortController(),timeoutMs=action==='assessment_finish'||action==='assessment_advance'?60000:action==='assessment_save'?45000:30000,timeout=setTimeout(()=>ctrl.abort(),timeoutMs);try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code,session_id:session,...body}),signal:ctrl.signal});const d=await r.json();if(!r.ok||d.error){activity?.failure(r.status);throw new Error(d.error||'تعذر إتمام الطلب.');}if(d.server_now&&Number.isFinite(Date.parse(d.server_now)))serverAnchor={time:Date.parse(d.server_now),tick:performance.now()};return d;}catch(e){activity?.failure();throw new Error(e.name==='AbortError'?'تأخر الاتصال. إجاباتك محفوظة على الجهاز وسيعاد إرسالها تلقائيًا عند استقرار الاتصال.':e.message);}finally{clearTimeout(timeout);}}
 function authBody(){return {attempt_id:state?.attempt_id,access_token:access,answers:{...answers},cursor,expected_section:Number(state?.current_section||0)};}
 async function claim(){const settings=info?.settings||{};if(settings.lock_session!==true||locked)return true;if(navigator.locks){let resolve;const p=new Promise(r=>resolve=r);navigator.locks.request('nafes:'+code+':'+session,{ifAvailable:true},async lock=>{if(!lock){resolve(false);return;}locked=true;resolve(true);await new Promise(r=>lockRelease=r);});if(!await p)throw new Error('هذا الاختبار مفتوح في تبويب آخر على الجهاز. أكمله هناك.');}return true;}
 function readDraft(){
@@ -104,6 +105,7 @@ async function flushDeliveryEvents(){
  }finally{telemetryFlushing=false;}
 }
 function markFinishIntent(){
+ activity?.event('submit_intent');
  writeDraft({finish_requested:true,finish_requested_at:Date.now()});
  queueDeliveryEvent('submit_intent',{action_name:'assessment_finish'});
 }
@@ -213,7 +215,7 @@ function render(){if(state.submitted)return showResult(state);active=true;curren
  const single=settings.one_per_page||!settings.allow_back;$('questions').innerHTML=single?questionHtml(s.questions[cursor],cursor):s.questions.map(questionHtml).join('');
  $('progress').innerHTML=s.questions.map((q,i)=>`<button type="button" data-go="${i}" class="${answers[q.id]!==undefined?'answered ':''}${i===cursor?'current':''}" ${!settings.allow_back&&i!==cursor?'disabled':''}>${ar(i+1)}</button>`).join('');
  $('prev').hidden=!settings.allow_back||!single;$('prev').disabled=cursor===0;$('next').hidden=!single||cursor===s.questions.length-1;$('review').hidden=!settings.allow_back;$('finish').textContent=currentSection===state.sections.length-1?'تسليم الاختبار':'تسليم القسم';$('calcButton').hidden=!s.calculator;
- document.body.classList.add('exam-active');document.body.classList.toggle('no-copy',!settings.allow_copy);document.body.classList.toggle('watermarked',settings.watermark);document.body.classList.toggle('print-blocked',settings.disable_print);watermark();tick();}
+ document.body.classList.add('exam-active');document.body.classList.toggle('no-copy',!settings.allow_copy);document.body.classList.toggle('watermarked',settings.watermark);document.body.classList.toggle('print-blocked',settings.disable_print);watermark();activity?.update(state.attempt_id,state.current_section||0);tick();}
 const normalizeDigits=str=>String(str??'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
 function classSection(v){const raw=String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ').replace(/[إآا]/g,'أ');if(['أ','ب','ج','د'].includes(raw))return raw;const m=raw.match(/(?:^|[\s/\\\-()])([أبجد])(?:$|[\s/\\\-()])/);if(m)return m[1];const tail=raw.match(/(?:فصل|شعبة)?\s*([أبجد])$/);return tail?tail[1]:'';}
 function level(p){return p>=80?'متقن':p>=70?'قريب من الإتقان':p>=50?'يحتاج دعمًا':'غير متقن';}
@@ -328,7 +330,7 @@ function buildGrowthFeedback(d){
 }
 function showResult(d){
  const growthFeedback=buildGrowthFeedback(d);saveGrowthProfile(d);
- active=false;clearInterval(timer);clearResume();clearIdentity();clearDraft();document.body.classList.remove('exam-active','no-copy','watermarked','print-blocked');
+ activity?.stop();active=false;clearInterval(timer);clearResume();clearIdentity();clearDraft();document.body.classList.remove('exam-active','no-copy','watermarked','print-blocked');
  lockRelease?.();locked=false;$('intro').hidden=true;$('player').hidden=true;$('breakPanel').hidden=true;$('result').hidden=false;
  const percent=d.result_hidden?'':`<div class="result-score-box"><div class="score">${ar(d.percent)}٪</div><p class="score-sub">الدرجة الكلية: ${ar(d.score)} من ${ar(d.total)}</p></div>`;
  const secList=Array.isArray(d.section_scores)?d.section_scores:(d.sections?.map(s=>({subject:s.subject,score:s.score,total:s.total,percent:s.percent}))||[]);

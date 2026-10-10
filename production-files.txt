@@ -190,3 +190,6 @@ review-my-tests.js
 ux-cognitive-preview.html
 
 moallimi-logo-complete-2x.png
+
+exam-activity.js
+attempt-timing-report.js

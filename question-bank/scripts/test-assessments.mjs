@@ -130,3 +130,5 @@ test('publishing repairs an existing unbalanced draft atomically and rejects tam
 
 // Regression coverage for multi-subject transitions and recovery.
 import "./test-joint-recovery.mjs";
+
+import './test-attempt-timing.mjs';

@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const $=id=>document.getElementById(id);
-const panels={joint:'jointView',overview:'overviewView',subject:'subjectView',subjectReport:'subjectReportView',indicatorReport:'indicatorReportView',report:'reportView'};
+const panels={timing:'timingView',joint:'jointView',overview:'overviewView',subject:'subjectView',subjectReport:'subjectReportView',indicatorReport:'indicatorReportView',report:'reportView'};
 let activeView='overview';
 let enforcing=false;
 const ALL_GRADE_LABEL='الثالث متوسط (أ - ب - ج - د)';

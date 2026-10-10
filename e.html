@@ -20,7 +20,7 @@
 <section id="player" class="panel exam-panel" hidden><div class="exam-head"><div><small id="sectionTitle"></small><h2 id="questionTitle"></h2></div><b class="timer" id="timer" aria-label="الوقت المتبقي"></b></div><div class="progress" id="progress"></div><div id="questions"></div><div class="nav exam-nav"><button id="prev">السابق</button><button id="review">مراجعة الإجابات</button><button id="next">التالي</button><button id="finish">تسليم القسم</button></div><button id="calcButton" hidden>آلة حاسبة</button><p id="playerError" role="alert"></p></section>
 <section id="breakPanel" class="panel" hidden><h2>استراحة بين الأقسام</h2><p id="breakText"></p></section><section id="result" class="panel" hidden></section>
 </main>
-<div id="watermark" aria-hidden="true"></div><div id="printShield">الطباعة غير متاحة أثناء الاختبار.</div><dialog id="calculator" aria-label="آلة حاسبة" class="exam-calculator"><div style="padding:18px;min-width:270px;max-width:92vw;display:grid;gap:12px;font-family:inherit"><h2 style="margin:0;font-size:1.2rem">آلة حاسبة</h2><label>العدد الأول <input id="calcA" type="number" step="any" inputmode="decimal"></label><label>العملية <select id="calcOp"><option value="+">+</option><option value="−">−</option><option value="×">×</option><option value="÷">÷</option></select></label><label>العدد الثاني <input id="calcB" type="number" step="any" inputmode="decimal"></label><output id="calcResult" aria-live="polite"></output><div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" id="calcGo">احسب</button><button type="button" id="calcClose">إغلاق</button></div></div></dialog><script src="question-media.js?v=20260909-final"></script><script src="exam-durable-store.js?v=20261007-r1"></script><script src="edge-retry.js?v=20261007-reliability1"></script><script src="edge-retry-ui.js?v=20260913-advanced2"></script><script>
+<div id="watermark" aria-hidden="true"></div><div id="printShield">الطباعة غير متاحة أثناء الاختبار.</div><dialog id="calculator" aria-label="آلة حاسبة" class="exam-calculator"><div style="padding:18px;min-width:270px;max-width:92vw;display:grid;gap:12px;font-family:inherit"><h2 style="margin:0;font-size:1.2rem">آلة حاسبة</h2><label>العدد الأول <input id="calcA" type="number" step="any" inputmode="decimal"></label><label>العملية <select id="calcOp"><option value="+">+</option><option value="−">−</option><option value="×">×</option><option value="÷">÷</option></select></label><label>العدد الثاني <input id="calcB" type="number" step="any" inputmode="decimal"></label><output id="calcResult" aria-live="polite"></output><div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" id="calcGo">احسب</button><button type="button" id="calcClose">إغلاق</button></div></div></dialog><script src="question-media.js?v=20260909-final"></script><script src="exam-durable-store.js?v=20261007-r1"></script><script src="edge-retry.js?v=20261010-timing1"></script><script src="edge-retry-ui.js?v=20260913-advanced2"></script><script>
 (()=>{
   const retryFetch=window.fetch.bind(window);
   window.fetch=async function(input,init={}){
@@ -52,7 +52,8 @@
     return response;
   };
 })();
-</script><script src="exam-session-guard.js?v=20260917-1"></script><script src="e-player-demo-fix.js?v=20261009-joint2"></script><script>
+</script><script src="exam-session-guard.js?v=20260917-1"></script><script src="exam-activity.js?v=20261010-1"></script>
+<script src="e-player-demo-fix.js?v=20261010-timing1"></script><script>
 (()=>{
   let forcedClassCleared=false;
   const unlockClassField=()=>{

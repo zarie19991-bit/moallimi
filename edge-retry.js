@@ -6,7 +6,7 @@ const nativeFetch=window.fetch.bind(window);
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const RETRYABLE=new Set([408,425,429,500,502,503,504,520,522,524]);
 const CRITICAL=new Set(['assessment_save','assessment_advance','assessment_finish','save','finish']);
-const TELEMETRY=new Set(['assessment_delivery_event']);
+const TELEMETRY=new Set(['assessment_delivery_event','assessment_timing','timing']);
 const emit=(phase,detail={})=>{
   try{window.dispatchEvent(new CustomEvent('nafes:edge-retry',{detail:{phase,...detail}}));}catch(_){}
 };

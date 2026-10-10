@@ -1,3 +1,4 @@
+import {recordTiming} from './timing.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 import { REVIEW_VERSION, hasCurrentReview, inspectReviewedBank, itemContentKey, reviewedImage, publicReviewedQuestions } from "./reviewed-bank.ts";
@@ -854,7 +855,7 @@ Deno.serve(async (req: Request) => {
           .single();
         if (resetError) throw resetError;
         return json({
-          attempt_id: reset.id,
+          attempt_id: reset.id, server_now:new Date().toISOString(),
           resumed: false,
           submitted: false,
           expired: false,
@@ -865,6 +866,7 @@ Deno.serve(async (req: Request) => {
         });
       }
       if (existing) {
+        if(existing.submitted_at||Date.now()>Date.parse(existing.expires_at))await recordTiming(db,existing,{timing_events:[{id:crypto.randomUUID(),type:'previous_result',section:0,at:new Date().toISOString(),visible_ms:0}]},'exam',true).catch(e=>console.error('timing observation failed',e?.code||'unknown'));
         // Preserve the exact paper and answers from the moment this attempt began.
         const expired = Date.now() > new Date(existing.expires_at).getTime();
         if (expired && !existing.submitted_at) {
@@ -875,7 +877,7 @@ Deno.serve(async (req: Request) => {
             .eq("id", existing.id);
           if (error) throw error;
           return json({
-            attempt_id: existing.id,
+            attempt_id: existing.id, server_now:new Date().toISOString(),
             resumed: true,
             submitted: true,
             expired: true,
@@ -888,7 +890,7 @@ Deno.serve(async (req: Request) => {
           });
         }
         return json({
-          attempt_id: existing.id,
+          attempt_id: existing.id, server_now:new Date().toISOString(),
           resumed: true,
           submitted: !!existing.submitted_at,
           expired,
@@ -922,7 +924,7 @@ Deno.serve(async (req: Request) => {
         .single();
       if (attemptError) throw attemptError;
       return json({
-        attempt_id: attempt.id,
+        attempt_id: attempt.id, server_now:new Date().toISOString(),
         resumed: false,
         submitted: false,
         expired: false,
@@ -934,7 +936,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const windowError = checkWindow(s);
-    if (windowError) return json({ error: windowError }, 403);
+    if (windowError && action !== "timing") return json({ error: windowError }, 403);
     const name = String(b.student_name || "").trim();
     const no = String(b.student_no || b.national_id_last3 || "").trim();
     const cls = String(b.class_name || b.className || "").trim();
@@ -975,6 +977,10 @@ Deno.serve(async (req: Request) => {
     if (!a) return json({ error: "تعذر التحقق من المحاولة." }, 404);
     if (a.student_key !== studentKey && a.student_id !== studentId && a.student_key !== await hashKey(`${norm(name)}|${norm(no)}`)) {
       return json({ error: "تعذر التحقق من صاحب المحاولة." }, 403);
+    }
+    if (action === "timing") {
+      if (a.student_key !== studentKey && (!studentId || a.student_id !== studentId)) return json({error:"تعذر التحقق من صاحب المحاولة."},403);
+      return json(await recordTiming(db,a,b,"exam"));
     }
     if (a.submitted_at) return json({ error: "تم تسليم هذه المحاولة سابقًا.", score: a.score, percent: a.percent }, 409);
 

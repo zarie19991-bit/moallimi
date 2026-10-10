@@ -53,6 +53,7 @@
     <div class="card no-print" style="margin:12px 0;padding:12px;border:1px solid #059669"><a href="analysis.html?view=indicatorReport" style="display:inline-block;background:#065f46;color:white;padding:12px 16px;border-radius:10px;font-weight:800;text-decoration:none">فتح تقرير اختبار المؤشرات التفصيلي المستقل ←</a></div>
     <nav class="main-tabs" aria-label="أقسام التحليل والتقارير">
       <button class="main-tab active" data-view="overview">تحليل جميع المواد</button>
+      <button class="main-tab" data-view="timing">أوقات ومحاولات الطلاب</button>
       <button class="main-tab" data-view="joint">الاختبارات المشتركة</button>
       <button class="main-tab" data-view="subject">تحليل مادة منفصلة</button>
       <button class="main-tab" data-view="subjectReport">تقرير رسمي لمادة</button>
@@ -65,6 +66,7 @@
       <div id="overviewSummary"></div><div id="overviewStudents"></div>
     </section>
 
+    <section id="timingView" class="view-panel" hidden><section class="card"><h2>أوقات ومحاولات الطلاب</h2><p>تقرير مستقل للاختبارات الإلكترونية المشتركة والمنفصلة. السجل التفصيلي متاح للمحاولات التي تستخدم الإصدار الجديد؛ البيانات القديمة تظهر بما هو مسجل.</p><div class="toolbar"><label>الاختبار<select id="timingTest"><option value="">اختر الاختبار</option></select></label><label>الفصل<select id="timingClass"><option value="">جميع الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label><button id="timingRefresh" class="btn">تحديث</button><button id="timingCsv" class="btn" disabled>تصدير CSV</button><button id="timingPrint" class="btn" disabled>طباعة / PDF</button></div><p id="timingState" role="status"></p></section><section id="timingResults" class="card"></section></section>
     <section id="jointView" class="view-panel" hidden>
       <section class="card section-control-card"><h2>الاختبارات المشتركة</h2><p class="muted">اختر اختبارًا يجمع مادتين أو أكثر لعرض المشاركين وتحليل نتائج كل مادة فيه.</p>
         <div class="toolbar"><label class="wide"><span>الاختبار المشترك</span><select id="jointTest"><option value="">جارٍ تحميل الاختبارات…</option></select></label><label><span>الفصل</span><select id="jointClass"><option value="">جميع الفصول</option></select></label><button id="jointRefresh" class="btn ghost" type="button">تحديث الاختبارات</button><button id="jointExport" class="btn primary" type="button" disabled>تنزيل كشف الطلاب CSV</button></div>
@@ -106,7 +108,8 @@
 <script src="report-absentees.js?v=20260927-reference1"></script>
 <script src="indicator-detailed-report.js?v=20261010-final11b"></script>
 <script src="subject-report-separate.js?v=20261010-indicator-data4"></script>
-<script src="analysis-section-router.js?v=20261010-visible2"></script>
+<script src="attempt-timing-report.js?v=20261010-1"></script>
+<script src="analysis-section-router.js?v=20261010-timing1"></script>
 <script src="analysis-print.js?v=20261005-print-freeze1"></script>
 <script src="report-test-options.js?v=20261006-restored1"></script>
 <script src="report-remedial-plan.js?v=20261006-freeze2"></script>

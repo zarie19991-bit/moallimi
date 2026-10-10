@@ -1,3 +1,4 @@
+import {recordTiming,readTiming} from './timing.ts';
 import { FRAMEWORK } from './framework.ts';
 import { hasCurrentReview, reviewedImage, REVIEW_VERSION } from './reviewed-bank.ts';
 import { type Row, SUBJECTS, THRESHOLDS, tidy, fail, hash, token, shuffle, randomFrom, normalizeConfig, questionKey, indicatorOf, selectUnique, buildForms, cleanAnswers, gradeSections, publicSections, permuteQuestion, normalizeArabicName, normalizeLast3Digits, verifyStudentIdentity } from './assessment-engine.ts';
@@ -1480,6 +1481,7 @@ async function studentAction(db:any,body:Row) {
     active=must(await db.from('nafes_assessment_attempts').update({session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),version:active.version+1}).eq('id',active.id).eq('version',active.version).is('submitted_at',null).select().maybeSingle());if(!active)fail('فُتحت المحاولة في تبويب آخر؛ أعد المحاولة.',409);return{...attemptResponse(active),access_token:access,resumed:true,recovery_resumed:recoveryResumed};}
    const completed=previous.find((a:Row)=>!!a.submitted_at);
    if(completed&&!isDemo&&body.start_new_attempt!==true){
+     await recordTiming(db,completed,{timing_events:[{id:crypto.randomUUID(),type:'previous_result',section:Number(completed.section_index)||0,at:new Date().toISOString(),visible_ms:0}]},'assessment',true).catch(e=>console.error('timing observation failed',e?.code||'unknown'));
      return {...attemptResponse(completed),resumed:true,completed_before:true,training_url:`${BASE}training.html?t=${t.short_code}`};
    }
    if(!isDemo&&previous.length>=s.attempts){if(previous[0])return{...attemptResponse(previous[0]),attempts_exhausted:true,training_url:`${BASE}training.html?t=${t.short_code}`};fail('استُنفد عدد المحاولات المسموح به.',409);}
@@ -1495,6 +1497,7 @@ async function studentAction(db:any,body:Row) {
  }
  if(!isUUID(body.attempt_id)||!body.access_token)fail('تعذر التحقق من المحاولة.',403);let a=must(await db.from('nafes_assessment_attempts').select('*').eq('id',body.attempt_id).eq('access_hash',await hash(String(body.access_token))).maybeSingle());if(!a)fail('تعذر التحقق من المحاولة.',403);
  if(!a.submitted_at&&a.config.settings.lock_session&&a.session_id!==body.session_id)fail('المحاولة قيد الاستخدام في تبويب آخر.',409);
+ if(body.action==='assessment_timing')return await recordTiming(db,a,body,'assessment');
  if(!['assessment_save','assessment_finish','assessment_advance','assessment_resume','assessment_event'].includes(body.action))fail('إجراء غير معروف.');
  if(body.action==='assessment_resume'&&!a.submitted_at&&Date.now()<new Date(a.expires_at).getTime())return attemptResponse(a);
  a=await saveState(db,a,body);return{ok:true,...attemptResponse(a)};
@@ -1792,6 +1795,15 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_test_delete')return await teacherTestDelete(db,b,owner);
  if(b.action==='teacher_tests_bulk_clear'){assertMainAccount(owner);return await teacherTestsBulkClear(db,b,owner);}
  if(b.action==='teacher_attempt_reopen_incomplete')return await teacherReopenIncomplete(db,b,owner);
+ if(b.action==='teacher_timing'){
+  if(!['exam','assessment'].includes(b.source)||!Array.isArray(b.attempt_ids)||!b.attempt_ids.length||b.attempt_ids.length>25||!b.attempt_ids.every(isUUID))fail('طلب سجل غير صالح.');
+  const raw=must(await db.from(SOURCES[b.source]).select('*').in('id',b.attempt_ids));
+  const map=await metadata(db,raw,b.source);
+  const allowed=raw.filter((a:Row)=>!a.is_demo&&scopedAttempt(canonical(a,b.source,map),owner));
+  if(!allowed.length)return {events:[]};
+  const scope=teacherScope(owner),events=await readTiming(db,b.source,allowed.map((a:Row)=>a.id));
+  return {events:events.filter((e:Row)=>scope==='all'||e.subject===scope)};
+ }
  if(b.action==='teacher_data')return await scopedTeacherData(db,b,owner);
  if(b.action==='teacher_paper_review_upsert')return await teacherPaperReviewUpsert(db,b,owner);
  if(b.action==='teacher_paper_review_get')return await teacherPaperReviewGet(db,b,owner);
