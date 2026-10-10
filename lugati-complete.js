@@ -69,9 +69,9 @@ const teacherScope=()=>state.role==='teacher'&&['reading','math','science'].incl
 const teacherSubjectKeys=()=>teacherScope()==='all'?['reading','math','science']:[teacherScope()];
 const teacherScopeLabel=()=>teacherScope()==='all'?'جميع المواد':subjectName(teacherScope());
 const subjectIcon=(s)=>s==='reading'?'book-open':s==='math'?'calculator':s==='science'?'microscope':'book-text';
-const tier=(p)=>p==null?'unclassified':Number(p)<70?'remedial':Number(p)<90?'reinforcement':'enrichment';
-const tierLabel=(p)=>p==null?'لم يختبر في معلّمي':Number(p)<70?'علاجي':Number(p)<90?'تعزيز':'إثرائي';
-const tierClasses=(p)=>p==null?'bg-slate-100 text-slate-700':Number(p)<70?'bg-rose-100 text-rose-700':Number(p)<90?'bg-amber-100 text-amber-700':'bg-emerald-100 text-emerald-700';
+const tier=(p)=>p==null?'unclassified':Number(p)<50?'remedial':Number(p)<80?'reinforcement':'enrichment';
+const tierLabel=(p)=>p==null?'لم يختبر في معلّمي':Number(p)<50?'علاجي':Number(p)<80?'تعزيز':'إثرائي';
+const tierClasses=(p)=>p==null?'bg-slate-100 text-slate-700':Number(p)<50?'bg-rose-100 text-rose-700':Number(p)<80?'bg-amber-100 text-amber-700':'bg-emerald-100 text-emerald-700';
 const globalIndicator=(outcome,idx)=>{const o=String(outcome||'');if(o.startsWith('1-'))return Number(idx)||0;if(o.startsWith('2-'))return 5+(Number(idx)||0);if(o.startsWith('3-'))return 10+(Number(idx)||0);return Number(idx)||0};
 const readingTitle=(outcome,idx,fallback='')=>{const n=globalIndicator(outcome,idx);return READING_INDICATORS[n-1]||fallback||`المؤشر ${n}`};
 const isDemoStudentRow=(r)=>r?.is_demo===true||String(r?.student_name||r?.full_name||'').trim()==='طالب تجريبي';
@@ -202,7 +202,7 @@ function filteredStudents(){const q=state.query.trim().toLowerCase();return stud
 function indicatorAggregates(subject='reading'){return state.summary?.indicators?.by_subject?.[subject]||[]}
 function realIndicatorTitle(g){if(g.subject_key==='reading')return readingTitle(g.outcome_code,g.indicator_index,g.indicator_text);return g.indicator_text||`المؤشر ${g.indicator_index}`}
 function questionsFor(subject,outcome,idx){return state.questions.filter(q=>q.subject_key===subject&&(!outcome||q.outcome_code===outcome)&&(!idx||Number(q.indicator_index)===Number(idx)))}
-function countReinforcement(){return latestStudentSubject().filter(r=>Number(r.percent)>=70&&Number(r.percent)<90).length}
+function countReinforcement(){return latestStudentSubject().filter(r=>Number(r.percent)>=50&&Number(r.percent)<80).length}
 function planTotals(){
  const all=['reading','math','science'].flatMap(s=>indicatorAggregates(s));
  return all.reduce((a,g)=>{
@@ -372,7 +372,7 @@ function viewPlans(){
    </section>
    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
      <div><h2 class="font-black text-slate-900">مؤشرات المسار ${tabs.find(t=>t.id===kind).title}</h2>
-       <p class="text-xs text-slate-500 mt-1">أقل من 70٪ علاجي • من 70٪ إلى أقل من 90٪ تعزيز • 90٪ فأعلى إثراء. جميع الأعداد للمختبرين في معلّمي فقط.</p></div>
+       <p class="text-xs text-slate-500 mt-1">أقل من 50٪ علاجي • من 50٪ إلى أقل من 80٪ تعزيز • 80٪ فأعلى إثراء. جميع الأعداد للمختبرين في معلّمي فقط.</p></div>
      <span class="px-3 py-1.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-700">${fmt(filtered.length)} مؤشرًا</span>
    </div>
    ${filtered.length?`<div class="space-y-3">${filtered.sort((a,b)=>Number(a.average_percent??0)-Number(b.average_percent??0)).map((g,i)=>planCard(g,kind,i)).join('')}</div>`:emptyCard('لا توجد نتائج مختبرة مؤهلة لهذا المسار في معلّمي.')}
