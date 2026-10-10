@@ -8,6 +8,8 @@ on:
       - 'qa/omr/blank-bubble-consensus.test.mjs'
       - 'supabase/functions/nafes-exam/omr-server.ts'
       - 'supabase/functions/nafes-exam/omr-blank.ts'
+      - 'supabase/functions/nafes-exam/omr-center-evidence.ts'
+      - 'qa/omr/center-evidence-diagnostics.test.mjs'
       - '.github/workflows/omr-false-zero-ui.yml'
   workflow_dispatch:
 permissions:
@@ -27,3 +29,5 @@ jobs:
         run: node qa/omr/hotfix-false-zero-ui.test.mjs
       - name: Prove empty bubbles produce zero and no invented selections
         run: node --test qa/omr/blank-bubble-consensus.test.mjs
+      - name: Validate center evidence and truthful diagnostic units
+        run: node --test qa/omr/center-evidence-diagnostics.test.mjs
