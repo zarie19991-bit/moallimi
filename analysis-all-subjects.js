@@ -46,7 +46,7 @@ function jointCatalog(){
  const map=new Map();
  function add(item,id){
   if(!id||item?.kind==='simulation'||item?.source==='simulation')return;
-  const g=map.get(id)||{id,title:item.title||titleOf(id),subjects:new Set(),time:0};
+  const g=map.get(id)||{id,title:item.title||titleOf(id),subjects:new Set(),time:0,code:item.short_code||''};
   const sections=item.config?.sections||item.sections||[];
   for(const value of [...(item.subjects||[]),...qList(item).map(q=>q.subject||q.subject_key),...sections.map(q=>q.subject)]){
    const subject=subjectOfQ({subject:value});if(subject)g.subjects.add(subject);
@@ -88,22 +88,37 @@ function renderJoint(){
   const by=Object.fromEntries(jointSubjects.map(s=>[s,A.measure(normalized,{subject:s})]));
   const m=A.measure(normalized);
   const complete=reliable&&m.total>0&&m.excluded===0;
-  jointRows.push({a,by,m,complete,status:!submitted(a)?(a.status==='expired'?'انتهت دون تسليم':'لم يسلّم'):!reliable||!m.total?'مسلّم — يحتاج مراجعة':m.excluded?'مسلّم — تحليل جزئي':'مسلّم'});
+  jointRows.push({a,by,m,complete,status:a.recovery_pending?'بانتظار الاستكمال':!submitted(a)?(a.status==='expired'?'انتهت دون تسليم':'لم يسلّم'):!reliable||!m.total?'مسلّم — يحتاج مراجعة':m.excluded?'مسلّم — تحليل جزئي':a.completion_reason==='time_expired'?'انتهى الوقت — راجع اكتمال المواد':'مسلّم'});
  }
  jointRows.sort((a,b)=>(a.a.student_name||'').localeCompare(b.a.student_name||'','ar'));
  const completed=jointRows.filter(r=>submitted(r.a)).length;
  $('jointState').textContent=`${completed} طالبًا سلّموا الاختبار · ${jointRows.length-completed} دون تسليم. تعرض آخر محاولة مسلّمة لكل طالب.`+(scope!=='all'?' يعرض حسابك تحليل مادتك فقط.':'');
  const degree=m=>m.total?`${ar(m.correct)} / ${ar(m.total)} (${pct(m.percent)})`:'غير مقاس';
- let html=`<section class="card"><h2>${E(test.title)}</h2><h3>الطلاب المشاركون</h3>${table(['الطالب','الفصل','الحالة',...jointSubjects.map(s=>names[s]),scope==='all'?'الإجمالي':'إجمالي المادة المتاحة'],jointRows.map(r=>[E(r.a.student_name),E(r.a.class_name||'—'),E(r.status),...jointSubjects.map(s=>degree(r.by[s])),r.complete?degree(r.m):'غير مكتمل القياس']))}</section>`;
+ let html=`<section class="card"><h2>${E(test.title)}</h2><h3>الطلاب المشاركون</h3>${table(['الطالب','الفصل','الحالة',...jointSubjects.map(s=>names[s]),scope==='all'?'الإجمالي':'إجمالي المادة المتاحة','الاستكمال'],jointRows.map(r=>[E(r.a.student_name),E(r.a.class_name||'—'),E(r.status),...jointSubjects.map(s=>degree(r.by[s])),r.complete?degree(r.m):'غير مكتمل القياس',r.a.recovery_pending?'بانتظار دخول الطالب':scope==='all'&&submitted(r.a)&&r.a.questions.some(q=>q.answer===null||q.answer===undefined)?`<button class="btn ghost" type="button" data-joint-reopen="${E(r.a.id)}">إعادة فتح للاستكمال</button>`:'—']))}</section>`;
  const scored=jointRows.filter(r=>submitted(r.a)&&A.isAnalyzable(r.a)).map(r=>({...r.a,questions:qList(r.a).map(q=>({...q,subject:subjectOfQ(q)}))}));
  const students=buildStudents(scored,jointSubjects);
  for(const subject of jointSubjects){
   const inds=aggregateIndicators(students,[subject]),qs=aggregateQuestions(students,[subject]);
   const measures=jointRows.map(r=>r.by[subject]).filter(m=>m.total);
   const total=measures.reduce((n,m)=>n+m.total,0),correct=measures.reduce((n,m)=>n+m.correct,0);
-  html+=`<section class="card"><h3>تحليل ${names[subject]}</h3><p>${ar(measures.length)} طالبًا مقاسًا · نسبة الإجابات الصحيحة ${pct(total?correct/total*100:null)}</p><h4>المؤشرات</h4>${table(['المؤشر','الصحيح','الأسئلة المقاسة','النسبة'],inds.map(x=>[E(x.text),ar(x.c),ar(x.t),pct(x.p)]))}<details><summary>تحليل الأسئلة (${ar(qs.length)})</summary>${table(['السؤال','المؤشر','عدد المقاسين','نسبة الخطأ'],qs.map(x=>[E(x.text),E(x.indicator),ar(x.t),pct(x.p)]))}</details></section>`;
+  html+=`<section class="card"><h3>تحليل ${names[subject]}</h3><button type="button" class="btn primary" data-joint-report="${subject}">التقرير الرسمي والطباعة — ${names[subject]}</button><p>${ar(measures.length)} طالبًا مقاسًا · نسبة الإجابات الصحيحة ${pct(total?correct/total*100:null)}</p><h4>المؤشرات</h4>${table(['المؤشر','الصحيح','الأسئلة المقاسة','النسبة'],inds.map(x=>[E(x.text),ar(x.c),ar(x.t),pct(x.p)]))}<details><summary>تحليل الأسئلة (${ar(qs.length)})</summary>${table(['السؤال','المؤشر','عدد المقاسين','نسبة الخطأ'],qs.map(x=>[E(x.text),E(x.indicator),ar(x.t),pct(x.p)]))}</details></section>`;
  }
  $('jointResults').innerHTML=html;$('jointExport').disabled=!jointRows.length;
+}
+async function jointAction(event){
+ const report=event.target.closest('[data-joint-report]');
+ if(report){
+  try{await window.NafesSubjectReport.open({subject:report.dataset.jointReport,testId:$('jointTest').value,className:$('jointClass').value});}
+  catch(e){$('jointState').textContent=e.message||'تعذر فتح التقرير. حدّث البيانات.';}
+  return;
+ }
+ const button=event.target.closest('[data-joint-reopen]');if(!button)return;
+ const row=jointRows.find(r=>r.a.id===button.dataset.jointReopen),test=jointCatalog().find(t=>t.id===$('jointTest').value);
+ if(!row||!test)return;
+ if(!confirm(`إعادة فتح محاولة ${row.a.student_name} للاستكمال؟ ستبقى الإجابات السابقة محفوظة، وتبدأ المهلة الجديدة عند دخوله. تُحفظ الدرجة السابقة في سجل المراجعة ويُعاد احتساب النتيجة بعد التسليم.`))return;
+ button.disabled=true;
+ try{await T.api('teacher_attempt_reopen_incomplete',{attempt_id:row.a.id,test_id:test.id,code:test.code});T.clearReadCache?.();delete window[CACHE_KEY];await refreshData(true);$('jointState').textContent+=' تم السماح للطالب بالاستكمال من رابط الاختبار نفسه.';}
+ catch(e){$('jointState').textContent=e.message||'تعذر إعادة فتح المحاولة.';button.disabled=false;}
 }
 function exportJoint(){
  if(!jointRows.length)return;
@@ -115,6 +130,6 @@ function exportJoint(){
 }
 
 function renderCurrent(){const active=document.querySelector('.main-tab.active')?.dataset.view;if(active==='joint')renderJoint();if(active==='overview')renderOverviewMulti();if(active==='subject')renderSubjectMulti()}
-function install(){$('jointTest')?.addEventListener('change',populateJointClasses);$('jointClass')?.addEventListener('change',renderJoint);$('jointExport')?.addEventListener('click',exportJoint);$('jointRefresh')?.addEventListener('click',()=>{T.clearReadCache?.();refreshData(true)});ensurePicker();$('overviewClass')?.addEventListener('change',()=>setTimeout(renderOverviewMulti,0));$('subjectSelect')?.addEventListener('change',()=>{populateSubjectTests(true);setTimeout(renderSubjectMulti,0)});$('subjectClass')?.addEventListener('change',()=>setTimeout(renderSubjectMulti,0));document.querySelectorAll('.main-tab').forEach(b=>b.addEventListener('click',()=>setTimeout(renderCurrent,40)));$('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>refreshData(true),80));addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>refreshData(false),40)});if(T?.getKey?.())refreshData(false)}
+function install(){$('jointResults')?.addEventListener('click',jointAction);$('jointTest')?.addEventListener('change',populateJointClasses);$('jointClass')?.addEventListener('change',renderJoint);$('jointExport')?.addEventListener('click',exportJoint);$('jointRefresh')?.addEventListener('click',()=>{T.clearReadCache?.();refreshData(true)});ensurePicker();$('overviewClass')?.addEventListener('change',()=>setTimeout(renderOverviewMulti,0));$('subjectSelect')?.addEventListener('change',()=>{populateSubjectTests(true);setTimeout(renderSubjectMulti,0)});$('subjectClass')?.addEventListener('change',()=>setTimeout(renderSubjectMulti,0));document.querySelectorAll('.main-tab').forEach(b=>b.addEventListener('click',()=>setTimeout(renderCurrent,40)));$('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>refreshData(true),80));addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)setTimeout(()=>refreshData(false),40)});if(T?.getKey?.())refreshData(false)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();

@@ -1149,7 +1149,7 @@ function scopedAttempt(a:Row,owner:Row){
  const submitted=a.status==='submitted'||!!a.submitted_at;
  const correct=scorable.filter((q:Row)=>q.correct===true).length;
  const total=scorable.length||questions.length;
- return {...a,questions,subjects:[scope],score:submitted?correct:null,total,percent:submitted&&total?Math.round(correct*10000/total)/100:(submitted?0:null)};
+ return {...a,questions,section_scores:(a.section_scores||[]).filter((x:Row)=>x.subject===scope),subjects:[scope],score:submitted?correct:null,total,percent:submitted&&total?Math.round(correct*10000/total)/100:(submitted?0:null)};
 }
 async function teacherDirectory(db:any){
  const rows=must(await db.from('nafes_teacher_access').select('id,label,subject_scope').eq('active',true));
@@ -1325,20 +1325,46 @@ export function matchesBankSnapshot(bank:Row,draft:Row):boolean {
 }
 const flat=(a:Row)=>(a.rendered_sections||[]).flatMap((s:Row)=>s.questions||[]);
 async function finish(db:any,a:Row,answers=a.answers) {if(a.submitted_at)return a;const result=gradeSections(a.rendered_sections,answers);const end=new Date(Math.min(Date.now(),new Date(a.expires_at).getTime())).toISOString();const r=must(await db.from('nafes_assessment_attempts').update({answers,...result,submitted_at:end,version:a.version+1}).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select().maybeSingle());return r||must(await db.from('nafes_assessment_attempts').select('*').eq('id',a.id).single());}
-function attemptResponse(a:Row) {const c=a.config,s=c.settings;const response:Row={attempt_id:a.id,submitted:!!a.submitted_at,expires_at:a.expires_at,started_at:a.started_at,section_started_at:a.section_started_at,current_section:a.section_index,cursor:a.cursor,version:a.version,answers:a.answers,sections:publicSections(a.rendered_sections),settings:s,student_name:a.student_name,demo_mode:a.is_demo===true};if(a.submitted_at){if(s.show_result)Object.assign(response,{score:a.score,total:a.total,percent:a.percent,section_scores:a.section_scores});else response.result_hidden=true;if(s.show_correct_count)response.correct_count=a.score;if(s.show_indicator_result){const groups=new Map<string,Row[]>();for(const q of flat(a)){const key=indicatorOf(q),g=groups.get(key)||[];g.push(q);groups.set(key,g);}response.indicators=[...groups].map(([key,qs])=>({key,text:qs[0].indicator_text,...gradeSections([{subject:qs[0].subject,questions:qs}],a.answers)}));}if(s.show_answers)response.review=flat(a).map(q=>({id:q.id,correct_index:q.correctIndex,explanation:q.explanation,indicator_text:q.indicator_text}));}return response;}
-async function saveState(db:any,a:Row,body:Row) {
- if(a.submitted_at)return a;const now=Date.now();if(now>=new Date(a.expires_at).getTime())return await finish(db,a);
+export function attemptResponse(a:Row) {const c=a.config,s=c.settings;const response:Row={attempt_id:a.id,server_now:new Date().toISOString(),completion_reason:a.submitted_at&&(new Date(a.submitted_at).getTime()>=new Date(a.expires_at).getTime())?'time_expired':null,submitted:!!a.submitted_at,expires_at:a.expires_at,started_at:a.started_at,section_started_at:a.section_started_at,current_section:a.section_index,cursor:a.cursor,version:a.version,answers:a.answers,sections:publicSections(a.rendered_sections),settings:s,student_name:a.student_name,demo_mode:a.is_demo===true};if(a.submitted_at){if(s.show_result)Object.assign(response,{score:a.score,total:a.total,percent:a.percent,section_scores:a.section_scores});else response.result_hidden=true;if(s.show_correct_count)response.correct_count=a.score;if(s.show_indicator_result){const groups=new Map<string,Row[]>();for(const q of flat(a)){const key=indicatorOf(q),g=groups.get(key)||[];g.push(q);groups.set(key,g);}response.indicators=[...groups].map(([key,qs])=>({key,text:qs[0].indicator_text,...gradeSections([{subject:qs[0].subject,questions:qs}],a.answers)}));}if(s.show_answers)response.review=flat(a).map(q=>({id:q.id,correct_index:q.correctIndex,explanation:q.explanation,indicator_text:q.indicator_text}));}return response;}
+export async function saveState(db:any,a:Row,body:Row) {
+ if(a.submitted_at)return a;const now=Date.now();
+ // Retries carry the section they were issued from. Never apply them to a later subject.
+ if(body.expected_section!==undefined&&Number(body.expected_section)!==Number(a.section_index))return a;
+ if(a.config?.recovery_pending)fail('أعد الدخول ببياناتك لتفعيل فرصة الاستكمال.',409);
+ if(now>=new Date(a.expires_at).getTime())return await finish(db,a);
+ if(body.action==='assessment_finish'&&Number(a.section_index)!==a.rendered_sections.length-1)fail('أكمل المواد المتبقية قبل تسليم الاختبار.',409);
+ if(now<new Date(a.section_started_at).getTime())return a;
  const s=a.config.settings;let index=a.section_index,cursor=a.cursor,sectionStarted=a.section_started_at;const section=a.rendered_sections[index],deadline=new Date(sectionStarted).getTime()+section.duration_minutes*60000;
  const raw=cleanAnswers(flat(a),body.answers),answers={...a.answers};
  if(now>=new Date(sectionStarted).getTime()&&now<=deadline){for(let i=0;i<section.questions.length;i++){const q=section.questions[i];if(s.allow_back||i===cursor){if(Object.hasOwn(raw,q.id))answers[q.id]=raw[q.id];}}
   const requested=Number(body.cursor);if(Number.isInteger(requested)&&requested>=0&&requested<section.questions.length&&(s.allow_back||requested===cursor||requested===cursor+1))cursor=requested;
  }
  const advance=body.action==='assessment_advance'||now>deadline;
- if(advance){if(index===a.rendered_sections.length-1)return await finish(db,a,answers);index++;cursor=0;sectionStarted=new Date(Math.min(now,deadline)+s.break_minutes*60000).toISOString();}
+ if(advance){if(index===a.rendered_sections.length-1)return await finish(db,a,answers);index++;cursor=0;sectionStarted=new Date(now+s.break_minutes*60000).toISOString();}
  let events=a.events||[];if(s.log_visibility&&['hidden','visible','page_leave','copy_blocked','print_blocked'].includes(body.event?.type)&&events.length<2000)events=[...events,{type:body.event.type,at:new Date().toISOString(),section:index}];
  if(body.action==='assessment_finish')return await finish(db,a,answers);
  const update={answers,cursor,section_index:index,section_started_at:sectionStarted,events,lease_until:new Date(now+45000).toISOString(),version:a.version+1};
  const row=must(await db.from('nafes_assessment_attempts').update(update).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select().maybeSingle());if(!row)fail('تغيرت المحاولة أثناء الحفظ؛ أعد المحاولة.',409);return row;
+}
+export function recoveryPatch(a:Row,now=Date.now()):Row {
+ const sections=a.rendered_sections||[];
+ if(sections.length<2||!a.submitted_at)fail('الاستكمال مخصص لمحاولة مشتركة منتهية وغير مكتملة.',409);
+ const index=sections.findIndex((sec:Row)=>(sec.questions||[]).some((q:Row)=>!Number.isInteger(a.answers?.[q.id])));
+ if(index<0)fail('أجاب الطالب عن جميع الأسئلة؛ لا تحتاج المحاولة إلى استكمال.',409);
+ const event={type:'teacher_reopen_incomplete',at:new Date(now).toISOString(),previous:{submitted_at:a.submitted_at,expires_at:a.expires_at,section_index:a.section_index,cursor:a.cursor,score:a.score,total:a.total,percent:a.percent,section_scores:a.section_scores},resume_section:index};
+ return {config:{...a.config,recovery_pending:true},submitted_at:null,score:null,total:null,percent:null,section_scores:[],section_index:index,cursor:Math.max(0,sections[index].questions.findIndex((q:Row)=>!Number.isInteger(a.answers?.[q.id]))),section_started_at:new Date(now).toISOString(),expires_at:new Date(now+24*60*60*1000).toISOString(),lease_until:new Date(now).toISOString(),events:[...(a.events||[]),event],version:a.version+1};
+}
+async function teacherReopenIncomplete(db:any,b:Row,owner:Row){
+ assertMainAccount(owner);
+ if(!isUUID(b.attempt_id)||!isUUID(b.test_id))fail('حدد الطالب والاختبار أولًا.');
+ const a=must(await db.from('nafes_assessment_attempts').select('*').eq('id',b.attempt_id).eq('assessment_id',b.test_id).single());
+ const t=await assessment(db,b.code);
+ if(t.id!==a.assessment_id)fail('المحاولة لا تتبع هذا الاختبار.',403);
+ if(t.config.settings.manual_closed||t.config.settings.closes_at&&Date.now()>=new Date(t.config.settings.closes_at).getTime())fail('افتح موعد الاختبار أولًا ثم أعد فتح المحاولة.',409);
+ const patch=recoveryPatch(a);patch.access_hash=await hash(token());
+ const row=must(await db.from('nafes_assessment_attempts').update(patch).eq('id',a.id).eq('version',a.version).not('submitted_at','is',null).select('id').maybeSingle());
+ if(!row)fail('تغيرت المحاولة؛ حدّث النتائج وأعد المحاولة.',409);
+ return {ok:true,attempt_id:row.id,recovery_pending:true};
 }
 async function studentAction(db:any,body:Row) {
  async function demoStudentByCode(codeValue:unknown){
@@ -1441,10 +1467,17 @@ async function studentAction(db:any,body:Row) {
    const className=student.class_name || c.class_name || tidy(body.class_name,80);
    if(!isDemo&&c.identity_mode==='list'&&!c.roster.some((n:string)=>normalizeArabicName(n)===normalizeArabicName(name)))fail('اكتب اسمك كما هو في كشف الفصل.',403);
    const previous=must(await db.from('nafes_assessment_attempts').select('*').eq('assessment_id',t.id).eq('student_key',student_key).order('attempt_no',{ascending:false}));
-   for(const a of previous)if(!a.submitted_at&&now>=new Date(a.expires_at).getTime())Object.assign(a,await finish(db,a));
-   let active=previous.find((a:Row)=>!a.submitted_at);const access=token();
-   if(active){if(!isDemo&&s.lock_session&&active.session_id!==session&&now<new Date(active.lease_until).getTime())fail('المحاولة مفتوحة في جهاز أو تبويب آخر. أغلقها هناك وانتظر ٤٥ ثانية لإكمالها هنا.',409);
-    active=must(await db.from('nafes_assessment_attempts').update({session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),version:active.version+1}).eq('id',active.id).eq('version',active.version).is('submitted_at',null).select().maybeSingle());if(!active)fail('فُتحت المحاولة في تبويب آخر؛ أعد المحاولة.',409);return{...attemptResponse(active),access_token:access,resumed:true};}
+   for(const a of previous)if(!a.config?.recovery_pending&&!a.submitted_at&&now>=new Date(a.expires_at).getTime())Object.assign(a,await finish(db,a));
+   let active=previous.find((a:Row)=>!a.submitted_at);const recoveryResumed=active?.config?.recovery_pending===true;const access=token();
+   if(active){
+    if(active.config?.recovery_pending){
+     const remaining=active.rendered_sections.slice(active.section_index).reduce((n:number,sec:Row)=>n+Number(sec.duration_minutes||0),0)+Number(s.break_minutes||0)*(active.rendered_sections.length-active.section_index-1);
+     const expires=new Date(Math.min(now+remaining*60000,s.closes_at?new Date(s.closes_at).getTime():Infinity)).toISOString();
+     active=must(await db.from('nafes_assessment_attempts').update({config:{...active.config,recovery_pending:false},section_started_at:new Date(now).toISOString(),expires_at:expires,version:active.version+1}).eq('id',active.id).eq('version',active.version).is('submitted_at',null).select().maybeSingle());
+     if(!active)fail('تغيرت المحاولة؛ أعد الدخول.',409);
+    }
+    if(!isDemo&&s.lock_session&&active.session_id!==session&&now<new Date(active.lease_until).getTime())fail('المحاولة مفتوحة في جهاز أو تبويب آخر. أغلقها هناك وانتظر ٤٥ ثانية لإكمالها هنا.',409);
+    active=must(await db.from('nafes_assessment_attempts').update({session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),version:active.version+1}).eq('id',active.id).eq('version',active.version).is('submitted_at',null).select().maybeSingle());if(!active)fail('فُتحت المحاولة في تبويب آخر؛ أعد المحاولة.',409);return{...attemptResponse(active),access_token:access,resumed:true,recovery_resumed:recoveryResumed};}
    const completed=previous.find((a:Row)=>!!a.submitted_at);
    if(completed&&!isDemo&&body.start_new_attempt!==true){
      return {...attemptResponse(completed),resumed:true,completed_before:true,training_url:`${BASE}training.html?t=${t.short_code}`};
@@ -1481,7 +1514,7 @@ async function metadata(db:any,rows:Row[],source:string) {
   }
   return map;
 }
-function canonical(a:Row,source:string,map:Map<string,Row>,test?:Row):Row {
+export function canonical(a:Row,source:string,map:Map<string,Row>,test?:Row):Row {
  const c=a.config||{};const sections=source==='exam'?[{subject:a.subject_key,questions:a.rendered_questions||[]}]:a.rendered_sections||[];
  let warning='';const qs=sections.flatMap((sec:Row)=>sec.questions.map((q:Row)=>{
   const m=map.get(q.id);let key=q.indicator_key;if(!key&&source==='exam')key=`${a.subject_key}:${a.outcome_code}:i${a.indicator_index}`;
@@ -1492,7 +1525,7 @@ function canonical(a:Row,source:string,map:Map<string,Row>,test?:Row):Row {
   return{id:q.id,question:q.question,question_fingerprint:q.question_fingerprint,subject:sec.subject,indicator_key:key||null,indicator_text:q.indicator_text||indicator?.text||m?.indicator_text||'لم يُحفظ ارتباط هذا السؤال بمؤشر',answer,correct:correct_index===null?null:answer===correct_index,scorable:correct_index!==null,correct_index};
  }));
  const id=source==='exam'?legacyTestId(a):source==='simulation'?`simulation:${a.simulation_key}`:a.assessment_id;
-const submitted=!!a.submitted_at;const levelTotal=a.total||qs.length;return{id:a.id,source,is_demo:a.is_demo===true,test_id:id,title:test?.title||c.title||(source==='exam'?`اختبار مؤشر ${a.indicator_index} — النموذج ${a.model_no}`:'اختبار نافس'),kind:source==='exam'?'indicator':source==='simulation'?'simulation':c.kind,subjects:[...new Set(sections.map((s:Row)=>s.subject))],student_id:a.student_id||(isUUID(a.student_key)?a.student_key:null),student_key:a.student_key,student_name:a.student_name,student_no:a.student_no,class_name:a.class_name||c.class_name||'',school_name:a.school_name||'',teacher_name:a.teacher_name||'',principal_name:a.principal_name||'',grade_key:'middle_3',started_at:a.started_at,submitted_at:a.submitted_at,expires_at:a.expires_at,elapsed_seconds:submitted?Math.max(0,Math.round((Math.min(new Date(a.submitted_at).getTime(),new Date(a.expires_at).getTime())-new Date(a.started_at).getTime())/1000)):null,status:submitted?'submitted':Date.now()>new Date(a.expires_at).getTime()?'expired':'in_progress',score:submitted?a.score:null,total:levelTotal,percent:submitted?a.percent:null,questions:qs,events:a.events||[],...(warning?{snapshot_warning:warning}:{})};
+const submitted=!!a.submitted_at;const levelTotal=a.total||qs.length;return{id:a.id,source,is_demo:a.is_demo===true,test_id:id,title:test?.title||c.title||(source==='exam'?`اختبار مؤشر ${a.indicator_index} — النموذج ${a.model_no}`:'اختبار نافس'),kind:source==='exam'?'indicator':source==='simulation'?'simulation':c.kind,subjects:[...new Set(sections.map((s:Row)=>s.subject))],student_id:a.student_id||(isUUID(a.student_key)?a.student_key:null),student_key:a.student_key,student_name:a.student_name,student_no:a.student_no,class_name:a.class_name||c.class_name||'',school_name:a.school_name||'',teacher_name:a.teacher_name||'',principal_name:a.principal_name||'',grade_key:'middle_3',started_at:a.started_at,submitted_at:a.submitted_at,expires_at:a.expires_at,elapsed_seconds:submitted?Math.max(0,Math.round((Math.min(new Date(a.submitted_at).getTime(),new Date(a.expires_at).getTime())-new Date(a.started_at).getTime())/1000)):null,status:submitted?'submitted':Date.now()>new Date(a.expires_at).getTime()?'expired':'in_progress',score:submitted?a.score:null,total:levelTotal,percent:submitted?a.percent:null,section_scores:submitted?(a.section_scores||[]):[],recovery_pending:c.recovery_pending===true,current_section:a.section_index,completion_reason:submitted&&new Date(a.submitted_at).getTime()>=new Date(a.expires_at).getTime()?'time_expired':null,questions:qs,events:a.events||[],...(warning?{snapshot_warning:warning}:{})};
 }
 async function teacherData(db:any,b:Row) {
  const limit=Math.min(100,Math.max(1,Math.trunc(Number(b.limit)||100))),cursor=Math.max(0,Math.trunc(Number(b.cursor)||0));
@@ -1758,6 +1791,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_test_clear_results'){assertMainAccount(owner);return await teacherTestClearResults(db,b,owner);}
  if(b.action==='teacher_test_delete')return await teacherTestDelete(db,b,owner);
  if(b.action==='teacher_tests_bulk_clear'){assertMainAccount(owner);return await teacherTestsBulkClear(db,b,owner);}
+ if(b.action==='teacher_attempt_reopen_incomplete')return await teacherReopenIncomplete(db,b,owner);
  if(b.action==='teacher_data')return await scopedTeacherData(db,b,owner);
  if(b.action==='teacher_paper_review_upsert')return await teacherPaperReviewUpsert(db,b,owner);
  if(b.action==='teacher_paper_review_get')return await teacherPaperReviewGet(db,b,owner);

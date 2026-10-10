@@ -127,3 +127,6 @@ test('publishing repairs an existing unbalanced draft atomically and rejects tam
  };
  await run(false);await run(true);
 });
+
+// Regression coverage for multi-subject transitions and recovery.
+import "./test-joint-recovery.mjs";
