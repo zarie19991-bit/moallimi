@@ -117,6 +117,7 @@ analysis.js
 analysis-all-subjects.js
 report-absentees.js
 subject-report-separate.js
+indicator-detailed-report.js
 analysis-section-router.js
 analysis-print.js
 report-test-options.js
