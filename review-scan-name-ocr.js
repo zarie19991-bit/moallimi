@@ -183,5 +183,5 @@ async function readPrintedName(imageData,notify=()=>{},roster=[]){
   if(worker)await worker.terminate().catch(()=>{});
  }
 }
-root.NafesPrintedNameOCR={normalizeName,matchCandidate,proposals,readPrintedName};
+root.NafesPrintedNameOCR={normalizeName,matchCandidate,proposals,readPrintedName,headerRegions};
 })(typeof window!=='undefined'?window:globalThis);
