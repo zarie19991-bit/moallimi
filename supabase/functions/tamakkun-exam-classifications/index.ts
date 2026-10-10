@@ -335,14 +335,14 @@ async function addProgress(view:any,access:any){
 }
 async function planSheet(req:Request,body:any,access:any){
  const id=clean(body?.task_id);if(!/^[0-9a-f-]{36}$/i.test(id))throw httpError("اختر ورقة عمل صحيحة.",400);
- const {data:t,error}=await db.from("lugati_teacher_tasks").select("id,student_id,teacher_access_id,source_attempt_id,title,subject_key,indicator_text,tier,question_ids,status,assigned_at").eq("id",id).eq("teacher_access_id",access.id).neq("status","revoked").maybeSingle();
+ const {data:t,error}=await db.from("lugati_teacher_tasks").select("id,student_id,teacher_access_id,source_attempt_id,title,instructions,subject_key,indicator_text,tier,question_ids,status,assigned_at").eq("id",id).eq("teacher_access_id",access.id).neq("status","revoked").maybeSingle();
  if(error)throw error;if(!t)throw httpError("ورقة العمل غير موجودة.",404);
  const {data:student,error:se}=await db.from("nafes_students").select("full_name,class_name").eq("id",t.student_id).maybeSingle();if(se)throw se;
  const ids=(Array.isArray(t.question_ids)?t.question_ids:[]).map(String).slice(0,40);
  if(!ids.length)throw httpError("لا توجد أسئلة محفوظة في الورقة.",409);
- const {data:questions,error:qe}=await db.from("nafes_question_bank").select("id,question_text,context_text,options").in("id",ids);if(qe)throw qe;
+ const {data:questions,error:qe}=await db.from("nafes_question_bank").select("id,question_text,context_text,options,cognitive_level,difficulty").in("id",ids);if(qe)throw qe;
  const map=new Map((questions||[]).map((q:any)=>[String(q.id),q]));
- return reply(req,{ok:true,student_name:student?.full_name||"طالب",class_name:student?.class_name||"",title:t.title,indicator_text:t.indicator_text,tier:t.tier,assigned_at:t.assigned_at,questions:ids.map((id:string)=>map.get(id)).filter(Boolean)});
+ return reply(req,{ok:true,student_name:student?.full_name||"طالب",class_name:student?.class_name||"",title:t.title,instructions:t.instructions,indicator_text:t.indicator_text,tier:t.tier,assigned_at:t.assigned_at,questions:ids.map((id:string)=>map.get(id)).filter(Boolean)});
 }
 
 Deno.serve(async(req:Request)=>{
