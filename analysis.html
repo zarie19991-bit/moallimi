@@ -27,6 +27,28 @@
 <link rel="stylesheet" href="report-a4-flow-final.css?v=20260927-groups2">
 <link rel="stylesheet" href="analysis-reference-layout.css?v=20261005-stable3">
   <link rel="stylesheet" href="./platform-color-system.css?v=20261004-v2" />
+<style>
+#impactView .toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px}
+#impactView .toolbar label{min-width:150px;flex:1;display:grid;gap:5px}
+#impactView .toolbar select{max-width:100%;padding:9px;border:1px solid #c8d8d3;border-radius:8px}
+.impact-report-heading{display:flex;justify-content:space-between;align-items:center;gap:15px;border-bottom:2px solid #137663;padding-bottom:15px}
+.impact-report-heading div{display:flex;flex-direction:column;text-align:right;font-size:12px;line-height:1.7}
+.impact-report-heading h2{font-size:20px;text-align:center;flex:1}
+.impact-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0}
+.impact-stats>div{padding:13px;border-radius:10px;border:1px solid #cce3da;background:#f6fbf8;display:flex;flex-direction:column;gap:7px}
+.impact-stats span{font-size:12px;color:#50635c}.impact-stats b{font-size:20px;color:#075844}
+.impact-signatures{display:flex;justify-content:space-around;gap:16px;margin-top:32px;border-top:1px solid #ccd;padding-top:12px;line-height:2}
+@media print{
+ body.impact-print-mode .top,body.impact-print-mode .shell>*:not(#dashboard),body.impact-print-mode .main-tabs,body.impact-print-mode #dashboard>*:not(#impactView),body.impact-print-mode #impactView>section,body.impact-print-mode #impactView>*:not(#impactResult){display:none!important}
+ body.impact-print-mode .shell,body.impact-print-mode #dashboard,body.impact-print-mode #impactView,body.impact-print-mode #impactResult{display:block!important;margin:0!important;padding:0!important;box-shadow:none!important;border:0!important}
+ body.impact-print-mode #impactResult{position:static!important;width:100%!important;color:black!important;background:white!important}
+ body.impact-print-mode #impactResult table{width:100%;border-collapse:collapse;font-size:9pt}
+ body.impact-print-mode #impactResult th,body.impact-print-mode #impactResult td{border:1px solid #bbb;padding:5px}
+ body.impact-print-mode #impactResult thead{display:table-header-group}
+ body.impact-print-mode #impactResult tr,body.impact-print-mode .impact-stats>div{break-inside:avoid}
+ @page{size:A4 portrait;margin:12mm}
+}
+</style>
 </head>
 <body class="page-analysis">
 <header class="top no-print">
@@ -58,6 +80,7 @@
       <button class="main-tab" data-view="subject">تحليل مادة منفصلة</button>
       <button class="main-tab" data-view="subjectReport">تقرير رسمي لمادة</button>
       <button class="main-tab" data-view="indicatorReport">تقرير اختبار المؤشرات التفصيلي</button>
+      <button class="main-tab" data-view="impact">قياس أثر نواتج التعلم</button>
       <button class="main-tab" data-view="report">التقرير العام الرسمي</button>
     </nav>
 
@@ -84,6 +107,20 @@
       <div id="subjectOfficialReport" class="subject-official-preview"><div class="report-preview-empty">اختر المادة والاختبار والفصل، ثم اضغط «إنشاء تقرير المادة».</div></div>
     </section>
 
+    <section id="impactView" class="view-panel" hidden>
+      <section class="card"><h2>قياس أثر نواتج التعلم</h2><p class="muted">مقارنة الطالب نفسه في المؤشر نفسه بين اختبار قبلي واختبار بعدي؛ لا تُعد الخطة منفذة أو ناجحة ما لم تتوفر بيانات موثقة.</p>
+        <div class="toolbar subject-report-toolbar">
+          <label><span>المادة</span><select id="impactSubject"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
+          <label><span>الاختبار القبلي</span><select id="impactBefore"></select></label>
+          <label><span>الاختبار البعدي</span><select id="impactAfter"></select></label>
+          <label><span>المؤشر المشترك</span><select id="impactIndicator"></select></label>
+          <label><span>الفصل</span><select id="impactClass"><option value="">جميع الفصول</option></select></label>
+          <button type="button" class="btn primary" id="impactBuild">إنشاء قياس الأثر</button>
+          <button type="button" class="btn ghost" id="impactPrint">طباعة التقرير</button>
+        </div>
+      </section>
+      <div id="impactResult" class="card"><p class="muted">اختر اختبارين مرتبطين بالمؤشر نفسه لإظهار النتائج الحقيقية.</p></div>
+    </section>
     <section id="indicatorReportView" class="view-panel" hidden>
       <section class="card subject-report-controls"><div class="section-head"><div><h2>تقرير اختبار المؤشرات التفصيلي</h2><p class="muted">تقرير مستقل لتحليل الطالب والسؤال والمؤشر وقياس الأثر، دون تغيير التقرير الرسمي السابق.</p></div></div>
       <div class="toolbar subject-report-toolbar"><label><span>المادة</span><select id="indicatorReportSubject"><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label><label class="wide"><span>الاختبار</span><select id="indicatorReportTest"><option value="">جارٍ تحميل الاختبارات…</option></select></label><label><span>الفصل</span><select id="indicatorReportClass"><option value="">جميع الفصول</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select></label><button id="buildIndicatorReportBtn" class="btn primary" type="button">إنشاء تحليل المؤشرات</button><button id="printIndicatorReportBtn" class="btn ghost" type="button" disabled>طباعة / حفظ PDF</button></div><p id="indicatorReportState" class="muted"></p></section>
@@ -121,4 +158,5 @@
 <script src="student-result-delete.js?v=20260920-unified1"></script>
 
 <script src="analysis-reference-transform.js?v=20261006-subject-freeze4"></script>
-<script src="platform-auto-correct.js?v=20261006-freeze2"></script></body></html>
+<script src="platform-auto-correct.js?v=20261006-freeze2"></script><script src="analysis-impact.js?v=20261010-impact1"></script>
+</body></html>
