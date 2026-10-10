@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#17324d">
 <title>رفع أوراق الطلاب وتصحيحها | معلّمي</title>
-<link rel="stylesheet" href="review-scan.css?v=20261010-multiple-decision">
+<link rel="stylesheet" href="review-scan.css?v=20261010-identity-diagnostic2">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -116,7 +116,11 @@
     <div class="modal-grid">
       <div class="scan-preview"><img id="scanImage" alt="صورة ورقة التظليل الممسوحة"></div>
       <div>
-        <div id="manualAssignmentWrap" class="manual-assignment hidden"><label>تعذر تأكيد هوية الورقة — اختر الطالب:<select id="manualAssignment"></select></label><button id="applyManualAssignmentBtn" class="secondary" type="button">تأكيد اسم الطالب</button></div>
+        <div id="manualAssignmentWrap" class="manual-assignment hidden"><label>تعذر مطابقة هوية الورقة برمز QR، وليس بالضرورة أن الاسم غير مقروء. طابق صورة الورقة مع كشف الطلاب ثم اختر الطالب:<select id="manualAssignment"></select></label><button id="applyManualAssignmentBtn" class="secondary" type="button">تأكيد ربط الورقة بالطالب</button></div>
+        <div id="identityRefreshPanel" class="hidden" style="background:#f5f8fb;border:1px solid #b9d4dc;border-radius:9px;padding:12px;margin:12px 0">
+          <p>تم تأكيد هوية الطالب يدويًا في السابق، لكن بقيت حالات الإجابات القديمة غير محسومة. يمكن إعادة تصنيف <strong>اختيارات التظليل الأصلية المحفوظة</strong> بمفتاح نموذج الطالب المؤكد، دون تخمين إجابات، أو تعديل صورة الورقة، أو اعتماد النتيجة تلقائيًا.</p>
+          <button id="refreshIdentityGradeBtn" class="secondary" type="button">إعادة تصنيف الإجابات بعد تثبيت هوية الطالب</button>
+        </div>
         <p id="sheetWarning" role="status"></p><p id="modalFeedback" role="status" aria-live="polite"></p>
         <div id="omrUncertaintyReasons" role="status" aria-live="polite"></div>
         <section id="visionAssistPanel" aria-label="قارئ التظليل بالذكاء الاصطناعي" style="border:1px solid #d6e0df;border-radius:10px;padding:10px;margin:10px 0">
@@ -149,7 +153,7 @@
 <script src="teacher-access.js?v=20260920-scope5"></script>
 <script src="review-draft-sync.js?v=20260930-2"></script>
 <script src="review-omr-safety.js?v=20261010-independent-verify"></script>
-<script src="review-scan-journal.js?v=20261010-multiple-decision"></script>
+<script src="review-scan-journal.js?v=20261010-identity-diagnostic2"></script>
 <script src="review-scan.js?v=20261009-auth-read-fix1"></script>
 </body>
 </html>
