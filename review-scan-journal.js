@@ -55,11 +55,38 @@ const scoreMismatch=a=>Array.isArray(a?.answers)&&a.answers.length===Number(a.to
  Number.isFinite(Number(a.score))&&a.answers.filter(x=>x?.state==='correct'&&x.correct===true).length!==Number(a.score);
 const noGrade=a=>failedRead(a)||a.grade_status==='needs_review'||a.score===null||a.score===undefined||
  !Number.isFinite(Number(a.score))||pendingAnswerCount(a)>0||scoreMismatch(a);
+// Read-only answer-key comparison from the SAME scanned answers displayed in the modal.
+// Never treats an unverified candidate as an approved grade or writes it to storage.
+const provisionalReading=a=>{
+ const total=Number(a?.total),answers=a?.answers;
+ if(!a||a.identity_valid!==true||a.markers_ok!==true||a.omr_reader_error||
+  !Number.isInteger(total)||total<1||total>60||!Array.isArray(answers)||answers.length!==total)return null;
+ let matches=0,read=0;
+ for(const x of answers){
+  if(!x||x.status!=='clear'||(x.reading_status&&x.reading_status!=='clear')||
+    !Number.isInteger(x.selected)||x.selected<0||x.selected>3||
+    !Array.isArray(x.marked)||x.marked.length!==1||x.marked[0]!==x.selected||
+    !Number.isInteger(x.correct_index)||x.correct_index<0||x.correct_index>3)continue;
+  // A flag other than prior manual verification makes even the tentative choice unreliable.
+  const reasons=x.uncertainty?.reading;
+  if(Array.isArray(reasons)&&reasons.some(r=>r!=='prior_uncertainty_requires_explicit_review'))continue;
+  if(Array.isArray(x.uncertainty?.identity)&&x.uncertainty.identity.length)continue;
+  if(Array.isArray(x.uncertainty?.answer_key)&&x.uncertainty.answer_key.length)continue;
+  read++;
+  if(x.selected===x.correct_index)matches++;
+ }
+ return read?{matches,read,total}:null;
+};
 const gradeText=a=>{
  if(failedRead(a))return 'فشل القراءة — بلا درجة';
  if(scoreMismatch(a))return 'الدرجة لا تطابق الإجابات — مراجعة مطلوبة';
  const pending=pendingAnswerCount(a);
- if(pending)return 'بانتظار مراجعة '+ar(pending)+' إجابة — بلا درجة معتمدة';
+ if(pending){
+  const preview=provisionalReading(a);
+  if(preview)return 'قراءة مبدئية '+ar(preview.matches)+' / '+ar(preview.total)+
+   ' (المقروء '+ar(preview.read)+'؛ المعلق '+ar(pending)+' — غير معتمدة)';
+  return 'بانتظار مراجعة '+ar(pending)+' إجابة — بلا درجة معتمدة';
+ }
  return noGrade(a)?'بانتظار المراجعة — بلا درجة':ar(a.score)+' / '+ar(a.total);
 };
 const safeNumericGrade=a=>noGrade(a)?'':Number(a.score);
@@ -148,7 +175,7 @@ function render(){
 }
 async function open(i){
  if(busy||!sheets[i])return;
- const p=firstPending();if(p>=0&&i>p){i=p;message('يجب التحقق من الورقة السابقة قبل الانتقال.');}
+ // Opening any selected paper is allowed; final acceptance still validates every sheet.
  active=i;loadedImage=null;const s=sheets[i],a=effective(s);
  if($('visionProposal'))$('visionProposal').innerHTML='';
  $('modalTitle').textContent=a.student_name+' — نموذج '+a.model;
