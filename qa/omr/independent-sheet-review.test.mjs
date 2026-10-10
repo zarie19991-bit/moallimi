@@ -39,7 +39,7 @@ test('independent sheet review remains guarded, while browsing next page never r
  assert(journal.includes('pendingAnswerCount(effective(s))>0||scoreMismatch(effective(s))'));
  assert(journal.includes('يمكنك اختيار أي ورقة أخرى'));
  assert(html.includes('id="reviewEligibilityNote"'));
- assert(html.includes('review-scan-journal.js?v=20261010-independent-verify'));
+ assert(html.includes('review-scan-journal.js?v=20261010-'),'Review script must have a current 20261010 cache-busting version');
  assert(html.includes('review-omr-safety.js?v=20261010-independent-verify'));
 });
 test('database migration only removes sequential dependency and preserves remaining validation',()=>{

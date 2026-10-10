@@ -200,7 +200,7 @@ function renderButtons(){
    sheets.some(s=>!s.blocked_duplicate&&(safety.unresolvedSheet(s)||failedRead(effective(s))));
  if($('deleteSelectedBtn')){$('deleteSelectedBtn').disabled=busy||selected.size===0;$('deleteSelectedBtn').textContent=selected.size?'حذف التصحيحات المحددة ('+ar(selected.size)+')':'حذف التصحيحات المحددة';}if($('selectAllBtn')){$('selectAllBtn').disabled=busy||!sheets.length;$('selectAllBtn').textContent=sheets.length&&selected.size===sheets.length?'إلغاء تحديد الكل':'تحديد الكل';}
  if($('applyManualAssignmentBtn'))$('applyManualAssignmentBtn').disabled=busy||!s||effective(s).identity_valid===true||!!session?.completed_at||!$('manualAssignment')?.value;
- document.querySelectorAll('[data-edit-question]').forEach(b=>{b.disabled=busy||!ready()||!s||loadedImage!==s.id||!!session?.completed_at;});
+ document.querySelectorAll('[data-edit-question],[data-resolve-question]').forEach(b=>{b.disabled=busy||!ready()||!s||loadedImage!==s.id||!!session?.completed_at||!!s?.reviewed_at;});
  $('retryUploadBtn').classList.toggle('hidden',!pending);
 }
 function render(){
@@ -234,7 +234,21 @@ async function open(i){
  $('answerEditor').innerHTML=a.answers.map(x=>{
    const original=s.snapshot.answers[x.question-1],originalText=original.marked.length?original.marked.map(j=>letters[j]).join(' + '):'فارغة';
    const evidence='<small class="omr-evidence">'+esc(opticalEvidenceText(x))+'</small>';
-   return '<div class="answer-row-edit state-'+x.state+'"><div><b>س '+ar(x.question)+'</b><small>'+labels[x.state]+' · '+(x.reviewed_manually?'معدلة يدويًا':'تقدير آلي '+ar(Math.round(Number(x.confidence||0)*100))+'/100 (ليس قياسًا للدقة)')+'</small>'+evidence+(x.reviewed_manually?'<small class="original-answer">القراءة الأصلية: '+esc(originalText)+' — '+labels[original.state]+'</small>':'')+'</div><div class="choice-buttons" aria-label="تعديل إجابة السؤال '+x.question+'">'+letters.map((l,j)=>'<button type="button" data-edit-question="'+x.question+'" data-choice="'+j+'" aria-pressed="'+x.marked.includes(j)+'" class="readonly-choice '+(x.marked.includes(j)?'selected':'')+'">'+l+'</button>').join('')+'<button type="button" data-edit-question="'+x.question+'" data-choice="blank" class="blank-choice" aria-pressed="'+(x.marked.length===0)+'">فارغة</button></div></div>';
+   const key=x.correct_index,confirmedOriginal=original?.status==='multiple'&&
+      Array.isArray(original.marked)&&original.marked.length>=2&&original.marked.includes(key);
+   const eligibleMultiple=x.status==='multiple'&&x.state==='multiple'&&x.selected===null&&
+      Array.isArray(x.marked)&&x.marked.length>=2&&
+      !x.reviewed_manually&&!s.reviewed_at&&!s.blocked_duplicate;
+   const creditAllowed=eligibleMultiple&&confirmedOriginal&&x.marked.includes(key)&&
+      (x.uncertainty?.reading||[]).length===0;
+   const multiDecision=eligibleMultiple?
+     '<div class="multiple-resolution"><small>الطالب ظلّل '+esc(x.marked.map(j=>letters[j]).join(' + '))+'؛ القرار للمعلم بعد مشاهدة صورة الورقة:</small>'+
+     (creditAllowed?'<button type="button" data-resolve-question="'+x.question+'" data-resolution="credit_correct" class="secondary">احتساب الصحيحة ('+letters[key]+') — درجة واحدة</button>':
+       '<small>لا يظهر خيار منح الدرجة: الإجابة الصحيحة ليست مثبتة ضمن التظليل الأصلي.</small>')+
+     '<button type="button" data-resolve-question="'+x.question+'" data-resolution="count_wrong" class="secondary">إبقاء التظليل المتعدد واحتسابه خطأ (0)</button></div>':
+     x.reviewed_manually&&String(x.manual_reason||'').startsWith('قرار مراجعة متعدد التظليل')?
+     '<small class="multiple-resolution">قرار المراجع محفوظ في سجل التعديلات: '+esc(x.state==='correct'?'مُنحت درجة للإجابة الصحيحة الموجودة ضمن التظليل':'تظليل متعدد محسوب خطأ')+'</small>':'';
+   return '<div class="answer-row-edit state-'+x.state+'"><div><b>س '+ar(x.question)+'</b><small>'+labels[x.state]+' · '+(x.reviewed_manually?'معدلة يدويًا':'تقدير آلي '+ar(Math.round(Number(x.confidence||0)*100))+'/100 (ليس قياسًا للدقة)')+'</small>'+evidence+(x.reviewed_manually?'<small class="original-answer">القراءة الأصلية: '+esc(originalText)+' — '+labels[original.state]+'</small>':'')+'</div><div class="choice-buttons" aria-label="تعديل إجابة السؤال '+x.question+'">'+letters.map((l,j)=>'<button type="button" data-edit-question="'+x.question+'" data-choice="'+j+'" aria-pressed="'+x.marked.includes(j)+'" class="readonly-choice '+(x.marked.includes(j)?'selected':'')+'">'+l+'</button>').join('')+'<button type="button" data-edit-question="'+x.question+'" data-choice="blank" class="blank-choice" aria-pressed="'+(x.marked.length===0)+'">فارغة</button></div>'+multiDecision+'</div>';
  }).join('');
  $('sheetEditHistory').innerHTML='';$('editHistoryDetails').open=false;
  $('editMode').disabled=!!session?.completed_at;
@@ -465,6 +479,36 @@ async function editAnswer(question,choice){
  }catch(e){message('تعذر حفظ التعديل: '+e.message,true);try{const r=await api('teacher_scan_list');session=r.session;sheets=r.sheets;render();refresh=true;}catch(_){}}
  finally{lock(false);if(refresh)await open(active);}
 }
+async function resolveMultiple(question,resolution){
+ const sheet=sheets[active];
+ if(busy||!sheet||!ready()||loadedImage!==sheet.id||session?.completed_at||sheet.reviewed_at)return;
+ const current=effective(sheet)?.answers?.[question-1],original=sheet.snapshot?.answers?.[question-1];
+ if(!current||current.status!=='multiple'||current.state!=='multiple'||!Array.isArray(current.marked)||current.marked.length<2)return;
+ const mode=String(resolution||'');
+ if(!['credit_correct','count_wrong'].includes(mode))return;
+ const key=current.correct_index;
+ if(mode==='credit_correct'&&(!Number.isInteger(key)||key<0||key>3||
+   original?.status!=='multiple'||!original.marked?.includes(key)||!current.marked.includes(key))){
+   message('لا تُمنح درجة: الإجابة الصحيحة ليست ضمن التظليل الأصلي المؤكد.',true);return;
+ }
+ const choice=mode==='credit_correct'?
+  'منح درجة للسؤال '+ar(question)+' لأن الخيار الصحيح ('+letters[key]+') ضمن الخيارات المظللة أصلًا':
+  'إبقاء التظليل المتعدد في السؤال '+ar(question)+' واحتسابه خطأً بصفر';
+ if(!confirm('تأكيد قرار مراجعة الصورة: '+choice+'.\nسيُحفظ القرار في سجل تعديل الإجابات، ولن تُغيّر الصورة أو القراءة الأصلية. هل تريد المتابعة؟'))return;
+ const reason=$('manualReviewReason')?.value?.trim()||'';
+ lock(true);let reload=false;
+ try{
+  const result=await api('teacher_scan_resolve_multiple',{
+   sheet_id:sheet.id,question,resolution:mode,answer_version:sheet.answer_version||0,
+   request_id:crypto.randomUUID(),reason
+  });
+  sheets[active]=result.sheet;render();reload=true;
+  message('حُفظ القرار للسؤال '+ar(question)+': '+(mode==='credit_correct'?'احتساب الصحيحة من المظللات':'تظليل متعدد محسوب خطأ')+'. راجع بقية الأسئلة ثم احفظ التحقق من الورقة.');
+ }catch(e){
+  message('تعذر حسم التظليل المتعدد: '+e.message,true);
+  try{const latest=await api('teacher_scan_list');session=latest.session;sheets=latest.sheets;render();reload=true;}catch(_){}
+ }finally{lock(false);if(reload)await open(active);}
+}
 async function editHistory(){
  const s=sheets[active];if(!s||busy)return;
  try{const r=await api('teacher_scan_edit_history',{sheet_id:s.id});
@@ -610,7 +654,11 @@ async function init(p){
  await refreshAlerts();await refreshDeletionLog();
  poll=setInterval(()=>{if(!document.hidden&&!busy){refreshAlerts();refreshDeletionLog();}},10000);
 }
-$('answerEditor').onclick=e=>{const b=e.target.closest('[data-edit-question]');if(b&&!b.disabled)editAnswer(Number(b.dataset.editQuestion),b.dataset.choice);};
+$('answerEditor').onclick=e=>{
+ const decide=e.target.closest('[data-resolve-question]');
+ if(decide&&!decide.disabled){resolveMultiple(Number(decide.dataset.resolveQuestion),decide.dataset.resolution);return;}
+ const b=e.target.closest('[data-edit-question]');if(b&&!b.disabled)editAnswer(Number(b.dataset.editQuestion),b.dataset.choice);
+};
 if($('visionReadBtn'))$('visionReadBtn').onclick=visionReadProposal;
  $('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;$('rereadAllBtn').onclick=()=>rereadAllStrict({auto:false,onlyStale:false});
 $('loadEditHistoryBtn').onclick=editHistory;

@@ -1,3 +1,4 @@
+import { canCreditOriginalCorrect, confirmedMultiple } from "./omr-multiple-review.ts";
 // Auth is performed by handleAssessments before invoking this module.
 import { fail, hash } from './assessment-engine.ts';
 import { readOmrJpeg } from './omr-server.ts';
@@ -177,7 +178,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  const {session}=await scanSession(db,b,owner);
  const mutations=['teacher_scan_finalize_upload','teacher_scan_register','teacher_scan_assign_identity',
-   'teacher_scan_reprocess_server','teacher_scan_reclassify','teacher_scan_edit_answer','teacher_scan_verify','teacher_scan_finish'];
+   'teacher_scan_reprocess_server','teacher_scan_reclassify','teacher_scan_edit_answer','teacher_scan_resolve_multiple','teacher_scan_verify','teacher_scan_finish'];
  if(mutations.includes(b.action)&&session.reviewer_id!==owner.id)fail('التعديل متاح لمراجع الجلسة المسجل فقط.',403);
  if(b.action==='teacher_scan_list'){
     const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
@@ -353,6 +354,50 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    if(!uuid(b.request_id)||!uuid(b.sheet_id)||!Number.isInteger(b.question)||!Number.isInteger(b.answer_version)||!Array.isArray(b.marked)||b.marked.length>4||b.marked.some((n:any)=>!Number.isInteger(n)||n<0||n>3))fail('بيانات تعديل الإجابة غير صالحة.');
    if(typeof b.reason!=='string'||b.reason.trim().length<3||b.reason.trim().length>1000)fail('سبب التعديل اليدوي مطلوب.');
    return {ok:true,sheet:must(await db.rpc('nafes_scan_edit_answer',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_question:b.question,p_marked:b.marked,p_version:b.answer_version,p_request:b.request_id,p_reason:b.reason.trim()}))};
+ }
+ if(b.action==='teacher_scan_resolve_multiple'){
+   // Explicit teacher adjudication only; no automatic grade for multiple shading.
+   // The existing versioned, audited RPC remains the sole write authority.
+   const mode=String(b.resolution||'');
+   const q=Number(b.question),version=b.answer_version;
+   if(!uuid(b.sheet_id)||!uuid(b.request_id)||!Number.isInteger(version)||
+      !Number.isInteger(q)||q<1||q>60||
+      !['credit_correct','count_wrong'].includes(mode))fail('قرار التظليل المتعدد غير صالح.',400);
+   if(session.completed_at)fail('الجلسة منتهية؛ لا يجوز تعديل درجاتها.',409);
+   const row=must(await db.from('nafes_scan_sheets').select(summaryColumns)
+      .eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
+   if(!row)fail('الورقة غير موجودة.',404);
+   if(row.answer_version!==version)fail('تغيرت الإجابات أثناء المراجعة؛ أعد فتح الورقة.',409);
+   if(row.blocked_duplicate||!row.student_id)fail('لا يمكن منح درجة لنسخة مكررة أو ورقة دون هوية.',409);
+   const doc=row.effective_snapshot||row.snapshot||{},original=row.snapshot||{};
+   if(doc.identity_valid!==true||doc.markers_ok!==true||doc.omr_reader_error)
+     fail('يجب تأكيد هوية الورقة والمحاذاة أولًا.',409);
+   if(!Array.isArray(doc.answers)||!Array.isArray(original.answers)||
+      doc.answers.length!==Number(session.review_snapshot?.question_count)||
+      q>doc.answers.length)fail('أسئلة الورقة غير مكتملة.',409);
+   const current=doc.answers[q-1],source=original.answers[q-1];
+   const originalMarks=Array.isArray(source?.marked)?source.marked:[];
+   const marks=Array.isArray(current?.marked)?current.marked:[];
+   if(!confirmedMultiple(current))
+     fail('التظليل متعدد الخيارات غير مثبت أو يتضمن قراءة غير محسومة؛ راجع الصورة أولًا.',409);
+   const key=current.correct_index;
+   if(!validOption(key)||source?.correct_index!==key)
+     fail('مفتاح الإجابة غير صالح أو لا يطابق النموذج الأصلي.',409);
+   if(mode==='credit_correct'&&!canCreditOriginalCorrect(source,current))
+     fail('لا يمكن منح درجة: الخيار الصحيح غير مثبت ضمن الخيارات المظللة في القراءة الأصلية.',409);
+   const detail=mode==='credit_correct'?
+     'قرار مراجعة متعدد التظليل: احتساب الإجابة الصحيحة التي ثبت أنها ضمن الدوائر المظللة في الصورة الأصلية':
+     'قرار مراجعة متعدد التظليل: إبقاء التظليل المتعدد واحتساب السؤال خطأً دون درجة';
+   const extra=typeof b.reason==='string'?b.reason.trim():'';
+   if(extra.length>600)fail('سبب المراجعة طويل جدًا.',400);
+   const reason=detail+(extra?' — '+extra:'');
+   const newMarks=mode==='credit_correct'?[key]:marks;
+   const updated=must(await db.rpc('nafes_scan_edit_answer',{
+      p_session:session.id,p_sheet:row.id,p_reviewer:owner.id,p_question:q,
+      p_marked:newMarks,p_version:version,p_request:b.request_id,p_reason:reason
+   }));
+   return {ok:true,sheet:updated,resolution:mode,
+      original_marks:originalMarks,official_grade_changed:mode==='credit_correct'};
  }
  if(b.action==='teacher_scan_edit_history'){
    const found=must(await db.from('nafes_scan_sheets').select('id').eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());if(!found)fail('ورقة غير موجودة.',404);

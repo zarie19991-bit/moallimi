@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - 'review-scan-journal.js'
+      - 'supabase/functions/nafes-exam/paper-scan.ts'
+      - 'supabase/functions/nafes-exam/omr-multiple-review.ts'
+      - 'qa/omr/multiple-adjudication.test.mjs'
+      - 'review-scan.css'
       - 'review-scan.html'
       - 'review-omr-safety.js'
       - 'qa/omr/independent-sheet-review.test.mjs'
@@ -37,3 +41,5 @@ jobs:
         run: node --test qa/omr/center-evidence-diagnostics.test.mjs
       - name: Verify independent per-sheet OMR approval without unlocking uncertain answers
         run: node --test qa/omr/independent-sheet-review.test.mjs
+      - name: Check teacher choices for multiple shading and audit
+        run: node --test qa/omr/multiple-adjudication.test.mjs
