@@ -39,7 +39,7 @@ test('neither OCR nor roster suggestions ever invoke the identity or grading API
  assert(!code.includes('teacher_scan_verify'));
  assert(!code.includes('teacher_scan_register'));
  assert(code.includes("T.createWorker('ara'"));
- assert(code.includes('const cropH=Math.floor(h*.44)'));
+ assert(code.includes('cropH=Math.floor(h*.44)'));
  assert(code.includes('await worker.recognize(canvas)'));
  assert(code.includes('await worker.terminate()'));
  assert(code.includes('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js'));
