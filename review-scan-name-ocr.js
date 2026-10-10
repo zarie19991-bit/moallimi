@@ -63,6 +63,24 @@ function matchCandidate(ocrText,studentName){
    }
   }
  }
+ // OCR may lose the last one or two words of a long Arabic name. Present
+ // a cautiously labeled suggestion on three consecutive matching name words,
+ // never an automatic or "unique" verified identity.
+ if(best.score<.7&&name.length>=4&&stream.length>=3){
+  for(let start=0;start<=stream.length-3;start++){
+   for(let size=3;size<name.length&&start+size<=stream.length;size++){
+    const part=stream.slice(start,start+size);
+    for(let nameStart=0;nameStart+size<=name.length;nameStart++){
+     const scores=part.map((p,i)=>tokenScore(p,name[nameStart+i]));
+     const hits=scores.filter((v,i)=>v>=.78&&part[i].length>=3).length;
+     const avg=scores.reduce((a,b)=>a+b,0)/scores.length;
+     if(hits<size||avg<.8)continue;
+     const score=Math.min(.79,.42+.30*(size/name.length)+.12*(avg-.75));
+     if(score>best.score)best={score,matched:hits,phrase:part.join(' ')};
+    }
+   }
+  }
+ }
  return {...best,score:Number(best.score.toFixed(3))};
 }
 function proposals(text,assignments,usedIds=[]){
@@ -70,7 +88,7 @@ function proposals(text,assignments,usedIds=[]){
  const matches=(assignments||[])
   .filter(a=>a&&a.student_id&&a.student_name&&!used.has(String(a.student_id)))
   .map(a=>({...a,...matchCandidate(text,a.student_name)}))
-  .filter(a=>a.matched>=3&&a.score>=.62)
+  .filter(a=>a.matched>=3&&a.score>=.53)
   .sort((a,b)=>b.score-a.score);
  const best=matches[0],second=matches[1];
  // A unique high score is a suggested choice only; a teacher must still
