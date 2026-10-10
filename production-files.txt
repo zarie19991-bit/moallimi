@@ -193,3 +193,6 @@ moallimi-logo-complete-2x.png
 
 exam-activity.js
 attempt-timing-report.js
+
+review-indicator-detail.html
+review-indicator-detail.js
