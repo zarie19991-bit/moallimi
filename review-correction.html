@@ -26,7 +26,7 @@
     <div>
       <span class="eyebrow">نظام الاختبارات الورقية الآلية</span>
       <h1>الاختبار الآلي والتصحيح</h1>
-      <p>إنشاء اختبارات من ١٠ إلى ٦٠ سؤالًا من بنك المؤشرات، ثم توزيع النماذج وتجهيز التظليل والتصحيح والتحليل.</p>
+      <p>إنشاء اختبارات من ٥ إلى ٦٠ سؤالًا من بنك المؤشرات، ثم توزيع النماذج وتجهيز التظليل والتصحيح والتحليل.</p>
     </div>
     <div class="hero-status">
       <span>النماذج الافتراضية</span>
@@ -68,12 +68,12 @@
 
   <section class="builder-grid">
     <article class="card">
-      <header class="card-head"><span class="step-no">١</span><div><h2>بيانات الاختبار</h2><p>اضبط الاختبار مرة واحدة، والمنصة تبني النماذج المتكافئة ضمن نطاق ١٠–٦٠ سؤالًا.</p></div></header>
+      <header class="card-head"><span class="step-no">١</span><div><h2>بيانات الاختبار</h2><p>اضبط الاختبار مرة واحدة، والمنصة تبني النماذج المتكافئة ضمن نطاق ٥–٦٠ سؤالًا.</p></div></header>
       <div class="fields">
         <label class="field wide"><span>اسم الاختبار</span><input id="reviewTitle" value="اختبار نافس" maxlength="160"></label>
         <div class="field wide"><span>المواد داخل الاختبار</span><div id="subjectChoices" class="subject-choices"></div><select id="subject" hidden></select><small class="field-help">يمكن دمج القراءة والرياضيات والعلوم في اختبار واحد. ستظهر كل مادة في قسم مستقل ومنظم داخل الورقة.</small></div>
         <label class="field"><span>الفصل</span><select id="className"><option value="">جميع الفصول</option></select></label>
-        <label class="field"><span>عدد الأسئلة الكلي</span><input id="questionCount" type="number" min="60" max="60" step="1" value="60" inputmode="numeric" readonly><small class="field-help">ثابت: ٦٠ سؤالًا. عدد الأسئلة المتاحة في البنك قد يكون أكبر بكثير، لكن الاختبار يسحب ٦٠ فقط.</small></label>
+        <label class="field"><span>عدد الأسئلة الكلي</span><input id="questionCount" type="number" min="5" max="60" step="1" value="60" inputmode="numeric"><small class="field-help">اختر العدد الكلي من ٥ إلى ٦٠ سؤالًا؛ تُوزَّع الأسئلة المختارة تلقائيًا على المؤشرات.</small></label>
         <label class="field"><span>عدد النماذج</span><select id="modelCount"><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label class="field"><span>اسم الطالب في ورقة التظليل</span><select id="bubbleNameMode"><option value="printed" selected>مطبوع</option><option value="blank">فارغ</option></select></label>
       </div>
       <div class="switches">
@@ -148,6 +148,6 @@
 <script src="nafes-math.js?v=20260909-final"></script>
 <script src="nafes-science.js?v=20260909-final"></script>
 <script src="teacher-access.js?v=20260930-mainfix1"></script>
-<script src="review-correction.js?v=20261010-detailed-report-link"></script>
+<script src="review-correction.js?v=20261010-count5to60"></script>
 <script src="platform-auto-correct.js?v=20261003-corrector1"></script>\n</body>
 </html>
