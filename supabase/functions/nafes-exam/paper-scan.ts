@@ -1,4 +1,5 @@
 import { canCreditOriginalCorrect, confirmedMultiple } from "./omr-multiple-review.ts";
+import { identityOnlyUncertainty, preserveOpticalEvidence } from "./omr-identity-fix.ts";
 // Auth is performed by handleAssessments before invoking this module.
 import { fail, hash } from './assessment-engine.ts';
 import { readOmrJpeg } from './omr-server.ts';
@@ -178,7 +179,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  const {session}=await scanSession(db,b,owner);
  const mutations=['teacher_scan_finalize_upload','teacher_scan_register','teacher_scan_assign_identity',
-   'teacher_scan_reprocess_server','teacher_scan_reclassify','teacher_scan_edit_answer','teacher_scan_resolve_multiple','teacher_scan_verify','teacher_scan_finish'];
+   'teacher_scan_reprocess_server','teacher_scan_reclassify','teacher_scan_refresh_identity_grade','teacher_scan_edit_answer','teacher_scan_resolve_multiple','teacher_scan_verify','teacher_scan_finish'];
  if(mutations.includes(b.action)&&session.reviewer_id!==owner.id)fail('التعديل متاح لمراجع الجلسة المسجل فقط.',403);
  if(b.action==='teacher_scan_list'){
     const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
@@ -301,13 +302,17 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
        markers_ok:current.markers_ok===true,reader_error:!!current.omr_reader_error});
      // Changing the identity/key is not an explicit answer review.
      // Keep previously uncertain answers pending even if the new key matches.
-     if((raw.state==='uncertain'||raw.review_pending===true)&&classified.state!=='uncertain'){
+     if((raw.state==='uncertain'||raw.review_pending===true)&&classified.state!=='uncertain'&&!identityOnlyUncertainty(raw)){
        classified.state='uncertain';classified.correct=false;classified.requires_verification=true;
        classified.review_pending=true;classified.review_pending_reason='prior_uncertainty_requires_explicit_review';
      }
-     return {...raw,...classified,
+     const fixed=preserveOpticalEvidence(raw,classified);
+     return {...fixed,
        reader_selected:validOption(raw.reader_selected)?raw.reader_selected:classified.reader_selected,
-       reviewed_manually:raw.reviewed_manually===true};
+       reviewed_manually:raw.reviewed_manually===true,
+       review_pending:classified.state==='uncertain',
+       requires_verification:classified.state==='uncertain'||classified.state==='multiple',
+       review_pending_reason:classified.state==='uncertain'?'original_optical_uncertainty':null};
    });
    if(typeof b.reason!=='string'||b.reason.trim().length<3||b.reason.trim().length>1000)fail('سبب تعديل الهوية مطلوب.');
    const effective={...current,student_name:assignment.student_name,model:assignment.model,identity_valid:true,identity_source:'manual',identity_manual_reason:b.reason.trim(),answers,
@@ -326,6 +331,63 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const refreshed=must(await db.from('nafes_scan_sessions').select('*').eq('id',session.id).single());
    const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
    return {ok:true,...result,session:publicSession(refreshed),sheets};
+ }
+ if(b.action==='teacher_scan_refresh_identity_grade'){
+   // Regrade only the ORIGINAL optical evidence after a human has identified
+   // the sheet. Never use the answer key to invent bubble selections.
+   if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version)||b.confirm!==true)
+     fail('يلزم تأكيد إعادة التصنيف ونسخة الورقة.',400);
+   if(session.completed_at)fail('انتهت الجلسة؛ لا يجوز تغيير نتائجها.',409);
+   const row=must(await db.from('nafes_scan_sheets').select(summaryColumns)
+     .eq('session_id',session.id).eq('id',b.sheet_id).maybeSingle());
+   if(!row)fail('الورقة غير موجودة.',404);
+   if(row.answer_version!==b.answer_version)fail('تغيرت الورقة؛ أعد فتحها.',409);
+   if(row.reviewed_at||row.blocked_duplicate||!row.student_id)
+     fail('لا يجوز إعادة حساب ورقة معتمدة أو مكررة أو دون طالب.',409);
+   const current=row.effective_snapshot||row.snapshot||{},original=row.snapshot||{};
+   if(current.identity_valid!==true||current.identity_source!=='manual'||original.identity_valid===true||
+      current.markers_ok!==true||original.markers_ok!==true||
+      !!current.omr_reader_error||!!original.omr_reader_error)
+     fail('لا تنطبق إعادة التصنيف على هذه الورقة؛ راجع هوية الورقة أو المحاذاة.',409);
+   const p=session.review_snapshot||{},assignment=(p.assignments||[])
+     .find((a:Row)=>String(a.student_id)===String(row.student_id));
+   if(!assignment||String(assignment.model)!==String(current.model))
+     fail('هوية النموذج لا تطابق الطالب المختار.',409);
+   const key=(p.answer_keys||[]).find((k:Row)=>k.model===assignment.model)?.answers||[];
+   if(!Array.isArray(original.answers)||original.answers.length!==p.question_count||
+      key.length!==p.question_count||key.some((k:Row)=>!validOption(k?.correct_index))||
+      (current.answers||[]).some((a:Row)=>a.reviewed_manually===true))
+     fail('لا يمكن إعادة تصنيف ورقة عُدلت يدويًا أو ذات مفتاح غير مكتمل.',409);
+   const answers=original.answers.map((raw:Row,i:number)=>{
+     const classified:Row=classifyAnswer(raw,key[i],i,{
+        identity_valid:true,key_complete:true,markers_ok:true
+     });
+     if(!identityOnlyUncertainty(raw)&&raw.state==='uncertain'){
+       classified.state='uncertain';classified.correct=false;
+       classified.requires_verification=true;classified.review_pending=true;
+       classified.review_pending_reason='original_optical_uncertainty';
+     }
+     return {...preserveOpticalEvidence(raw,classified),
+       reviewed_manually:false,review_pending:classified.state==='uncertain',
+       requires_verification:classified.state==='uncertain'||classified.state==='multiple'};
+   });
+   const counts=answers.reduce((m:Row,a:Row)=>(m[a.state]=(m[a.state]||0)+1,m),
+       {blank:0,multiple:0,correct:0,incorrect:0,uncertain:0});
+   const review=classificationVerification(original.omr_reading_verification||original.omr_verification,answers);
+   const next={...current,answers,counts,score:counts.correct,total:p.question_count,
+     omr_verification:{...review,auto_accept:false,requires_manual_review:true},
+     ...classificationDiagnostics(answers),
+     identity_reclassification:{source:'original_optical_evidence',original_answer_version:row.answer_version,
+       reviewer_id:owner.id,at:new Date().toISOString()}};
+   const updated=must(await db.from('nafes_scan_sheets')
+      .update({effective_snapshot:next,answer_version:row.answer_version+1,
+        reviewed_at:null,reviewed_by:null,disposition:null})
+      .eq('id',row.id).eq('session_id',session.id)
+      .eq('answer_version',row.answer_version).is('reviewed_at',null)
+      .select(summaryColumns).maybeSingle());
+   if(!updated)fail('تغيرت الورقة أثناء إعادة التصنيف؛ أعد فتحها.',409);
+   return {ok:true,sheet:updated,restored_clear:answers.filter((a:Row)=>a.status==='clear'&&a.state!=='uncertain').length,
+     still_uncertain:counts.uncertain,multiple_for_review:counts.multiple,not_approved:true};
  }
  if(b.action==='teacher_scan_reprocess_server'){
    if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات إعادة القراءة الخادمية غير صالحة.');

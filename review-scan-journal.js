@@ -149,7 +149,7 @@ function exportQualityReport(){
 function message(t,error=false){$('journalStatus').textContent=t;$('journalStatus').className='notice '+(error?'error':'');if($('modalFeedback')){$('modalFeedback').textContent=t;$('modalFeedback').className=error?'notice error':'notice';}}
 function firstPending(){return sheets.findIndex(s=>!s.reviewed_at);}
 function ready(){return session&&sheets.length===session.expected_count;}
-function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','resetOmrAttemptsBtn','applyManualAssignmentBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
+function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','resetOmrAttemptsBtn','applyManualAssignmentBtn','refreshIdentityGradeBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
 function ensureSelectAll(){
  let box=$('selectAllSheets');
  if(!box){
@@ -171,6 +171,15 @@ function renderButtons(){
  const s=sheets[active];
  if($('visionReadBtn'))$('visionReadBtn').disabled=busy||!visionAvailable||!s;
  if($('resetOmrAttemptsBtn'))$('resetOmrAttemptsBtn').disabled=busy||!draft||!session;
+ const effectiveCurrent=s?effective(s):null;
+ const identityRefreshEligible=!!s&&!s.reviewed_at&&!s.blocked_duplicate&&!session?.completed_at&&
+  effectiveCurrent?.identity_valid===true&&effectiveCurrent?.identity_source==='manual'&&
+  s.snapshot?.identity_valid===false&&
+  effectiveCurrent?.markers_ok===true&&!effectiveCurrent.omr_reader_error&&
+  Array.isArray(effectiveCurrent?.answers)&&
+  effectiveCurrent.answers.some(a=>a?.review_pending_reason==='prior_uncertainty_requires_explicit_review');
+ if($('identityRefreshPanel'))$('identityRefreshPanel').classList.toggle('hidden',!identityRefreshEligible);
+ if($('refreshIdentityGradeBtn'))$('refreshIdentityGradeBtn').disabled=busy||!identityRefreshEligible||loadedImage!==s?.id;
  $('saveSheetBtn').disabled=busy||!ready()||!s||safety.unresolvedSheet(s)||
  pendingAnswerCount(effective(s))>0||scoreMismatch(effective(s))||
  failedRead(effective(s))||loadedImage!==s.id||!!s.reviewed_at||
@@ -180,10 +189,17 @@ function renderButtons(){
   let msg='اختر ورقة للمراجعة.';
   if(s?.reviewed_at)msg='تم حفظ التحقق من هذه الورقة.';
   else if(e&&!ready())msg='انتظر اكتمال رفع العدد المستهدف قبل حفظ التحقق.';
-  else if(e&&(!e.identity_valid||!s.student_id))msg='تحتاج هذه الورقة إلى تأكيد هويتها قبل الاعتماد.';
-  else if(e&&failedRead(e))msg='فشل تحديد مواضع التظليل؛ يجب إعادة المسح.';
-  else if(e&&(pendingAnswerCount(e)>0||safety.unresolvedSheet(s)||scoreMismatch(e)))
-    msg='هذه الورقة بها إجابات غير محسومة. افتح الصورة وصحح أو أكد الإجابات المطلوبة أولًا؛ الأوراق السليمة الأخرى يمكن مراجعتها مستقلًا.';
+  else if(e&&(!e.identity_valid||!s.student_id))msg='تعذرت مطابقة رمز QR والطالب أو نموذج الورقة؛ لا يعني هذا أن الاسم المطبوع غير مقروء. اختر الطالب بعد مطابقة الورقة الأصلية.';
+  else if(e&&failedRead(e))msg='لم يتأكد القارئ من المحاذاة أو مواضع التظليل؛ يلزم إعادة المسح أو التشخيص، ولا تُعتمد درجة تخمينية.';
+  else if(identityRefreshEligible)msg='تم تأكيد هوية الطالب يدويًا، لكن الإجابات ما زالت معلقة بسبب حالة الهوية القديمة. استخدم زر «إعادة تصنيف الإجابات بعد تثبيت هوية الطالب» لمقارنة الاختيارات المحفوظة بمفتاح النموذج دون مسح جديد.';
+  else if(e&&(pendingAnswerCount(e)>0||safety.unresolvedSheet(s)||scoreMismatch(e))){
+    const total=e.answers||[],unclear=total.filter(a=>a.state==='uncertain'||a.status==='ambiguous'||a.review_pending).length;
+    const multi=total.filter(a=>a.state==='multiple'&&a.requires_verification).length;
+    msg='لا يمكن حفظ التحقق لهذه الورقة بعد: '+(unclear?ar(unclear)+' إجابة غير واضحة تحتاج مراجعة. ':'')+
+      (multi?ar(multi)+' إجابة متعددة التظليل تحتاج قرار المعلم. ':'')+
+      (scoreMismatch(e)?'درجة الورقة لا تطابق الإجابات المحسومة. ':'')+
+      'الأوراق السليمة الأخرى يمكن حفظ مراجعتها منفردة.';
+  }
   else if(e)msg='قراءة هذه الورقة مكتملة؛ راجع صورتها، ثم ضع علامة التحقق واحفظها دون انتظار الورقة الأولى.';
   $('reviewEligibilityNote').textContent=msg;
  }
@@ -350,19 +366,39 @@ async function rereadAllStrict(options={}){
  }catch(e){message('تعذر تطبيق قارئ التظليل: '+e.message,true);}
  finally{lock(false);}
 }
+async function refreshIdentityGrade(){
+ const sheet=sheets[active];
+ if(busy||!sheet||!sheet.student_id||effective(sheet)?.identity_source!=='manual'||
+    !ready()||session?.completed_at||sheet.reviewed_at||loadedImage!==sheet.id)return;
+ if(!confirm('سيُعاد تصنيف اختيارات التظليل الأصلية المحفوظة بعد تأكيد الطالب ونموذجه. لن يتغير أصل الصورة، ولن تُعتمد الورقة تلقائيًا، وستبقى الحالات البصرية غير الواضحة للمراجعة. هل تريد المتابعة؟'))return;
+ let reopen=false;
+ lock(true);
+ try{
+  const res=await api('teacher_scan_refresh_identity_grade',{
+    sheet_id:sheet.id,answer_version:sheet.answer_version||0,confirm:true
+  });
+  if(sheets[active]?.id!==sheet.id)return;
+  sheets[active]=res.sheet;render();reopen=true;
+  message('تمت إعادة تصنيف الاختيارات الأصلية: '+ar(res.restored_clear)+' إجابة مقروءة · '+
+    ar(res.still_uncertain)+' غير مؤكدة · '+ar(res.multiple_for_review)+
+    ' متعددة التظليل. راجع الصورة ثم احفظ التحقق؛ لم تُعتمد النتيجة تلقائيًا.');
+ }catch(e){message('تعذر إعادة التصنيف بعد تثبيت الهوية: '+e.message,true);}
+ finally{lock(false);if(reopen)await open(active);}
+}
 async function assignIdentity(){
  const sheet=sheets[active],studentId=$('manualAssignment')?.value;
  if(busy||!sheet||!studentId||effective(sheet).identity_valid||session?.completed_at)return;
  const reason=$('manualReviewReason').value.trim();
  if(reason.length<3){message('اكتب سبب تصحيح الهوية قبل حفظها.',true);return;}
  if(!confirm('سيتم ربط هذه الورقة بالطالب المحدد وإعادة احتساب الدرجة وفق نموذج الطالب. هل أنت متأكد؟'))return;
+ let reopen=false;
  lock(true);
  try{
    const r=await api('teacher_scan_assign_identity',{sheet_id:sheet.id,student_id:studentId,answer_version:sheet.answer_version||0,reason});
-   sheets[active]=r.sheet;selected.delete(sheet.id);render();message('تم تأكيد اسم الطالب وإعادة ربط الإجابات بالنموذج الصحيح.');
-   await open(active);
- }catch(e){message('تعذر تأكيد اسم الطالب: '+e.message,true);}
- finally{lock(false);}
+   sheets[active]=r.sheet;selected.delete(sheet.id);render();reopen=true;
+   message('تم تأكيد ربط الورقة بالطالب ونموذجه. ستظهر الإجابات الواضحة بحسب دليلها؛ الحالات غير الواضحة تبقى للمراجعة.');
+ }catch(e){message('تعذر ربط الورقة بالطالب: '+e.message,true);}
+ finally{lock(false);if(reopen)await open(active);}
 }
 async function refreshDeletionLog(){
  if(!draft)return;
@@ -660,7 +696,8 @@ $('answerEditor').onclick=e=>{
  const b=e.target.closest('[data-edit-question]');if(b&&!b.disabled)editAnswer(Number(b.dataset.editQuestion),b.dataset.choice);
 };
 if($('visionReadBtn'))$('visionReadBtn').onclick=visionReadProposal;
- $('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;$('rereadAllBtn').onclick=()=>rereadAllStrict({auto:false,onlyStale:false});
+ $('manualAssignment').onchange=renderButtons;$('applyManualAssignmentBtn').onclick=assignIdentity;
+if($('refreshIdentityGradeBtn'))$('refreshIdentityGradeBtn').onclick=refreshIdentityGrade;$('rereadAllBtn').onclick=()=>rereadAllStrict({auto:false,onlyStale:false});
 $('loadEditHistoryBtn').onclick=editHistory;
 $('saveSheetBtn').onclick=verify;$('nextSheetBtn').onclick=()=>open(active+1);$('finishReviewBtn').onclick=finish;
 $('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>open(Math.max(0,firstPending()));

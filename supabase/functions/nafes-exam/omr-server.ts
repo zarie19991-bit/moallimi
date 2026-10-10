@@ -1,6 +1,7 @@
 import jpeg from "npm:jpeg-js@0.4.4";
 import { isVerifiedBlankBubbleRow } from "./omr-blank.ts";
 import { hasIndependentCenterEvidence } from "./omr-center-evidence.ts";
+import { provenMultipleCenters } from "./omr-multiple-evidence.ts";
 
 type GrayImage={width:number;height:number;gray:Uint8Array;rgba:Uint8Array};
 type Point={x:number;y:number;score?:number};
@@ -412,6 +413,12 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
  // central grayscale sample, not its outer printed ring or row ink mass.
  // An unsupported selection is only a candidate, never a confirmed grade.
  const verifiedAnswers=answers.map((answer:any,i:number)=>{
+   if(answer.status==='multiple'){
+     if(provenMultipleCenters(raw[i],answer.marked))return answer;
+     // One filled circle and a faint ring must NOT be labeled two pupil marks.
+     return {...answer,status:'ambiguous',selected:null,
+       reader:'multiple-ink-unconfirmed',confidence:Math.min(.49,Number(answer.confidence)||0)};
+   }
    if(answer.status!=='clear'||!Number.isInteger(answer.selected))return answer;
    if(hasIndependentCenterEvidence(raw[i],answer.selected))return answer;
    return {...answer,status:'ambiguous',marked:[answer.selected],selected:null,
@@ -425,6 +432,8 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
    grid_alignment:{score:Number(grid.score.toFixed(4)),blocks:grid.blocks.map((b:any)=>({dx:b.dx,dy:b.dy,score:Number(b.score.toFixed(4))}))},
   marker_points:{tl:[m.tl.x,m.tl.y],tr:[m.tr.x,m.tr.y],bl:[m.bl.x,m.bl.y],br:[m.br.x,m.br.y]},
   calibration:{baseline:Number(base.toFixed(4)),mad:Number(mad.toFixed(4)),possible:Number(possible.toFixed(4)),definite:Number(definite.toFixed(4)),separation:Number(sepThr.toFixed(4))},
-   verification:{risk:requiresReview?'high':'low',quality_score:requiresReview?70:100,reasons:[...(ambiguous||multiple?['توجد إجابات غير حاسمة أو متعددة']:[]),...(geometryUncertain?['هندسة علامات المحاذاة أو شبكة الفقاعات تحتاج مراجعة']:[])],requires_manual_review:requiresReview,auto_accept:!requiresReview,counts:{ambiguous,multiple,blank:verifiedAnswers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:verifiedAnswers.filter((a:any)=>a.status==='clear').length}}
+   verification:{risk:requiresReview?'high':'low',quality_score:requiresReview?70:100,reasons:[...(ambiguous?['توجد '+ambiguous+' إجابة غير واضحة تحتاج مراجعة الصورة']:[]),
+      ...(multiple?['توجد '+multiple+' إجابة متعددة التظليل مثبتة تحتاج قرار المعلم']:[]),
+      ...(geometryUncertain?['هندسة علامات المحاذاة أو شبكة الفقاعات تحتاج مراجعة']:[])],requires_manual_review:requiresReview,auto_accept:!requiresReview,counts:{ambiguous,multiple,blank:verifiedAnswers.filter((a:any)=>a.status==='blank').length,low_margin:0,clear:verifiedAnswers.filter((a:any)=>a.status==='clear').length}}
  };
 }
