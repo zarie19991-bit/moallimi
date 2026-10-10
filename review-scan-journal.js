@@ -49,7 +49,7 @@ function exportQualityReport(){
 function message(t,error=false){$('journalStatus').textContent=t;$('journalStatus').className='notice '+(error?'error':'');if($('modalFeedback')){$('modalFeedback').textContent=t;$('modalFeedback').className=error?'notice error':'notice';}}
 function firstPending(){return sheets.findIndex(s=>!s.reviewed_at);}
 function ready(){return session&&sheets.length===session.expected_count;}
-function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','applyManualAssignmentBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
+function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','resetOmrAttemptsBtn','applyManualAssignmentBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
 function ensureSelectAll(){
  let box=$('selectAllSheets');
  if(!box){
@@ -70,6 +70,7 @@ function ensureSelectAll(){
 function renderButtons(){
  const s=sheets[active];
  if($('visionReadBtn'))$('visionReadBtn').disabled=busy||!visionAvailable||!s;
+ if($('resetOmrAttemptsBtn'))$('resetOmrAttemptsBtn').disabled=busy||!draft||!session;
  $('saveSheetBtn').disabled=busy||!ready()||!s||safety.unresolvedSheet(s)||failedRead(effective(s))||loadedImage!==s.id||!!s.reviewed_at||!$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
  const target=$('omrUncertaintyReasons');
  if(target&&s){
@@ -262,7 +263,22 @@ async function toggleSelectAll(){
  }catch(e){message('تعذر تحديد جميع التصحيحات: '+e.message,true);}
  finally{lock(false);}
 }
-async function deleteCorrections(ids){
+async function resetPaperCorrectionAttempts(){
+ if(busy||!draft?.review_id)return;
+ let all=[];
+ lock(true);
+ try{
+   const sr=await api('teacher_scan_sessions');
+   if((sr.sessions||[]).length>=100)throw new Error('عدد جلسات التصحيح كبير؛ أوقف التصفير الجماعي لحين التحقق من اكتمال قائمة الجلسات.');
+   all=await loadReviewInventory();
+ }catch(e){message('تعذر فحص محاولات التصحيح في قاعدة البيانات: '+e.message,true);return;}
+ finally{lock(false);}
+ if(!all.length){message('لا توجد أوراق تصحيح آلي محفوظة لهذا الاختبار. لم تُحذف أي بيانات.');return;}
+ const confirmation=prompt('سيتم حذف '+ar(all.length)+' ورقة ومحاولة تصحيح آلي من قاعدة البيانات لهذا الاختبار عبر جميع جلساته، وإزالة النتائج الورقية المعتمدة المرتبطة إن وجدت. لا يُحذف الاختبار ولا المحاولات الإلكترونية. اكتب «تصفير» للتأكيد:','');
+ if(confirmation===null||confirmation.trim()!=='تصفير'){message('أُلغي التصفير؛ لم تُحذف محاولات.');return;}
+ await deleteCorrections(all.map(x=>x.id),{resetAll:true});
+}
+async function deleteCorrections(ids,{resetAll=false}={}){
  let source=reviewInventory.length?reviewInventory:sheets;
  const wanted=[...new Set((ids||[]).map(String))];
  if(wanted.some(id=>!source.some(s=>String(s.id)===id))){
@@ -273,7 +289,7 @@ async function deleteCorrections(ids){
  const reason=prompt('اكتب سبب حذف التصحيح (مثال: رفع خاطئ أو ورقة مكررة):','رفع أو تصحيح غير صحيح');
  if(reason===null)return;
  if(reason.trim().length<3){message('لم يتم الحذف: سبب الحذف مطلوب.',true);return;}
- const names=unique.slice(0,12).map(id=>effective(source.find(s=>String(s.id)===id)).student_name).join('، ')+(unique.length>12?' …':'');
+ const names=resetAll?'جميع أوراق التصحيح لهذا الاختبار':unique.slice(0,12).map(id=>effective(source.find(s=>String(s.id)===id)).student_name).join('، ')+(unique.length>12?' …':'');
  if(!confirm('سيتم حذف '+ar(unique.length)+' تصحيح فعليًا، وإزالة أي نتيجة معتمدة مرتبطة به، مع الاحتفاظ بسجل تدقيق فقط.\n\n'+names+'\n\nهل تريد المتابعة؟'))return;
  lock(true);
  try{
@@ -304,7 +320,12 @@ async function deleteCorrections(ids){
      message('تم حذف '+ar(deleted)+' تصحيح عبر جميع الجلسات المحددة.');
    }
    await sessions();await refreshAlerts();await refreshDeletionLog();
- }catch(e){message('تعذر حذف التصحيح: '+e.message,true);}
+   if(resetAll){
+     const remains=await loadReviewInventory();
+     if(remains.length)message('حُذف '+ar(deleted)+' تصحيح من قاعدة البيانات، لكن بقي '+ar(remains.length)+'؛ لا تعتبر العملية مكتملة.',true);
+     else message('تم التحقق من قاعدة البيانات: صُفّرت '+ar(deleted)+' ورقة تصحيح آلي لهذا الاختبار، ولم تبق أوراق في جلساته.');
+   }
+ }catch(e){message('تعذر إتمام الحذف أو التحقق منه: '+e.message,true);}
  finally{lock(false);}
 }
 async function editAnswer(question,choice){
@@ -483,6 +504,7 @@ $('resultsBody').onchange=e=>{
  renderButtons();
 };
 $('deleteSelectedBtn').onclick=()=>deleteCorrections([...selected]);
+if($('resetOmrAttemptsBtn'))$('resetOmrAttemptsBtn').onclick=resetPaperCorrectionAttempts;
 if($('qualityExportBtn'))$('qualityExportBtn').onclick=exportQualityReport;
 if($('qualityBody'))$('qualityBody').onclick=e=>{const b=e.target.closest('[data-quality-open]');if(b)open(Number(b.dataset.qualityOpen));};
 $('verifiedCheck').onchange=renderButtons;$('duplicateCheck').onchange=renderButtons;$('alertFilter').onchange=render;
