@@ -52,7 +52,7 @@ export function normalizeConfig(raw:unknown):Row {
  }
  const totalQuestionCount=sections.reduce((sum,x)=>sum+Number(x.question_count||0),0);
  const paperReviewBuilder=v.paper_review_builder===true;
- if(paperReviewBuilder&&totalQuestionCount!==60)fail('الاختبار الورقي يجب أن يتكون من ٦٠ سؤالًا بالضبط.');
+ if(paperReviewBuilder&&(totalQuestionCount<5||totalQuestionCount>60))fail('الاختبار الورقي يجب أن يتكون من ٥ إلى ٦٠ سؤالًا.');
  if(paperReviewBuilder&&v.review_passage_mode===true){
    const reading=sections.find(x=>x.subject==='reading');
    if(reading){
@@ -62,7 +62,7 @@ export function normalizeConfig(raw:unknown):Row {
      if(passageBlocks!==reading.question_count/5)fail('توزيع القراءة غير صالح للطباعة؛ يجب أن يساوي عدد كتل النصوص عدد الأسئلة ÷ ٥.');
    }
  }
- if(kind!=='simulation'&&(totalQuestionCount<10||totalQuestionCount>60))fail('عدد أسئلة الاختبار الكلي يجب أن يكون من ١٠ إلى ٦٠ سؤالًا.');
+ if(kind!=='simulation'&&(totalQuestionCount<(paperReviewBuilder?5:10)||totalQuestionCount>60))fail('عدد أسئلة الاختبار الكلي يجب أن يكون من ١٠ إلى ٦٠ سؤالًا.');
  if(!sections.length||sections.length>3)fail('اختر مادة واحدة على الأقل.');
  const num=sections.reduce((s,x)=>s+x.indicators.length,0);
  const identity=['manual','list','email'].includes(v.identity_mode)?v.identity_mode:'manual';
