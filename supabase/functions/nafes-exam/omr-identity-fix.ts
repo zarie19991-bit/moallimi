@@ -12,7 +12,7 @@ export function identityOnlyUncertainty(a:any):boolean{
    !Array.isArray(u.identity)||!u.identity.includes('identity_not_verified')||
    u.identity.some((x:unknown)=>x!=='identity_not_verified')||
    !Array.isArray(u.answer_key)||
-   u.answer_key.some((x:unknown)=>!['answer_key_missing_or_invalid','answer_key_incomplete'].includes(x)))return false;
+   u.answer_key.some((x:unknown)=>typeof x!=='string'||!['answer_key_missing_or_invalid','answer_key_incomplete'].includes(x)))return false;
  const marks=a.marked;
  if(!Array.isArray(marks)||marks.some((v:unknown)=>!option(v))||new Set(marks).size!==marks.length)return false;
  if(a.status==='clear')return option(a.selected)&&marks.length===1&&a.selected===marks[0];
