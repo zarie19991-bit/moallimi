@@ -7,7 +7,7 @@ const ar=n=>new Intl.NumberFormat('ar-SA').format(Number(n||0));
 const labels={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const letters=['أ','ب','ج','د','هـ','و','ز','ح','ط','ي'];
 const MAX_CROSS_MODEL_REPEATS=10;
-const PAPER_QUESTION_TARGET=60;
+const selectedQuestionCount=()=>Math.max(5,Math.min(60,Math.trunc(Number(document.getElementById('questionCount')?.value)||60)));
 function minimumRequiredRepeats(){
  if(!catalog)return 0;
  const modelCount=Number($('modelCount')?.value||5);
@@ -118,7 +118,7 @@ function resetPaperReview(){
  const first=document.querySelector('.subject-check');if(first)first.checked=true;
  $('subject').value=selectedSubjects()[0]||'reading';
  $('className').value='';
- $('questionCount').value=String(PAPER_QUESTION_TARGET);
+ $('questionCount').value=String(Math.max(5,Math.min(60,Number($('questionCount').value)||60)));
  $('modelCount').value='5';
  if($('bubbleNameMode'))$('bubbleNameMode').value='printed';
  $('knowledge').value='25';$('application').value='40';$('reasoning').value='35';
@@ -177,7 +177,7 @@ function cognitiveOf(q){
  return'unknown';
 }
 function updateLevelSummary(){
- const k=Number($('knowledge').value||0),a=Number($('application').value||0),r=Number($('reasoning').value||0),sum=k+a+r,q=PAPER_QUESTION_TARGET;
+ const k=Number($('knowledge').value||0),a=Number($('application').value||0),r=Number($('reasoning').value||0),sum=k+a+r,q=selectedQuestionCount();
  const counts=[Math.round(q*k/100),Math.round(q*a/100),Math.max(0,q-Math.round(q*k/100)-Math.round(q*a/100))];
  $('levelSummary').textContent=(sum===100?'الهدف: ':'تنبيه: المجموع '+sum+'% — يجب أن يساوي 100%. ')+'معرفة '+counts[0]+' · تطبيق '+counts[1]+' · استدلال '+counts[2]+' من '+q+' سؤالًا.';
  $('buildModels').disabled=sum!==100;
@@ -230,7 +230,7 @@ function renderIndicators(){
  updateIndicatorSummary();
 }
 function subjectQuestionTargets(){
- const subjects=selectedSubjects(),total=PAPER_QUESTION_TARGET;
+ const subjects=selectedSubjects(),total=selectedQuestionCount();
  if(total===60&&subjects.length===3&&['reading','math','science'].every(s=>subjects.includes(s))){
    return new Map([['reading',20],['math',20],['science',20]]);
  }
@@ -309,14 +309,21 @@ function distributeIndicatorCounts(){
      }
    }
  }else{
-   allocateIndicatorRows(rows,PAPER_QUESTION_TARGET);
+   const reading=rows.filter(r=>r.dataset.subject==='reading'),other=rows.filter(r=>r.dataset.subject!=='reading'),target=selectedQuestionCount();
+   if(reading.length&&other.length){
+     const quota=Math.min(Math.floor((target-other.length)/5)*5,reading.reduce((n,r)=>n+5*Math.max(0,Number(r.dataset.passages5)||0),0));
+     const readingQuota=Math.max(5,quota);
+     allocateReadingIndicatorRows(reading,readingQuota);
+     allocateIndicatorRows(other,target-readingQuota);
+   }else if(reading.length)allocateReadingIndicatorRows(reading,target);
+   else allocateIndicatorRows(other,target);
  }
  captureIndicatorState();
  updateIndicatorSummary();
 }
 function updateIndicatorSummary(){
  captureIndicatorState();
- const target=PAPER_QUESTION_TARGET,targets=subjectQuestionTargets();
+ const target=selectedQuestionCount(),targets=subjectQuestionTargets();
  const checkedRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
  const selected=getSelectedIndicators();
  document.querySelectorAll('.indicator-row').forEach(r=>r.classList.toggle('selected',r.querySelector('.indicator-check')?.checked));
@@ -337,10 +344,10 @@ function updateIndicatorSummary(){
    (bySubject.length?' · '+bySubject.join(' · '):'')+
    (targets?' · التوزيع المطلوب: القراءة ٢٠ (٤ نصوص × ٥ أسئلة) · الرياضيات ٢٠ · العلوم ٢٠':'')+
    (targets&&readingChecked>4?' · مؤشرات القراءة المختارة أكثر من ٤؛ ستتدوّر بين النماذج بحيث يبقى كل نموذج ٤ نصوص فقط.':'')+
-   (zeroSelected?' · تنبيه: '+ar(zeroSelected)+' مؤشرًا مختارًا لم يحصل على سؤال لأن ٦٠ سؤالًا لا تكفي لتمثيل جميع المؤشرات؛ قلل عدد المؤشرات المختارة.':'')+
+   (zeroSelected?' · تنبيه: '+ar(zeroSelected)+' مؤشرًا مختارًا لم يحصل على سؤال لأن العدد المختار لا يكفي لتمثيل جميع المؤشرات؛ قلل عدد المؤشرات المختارة.':'')+
    (quotaBad?' · يجب إكمال ٢٠ سؤالًا لكل مادة':'')+
-   (!exact&&checkedRows.length&&!zeroSelected?' · يعاد التوزيع تلقائيًا حتى يصبح المجموع ٦٠ سؤالًا بالضبط':'')+
-   (exact?' · المجموع مضبوط على ٦٠ سؤالًا بالضبط':'');
+   (!exact&&checkedRows.length&&!zeroSelected?' · يعاد التوزيع تلقائيًا حتى يصبح المجموع العدد المختار بالضبط':'')+
+   (exact?' · المجموع مضبوط على العدد المختار من الأسئلة بالضبط':'');
 }
 function getSelectedIndicators(){
  captureIndicatorState();
@@ -589,16 +596,18 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
 function validate(){
  const inds=getSelectedIndicators(),subjects=selectedSubjects(),q=Number($('questionCount').value),sum=inds.reduce((n,x)=>n+x.count,0),stu=selectedStudents();
  if(!$('reviewTitle').value.trim())throw new Error('اكتب اسم الاختبار.');
- if(q!==PAPER_QUESTION_TARGET)throw new Error('عدد أسئلة الاختبار الورقي ثابت: ٦٠ سؤالًا.');
+ if(!Number.isInteger(q)||q<5||q>60)throw new Error('اختر عدد الأسئلة من ٥ إلى ٦٠.');
  if(!subjects.length)throw new Error('اختر مادة واحدة على الأقل.');
  if(!inds.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
  for(const subject of subjects)if(!inds.some(x=>x.subject===subject))throw new Error('اختر مؤشرًا واحدًا على الأقل من مادة '+labels[subject]+'.');
  const checkedRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
  const zeroSelected=checkedRows.filter(r=>r.dataset.subject!=='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0);
- if(zeroSelected.length)throw new Error('اخترت مؤشرات أكثر مما يمكن تمثيله داخل ٦٠ سؤالًا. قلل عدد مؤشرات الرياضيات أو العلوم المختارة حتى يحصل كل مؤشر على سؤال واحد على الأقل.');
+ if(zeroSelected.length)throw new Error('اخترت مؤشرات أكثر مما يمكن تمثيله داخل العدد المختار. قلل عدد مؤشرات الرياضيات أو العلوم المختارة حتى يحصل كل مؤشر على سؤال واحد على الأقل.');
  const badReading=checkedRows.filter(r=>r.dataset.subject==='reading'&&Number(r.dataset.passages5||0)<1);
  if(badReading.length)throw new Error('يوجد مؤشر قراءة مختار لا يملك نصًا محكّمًا يحتوي ٥ أسئلة على الأقل. ألغِ هذا المؤشر أو أضف له نصًا مناسبًا قبل بناء الورقة.');
- if(sum!==PAPER_QUESTION_TARGET)throw new Error('مجموع أسئلة المؤشرات يجب أن يساوي ٦٠ سؤالًا بالضبط.');
+ if(subjects.includes('reading')&&inds.filter(x=>x.subject==='reading').some(x=>x.count%5!==0))throw new Error('مؤشرات القراءة تُوزع في مجموعات من ٥ أسئلة لكل نص.');
+ if(subjects.length===1&&subjects[0]==='reading'&&q%5!==0)throw new Error('عند اختيار القراءة وحدها يجب أن يكون العدد من مضاعفات ٥ للحفاظ على النص مع أسئلته الخمسة.');
+ if(sum!==q)throw new Error('مجموع أسئلة المؤشرات يجب أن يساوي العدد المختار: '+q+'.');
  const targets=subjectQuestionTargets();
  if(targets){
    for(const [subject,quota] of targets){
@@ -624,7 +633,7 @@ function modelStats(m){
 function renderQuality(){
  const all=models.flatMap(m=>questionIds(m)),unique=new Set(all),dup=Math.max(0,all.length-unique.size),total=all.length;
  const unknown=models.reduce((n,m)=>n+modelStats(m).unknown,0);
- const expected=PAPER_QUESTION_TARGET,badCount=models.filter(m=>modelQuestions(m).length!==expected).length;
+ const expected=selectedQuestionCount(),badCount=models.filter(m=>modelQuestions(m).length!==expected).length;
  const cognitiveDeviation=models.length?Math.round(models.reduce((n,m)=>n+cognitiveScore(m),0)/models.length):0;
  const first=models[0],subjectCounts=first?(first.sections||[]).map(s=>labels[s.subject]+' '+ar((s.questions||[]).length)).join(' · '):'—';
  const badChoices=models.reduce((n,m)=>n+incompleteChoices(m).length,0);
@@ -686,7 +695,7 @@ async function buildModels(){
      server_ms:Math.round(buildPerf.server_ms),
      client_api_ms:Math.round(buildPerf.client_api_ms),
      models:count,
-     questions_per_model:PAPER_QUESTION_TARGET,
+     questions_per_model:selectedQuestionCount(),
      subjects:selectedSubjects(),
      model_ms:buildPerf.model_ms
    };
@@ -756,7 +765,7 @@ function restoreReviewPayload(payload){
  if($('subject'))$('subject').value=selectedSubjects()[0]||payload.subject||'reading';
  if($('className')&&[...$('className').options].some(o=>o.value===String(payload.class_name||'')))$('className').value=String(payload.class_name||'');
  renderStudents();
- if($('questionCount'))$('questionCount').value=String(PAPER_QUESTION_TARGET);
+ if($('questionCount'))$('questionCount').value=String(Math.max(5,Math.min(60,Number(payload.question_count)||60)));
  if($('modelCount')&&[...$('modelCount').options].some(o=>Number(o.value)===Number(payload.model_count)))$('modelCount').value=String(payload.model_count);
  if($('bubbleNameMode'))$('bubbleNameMode').value=payload.bubble_name_mode==='blank'?'blank':'printed';
  const ps=payload.paper_settings||{};
@@ -867,8 +876,8 @@ $('subjectChoices').addEventListener('change',e=>{
  if(document.querySelector('.indicator-check:checked'))distributeIndicatorCounts();
 });
 $('className').addEventListener('change',renderStudents);
-$('questionCount').addEventListener('input',()=>{$('questionCount').value=String(PAPER_QUESTION_TARGET);distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
-$('questionCount').addEventListener('change',()=>{$('questionCount').value=String(PAPER_QUESTION_TARGET);distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
+$('questionCount').addEventListener('input',()=>{const n=Number($('questionCount').value);if(!Number.isInteger(n)||n<5||n>60)return;distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
+$('questionCount').addEventListener('change',()=>{$('questionCount').value=String(Math.max(5,Math.min(60,Number($('questionCount').value)||60)));distributeIndicatorCounts();updateIndicatorSummary();updateLevelSummary();});
 ['knowledge','application','reasoning'].forEach(id=>$(id).addEventListener('input',updateLevelSummary));
 $('indicatorSearch').addEventListener('input',renderIndicators);
 $('indicators').addEventListener('change',e=>{if(e.target.matches('.indicator-check')){captureIndicatorState();distributeIndicatorCounts();updateIndicatorSummary();}});
