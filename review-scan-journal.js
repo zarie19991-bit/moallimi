@@ -139,7 +139,13 @@ async function visionReadProposal(){
   const result=await api('teacher_scan_vision_proposal',{
    sheet_id:sheet.id,answer_version:sheet.answer_version||0,
    vision_consent:'I_AGREE_TO_SEND_REDACTED_OMR_IMAGE'});
-  if(sheets[active]?.id!==sheet.id)return;
+  if(sheets[active]?.id!==sheet.id||Number(sheets[active].answer_version||0)!==Number(result.answer_version)||String(result.sheet_id)!==String(sheet.id)){
+   message('تغيرت نسخة الورقة أثناء القراءة؛ رُفض الاقتراح القديم. حدّث الورقة وأعد المحاولة.',true);
+   return;
+  }
+  if(result.save_performed!==false||result.grade_changed!==false||result.unverified!==true){
+   throw new Error('استجابة غير آمنة: لم يؤكد الخادم أن القراءة اقتراح فقط دون تعديل الدرجات.');
+  }
   const proposal=result.proposal||{},answers=Array.isArray(proposal.answers)?proposal.answers:[],
    sum=proposal.summary||{};
   const names={clear:'تظليل واحد',blank:'بلا إجابة',multiple:'تظليل مزدوج',ambiguous:'غير واضح'},
