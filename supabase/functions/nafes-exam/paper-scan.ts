@@ -1,3 +1,4 @@
+import { canCreditOriginalCorrect, confirmedMultiple } from "./omr-multiple-review.ts";
 // Auth is performed by handleAssessments before invoking this module.
 import { fail, hash } from './assessment-engine.ts';
 import { readOmrJpeg } from './omr-server.ts';
@@ -377,17 +378,12 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const current=doc.answers[q-1],source=original.answers[q-1];
    const originalMarks=Array.isArray(source?.marked)?source.marked:[];
    const marks=Array.isArray(current?.marked)?current.marked:[];
-   if(current?.status!=='multiple'||current?.state!=='multiple'||current?.selected!==null||
-      marks.length<2||new Set(marks).size!==marks.length||marks.some((v:any)=>!validOption(v))||
-      (current.uncertainty?.reading||[]).length>0||
-      (current.uncertainty?.identity||[]).length>0||
-      (current.uncertainty?.answer_key||[]).length>0)
+   if(!confirmedMultiple(current))
      fail('التظليل متعدد الخيارات غير مثبت أو يتضمن قراءة غير محسومة؛ راجع الصورة أولًا.',409);
    const key=current.correct_index;
-   if(!validOption(key)||source?.correct_index!==key)fail('مفتاح الإجابة غير صالح أو لا يطابق النموذج الأصلي.',409);
-   if(mode==='credit_correct'&&
-      (source?.status!=='multiple'||originalMarks.length<2||
-       !marks.includes(key)||!originalMarks.includes(key)))
+   if(!validOption(key)||source?.correct_index!==key)
+     fail('مفتاح الإجابة غير صالح أو لا يطابق النموذج الأصلي.',409);
+   if(mode==='credit_correct'&&!canCreditOriginalCorrect(source,current))
      fail('لا يمكن منح درجة: الخيار الصحيح غير مثبت ضمن الخيارات المظللة في القراءة الأصلية.',409);
    const detail=mode==='credit_correct'?
      'قرار مراجعة متعدد التظليل: احتساب الإجابة الصحيحة التي ثبت أنها ضمن الدوائر المظللة في الصورة الأصلية':
