@@ -60,12 +60,28 @@ function tierFor(p:number|null){if(p==null)return"unclassified";if(p<50)return"r
 function priorityFor(p:number|null){if(p==null)return 0;if(p<50)return Math.max(1,Math.round(p));if(p<80)return 100+Math.round(p);return 200+Math.round(p)}
 async function roster(ids?:string[]){let q=db.from("nafes_students").select("id,full_name,class_name,grade,is_active,is_demo").eq("is_active",true).order("class_name").order("full_name");if(ids?.length)q=q.in("id",ids);else q=q.eq("is_demo",false);const {data,error}=await q;if(error)throw error;return data||[]}
 async function latestPerformances(ids?:string[]){
-  let aq=db.from("nafes_assessment_attempts").select("id,student_id,rendered_sections,answers,submitted_at").not("submitted_at","is",null).order("submitted_at",{ascending:false}).limit(5000),
-      sq=db.from("nafes_simulation_attempts").select("id,student_id,rendered_sections,answers,submitted_at").not("submitted_at","is",null).order("submitted_at",{ascending:false}).limit(5000),
-      eq=db.from("nafes_exam_attempts").select("id,student_id,subject_key,outcome_code,indicator_index,rendered_questions,answers,percent,submitted_at").not("submitted_at","is",null).order("submitted_at",{ascending:false}).limit(5000);
-  if(ids?.length){aq=aq.in("student_id",ids);sq=sq.in("student_id",ids);eq=eq.in("student_id",ids)}
-  const[a,s,e]=await Promise.all([aq,sq,eq]);if(a.error)throw a.error;if(s.error)throw s.error;if(e.error)throw e.error;
-  let perfs:any[]=[];for(const r of a.data||[])perfs.push(...sectionPerfs(r,"assessment"));for(const r of s.data||[])perfs.push(...sectionPerfs(r,"simulation"));for(const r of e.data||[])perfs.push(...examPerfs(r));
+  // Full assessment answer payloads are ~21MB. A single PostgREST JSON aggregation
+  // exceeds the project's SQL statement timeout. Page them in bounded requests.
+  async function pages(table:string,fields:string){
+    const all:any[]=[];
+    const size=60;
+    for(let offset=0;offset<5000;offset+=size){
+      let query=db.from(table).select(fields).not("submitted_at","is",null)
+        .order("submitted_at",{ascending:false}).order("id",{ascending:false}).range(offset,offset+size-1);
+      if(ids?.length)query=query.in("student_id",ids);
+      const {data,error}=await query;
+      if(error)throw error;
+      all.push(...(data||[]));
+      if((data||[]).length<size)return all;
+    }
+    throw Object.assign(new Error("تجاوزت النتائج 5000 محاولة؛ لا يمكن المزامنة من بيانات غير مكتملة."),{status:409});
+  }
+  const [a,s,e]=await Promise.all([
+    pages("nafes_assessment_attempts","id,student_id,rendered_sections,answers,submitted_at"),
+    pages("nafes_simulation_attempts","id,student_id,rendered_sections,answers,submitted_at"),
+    pages("nafes_exam_attempts","id,student_id,subject_key,outcome_code,indicator_index,rendered_questions,answers,percent,submitted_at")
+  ]);
+  let perfs:any[]=[];for(const r of a)perfs.push(...sectionPerfs(r,"assessment"));for(const r of s)perfs.push(...sectionPerfs(r,"simulation"));for(const r of e)perfs.push(...examPerfs(r));
   perfs.sort((x,y)=>String(y.source_submitted_at||"").localeCompare(String(x.source_submitted_at||"")));
   const groups=new Map<string,any>();
   for(const p of perfs){
@@ -295,7 +311,7 @@ async function syncStudents(ids?:string[],scope:SubjectScope="all"){
   for(const p of perfs){const id=String(p.student_id);if(!byStudent.has(id))byStudent.set(id,[]);byStudent.get(id)!.push(p)}
 
   let existingQ=db.from("lugati_adaptive_assignments")
-    .select("id,student_id,subject_key,outcome_code,indicator_index,source_attempt_id,source_submitted_at,status,training_attempts,last_training_percent,completed_at");
+    .select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,priority,source_attempt_id,source_submitted_at,status,training_attempts,last_training_percent,assigned_at,completed_at");
   if(studentIds.length)existingQ=existingQ.in("student_id",studentIds);
   if(scope!=="all")existingQ=existingQ.eq("subject_key",scope);
   const {data:existing,error:xe}=await existingQ;if(xe)throw xe;
@@ -315,13 +331,38 @@ async function syncStudents(ids?:string[],scope:SubjectScope="all"){
         tier:tierFor(p.percent==null?null:Number(p.percent)),priority:priorityFor(p.percent==null?null:Number(p.percent)),updated_at:new Date().toISOString()};
       if(!ex)inserts.push({...payload,status:"assigned",assigned_at:new Date().toISOString()});
       else{
-        const newer=p.source_attempt_id&&String(p.source_attempt_id)!==String(ex.source_attempt_id||"");
-        updates.push({id:ex.id,payload:newer?{...payload,status:"assigned",completed_at:null}:{...payload}});
+        const newer=!!p.source_attempt_id&&String(p.source_attempt_id)!==String(ex.source_attempt_id||"");
+        const changed=newer||Number(ex.source_percent??-1)!==Number(payload.source_percent??-1)||
+          String(ex.tier)!==String(payload.tier)||
+          String(ex.indicator_text||"")!==String(payload.indicator_text||"");
+        if(changed){
+          // Preserve historical completed training records. Only a new source
+          // can reopen unfinished assignments; no-op rows are never rewritten.
+          updates.push({id:ex.id,payload:{
+            ...payload,id:ex.id,
+            status:newer&&ex.status!=="mastered"&&ex.status!=="completed"?"assigned":ex.status,
+            assigned_at:ex.assigned_at,
+            training_attempts:ex.training_attempts,
+            last_training_percent:ex.last_training_percent,
+            completed_at:newer&&ex.status!=="mastered"&&ex.status!=="completed"?null:ex.completed_at
+          }});
+        }
       }
     }
   }
-  if(inserts.length){for(let i=0;i<inserts.length;i+=500){const {error}=await db.from("lugati_adaptive_assignments").insert(inserts.slice(i,i+500));if(error&&error.code!=="23505")throw error}}
-  for(const u of updates){const {error}=await db.from("lugati_adaptive_assignments").update(u.payload).eq("id",u.id);if(error)throw error}
+  if(inserts.length){
+    for(let i=0;i<inserts.length;i+=100){
+      const {error}=await db.from("lugati_adaptive_assignments").upsert(inserts.slice(i,i+100),
+        {onConflict:"student_id,subject_key,outcome_code,indicator_index",ignoreDuplicates:true});
+      if(error)throw error;
+    }
+  }
+  // Set-based batches, instead of one network request for every changed student.
+  for(let i=0;i<updates.length;i+=100){
+    const {error}=await db.from("lugati_adaptive_assignments").upsert(
+      updates.slice(i,i+100).map(x=>x.payload),{onConflict:"id"});
+    if(error)throw error;
+  }
   return{students:students.length,performance_rows:perfs.length,created:inserts.length,updated:updates.length,subject_scope:scope};
 }
 async function myPlan(req:Request,access:Access){await syncStudents([access.student_id!]);const {data,error}=await db.from("lugati_adaptive_assignments").select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,status,priority,training_attempts,last_training_percent,assigned_at,completed_at,updated_at").eq("student_id",access.student_id!).order("priority",{ascending:true}).order("updated_at",{ascending:false});if(error)throw error;const perfs=await latestPerformances([access.student_id!]);return json(req,{ok:true,assignments:(data||[]).filter((a:any)=>taskHasVerifiedMoallimiAttempt(a,perfs))})}
@@ -578,9 +619,24 @@ async function teacherSendIndicator(req:Request,body:any,access:Access){
   if(!["reading","math","science"].includes(subject)||!outcome||!indicator)return json(req,{error:"بيانات المؤشر غير مكتملة."},400);
   if(!teacherAllows(access,subject))return json(req,{error:"هذه المادة خارج صلاحية حسابك."},403);
 
-  const [allPerfs,students]=await Promise.all([latestPerformances(),roster()]);
+  // Send from the indexed, already measured indicator results, not the 21MB
+  // examination JSON. Classification derives from the measured percentage,
+  // never from a legacy/possibly stale 70–90% tier label.
+  const [stored,students]=await Promise.all([
+    db.from("lugati_adaptive_assignments")
+      .select("student_id,source_percent,source_attempt_id,source_submitted_at,indicator_text")
+      .eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator).limit(1500),
+    roster()
+  ]);
+  if(stored.error)throw stored.error;
+  if((stored.data||[]).length===1500)throw Object.assign(new Error("عدد نتائج المؤشر كبير؛ أوقفت الإرسال حتى لا يستبعد طلابًا."),{status:409});
   const rosterIds=new Set((students||[]).map((s:any)=>String(s.id)));
-  const perfs=(allPerfs||[]).filter((p:any)=>rosterIds.has(String(p.student_id))&&p.subject_key===subject&&p.outcome_code===outcome&&Number(p.indicator_index)===indicator);
+  const perfs=(stored.data||[]).filter((p:any)=>rosterIds.has(String(p.student_id))).map((p:any)=>({
+    student_id:p.student_id,subject_key:subject,outcome_code:outcome,indicator_index:indicator,
+    indicator_text:p.indicator_text,percent:p.source_percent,
+    total:p.source_percent!=null?100:0,source_attempt_id:p.source_attempt_id,
+    source_submitted_at:p.source_submitted_at
+  }));
 
   // Never add students with no submitted Moallimi result to any of these tiers.
   const targets=perfs.filter((p:any)=>moallimiAssessed(p)&&(
