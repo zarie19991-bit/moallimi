@@ -310,11 +310,21 @@ async function syncStudents(ids?:string[],scope:SubjectScope="all"){
   const byStudent=new Map<string,any[]>();
   for(const p of perfs){const id=String(p.student_id);if(!byStudent.has(id))byStudent.set(id,[]);byStudent.get(id)!.push(p)}
 
-  let existingQ=db.from("lugati_adaptive_assignments")
-    .select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,priority,source_attempt_id,source_submitted_at,status,training_attempts,last_training_percent,assigned_at,completed_at");
-  if(studentIds.length)existingQ=existingQ.in("student_id",studentIds);
-  if(scope!=="all")existingQ=existingQ.eq("subject_key",scope);
-  const {data:existing,error:xe}=await existingQ;if(xe)throw xe;
+  // Supabase REST defaults to 1,000 rows. Every active student assignment must
+  // be inspected before an upsert; otherwise existing plans get treated as new.
+  const existing:any[]=[];
+  if(studentIds.length){
+    for(let offset=0;offset<10000;offset+=500){
+      let q=db.from("lugati_adaptive_assignments")
+        .select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,priority,source_attempt_id,source_submitted_at,status,training_attempts,last_training_percent,assigned_at,completed_at")
+        .in("student_id",studentIds).order("id",{ascending:true}).range(offset,offset+499);
+      if(scope!=="all")q=q.eq("subject_key",scope);
+      const {data,error}=await q;if(error)throw error;
+      existing.push(...(data||[]));
+      if((data||[]).length<500)break;
+      if(offset+500>=10000)throw Object.assign(new Error("عدد سجلات الخطط تجاوز حد المراجعة."),{status:409});
+    }
+  }
 
   const em=new Map<string,any>();
   for(const x of existing||[])em.set(`${x.student_id}:${x.subject_key}:${x.outcome_code}:i${x.indicator_index}`,x);
