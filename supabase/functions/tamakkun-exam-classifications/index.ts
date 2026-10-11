@@ -274,7 +274,7 @@ async function addProgress(view:any,access:any){
  if(tested.length){
   const aid=[...new Set(tested.map((r:any)=>String(r.attempt_id)))];
   for(let i=0;i<aid.length;i+=150){
-   const {data,error}=await db.from("lugati_teacher_tasks").select("id,student_id,source_attempt_id,subject_key,outcome_code,indicator_index,indicator_text,title,tier,question_count,status,assigned_at,started_at,completed_at,percent").eq("teacher_access_id",access.id).in("source_attempt_id",aid.slice(i,i+150)).neq("status","revoked").order("assigned_at",{ascending:false}).limit(2500);
+   const {data,error}=await db.from("lugati_teacher_tasks").select("id,student_id,source_attempt_id,subject_key,outcome_code,indicator_index,indicator_text,title,tier,question_count,status,assigned_at,started_at,completed_at,score,total,percent,response").eq("teacher_access_id",access.id).in("source_attempt_id",aid.slice(i,i+150)).neq("status","revoked").order("assigned_at",{ascending:false}).limit(2500);
    if(error)throw error;
    for(const p of data||[]){
     if(!planScopeMatches(p,view.scope))continue;
@@ -294,16 +294,30 @@ async function addProgress(view:any,access:any){
   }
  }
  for(const row of view.rows||[]){
-  row.plans=[];row.plan_status="none";row.assigned_at=null;row.completed_at=null;row.post_score=null;row.post_total=null;row.post_percent=null;row.post_at=null;row.post_attempt_id=null;row.improvement=null;row.mastered_after=null;row.effect_status=row.tested?"لم تُسند خطة":"لم يُقَس";
+  row.plans=[];row.plan_status="none";row.plan_assigned=false;row.plan_opened=false;row.plan_solved=false;row.plan_solved_count=0;row.plan_total_count=0;row.plan_answer_status="لم تُسند خطة";row.assigned_at=null;row.started_at=null;row.completed_at=null;row.post_score=null;row.post_total=null;row.post_percent=null;row.post_at=null;row.post_attempt_id=null;row.improvement=null;row.mastered_after=null;row.effect_status=row.tested?"لم تُسند خطة":"لم يُقَس";
   if(!row.tested)continue;
-  const plans=(mapPlans.get(String(row.student_id)+"|"+String(row.attempt_id))||[]).filter((p:any)=>p.tier===row.classification);
+  const plans=mapPlans.get(String(row.student_id)+"|"+String(row.attempt_id))||[];
+  // Include historical plans even when their older tier differs from the current 50/80 classification.
   if(!plans.length)continue;
-  row.plans=plans.map((p:any)=>({id:p.id,title:p.title,tier:p.tier,status:p.status,assigned_at:p.assigned_at,started_at:p.started_at,completed_at:p.completed_at,indicator_text:p.indicator_text,subject_key:p.subject_key,percent:p.percent,question_count:p.question_count}));
+  row.plans=plans.map((p:any)=>{
+   const answerCount=p.response&&typeof p.response==="object"&&p.response.answers&&typeof p.response.answers==="object"?Object.keys(p.response.answers).length:0;
+   const score=validScore(p.score,p.total);
+   const solved=p.status==="completed"&&!!p.completed_at&&score!==null&&answerCount>0;
+   const opened=!!p.started_at||p.status==="in_progress"||solved;
+   const answer_status=solved?"حلّها وسلّم الإجابات":p.status==="completed"?"مكتملة دون دليل إجابات صالح":opened?"بدأ ولم يسلّم":"لم يبدأ";
+   return {id:p.id,title:p.title,tier:p.tier,tier_matches_current:p.tier===row.classification,status:p.status,assigned:true,opened,solved,answer_status,answer_count:answerCount,score:score?.score??null,total:score?.total??null,percent:solved?Number(p.percent??Math.round(score!.score/score!.total*10000)/100):null,assigned_at:p.assigned_at,started_at:p.started_at,completed_at:p.completed_at,indicator_text:p.indicator_text,subject_key:p.subject_key,question_count:p.question_count};
+  });
+  row.plan_assigned=true;row.plan_total_count=row.plans.length;
+  row.plan_solved_count=row.plans.filter((p:any)=>p.solved).length;
+  row.plan_opened=row.plans.some((p:any)=>p.opened);
+  row.plan_solved=row.plan_solved_count===row.plan_total_count;
+  row.plan_answer_status=row.plan_solved?"حلّ جميع الخطط وسلّمها":row.plan_solved_count>0?"حلّ "+row.plan_solved_count+" من "+row.plan_total_count+" خطط":row.plan_opened?"بدأ الحل ولم يسلّم":"لم يبدأ الحل";
   row.assigned_at=plans.map((p:any)=>p.assigned_at).filter(Boolean).sort()[0]||null;
-  row.completed_at=plans.map((p:any)=>p.completed_at).filter(Boolean).sort().at(-1)||null;
-  row.plan_status=plans.every((p:any)=>p.status==="completed")?"completed":plans.some((p:any)=>p.status==="completed"||p.status==="in_progress")?"in_progress":"assigned";
+  row.started_at=plans.map((p:any)=>p.started_at).filter(Boolean).sort()[0]||null;
+  row.completed_at=plans.filter((p:any)=>row.plans.some((x:any)=>x.id===p.id&&x.solved)).map((p:any)=>p.completed_at).filter(Boolean).sort().at(-1)||null;
+  row.plan_status=row.plan_solved?"completed":row.plan_opened?"in_progress":"assigned";
   effects[row.plan_status]++;
-  if(row.plan_status!=="completed"||!row.completed_at){row.effect_status="بانتظار إكمال الخطة";continue}
+  if(!row.plan_solved||!row.completed_at){row.effect_status="بانتظار تسليم حل الخطة";continue}
   const before=view._attempts.get(String(row.student_id));
   const keys=sameIndicatorKeys(before,view.scope);
   if(!keys.length){row.effect_status="لا توجد مهارات قابلة للمقارنة";effects.pending_post++;continue}
@@ -328,7 +342,14 @@ async function addProgress(view:any,access:any){
  const missing=(view.rows||[]).filter((r:any)=>r.tested&&r.plan_status==="none");
  const groups:any={remedial:0,reinforcement:0,enrichment:0};
  for(const r of missing)if(groups[r.classification]!=null)groups[r.classification]++;
- view.coverage={tested:tested.length,covered:tested.length-missing.length,missing:missing.length,complete:missing.length===0,missing_by_tier:groups};
+ view.coverage={tested:tested.length,covered:tested.length-missing.length,missing:missing.length,complete:missing.length===0,missing_by_tier:groups,
+ assigned_students:(view.rows||[]).filter((r:any)=>r.tested&&r.plan_assigned).length,
+ opened_students:(view.rows||[]).filter((r:any)=>r.tested&&r.plan_opened).length,
+ solved_students:(view.rows||[]).filter((r:any)=>r.tested&&r.plan_solved).length,
+ partial_students:(view.rows||[]).filter((r:any)=>r.tested&&r.plan_solved_count>0&&!r.plan_solved).length,
+ pending_students:(view.rows||[]).filter((r:any)=>r.tested&&r.plan_assigned&&!r.plan_solved).length,
+ assigned_plans:(view.rows||[]).reduce((n:number,r:any)=>n+(r.plan_total_count||0),0),
+ solved_plans:(view.rows||[]).reduce((n:number,r:any)=>n+(r.plan_solved_count||0),0)};
  view.absentees=(view.rows||[]).filter((r:any)=>!r.exam_tested).map((r:any)=>({student_name:r.student_name,class_name:r.class_name,student_id:r.student_id,attempt_state:r.attempt_state}));
  view.effect=effects;
  return view;
