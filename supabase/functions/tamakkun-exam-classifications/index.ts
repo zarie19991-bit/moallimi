@@ -183,26 +183,45 @@ function separatePracticePassages(qs:any[],key:string,strict:boolean){
  const group=new Map<string,any[]>();
  for(const q of qs){const context=practiceFinger(q.context_text);if(!context)continue;if(!group.has(context))group.set(context,[]);group.get(context)!.push(q)}
  const contexts=[...group].sort((a,b)=>practiceSeed(key+"|text|"+a[0])-practiceSeed(key+"|text|"+b[0]));
+ const stats=contexts.map(x=>{const qs=x[1];return{
+  k:qs.filter(q=>q.cognitive_level==="knowledge"&&q.difficulty==="easy").length,
+  a:qs.filter(q=>q.cognitive_level==="application"&&q.difficulty==="medium").length,
+  r:qs.filter(q=>q.cognitive_level==="reasoning"&&q.difficulty==="hard").length
+ }});
+ const combinations:number[][]=[];
+ // A reading text can offer only 2–4 application questions, so a tier may
+ // need TWO different texts; never silently reuse another tier's passage.
+ function choose(start:number,current:number[],size:number){
+  if(current.length===size){combinations.push([...current]);return}
+  for(let i=start;i<=contexts.length-(size-current.length);i++){current.push(i);choose(i+1,current,size);current.pop()}
+ }
+ for(let n=1;n<=Math.min(3,contexts.length-2);n++)choose(0,[],n);
+ const totals=stats.reduce((a,s)=>({r:a.r+s.r}),{r:0});
  let best:any=null;
- for(let ri=0;ri<contexts.length;ri++)for(let mi=0;mi<contexts.length;mi++){
-  if(ri===mi)continue;
-  const r=contexts[ri][1],m=contexts[mi][1],other=contexts.filter((_,n)=>n!==ri&&n!==mi).flatMap(x=>x[1]);
-  const b=r.filter(q=>q.cognitive_level==="knowledge"&&q.difficulty==="easy"||q.cognitive_level==="application"&&q.difficulty==="medium");
-  const k=b.filter(q=>q.cognitive_level==="knowledge").length;
-  const application=m.filter(q=>q.cognitive_level==="application"&&q.difficulty==="medium").length;
-  const reasoning=other.filter(q=>q.cognitive_level==="reasoning"&&q.difficulty==="hard").length;
-  if(b.length<5||application<5||reasoning<5)continue;
-  const value=Math.min(b.length,6)*7+Math.min(k,3)*4+Math.min(application,7)*3+Math.min(reasoning,8)*3;
-  if(!best||value>best.value)best={ri,mi,value};
+ const optionsR=combinations.map(indices=>({indices,set:new Set(indices),
+  basic:indices.reduce((n,i)=>n+stats[i].k+stats[i].a,0),
+  knowledge:indices.reduce((n,i)=>n+stats[i].k,0),
+  reasoning:indices.reduce((n,i)=>n+stats[i].r,0)
+ })).filter(v=>v.basic>=5);
+ const optionsM=combinations.map(indices=>({indices,set:new Set(indices),
+  application:indices.reduce((n,i)=>n+stats[i].a,0),
+  reasoning:indices.reduce((n,i)=>n+stats[i].r,0)
+ })).filter(v=>v.application>=5);
+ for(const r of optionsR)for(const m of optionsM){
+  if(m.indices.some(i=>r.set.has(i)))continue;
+  const remainingReasoning=totals.r-r.reasoning-m.reasoning;
+  if(remainingReasoning<5)continue;
+  const score=Math.min(r.basic,6)*6+Math.min(r.knowledge,3)*4+Math.min(m.application,7)*5+Math.min(remainingReasoning,8)*4-2*(r.indices.length+m.indices.length);
+  if(!best||score>best.score)best={r:r.set,m:m.set,score};
  }
  if(!best){
-  if(strict)throw Object.assign(new Error("المؤشر "+key+" لا يحتوي حاليًا نصوص قراءة مستقلة كافية للعلاج والتعزيز والإثراء. أضف نصوصًا معتمدة مختلفة قبل الإسناد."),{status:409});
+  if(strict)throw Object.assign(new Error("نصوص القراءة المتاحة للمؤشر "+key+" لا تكفي لتكوين 3 أوراق مختلفة دون تكرار النصوص. أضف نصوصًا معتمدة جديدة."),{status:409});
   return null;
  }
  return {
-  remedial:contexts[best.ri][1],
-  reinforcement:contexts[best.mi][1],
-  enrichment:contexts.filter((_,i)=>i!==best.ri&&i!==best.mi).flatMap(x=>x[1])
+  remedial:contexts.filter((_,i)=>best.r.has(i)).flatMap(x=>x[1]),
+  reinforcement:contexts.filter((_,i)=>best.m.has(i)).flatMap(x=>x[1]),
+  enrichment:contexts.filter((_,i)=>!best.r.has(i)&&!best.m.has(i)).flatMap(x=>x[1])
  };
 }
 async function questionsFor(subject:string,outcome:string,indicator:number,tier:string,personal:any,cache:Map<string,any[]>){
