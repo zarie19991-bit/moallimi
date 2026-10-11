@@ -369,14 +369,19 @@ async function myPlan(req:Request,access:Access){await syncStudents([access.stud
 async function teacherOverview(req:Request,access:Access){
   // Opening the teacher overview must not reprocess every historical exam.
   const sync={mode:"saved_results",created:0,updated:0,subject_scope:teacherScope(access)};
-  const [sr,ar]=await Promise.all([
-    roster(),
-    db.from("lugati_adaptive_assignments")
-      .select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,status,priority,training_attempts,last_training_percent,assigned_at,completed_at,updated_at")
-      .order("priority",{ascending:true})
-  ]);
-  if((ar as any).error)throw (ar as any).error;
-  const assignments=((ar as any).data||[]).filter((a:any)=>teacherAllows(access,a.subject_key));
+  async function readAssignments(){
+    const output:any[]=[];
+    for(let offset=0;offset<10000;offset+=500){
+      let q=db.from("lugati_adaptive_assignments")
+        .select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,status,priority,training_attempts,last_training_percent,assigned_at,completed_at,updated_at")
+        .order("id",{ascending:true}).range(offset,offset+499);
+      if(teacherScope(access)!=="all")q=q.eq("subject_key",teacherScope(access));
+      const {data,error}=await q;if(error)throw error;
+      output.push(...(data||[]));if((data||[]).length<500)return output;
+    }
+    throw Object.assign(new Error("عدد الخطط أكبر من نطاق القراءة؛ لا تعرض قائمة ناقصة."),{status:409});
+  }
+  const [sr,assignments]=await Promise.all([roster(),readAssignments()]);
   const by=new Map<string,any[]>();
   for(const a of assignments){const id=String(a.student_id);if(!by.has(id))by.set(id,[]);by.get(id)!.push(a)}
   const students=sr.map((s:any)=>{
