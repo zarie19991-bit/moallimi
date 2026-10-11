@@ -11,7 +11,7 @@ const tier=t=>({remedial:"علاجي",reinforcement:"تعزيز",enrichment:"إ�
 const plan=s=>({missing:"لا توجد خطة",assigned:"مسندة ولم يبدأ",in_progress:"بدأ ولم يسلّم",completed:"سلّم الحل"})[s]||s;
 const key=(id,k)=>String(id)+"|"+k;
 function addCss(){if(document.getElementById("tmo-css"))return;const c=document.createElement("style");c.id="tmo-css";c.textContent='.tmo{font-family:Tahoma,Arial,sans-serif;direction:rtl;text-align:right;color:#16402c;font-size:12px}.tmo *{box-sizing:border-box}.tmo-hero{background:linear-gradient(110deg,#063929,#08725a);color:#fff;padding:25px;border-radius:20px}.tmo-hero h1{font-size:25px;font-weight:900;margin:4px 0}.tmo-hero p{color:#cbe7d5;font-size:13px}.tmo-box{background:white;border:1px solid #d5e7da;border-radius:16px;margin-top:15px;padding:17px}.tmo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:15px 0}.tmo-stat{background:#fff;border:1px solid #d2e3d8;padding:14px;border-radius:14px}.tmo-stat small{color:#63816e;font-weight:700}.tmo-stat b{display:block;font-size:23px;color:#086042}.tmo-button{background:#09674f;color:#fff;border:none;border-radius:10px;padding:9px 13px;font-size:12px;font-weight:bold;cursor:pointer}.tmo-button.secondary{background:#e6f4e8;color:#08634c}.tmo-button:disabled{opacity:.45}.tmo-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}.tmo-filters label{font-size:11px;font-weight:800;display:block;margin-bottom:5px}.tmo-filters input,.tmo-filters select{width:100%;border:1px solid #ccdcd0;background:#fbfefa;border-radius:9px;padding:10px;font-size:12px}.tmo-wrap{overflow:auto;max-height:60vh;border:1px solid #d6e5db;border-radius:10px}.tmo-table{border-collapse:separate;border-spacing:0;min-width:1440px;width:100%;font-size:11px}.tmo-table th{background:#e7f4e9;position:sticky;top:0;z-index:1;text-align:right;padding:11px;white-space:nowrap}.tmo-table td{padding:10px;border-top:1px solid #e4ece6;vertical-align:top}.tmo-table tr:nth-child(even){background:#fafcfb}.tmo-pill{display:inline-block;padding:4px 7px;border-radius:8px;font-weight:bold;background:#eef4ef;white-space:nowrap}.tmo-pill.green{background:#dff4e7;color:#095b37}.tmo-pill.yellow{background:#fff2d5;color:#925c17}.tmo-pill.red{background:#ffe8e9;color:#a33144}.tmo-sub{display:block;color:#647e6a;font-size:10px}.tmo-note{background:#f3f9f4;border:1px solid #d7e8da;border-radius:12px;padding:12px;margin:12px 0}.tmo-nav{display:flex;justify-content:center;align-items:center;gap:12px;margin-top:12px}@media print{@page{size:A4 landscape;margin:8mm}.tmo-filters,.tmo-actions,.tmo-nav{display:none!important}.tmo-hero{background:#fff;color:#16402c}.tmo-wrap{overflow:visible;max-height:none}.tmo-table{min-width:0;font-size:8pt}.tmo-table th{position:static}}';document.head.appendChild(c)}
-async function request(action){const r=await fetch(URL_API,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+M.token},body:JSON.stringify({action})});let x;try{x=await r.json()}catch{throw Error("تعذر قراءة نتيجة خدمة المتابعة.")}if(!r.ok||x.ok!==true)throw Error(x.error||"فشل تحميل المتابعة.");return x}
+async function request(action,payload={}){const r=await fetch(URL_API,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+M.token},body:JSON.stringify({action,...payload})});let x;try{x=await r.json()}catch{throw Error("تعذر قراءة نتيجة خدمة المتابعة.")}if(!r.ok||x.ok!==true)throw Error(x.error||"فشل تحميل المتابعة.");return x}
 function compile(d){
  const roster=new Map(d.students.map(s=>[String(s.id),s])),sessions=new Map(),plans=new Map(),evidence=new Map();
  for(const s of d.sessions||[]){const id=String(s.student_id);let p=sessions.get(id)||{login:null,seen:null,expires:null};if(!p.login||s.created_at>p.login)p.login=s.created_at;if(!p.seen||s.last_seen_at>p.seen){p.seen=s.last_seen_at;p.expires=s.expires_at}sessions.set(id,p)}
@@ -51,13 +51,17 @@ function filtered(){const q=M.q.trim().toLowerCase();return M.rows.filter(r=>
  (!q||String(r.student.full_name).toLowerCase().includes(q)||String(r.student.class_name).includes(q)||String(r.ind.indicator_text).toLowerCase().includes(q)))}
 function select(id,current,vals){return '<select id="'+id+'">'+vals.map(x=>'<option value="'+E(x[0])+'" '+(current===x[0]?'selected':'')+'>'+E(x[1])+'</option>').join("")+'</select>'}
 function line(r){
- let a=r.latest;const quality=!a?"لم يقس":a.total<5?"قياس محدود":r.p>=80?"نتيجة مرتفعة":"يحتاج دعمًا";
+ let a=r.latest;
+ const completed=[...r.tasks].reverse().find(t=>t.solved)||null;
+ const posttest=completed?(M.data?.posttests||[]).find(p=>String(p.source_task_id)===String(completed.id)):null;
+ const action=completed?(posttest?'<span class="tmo-sub">القياس البعدي: '+E(posttest.status==="completed"?"مكتمل":posttest.status==="in_progress"?"بدأ ولم يسلّم":"ينتظر الطالب")+'</span>':'<button class="tmo-button secondary" data-tmo-assign="'+E(completed.id)+'" style="padding:5px 8px;margin-top:5px">إسناد قياس بعدي</button>'):'';
+ const quality=!a?"لم يقس":a.total<5?"قياس محدود":r.p>=80?"نتيجة مرتفعة":"يحتاج دعمًا";
  return '<tr><td><b>'+E(r.student.full_name)+'</b><span class="tmo-sub">'+E(r.student.class_name)+'</span></td>'+
  '<td>'+pill(r.online?"نشط الآن":r.session.login?"سبق دخوله":"لم يدخل",r.online?"green":r.session.login?"":"red")+'<span class="tmo-sub">آخر دخول '+D(r.session.login)+'</span><span class="tmo-sub">آخر نشاط '+D(r.session.seen)+'</span></td>'+
  '<td>'+E(subj(r.ind.subject_key))+'<span class="tmo-sub">'+E(r.ind.indicator_text)+'</span></td>'+
  '<td>'+(a?N(a.score)+' / '+N(a.total)+' <b>'+N(r.p)+'%</b><span class="tmo-sub">'+D(a.submitted_at)+'</span><span class="tmo-sub">معرفة '+N(a.knowledge_score)+'/'+N(a.knowledge_total)+' · تطبيق '+N(a.application_score)+'/'+N(a.application_total)+' · استدلال '+N(a.reasoning_score)+'/'+N(a.reasoning_total)+'</span>':'—')+'<div>'+pill(quality,a&&a.total>=5?"green":"yellow")+'</div></td>'+
  '<td>'+pill(tier(r.level),r.level==="remedial"?"red":r.level==="enrichment"?"green":"yellow")+'</td>'+
- '<td>'+pill(plan(r.status),r.status==="completed"?"green":r.status==="missing"?"red":"yellow")+'<span class="tmo-sub">إسناد '+N(r.tasks.length)+' | فتح '+N(r.tasks.filter(t=>t.started_at).length)+' | تسليم '+N(r.solved)+'</span><span class="tmo-sub">'+D(r.last?.assigned_at)+'</span></td>'+
+ '<td>'+pill(plan(r.status),r.status==="completed"?"green":r.status==="missing"?"red":"yellow")+'<span class="tmo-sub">إسناد '+N(r.tasks.length)+' | فتح '+N(r.tasks.filter(t=>t.started_at).length)+' | تسليم '+N(r.solved)+'</span><span class="tmo-sub">'+D(r.last?.assigned_at)+'</span>'+action+'</td>'+
  '<td>'+(r.before?N(r.before.score)+'/'+N(r.before.total)+' ('+N(P(r.before))+'%)':'—')+'</td>'+
  '<td>'+(r.after?N(r.after.score)+'/'+N(r.after.total)+' ('+N(P(r.after))+'%)':'—')+'</td>'+
  '<td>'+(r.change==null?"—":(r.change>0?"+":"")+N(r.change)+" نقطة")+'<div>'+pill(r.impact,r.impact==="إتقان بعدي موثق"?"green":r.impact==="بانتظار اختبار بعدي"?"yellow":"")+'</div></td></tr>';
@@ -87,6 +91,7 @@ function render(){
  (pageRows.length?pageRows.map(line).join(""):'<tr><td colspan="9">لا توجد بيانات مطابقة لهذه التصفية.</td></tr>')+'</tbody></table></div>'+
  '<div class="tmo-nav"><button id="tmo-prev" class="tmo-button secondary" '+(M.page===1?"disabled":"")+'>السابق</button><span>صفحة '+N(M.page)+' / '+N(pages)+'</span><button id="tmo-next" class="tmo-button secondary" '+(M.page===pages?"disabled":"")+'>التالي</button></div></section></div>';
  bind(pages);
+ for(const b of M.host.querySelectorAll('[data-tmo-assign]'))b.onclick=()=>assignPosttest(b);
 }
 function change(name,value){M[name]=value;M.page=1;render()}
 function csv(){
@@ -94,6 +99,17 @@ function csv(){
  const rows=filtered().map(r=>[r.student.full_name,r.student.class_name,D(r.session.login),D(r.session.seen),subj(r.ind.subject_key),r.ind.indicator_text,r.latest?.score,r.latest?.total,r.p,tier(r.level),r.tasks.length,r.solved,plan(r.status),P(r.before),P(r.after),r.change,r.impact]);
  const content="\ufeff"+[headers,...rows].map(row=>row.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");
  const object=URL.createObjectURL(new Blob([content],{type:"text/csv;charset=utf-8"}));const link=document.createElement("a");link.href=object;link.download="tamakkun-progress.csv";link.click();setTimeout(()=>URL.revokeObjectURL(object),1200);
+}
+async function assignPosttest(btn){
+ if(!btn||btn.disabled)return;
+ if(!confirm("سيُسند للطالب اختبار بعدي مستقل من خمسة أسئلة جديدة للمؤشر نفسه. هل تعتمد الإسناد؟"))return;
+ const task_id=btn.dataset.tmoAssign,old=btn.textContent;
+ btn.disabled=true;btn.textContent="جارٍ الإسناد…";
+ try{
+  const result=await request("assign_posttest",{task_id});
+  alert(result.message||"تم إسناد القياس البعدي.");
+  await load(true);
+ }catch(e){alert(e.message);btn.disabled=false;btn.textContent=old}
 }
 function bind(pages){
  for(const [id,property] of [["tmo-search","q"],["tmo-subject","subject"],["tmo-ind","indicator"],["tmo-class","cls"],["tmo-tier","tier"],["tmo-status","state"],["tmo-login","presence"]]){
