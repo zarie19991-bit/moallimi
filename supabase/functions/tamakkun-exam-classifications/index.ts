@@ -171,38 +171,89 @@ function similarity(q:any,missed:any[],seed:string){
  for(const error of missed){let n=0;for(const word of arabicTokens(error.text))if(tokens.has(word))n++;related=Math.max(related,n)}
  return related*1000000+seedHash(seed+"|"+String(q.id))%1000000;
 }
-async function questionsFor(subject:string,outcome:string,indicator:number,tier:string,personal:any,cache:Map<string,any[]>){
- const key=[subject,outcome,indicator].join(":");
- if(!cache.has(key)){
-  const {data,error}=await db.from("nafes_question_bank").select("id,options,correct_index,cognitive_level,difficulty,question_text,context_text").eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator).eq("is_active",true).eq("review_status","approved").eq("alignment_verified",true).limit(200);
-  if(error)throw error;
-  const candidates=(data||[]).filter((q:any)=>Array.isArray(q.options)&&q.options.length===4&&new Set(q.options.map((x:any)=>clean(x))).size===4&&Number.isInteger(Number(q.correct_index))&&Number(q.correct_index)>=0&&Number(q.correct_index)<=3&&!/في الشكل|من الشكل|كما في الشكل|الشكل الآتي|الرسم الآتي|المخطط الآتي|الجدول الآتي|أي صيغة سؤال تقيس|ما الذي يجب أن تتقنه/.test(clean(q.question_text)+" "+clean(q.context_text)));
-  let excluded=new Set<string>();
-  if(candidates.length){const {data:e,error:ee}=await db.from("lugati_remedial_question_exclusions").select("question_id").in("question_id",candidates.map((x:any)=>x.id));if(ee)throw ee;excluded=new Set((e||[]).map((x:any)=>String(x.question_id)))}
-  cache.set(key,candidates.filter((q:any)=>!excluded.has(String(q.id))));
+function practiceNormal(s:string){return String(s||"").normalize("NFKC").replace(/[\u0640\u064B-\u065F\u0670]/g,"").replace(/\s+/g," ").trim()}
+function practiceFinger(s:string){return practiceNormal(s).replace(/[إأآ]/g,"ا").replace(/ى/g,"ي").replace(/[^\p{L}\p{N}]/gu,"")}
+function practiceSeed(s:string){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function distinctPracticeRows(qs:any[],key:string){
+ const sorted=[...qs].sort((a:any,b:any)=>practiceSeed(key+"|"+a.id)-practiceSeed(key+"|"+b.id));
+ const used=new Set<string>();
+ return sorted.filter((q:any)=>{const k=practiceFinger(q.question_text);if(!k||used.has(k))return false;used.add(k);return true});
+}
+function separatePracticePassages(qs:any[],key:string,strict:boolean){
+ const group=new Map<string,any[]>();
+ for(const q of qs){const context=practiceFinger(q.context_text);if(!context)continue;if(!group.has(context))group.set(context,[]);group.get(context)!.push(q)}
+ const contexts=[...group].sort((a,b)=>practiceSeed(key+"|text|"+a[0])-practiceSeed(key+"|text|"+b[0]));
+ let best:any=null;
+ for(let ri=0;ri<contexts.length;ri++)for(let mi=0;mi<contexts.length;mi++){
+  if(ri===mi)continue;
+  const r=contexts[ri][1],m=contexts[mi][1],other=contexts.filter((_,n)=>n!==ri&&n!==mi).flatMap(x=>x[1]);
+  const b=r.filter(q=>q.cognitive_level==="knowledge"&&q.difficulty==="easy"||q.cognitive_level==="application"&&q.difficulty==="medium");
+  const k=b.filter(q=>q.cognitive_level==="knowledge").length;
+  const application=m.filter(q=>q.cognitive_level==="application"&&q.difficulty==="medium").length;
+  const reasoning=other.filter(q=>q.cognitive_level==="reasoning"&&q.difficulty==="hard").length;
+  if(b.length<5||application<5||reasoning<5)continue;
+  const value=Math.min(b.length,6)*7+Math.min(k,3)*4+Math.min(application,7)*3+Math.min(reasoning,8)*3;
+  if(!best||value>best.value)best={ri,mi,value};
  }
- const pool=cache.get(key)||[],salt=key+"|tier-separated-v2";
- const stable=(a:any,b:any)=>seedHash(salt+"|"+String(a.id))-seedHash(salt+"|"+String(b.id));
- const knowledge=pool.filter((x:any)=>x.cognitive_level==="knowledge"&&x.difficulty==="easy").sort(stable);
- const application=pool.filter((x:any)=>x.cognitive_level==="application"&&x.difficulty==="medium").sort(stable);
- const reasoning=pool.filter((x:any)=>x.cognitive_level==="reasoning"&&x.difficulty==="hard").sort(stable);
- // No overlap: basic remediation uses knowledge and the FIRST portion of application,
- // reinforcement reserves the LAST 7 application items, enrichment exclusively reasoning.
- const baseApplication=application.slice(0,Math.max(0,application.length-7)),middle=application.slice(-7);
- const seen=new Set((personal?.seen||[]).map(String)),missed=Array.isArray(personal?.missed)?personal.missed:[];
- const seed=String(personal?.seed||key)+"|"+tier;
- const order=(a:any,b:any)=>Number(seen.has(String(a.id)))-Number(seen.has(String(b.id)))||similarity(b,missed,seed)-similarity(a,missed,seed);
- let selected:any[]=[];
+ if(!best){
+  if(strict)throw Object.assign(new Error("المؤشر "+key+" لا يحتوي حاليًا نصوص قراءة مستقلة كافية للعلاج والتعزيز والإثراء. أضف نصوصًا معتمدة مختلفة قبل الإسناد."),{status:409});
+  return null;
+ }
+ return {
+  remedial:contexts[best.ri][1],
+  reinforcement:contexts[best.mi][1],
+  enrichment:contexts.filter((_,i)=>i!==best.ri&&i!==best.mi).flatMap(x=>x[1])
+ };
+}
+async function questionsFor(subject:string,outcome:string,indicator:number,tier:string,personal:any,cache:Map<string,any[]>){
+ const studentSeed=String(personal?.seed||"");
+ const count=tier==="remedial"?6:tier==="reinforcement"?7:8;
+ const cached=cache;
+ if(!["remedial","reinforcement","enrichment"].includes(tier))throw Object.assign(new Error("نوع الخطة غير صالح."),{status:400});
+ const key=[subject,outcome,indicator].join(":");
+ let rows:any[]=cached?.get(key)||[];
+ if(!cached?.has(key)){
+  const {data,error}=await db.from("nafes_question_bank")
+   .select("id,cognitive_level,difficulty,options,correct_index,question_text,context_text")
+   .eq("is_active",true).eq("review_status","approved").eq("alignment_verified",true)
+   .eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator).limit(200);
+  if(error)throw error;
+  const raw=(data||[]).filter((q:any)=>Array.isArray(q.options)&&q.options.length===4&&new Set(q.options.map((x:any)=>String(x).trim())).size===4&&Number.isInteger(Number(q.correct_index))&&Number(q.correct_index)>=0&&Number(q.correct_index)<=3&&!/(?:في الشكل|من الشكل|كما في الشكل|الشكل الآتي|الشكل التالي|الشكل الموضح|الرسم الآتي|الرسم التالي|الرسم الموضح|المخطط الآتي|المخطط التالي|المخطط الموضح|الجدول الآتي|الجدول التالي|الجدول الموضح|أي صيغة سؤال تقيس|ما الذي يجب أن تتقنه)/.test(String(q.context_text||"")+" "+String(q.question_text||"")));
+  let excluded=new Set<string>();
+  if(raw.length){const {data:ex,error:xe}=await db.from("lugati_remedial_question_exclusions").select("question_id").in("question_id",raw.map(q=>q.id));if(xe)throw xe;excluded=new Set((ex||[]).map((x:any)=>String(x.question_id)))}
+  rows=distinctPracticeRows(raw.filter(q=>!excluded.has(String(q.id))),key);
+  cached?.set(key,rows);
+ }
+ const stable=(a:any,b:any)=>practiceSeed(key+"|tier-separated-v3|"+String(a.id))-practiceSeed(key+"|tier-separated-v3|"+String(b.id));
+ const normalized=rows.filter(q=>q.cognitive_level==="knowledge"&&q.difficulty==="easy"||q.cognitive_level==="application"&&q.difficulty==="medium"||q.cognitive_level==="reasoning"&&q.difficulty==="hard");
+ const hasProse=normalized.filter(q=>practiceNormal(q.context_text).length>=80).length>=15;
+ const proseSeparated=subject==="reading"?separatePracticePassages(normalized,key,true):hasProse?separatePracticePassages(normalized,key,false):null;
+ const list=proseSeparated?proseSeparated[tier]:normalized;
+ const allKnowledge=list.filter(q=>q.cognitive_level==="knowledge"&&q.difficulty==="easy").sort(stable);
+ const allApplication=list.filter(q=>q.cognitive_level==="application"&&q.difficulty==="medium").sort(stable);
+ const allReasoning=list.filter(q=>q.cognitive_level==="reasoning"&&q.difficulty==="hard").sort(stable);
+ const n=Math.max(3,Math.min(8,Math.trunc(Number(count)||6)));
+ let basics=allApplication,mid=allApplication;
+ if(!proseSeparated){
+  // Split medium application stems by distinct content, not only by question UUIDs.
+  basics=allApplication.slice(0,Math.max(0,allApplication.length-7));
+  mid=allApplication.slice(-7);
+ }
+ const missed=Array.isArray(personal?.missed)?personal.missed:[],seen=new Set((personal?.seen||[]).map(String));
+ const terms=(v:string)=>practiceNormal(v).replace(/[إأآ]/g,"ا").replace(/ى/g,"ي").replace(/[^\p{L}\p{N}\s]/gu," ").split(/\s+/).filter((w:string)=>w.length>=4);
+ const overlaps=(q:any)=>{const t=new Set(terms(q.question_text+" "+q.context_text));return Math.max(0,...missed.map((m:any)=>terms(m.text||"").filter(w=>t.has(w)).length))};
+ const vary=(a:any,b:any)=>Number(seen.has(String(a.id)))-Number(seen.has(String(b.id)))||overlaps(b)-overlaps(a)||practiceSeed(studentSeed+"|"+String(a.id))-practiceSeed(studentSeed+"|"+String(b.id));
+ let chosen:any[]=[];
  if(tier==="remedial"){
-  const errors=personal?.errors||{},target=Number(errors.knowledge||0)>=Number(errors.application||0)?4:2;
-  const basic=Math.min(knowledge.length,Math.max(6-baseApplication.length,target));
-  selected=[...knowledge.sort(order).slice(0,basic),...baseApplication.sort(order).slice(0,6-basic)];
-  if(selected.length<6)selected.push(...knowledge.filter((q:any)=>!selected.includes(q)).sort(order).slice(0,6-selected.length));
- }else if(tier==="reinforcement")selected=middle.sort(order).slice(0,7);
- else if(tier==="enrichment")selected=reasoning.sort(order).slice(0,8);
- if(selected.length<5)throw httpError("لا توجد أسئلة كافية صالحة لهذا المستوى والمؤشر.",409);
- if(new Set(selected.map((x:any)=>x.id)).size!==selected.length)throw httpError("تكررت الأسئلة داخل ورقة العمل.",409);
- return selected.map((x:any)=>String(x.id));
+  const target=Number(personal?.errors?.knowledge||0)>=Number(personal?.errors?.application||0)?Math.ceil(n/2):2;
+  const k=Math.min(allKnowledge.length,Math.max(n-basics.length,target));
+  chosen=[...allKnowledge.sort(vary).slice(0,k),...basics.sort(vary).slice(0,n-k)];
+  if(chosen.length<n)chosen.push(...allKnowledge.filter(q=>!chosen.includes(q)).sort(vary).slice(0,n-chosen.length));
+ }else if(tier==="reinforcement")chosen=mid.sort(vary).slice(0,n);
+ else chosen=allReasoning.sort(vary).slice(0,n);
+ if(chosen.length<Math.min(n,5)||new Set(chosen.map(q=>practiceFinger(q.question_text))).size!==chosen.length)
+  throw Object.assign(new Error("لا توجد أسئلة متمايزة كافية في المؤشر "+indicator+" لفئة "+tier+". لا يمكن تكرار الأسئلة أو النصوص لتعويض النقص."),{status:409});
+ return chosen.map(q=>String(q.id));
 }
 
 async function assign(testId:string,scope:string,tier:string,t:any){
