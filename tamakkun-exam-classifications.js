@@ -62,17 +62,29 @@ function draw(){
  ["ما زالوا بحاجة إلى علاج",d.effect?.still_remedial||0],
  ["بانتظار القياس البعدي",d.effect?.pending_post||0]
  ].map(x=>'<div><small>'+x[0]+'</small><b>'+num(x[1])+'</b></div>').join("")+'</div></section>'+
- '<section class="tkc-box"><div class="tkc-heading"><div><h2>تقرير أسماء الطلاب وتصنيفهم وخططهم</h2><p>'+esc(d.test.title)+' · '+esc((d.test.subject_keys||[]).map(sub).join("، "))+' · '+esc(d.test.grade)+' · '+esc(date(d.test.date))+'</p></div><span class="tkc-note">'+num(shown.length)+' من '+num(all.length)+' طالب</span></div>'+
+ '<section class="tkc-box"><div class="tkc-heading"><div><h2>سجل وصول الخطط وحلها</h2><p>الإسناد = إتاحتها في حساب الطالب، وليس تأكيدًا بأنه قرأها. التسليم مؤكد بسجل الإجابات والدرجة.</p></div></div><div class="tkc-interventions">'+[
+ ["مختبرون أُسندت لهم خطط",d.coverage?.assigned_students||0],
+ ["فتحوا خطة واحدة على الأقل",d.coverage?.opened_students||0],
+ ["حلّوا جميع خططهم",d.coverage?.solved_students||0],
+ ["حلّوا بعض خططهم",d.coverage?.partial_students||0],
+ ["أُسندت ولم تُستكمل",d.coverage?.pending_students||0],
+ ["خطط مسندة",d.coverage?.assigned_plans||0],
+ ["خطط حُلّت وسُلّمت",d.coverage?.solved_plans||0]
+ ].map(x=>'<div><small>'+x[0]+'</small><b>'+num(x[1])+'</b></div>').join("")+'</div></section>'+
+ '<section class="tkc-box"><div class="tkc-heading"><div><h2>تقرير أسماء الطلاب وتصنيفهم وحل الخطط</h2><p>'+esc(d.test.title)+' · '+esc((d.test.subject_keys||[]).map(sub).join("، "))+' · '+esc(d.test.grade)+' · '+esc(date(d.test.date))+'</p></div><span class="tkc-note">'+num(shown.length)+' من '+num(all.length)+' طالب</span></div>'+
  '<div class="tkc-tabs">'+["all","remedial","reinforcement","enrichment","unmeasured"].map(k=>'<button class="tkc-tab '+(k===A.filter?'active':'')+'" data-tkc-filter="'+k+'">'+labels[k]+' ('+num(k==="all"?all.length:c[k]||0)+')</button>').join("")+'</div>'+
  '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:13px"><label for="tkc-status" style="margin:0">حالة متابعة الخطة</label><select id="tkc-status" style="max-width:230px"><option value="all">كل الحالات</option>'+[["none","لم تُسند خطة"],["assigned","لم يبدأ"],["in_progress","قيد التنفيذ"],["completed","مكتمل"]].map(x=>'<option value="'+x[0]+'" '+(A.statusFilter===x[0]?'selected':'')+'>'+x[1]+'</option>').join("")+'</select><span class="tkc-note">الترتيب حسب أولوية التدخل ودرجة الطالب ثم الفصل.</span></div>'+
- '<div class="tkc-tablebox"><table class="tkc-table" style="min-width:1450px"><thead><tr><th>م</th><th>اسم الطالب</th><th>الفصل</th><th>الدرجة القبلية</th><th>الدرجة الكلية</th><th>النسبة</th><th>التصنيف</th><th>الخطة وورقة العمل</th><th>حالة التنفيذ</th><th>تاريخ الإسناد/الإنجاز</th><th>القياس البعدي</th><th>التحسن</th><th>قياس الأثر</th></tr></thead><tbody>'+
+ '<div class="tkc-tablebox"><table class="tkc-table" style="min-width:1850px"><thead><tr><th>م</th><th>اسم الطالب</th><th>الفصل</th><th>الدرجة القبلية</th><th>الدرجة الكلية</th><th>النسبة</th><th>التصنيف</th><th>الخطة وورقة العمل</th><th>أُسندت إلى حسابه؟</th><th>فتح الخطة؟</th><th>هل حلّها وسلّمها؟</th><th>درجة حل الورقة</th><th>تاريخ الإسناد/الإنجاز</th><th>القياس البعدي</th><th>التحسن</th><th>قياس الأثر</th></tr></thead><tbody>'+
  (shown.length?shown.map((r,i)=>'<tr><td>'+num(i+1)+'</td><td><b>'+esc(r.student_name)+'</b></td><td>'+esc(r.class_name||"—")+'</td><td>'+(r.tested?num(r.score):"—")+'</td><td>'+(r.tested?num(r.total):"—")+'</td><td>'+(r.tested?num(r.percent)+"%":"—")+'</td><td><span class="tkc-pill '+r.classification+'">'+labels[r.classification]+'</span></td>'+
- '<td>'+(r.plans?.length?r.plans.map(x=>'<div style="padding:5px 0"><b>'+esc(x.title)+'</b><div>'+esc(x.indicator_text||"")+'</div><button class="tkc-print-small" data-tkc-sheet="'+esc(x.id)+'">طباعة الورقة</button></div>').join(""):"لم تُسند")+'</td>'+
- '<td><span class="tkc-status '+(r.plan_status||"none")+'">'+statusName(r.plan_status)+'</span></td>'+
+ '<td>'+(r.plans?.length?r.plans.map(x=>'<div style="padding:5px 0"><b>'+esc(x.title)+'</b><div>'+esc(x.indicator_text||"")+'</div><div class="tkc-note">حالة هذه الورقة: '+esc(x.answer_status)+' · '+(x.solved?num(x.score)+' / '+num(x.total)+' ('+num(x.percent)+'%)':'لم تُسلم إجاباتها بعد')+'</div><button class="tkc-print-small" data-tkc-sheet="'+esc(x.id)+'">طباعة الورقة</button></div>').join(""):"لم تُسند")+'</td>'+
+ '<td>'+(r.plan_assigned?"نعم، مسندة":"لا")+'</td>'+
+ '<td>'+(r.plan_opened?"نعم":"لا")+'</td>'+
+ '<td><span class="tkc-status '+(r.plan_status||"none")+'">'+esc(r.plan_answer_status||"لم تُسند خطة")+'</span></td>'+
+ '<td>'+(r.plans?.length?r.plans.map(x=>x.solved?num(x.score)+' / '+num(x.total)+' • '+num(x.percent)+'%':'—').join("<div></div>"):"—")+'</td>'+
  '<td>'+(r.assigned_at?date(r.assigned_at):"—")+' / '+(r.completed_at?date(r.completed_at):"—")+'</td>'+
  '<td>'+(r.post_percent!=null?num(r.post_score)+" من "+num(r.post_total)+" • "+num(r.post_percent)+"%":"لم يُقَس بعد")+'</td>'+
  '<td>'+(r.improvement!=null?(r.improvement>0?"+":"")+num(r.improvement)+" نقطة":"—")+'</td>'+
- '<td>'+esc(r.effect_status||"—")+'</td></tr>').join(""):'<tr><td colspan="13" class="tkc-blank">لا توجد أسماء في هذا التصنيف.</td></tr>')+
+ '<td>'+esc(r.effect_status||"—")+'</td></tr>').join(""):'<tr><td colspan="16" class="tkc-blank">لا توجد أسماء في هذا التصنيف.</td></tr>')+
  '</tbody></table></div><div class="tkc-actions"><button class="tkc-btn" id="tkc-assign" '+(A.sending||!["remedial","reinforcement","enrichment"].includes(A.filter)||!filtered.length?'disabled':'')+'>'+(A.sending?"جارٍ إسناد الخطط…":"إسناد خطة للفئة: "+(labels[A.filter]||"اختر فئة"))+'</button><button class="tkc-btn paper" id="tkc-plan-roster">تقرير أسماء الطلاب والخطط PDF</button><button class="tkc-btn alt" id="tkc-print">التقرير التفصيلي وقياس الأثر</button><span class="tkc-note">التقرير المستقل يقسم المختبرين إلى علاجي وتعزيز وإثرائي مع حالة كل خطة؛ وغير المختبرين في كشف مستقل.</span></div></section>'+
  '<section class="tkc-box"><div class="tkc-heading"><div><h2>تقرير الطلاب الذين لم ينجزوا الاختبار</h2><p>هذه القائمة للاختبار كاملًا، مستقلة عن الطلاب الذين اختبروا لكن لم يُقاسوا في المؤشر المختار.</p></div><span class="tkc-note">غير مسلّمين: '+num(d.counts.exam_absentees||0)+' • بدأ ولم يسلّم: '+num(d.counts.started_unsubmitted||0)+'</span></div>'+
  '<div class="tkc-letter-fields"><div><label for="tkc-letter-school">اسم المدرسة في الخطاب</label><input id="tkc-letter-school" value="'+esc(A.letterSchool)+'" /></div><div><label for="tkc-letter-to">الجهة المخاطبة</label><input id="tkc-letter-to" value="'+esc(A.letterTo)+'" /></div></div>'+
@@ -178,50 +190,62 @@ async function printSheet(id){
 
 function printPlanRoster(){
  const d=A.detail;if(!d)return;
- const w=window.open("","_blank","width=1100,height=850");
- if(!w){alert("اسمح بفتح نافذة جديدة لعرض التقرير وحفظه PDF.");return}
+ const w=window.open("","_blank","width=1160,height=850");
+ if(!w){alert("اسمح بفتح نافذة التقرير ثم اختر حفظ بصيغة PDF.");return}
  const all=(d.rows||[]).filter(r=>r.tested&&["remedial","reinforcement","enrichment"].includes(r.classification));
  const categories=[
-  {key:"remedial",name:"أولًا: الطلاب المستهدفون بالخطة العلاجية",hint:"أقل من 50%"},
-  {key:"reinforcement",name:"ثانيًا: الطلاب المستهدفون بالخطة التعزيزية",hint:"من 50% إلى أقل من 80%"},
-  {key:"enrichment",name:"ثالثًا: الطلاب المستهدفون بالخطة الإثرائية",hint:"80% فأعلى"}
+  {key:"remedial",title:"أولًا: طلاب الخطة العلاجية",range:"أقل من 50%"},
+  {key:"reinforcement",title:"ثانيًا: طلاب الخطة التعزيزية",range:"50% إلى أقل من 80%"},
+  {key:"enrichment",title:"ثالثًا: طلاب الخطة الإثرائية",range:"80% فأعلى"}
  ];
- const overall={tested:all.length,assigned:all.filter(x=>x.plans?.length).length,missing:all.filter(x=>!x.plans?.length).length,
-  notStarted:all.filter(x=>x.plan_status==="assigned").length,
-  inProgress:all.filter(x=>x.plan_status==="in_progress").length,
-  completed:all.filter(x=>x.plan_status==="completed").length};
+ const tick=ok=>ok?"نعم":"لا";
+ const planDetails=p=>'<div class="plan"><b>'+esc(p.title||"خطة تدريبية")+'</b><div>'+esc(p.indicator_text||"—")+'</div><small>نوع الخطة: '+esc(labels[p.tier]||p.tier)+' · '+esc(p.answer_status||"لم يبدأ")+
+  (p.solved?' · الدرجة: '+num(p.score)+' / '+num(p.total)+' ('+num(p.percent)+'%)':'')+
+  (p.started_at?' · بدء الحل: '+esc(date(p.started_at)):'')+
+  (p.completed_at?' · التسليم: '+esc(date(p.completed_at)):'')+
+  '</small>'+(p.tier_matches_current===false?'<div class="legacy">خطة تاريخية بتصنيف سابق؛ صُنّف الطالب حاليًا: '+esc(labels[d?.rows?.find(r=>(r.plans||[]).some(t=>t.id===p.id))?.classification]||"—")+'</div>':'')+'</div>';
  const oneRow=(r,i)=>{
   const plans=Array.isArray(r.plans)?r.plans:[];
-  const planText=plans.length?plans.map(p=>'<div class="plan"><strong>'+esc(p.title||"الخطة المسندة")+'</strong><div class="muted">'+esc(p.indicator_text||"")+'</div></div>').join(""):'<span class="missing">لم تُسند خطة</span>';
-  return '<tr><td>'+num(i+1)+'</td><td class="student">'+esc(r.student_name)+'</td><td>'+esc(r.class_name||"—")+'</td><td>'+num(r.score)+' / '+num(r.total)+'</td><td>'+num(r.percent)+'%</td><td>'+esc(labels[r.classification])+'</td><td>'+planText+'</td><td>'+esc(statusName(r.plan_status))+'</td><td>'+(r.assigned_at?esc(date(r.assigned_at)):"—")+'</td><td>'+(r.completed_at?esc(date(r.completed_at)):"—")+'</td></tr>';
+  const planText=plans.length?plans.map(planDetails).join(""):'<strong class="missing">لم تُسند خطة</strong>';
+  const scores=plans.filter(p=>p.solved).map(p=>num(p.score)+' / '+num(p.total)+' ('+num(p.percent)+'%)').join("، ");
+  const dates=plans.map(p=>'<div>إسناد: '+(p.assigned_at?esc(date(p.assigned_at)):"—")+'<div>تسليم: '+(p.solved&&p.completed_at?esc(date(p.completed_at)):"—")+'</div></div>').join("");
+  return '<tr><td>'+num(i+1)+'</td><td class="student">'+esc(r.student_name)+'</td><td>'+esc(r.class_name||"—")+'</td>'+
+   '<td>'+num(r.score)+' / '+num(r.total)+' ('+num(r.percent)+'%)</td>'+
+   '<td>'+esc(labels[r.classification])+'</td>'+
+   '<td>'+planText+'</td>'+
+   '<td>'+(plans.length?'نعم — '+num(plans.length)+' خطة':'لا')+'</td>'+
+   '<td>'+tick(!!r.plan_opened)+'</td>'+
+   '<td>'+esc(r.plan_answer_status||"لم تُسند خطة")+'</td>'+
+   '<td>'+(scores||"لم يُسلم حل")+'</td>'+
+   '<td>'+(dates||"—")+'</td></tr>';
  };
- const segments=categories.map(cat=>{
-  const rows=all.filter(r=>r.classification===cat.key);
-  const done=rows.filter(r=>r.plan_status==="completed").length;
-  const pending=rows.filter(r=>r.plan_status==="assigned").length;
-  const started=rows.filter(r=>r.plan_status==="in_progress").length;
-  const missing=rows.filter(r=>!r.plans?.length).length;
-  return '<section class="segment"><div class="section-title"><h2>'+cat.name+'</h2><div>'+cat.hint+' · عدد الطلاب: '+num(rows.length)+'</div></div>'+
-  '<p class="summary-line">مكتمل: '+num(done)+' | قيد التنفيذ: '+num(started)+' | لم يبدأ: '+num(pending)+' | بلا خطة: '+num(missing)+'</p>'+
-  '<table><thead><tr><th>م</th><th>اسم الطالب</th><th>الفصل</th><th>الدرجة القبلية</th><th>النسبة</th><th>التصنيف</th><th>الخطة المسندة والمؤشر</th><th>حالة التنفيذ</th><th>تاريخ الإسناد</th><th>تاريخ الإنجاز</th></tr></thead><tbody>'+
-  (rows.length?rows.map(oneRow).join(""):'<tr><td colspan="10" class="empty">لا يوجد طلاب في هذه الفئة.</td></tr>')+
-  '</tbody></table></section>';
+ const sections=categories.map(group=>{
+  const rows=all.filter(r=>r.classification===group.key);
+  const allocated=rows.filter(r=>r.plan_assigned).length,opened=rows.filter(r=>r.plan_opened).length;
+  const solved=rows.filter(r=>r.plan_solved).length,partial=rows.filter(r=>r.plan_solved_count>0&&!r.plan_solved).length;
+  const missing=rows.filter(r=>!r.plan_assigned).length;
+  return '<section class="group"><div class="group-title"><h2>'+group.title+'</h2><span>'+group.range+' · '+num(rows.length)+' طالبًا</span></div>'+
+  '<p class="counts">أُسندت لهم خطط: '+num(allocated)+' · فتحوا الخطة: '+num(opened)+' · سلّموا جميع الخطط: '+num(solved)+' · سلّموا بعض الخطط: '+num(partial)+' · دون خطة: '+num(missing)+'</p>'+
+  '<table><thead><tr><th>م</th><th>اسم الطالب</th><th>الفصل</th><th>نتيجة الاختبار</th><th>الفئة</th><th>الخطط المسندة والمؤشر وحالة كل ورقة</th><th>أُسندت للطالب؟</th><th>فتحها؟</th><th>هل حلّها وسلّمها؟</th><th>درجات الحل</th><th>تاريخ الإسناد والتسليم</th></tr></thead><tbody>'+
+  (rows.length?rows.map(oneRow).join(""):'<tr><td colspan="11" class="empty">لا يوجد طلاب في هذه الفئة.</td></tr>')+'</tbody></table></section>';
  }).join("");
- const css='@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font-family:Tahoma,Arial,sans-serif;color:#24392e;font-size:9pt;line-height:1.55;margin:0}header{border-bottom:3px solid #087051;padding-bottom:14px}header h1{color:#07583f;font-size:19pt;margin:5px 0}header small{color:#42614f;font-size:10pt}.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.meta span{background:#f3f8f4;padding:8px 10px;border:1px solid #d6e5d9}.totals{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:12px 0}.totals div{background:#edf6ef;border:1px solid #d1e5d6;border-radius:5px;padding:7px}.totals b{display:block;color:#075b40;font-size:16pt}.totals small{color:#506858}.segment{margin-top:22px;break-before:auto}.section-title{display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-bottom:1px solid #a7c9af;padding:4px 0}.section-title h2{font-size:13pt;color:#0c654b;margin:0}.summary-line{font-size:9pt;font-weight:bold;color:#4e6c58;margin:8px 0}table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:8.2pt}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}th,td{border:1px solid #c6d8ca;padding:6px 5px;text-align:right;vertical-align:top;overflow-wrap:anywhere}th{background:#e9f3eb;color:#20573c}th:nth-child(1){width:3%}th:nth-child(2){width:17%}th:nth-child(3){width:5%}th:nth-child(4){width:8%}th:nth-child(5){width:7%}th:nth-child(6){width:7%}th:nth-child(7){width:26%}th:nth-child(8){width:10%}th:nth-child(9),th:nth-child(10){width:8.5%}.student{font-weight:bold}.muted{color:#5a7060}.plan{margin-bottom:5px}.missing{color:#ae334e;font-weight:bold}.empty{text-align:center;padding:20px;color:#687e71}.note{color:#596d61;font-size:8.5pt;margin:16px 0}.sign{display:flex;justify-content:space-between;gap:30px;margin-top:28px;padding-top:12px;border-top:1px solid #c8d9cb}.sign span{min-width:30%}';
- const metadata=[
-  ["المدرسة",A.letterSchool||"—"],["الاختبار",d.test.title],["النطاق",d.scopes.find(s=>s.key===d.scope)?.label||"الاختبار كاملًا"],["الصف والفصل",d.test.grade+" — "+d.test.class_name]
+ const summary=[
+  ["المختبرون",all.length],
+  ["أُسندت لهم خطط",all.filter(r=>r.plan_assigned).length],
+  ["فتحوا الخطط",all.filter(r=>r.plan_opened).length],
+  ["سلّموا جميع خططهم",all.filter(r=>r.plan_solved).length],
+  ["حلّوا بعض الخطط",all.filter(r=>r.plan_solved_count>0&&!r.plan_solved).length],
+  ["دون خطة",all.filter(r=>!r.plan_assigned).length]
  ];
- const cards=[
-  ["مختبرون",overall.tested],["بخطط مسندة",overall.assigned],["بلا خطة",overall.missing],
-  ["لم يبدأ",overall.notStarted],["قيد التنفيذ",overall.inProgress],["مكتمل",overall.completed]
- ];
- const heading='<header><small>منصة تمكّن • تقرير المتابعة التعليمية</small><h1>تقرير أسماء الطلاب والتصنيف والخطط وحالة التنفيذ</h1><small>بيانات فعلية من الاختبار المحدد — تاريخ استخراج التقرير: '+esc(new Date().toLocaleDateString("ar-SA",{timeZone:"Asia/Riyadh"}))+'</small></header>';
- const info='<div class="meta">'+metadata.map(x=>'<span><b>'+esc(x[0])+':</b> '+esc(x[1])+'</span>').join("")+'</div>'+
-  '<div class="totals">'+cards.map(x=>'<div><small>'+esc(x[0])+'</small><b>'+num(x[1])+'</b></div>').join("")+'</div>';
- const note='<div class="note"><b>ملاحظة:</b> هذا تقرير خطط الطلاب الذين ظهرت لهم درجة فعلية في المؤشر أو مجموعة المؤشرات المحددة. الطالب غير المقاس لا يحصل على تصنيف علاجي أو تعزيزي أو إثرائي، وله كشف وخطاب متابعة مستقلان. حالة «لم يبدأ» تعني أن الخطة مسندة لكن الطالب لم يبدأها، و«بلا خطة» يعني عدم وجود إسناد مرتبط بنتيجته الحالية.</div>';
+ const css='@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#183c2e;font:8pt/1.55 Tahoma,Arial,sans-serif}header{border-bottom:3px solid #09664a;padding:0 0 11px}h1{font-size:17pt;color:#07543a;margin:5px 0}h2{font-size:12pt;margin:0;color:#075d44}small{font-size:7.5pt}.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:12px 0}.meta>div{padding:7px;background:#f5faf6;border:1px solid #d6e8da}.totals{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}.totals div{border:1px solid #cfe2d5;padding:7px;background:#ecf7ef}.totals b{display:block;font-size:16pt;color:#065d40}.group{margin:20px 0}.group-title{display:flex;justify-content:space-between;border-bottom:2px solid #9cc8aa;padding-bottom:5px;align-items:baseline}.counts{font-weight:bold;color:#425f4e;margin:8px 0}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.4pt}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}th,td{border:1px solid #c4d6c9;padding:5px 4px;text-align:right;vertical-align:top;overflow-wrap:anywhere}th{background:#e5f2e8}th:nth-child(1){width:3%}th:nth-child(2){width:14%}th:nth-child(3){width:4%}th:nth-child(4){width:9%}th:nth-child(5){width:5%}th:nth-child(6){width:24%}th:nth-child(7){width:8%}th:nth-child(8){width:6%}th:nth-child(9){width:9%}th:nth-child(10){width:8%}th:nth-child(11){width:10%}.student,.plan b{font-weight:bold}.plan{border-bottom:1px dashed #c9d7cb;padding:4px 0}.plan small{display:block;color:#526e5b}.missing,.legacy{color:#a43b45}.empty{text-align:center;padding:20px}.note{margin:17px 0;font-size:8pt;color:#526c5a}.sign{margin:22px 0;display:flex;justify-content:space-between;border-top:1px solid #c5d7c8;padding-top:12px}';
+ const escDate=esc(new Date().toLocaleDateString("ar-SA",{timeZone:"Asia/Riyadh"}));
+ const meta=[["المدرسة",A.letterSchool],["الاختبار",d.test.title],["النطاق",d.scopes.find(x=>x.key===d.scope)?.label||"الاختبار كاملًا"],["الصف والفصل",d.test.grade+" — "+d.test.class_name]];
+ const info='<div class="meta">'+meta.map(x=>'<div><b>'+esc(x[0])+':</b> '+esc(x[1]||"—")+'</div>').join("")+'</div>'+
+  '<div class="totals">'+summary.map(x=>'<div><small>'+esc(x[0])+'</small><b>'+num(x[1])+'</b></div>').join("")+'</div>';
+ const note='<p class="note"><b>تفسير الحالات:</b> «أُسندت» تعني أن الخطة مرتبطة بحساب الطالب، ولا تعني أنه اطّلع عليها. «فتحها» تعني أن النظام سجّل بدء التدريب. «حلّها وسلّمها» تعني وجود سجل تسليم وإجابات ودرجة محفوظة. لا تدخل الاختبارات غير المسلّمة ضمن الخطط، ولا تعادل درجة ورقة العمل نتيجة الاختبار البعدي.</p>';
  w.document.open();
- w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير أسماء الطلاب وخططهم - '+esc(d.test.title)+'</title><style>'+css+'</style></head><body>'+heading+info+segments+note+'<div class="sign"><span>مُعدّ التقرير: ___________________</span><span>توقيع مدير المدرسة: ___________________</span></div></body></html>');
- w.document.close();w.focus();setTimeout(()=>w.print(),450);
+ w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>أسماء الطلاب وحالة استلام وحل الخطط - '+esc(d.test.title)+'</title><style>'+css+'</style></head><body><header><small>منصة تمكّن • تقرير متابعة الخطط الموثق</small><h1>أسماء الطلاب والخطط وحالة البدء والتسليم</h1><small>تاريخ الاستخراج: '+escDate+'</small></header>'+info+sections+note+'<div class="sign"><span>مُعدّ التقرير: ____________________</span><span>مدير المدرسة: ____________________</span></div></body></html>');
+ w.document.close();w.focus();setTimeout(()=>w.print(),500);
 }
 
 function print(){
