@@ -367,7 +367,8 @@ async function syncStudents(ids?:string[],scope:SubjectScope="all"){
 }
 async function myPlan(req:Request,access:Access){await syncStudents([access.student_id!]);const {data,error}=await db.from("lugati_adaptive_assignments").select("id,student_id,subject_key,outcome_code,indicator_index,indicator_text,source_percent,tier,status,priority,training_attempts,last_training_percent,assigned_at,completed_at,updated_at").eq("student_id",access.student_id!).order("priority",{ascending:true}).order("updated_at",{ascending:false});if(error)throw error;const perfs=await latestPerformances([access.student_id!]);return json(req,{ok:true,assignments:(data||[]).filter((a:any)=>taskHasVerifiedMoallimiAttempt(a,perfs))})}
 async function teacherOverview(req:Request,access:Access){
-  const sync=await syncStudents(undefined,teacherScope(access));
+  // Opening the teacher overview must not reprocess every historical exam.
+  const sync={mode:"saved_results",created:0,updated:0,subject_scope:teacherScope(access)};
   const [sr,ar]=await Promise.all([
     roster(),
     db.from("lugati_adaptive_assignments")
