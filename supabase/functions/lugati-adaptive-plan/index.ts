@@ -515,7 +515,7 @@ async function pickTaskQuestionIds(subject:string,outcome:string,indicator:numbe
  }
  const stable=(a:any,b:any)=>practiceSeed(key+"|tier-separated-v3|"+String(a.id))-practiceSeed(key+"|tier-separated-v3|"+String(b.id));
  const normalized=rows.filter(q=>q.cognitive_level==="knowledge"&&q.difficulty==="easy"||q.cognitive_level==="application"&&q.difficulty==="medium"||q.cognitive_level==="reasoning"&&q.difficulty==="hard");
- const hasProse=normalized.filter(q=>practiceNormal(q.context_text).length>=80).length>=15;
+ const hasProse=normalized.filter(q=>practiceNormal(q.context_text).length>=40).length>=15;
  const proseSeparated=subject==="reading"?separatePracticePassages(normalized,key,true):hasProse?separatePracticePassages(normalized,key,false):null;
  const list=proseSeparated?proseSeparated[tier]:normalized;
  const allKnowledge=list.filter(q=>q.cognitive_level==="knowledge"&&q.difficulty==="easy").sort(stable);
