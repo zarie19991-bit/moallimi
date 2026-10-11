@@ -70,6 +70,7 @@ tamakkun-showcase.css
 tamakkun-worksheet-studio.js
 tamakkun-teacher-workspace.js
 tamakkun-exam-classifications.js
+tamakkun-student-monitor.js
 lugati-complete.js
 lugati-encouragement.js
 lugati-competition.js
