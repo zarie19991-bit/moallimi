@@ -71,6 +71,7 @@ tamakkun-worksheet-studio.js
 tamakkun-teacher-workspace.js
 tamakkun-exam-classifications.js
 tamakkun-student-monitor.js
+tamakkun-indicator-posttests.js
 lugati-complete.js
 lugati-encouragement.js
 lugati-competition.js
