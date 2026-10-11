@@ -55,7 +55,7 @@ function line(r){
  return '<tr><td><b>'+E(r.student.full_name)+'</b><span class="tmo-sub">'+E(r.student.class_name)+'</span></td>'+
  '<td>'+pill(r.online?"نشط الآن":r.session.login?"سبق دخوله":"لم يدخل",r.online?"green":r.session.login?"":"red")+'<span class="tmo-sub">آخر دخول '+D(r.session.login)+'</span><span class="tmo-sub">آخر نشاط '+D(r.session.seen)+'</span></td>'+
  '<td>'+E(subj(r.ind.subject_key))+'<span class="tmo-sub">'+E(r.ind.indicator_text)+'</span></td>'+
- '<td>'+(a?N(a.score)+' / '+N(a.total)+' <b>'+N(r.p)+'%</b><span class="tmo-sub">'+D(a.submitted_at)+'</span>':'—')+'<div>'+pill(quality,a&&a.total>=5?"green":"yellow")+'</div></td>'+
+ '<td>'+(a?N(a.score)+' / '+N(a.total)+' <b>'+N(r.p)+'%</b><span class="tmo-sub">'+D(a.submitted_at)+'</span><span class="tmo-sub">معرفة '+N(a.knowledge_score)+'/'+N(a.knowledge_total)+' · تطبيق '+N(a.application_score)+'/'+N(a.application_total)+' · استدلال '+N(a.reasoning_score)+'/'+N(a.reasoning_total)+'</span>':'—')+'<div>'+pill(quality,a&&a.total>=5?"green":"yellow")+'</div></td>'+
  '<td>'+pill(tier(r.level),r.level==="remedial"?"red":r.level==="enrichment"?"green":"yellow")+'</td>'+
  '<td>'+pill(plan(r.status),r.status==="completed"?"green":r.status==="missing"?"red":"yellow")+'<span class="tmo-sub">إسناد '+N(r.tasks.length)+' | فتح '+N(r.tasks.filter(t=>t.started_at).length)+' | تسليم '+N(r.solved)+'</span><span class="tmo-sub">'+D(r.last?.assigned_at)+'</span></td>'+
  '<td>'+(r.before?N(r.before.score)+'/'+N(r.before.total)+' ('+N(P(r.before))+'%)':'—')+'</td>'+
