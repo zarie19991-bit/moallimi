@@ -237,13 +237,16 @@ function splitOversizeGroup(page,next){
  const group=flow?.lastElementChild;
  if(!flow||!nextFlow||!group)return false;
  const wrap=group.querySelector(':scope > .passage-questions');
- if(!wrap||wrap.children.length<=1)return false;
+ const hasPassage=!!group.querySelector(':scope > .passage');
+ if(!wrap||(!hasPassage&&wrap.children.length<=1)||!wrap.children.length)return false;
  const continuation=continuationGroupFrom(group),nextWrap=continuation.querySelector('.passage-questions');
  nextFlow.prepend(continuation);
- while(!pageFits(page)&&wrap.children.length>1){
+ while(!pageFits(page)&&wrap.children.length>(hasPassage?0:1)){
    nextWrap.prepend(wrap.lastElementChild);
  }
  if(!nextWrap.children.length)continuation.remove();
+ // A long passage may fit only without any questions. Keep it readable,
+ // and put all questions on the next page with a continuation label.
  return pageFits(page);
 }
 function compactUntilFits(page){
