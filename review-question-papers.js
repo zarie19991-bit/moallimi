@@ -237,13 +237,16 @@ function splitOversizeGroup(page,next){
  const group=flow?.lastElementChild;
  if(!flow||!nextFlow||!group)return false;
  const wrap=group.querySelector(':scope > .passage-questions');
- if(!wrap||wrap.children.length<=1)return false;
+ const hasPassage=!!group.querySelector(':scope > .passage');
+ if(!wrap||(!hasPassage&&wrap.children.length<=1)||!wrap.children.length)return false;
  const continuation=continuationGroupFrom(group),nextWrap=continuation.querySelector('.passage-questions');
  nextFlow.prepend(continuation);
- while(!pageFits(page)&&wrap.children.length>1){
+ while(!pageFits(page)&&wrap.children.length>(hasPassage?0:1)){
    nextWrap.prepend(wrap.lastElementChild);
  }
  if(!nextWrap.children.length)continuation.remove();
+ // A long passage may fit only without any questions. Keep it readable,
+ // and put all questions on the next page with a continuation label.
  return pageFits(page);
 }
 function compactUntilFits(page){
@@ -266,6 +269,45 @@ function tryCompactCandidate(page){
  if(!hadCompact)page.classList.remove('compact-page');
  void page.offsetHeight;
  return false;
+}
+// Split a passage which is taller than a printable A4 page.
+// Preserve every character and move its questions intact to the continuation.
+function splitOversizePassage(page,next){
+ const flow=page?.querySelector('.questions-flow'),nextFlow=next?.querySelector('.questions-flow');
+ const group=flow?.lastElementChild,passage=group?.querySelector(':scope > .passage');
+ if(!flow||!nextFlow||!group||!passage||group.dataset.subject!=='reading')return false;
+ const full=passage.textContent||'',words=full.match(/\s+|\S+/gu)||[];
+ if(words.length<4)return false;
+ const siblings=[...group.children].filter(el=>el!==passage);
+ siblings.forEach(el=>el.remove());
+ // Test whether it is the passage itself that is too long, not the questions.
+ const overlong=!pageFits(page,0);
+ if(!overlong){siblings.forEach(el=>group.append(el));return false;}
+ let low=0,high=words.length-1;
+ while(low<high){
+   const mid=Math.ceil((low+high)/2);
+   passage.textContent=words.slice(0,mid).join('');
+   if(pageFits(page,0))low=mid;
+   else high=mid-1;
+ }
+ if(low===0){
+   passage.textContent=full;
+   siblings.forEach(el=>group.append(el));
+   return false;
+ }
+ const head=words.slice(0,low).join(''),tail=words.slice(low).join('');
+ if(!tail){passage.textContent=full;siblings.forEach(el=>group.append(el));return false;}
+ passage.textContent=head;
+ const continuation=group.cloneNode(false);
+ continuation.dataset.passageContinuation='1';
+ const notice=document.createElement('div');
+ notice.className='continued';notice.textContent='تابع نص القراءة';
+ const rest=passage.cloneNode(false);
+ rest.textContent=tail;
+ continuation.append(notice,rest,...siblings);
+ nextFlow.prepend(continuation);
+ group.dataset.passageSplit='1';
+ return true;
 }
 function repairOverflow(booklet){
  let pages=[...booklet.querySelectorAll(':scope > .paper-page')];
@@ -290,9 +332,16 @@ function repairOverflow(booklet){
        continue;
      }
 
+     // A long passage may exceed an entire page even after moving its questions.
+     // Keep the full text in readable continuations rather than rejecting every sheet.
+     const next=ensureNextPage(booklet,page);
+     if(splitOversizePassage(page,next)){
+       pages=[...booklet.querySelectorAll(':scope > .paper-page')];
+       continue;
+     }
+
      // إذا كانت مجموعة واحدة كبيرة (خصوصًا نص القراءة وأسئلته)،
      // قسّم الأسئلة على صفحة تالية قبل التفكير في ضغط الخط.
-     const next=ensureNextPage(booklet,page);
      if(splitOversizeGroup(page,next)){
        pages=[...booklet.querySelectorAll(':scope > .paper-page')];
        break;
