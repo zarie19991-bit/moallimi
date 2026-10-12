@@ -14,13 +14,24 @@ for(const file of production){
 }
 
 
-assert.match(client,/const\s+PAPER_QUESTION_TARGET\s*=\s*60/,'paper builder must use a fixed 60-question target');
+const vm=require('node:vm');
+const targetLine=client.split('\n').find(line=>line.startsWith('const selectedQuestionCount='));
+assert.ok(targetLine,'paper builder must expose its selected question count');
+for(const [input,expected] of [[5,5],[10,10],[30,30],[60,60],[4,5],[61,60]]){
+  assert.equal(vm.runInNewContext(targetLine+'\nselectedQuestionCount()', {document:{getElementById:()=>({value:String(input)})}}),expected);
+}
+assert.match(server,/compact\.question_count<5\|\|compact\.question_count>60/,'saved paper payloads must accept the same 5–60 range as the builder');
 assert.match(client,/function allocateIndicatorRows\(rows,target\)/,'indicator allocation must be capacity-aware');
 assert.match(client,/المتاح في البنك/,'UI must distinguish bank availability from allocated exam questions');
 assert.doesNotMatch(client,/x\.count%5!==0\|\|x\.count<5/,'reading indicators must not be forced to five questions each');
-assert.match(client,/paper_review_builder:true/,'paper preview requests must carry the server-side fixed-60 guard');
+assert.match(client,/paper_review_builder:true/,'paper preview requests must carry the server-side paper range guard');
 assert.match(client,/function readingIndicatorsForModel\(letter,total\)/,'reading indicators must rotate across models while keeping passage blocks');
-assert.match(client,/٤ نصوص × ٥ أسئلة/,'mixed 60-question paper must document four reading passages with five questions each');
+const subjectTargets=client.slice(client.indexOf('function subjectQuestionTargets()'),client.indexOf('function flexibleSingleReading'));
+const targets=vm.runInNewContext(subjectTargets+'\nsubjectQuestionTargets()', {selectedQuestionCount:()=>60,selectedSubjects:()=>['reading','math','science']});
+assert.equal(targets.get('reading'),20,'mixed 60-question paper must retain four reading passages with five questions each');
+assert.equal(targets.get('science'),20);assert.equal(targets.get('math'),20);
+assert.match(client,/builtReviewId=makeReviewId\(\)/,'rebuilding a saved paper must allocate a new version ID');
+assert.doesNotMatch(client,/existing\?\.review_id\|\|makeReviewId\(\)/,'new papers must not overwrite the last saved paper');
 assert.match(printClient,/readingQuestions\.length\/5/,'print renderer must validate reading groups in mixed papers');
 assert.match(printClient,/قسم القراءة يجب أن يكون «نص ثم ٥ أسئلة»/,'mixed reading print errors must explain the five-question passage contract');
 
@@ -98,3 +109,4 @@ const bubbleCss=fs.readFileSync('review-bubble-sheets.css','utf8');
 assert.match(bubbleCss,/@media screen and \(max-width:900px\)/,'bubble-sheet responsive scale must be screen-only');
 assert.doesNotMatch(bubbleCss,/@media\(max-width:900px\)\{[\s\S]*transform:scale\(\.7\)/,'bubble-sheet print must never inherit the mobile 70% scale');
 assert.match(bubbleCss,/Bubble-sheet print must never inherit responsive preview scaling/,'bubble-sheet print must explicitly reset transform and zoom');
+
