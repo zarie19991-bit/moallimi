@@ -222,7 +222,7 @@ function renderIndicators(){
      const readingMeta=subject==='reading'&&Number(i.passage_count||0)>0
        ?' · '+ar(i.passage_count)+' نصوص · أعلى سعة للنص '+ar(i.max_questions_per_passage||0)+' سؤالًا'
        :'';
-     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'" data-available="'+Math.max(0,Number(i.available||0))+'" data-passages5="'+Math.max(0,Number(i.passages_with_5plus||0))+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا'+readingMeta+(subject==='reading'&&Number(i.passages_with_5plus||0)<1?' · غير مؤهل حاليًا: لا يوجد نص بخمسة أسئلة':'')+'</small></span><input class="indicator-count" type="number" min="0" max="60" value="'+Math.max(0,Number(state.count||0))+'" readonly '+(state.checked?'':'disabled')+' aria-label="الحصة المخصصة تلقائيًا من أصل 60 سؤالًا" title="يحددها النظام تلقائيًا من أصل 60 سؤالًا"></label>';
+     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'" data-available="'+Math.max(0,Number(i.available||0))+'" data-passages5="'+Math.max(0,Number(i.passages_with_5plus||0))+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا'+readingMeta+(subject==='reading'&&Number(i.passages_with_5plus||0)<1?' · لامتحان مؤشر واحد تُستخدم الأسئلة من نصوص متعددة':'')+'</small></span><input class="indicator-count" type="number" min="0" max="60" value="'+Math.max(0,Number(state.count||0))+'" readonly '+(state.checked?'':'disabled')+' aria-label="الحصة المخصصة تلقائيًا من أصل 60 سؤالًا" title="يحددها النظام تلقائيًا من أصل 60 سؤالًا"></label>';
    }).join('');
    return '<section class="indicator-subject-group" data-indicator-subject="'+subject+'"><div class="indicator-subject-title"><b>'+labels[subject]+'</b><span>'+ar(items.length)+' مؤشرًا متاحًا</span></div><div class="indicator-subject-items">'+(rows||'<div class="archive-empty">لا توجد مؤشرات مطابقة للبحث في هذه المادة.</div>')+'</div></section>';
  }).join('');
@@ -235,6 +235,9 @@ function subjectQuestionTargets(){
    return new Map([['reading',20],['math',20],['science',20]]);
  }
  return null;
+}
+function flexibleSingleReading(rows){
+ return rows.length===1&&rows[0].dataset.subject==='reading'&&selectedSubjects().length===1;
 }
 function allocateReadingIndicatorRows(rows,target){
  const blocks=Math.max(0,Math.trunc(Number(target)||0)/5);
@@ -304,7 +307,7 @@ function distributeIndicatorCounts(){
      const subjectRows=rows.filter(r=>r.dataset.subject===subject);
      if(subjectRows.length){
        const quota=Number(targets.get(subject)||0);
-       if(subject==='reading'&&quota%5===0)allocateReadingIndicatorRows(subjectRows,quota);
+       if(subject==='reading'&&quota%5===0&&!flexibleSingleReading(subjectRows))allocateReadingIndicatorRows(subjectRows,quota);
        else allocateIndicatorRows(subjectRows,quota);
      }
    }
@@ -315,7 +318,7 @@ function distributeIndicatorCounts(){
      const readingQuota=Math.max(5,quota);
      allocateReadingIndicatorRows(reading,readingQuota);
      allocateIndicatorRows(other,target-readingQuota);
-   }else if(reading.length)allocateReadingIndicatorRows(reading,target);
+   }else if(reading.length){if(flexibleSingleReading(reading))allocateIndicatorRows(reading,target);else allocateReadingIndicatorRows(reading,target);}
    else allocateIndicatorRows(other,target);
  }
  captureIndicatorState();
@@ -331,9 +334,10 @@ function updateIndicatorSummary(){
  const availableTotal=checkedRows.reduce((n,r)=>n+Math.max(0,Number(r.dataset.available)||0),0);
  const zeroSelected=checkedRows.filter(r=>r.dataset.subject!=='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0).length;
  const readingChecked=checkedRows.filter(r=>r.dataset.subject==='reading').length;
- const noPassage=checkedRows.filter(r=>r.dataset.subject==='reading'&&Number(r.dataset.passages5||0)<1);
+ const flexible=flexibleSingleReading(checkedRows);
+ const noPassage=checkedRows.filter(r=>r.dataset.subject==='reading'&&Number(r.dataset.passages5||0)<1&&!flexible);
  const unallocated=checkedRows.filter(r=>Number(r.querySelector('.indicator-count')?.value||0)===0);
- const readingCapacity=checkedRows.filter(r=>r.dataset.subject==='reading').reduce((n,r)=>n+5*Math.max(0,Number(r.dataset.passages5)||0),0);
+ const readingCapacity=checkedRows.filter(r=>r.dataset.subject==='reading').reduce((n,r)=>n+(flexible?Math.max(0,Number(r.dataset.available)||0):5*Math.max(0,Number(r.dataset.passages5)||0)),0);
  const bySubject=selectedSubjects().map(subject=>{
    const rows=selected.filter(x=>x.subject===subject),n=rows.reduce((a,x)=>a+Number(x.count||0),0),quota=targets?.get(subject);
    return rows.length?labels[subject]+' '+ar(n)+(quota!=null?' من '+ar(quota):'')+' سؤالًا / '+ar(rows.length)+' مؤشر':''; 
@@ -347,6 +351,7 @@ function updateIndicatorSummary(){
    (bySubject.length?' · '+bySubject.join(' · '):'')+
    (targets?' · التوزيع المطلوب: القراءة ٢٠ (٤ نصوص × ٥ أسئلة) · الرياضيات ٢٠ · العلوم ٢٠':'')+
    (targets&&readingChecked>4?' · مؤشرات القراءة المختارة أكثر من ٤؛ ستتدوّر بين النماذج بحيث يبقى كل نموذج ٤ نصوص فقط.':'')+
+   (flexible?' · اختبار مؤشر قراءة واحد: يسمح بتوزيع الأسئلة على أكثر من نص، مع بقاء نص كل سؤال مرتبطًا به.':'')+
    (noPassage.length?' · لا يمكن تخصيص خمسة أسئلة لـ '+ar(noPassage.length)+' مؤشر قراءة: لا يوجد نص يحوي خمسة أسئلة محكّمة لهذا المؤشر. اختر مؤشرًا له نص مؤهل أو أكمل بنك الأسئلة.':'')+
    (unallocated.length?' · المؤشرات المحددة التي حصتها صفر: '+ar(unallocated.length)+'؛ أزل غير المؤهلة أو زد العدد إذا كانت السعة تسمح.':'')+
    (readingChecked&&readingCapacity<target?' · السعة المؤهلة لنصوص القراءة المختارة: '+ar(readingCapacity)+' سؤالًا فقط.':'')+
@@ -397,13 +402,13 @@ function configForModel(letter){
  const sections=subjects.map(subject=>{
    let items=inds.filter(x=>x.subject===subject);
    const target=targets?.get(subject);
-   if(subject==='reading'&&Number(target||0)>0){
+   if(subject==='reading'&&Number(target||0)>0&&!(subjects.length===1&&inds.length===1)){
      const rotated=readingIndicatorsForModel(letter,Number(target));
      if(rotated.length)items=rotated;
    }
    return {subject,question_count:items.reduce((n,x)=>n+x.count,0),duration_minutes:45,calculator:subject==='math',model_no:1,indicators:items.map(x=>({key:x.key,count:x.count}))};
  }).filter(s=>s.question_count>0);
- return {kind:'multi_indicator',paper_review_builder:true,review_passage_mode:subjects.includes('reading'),grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections,count_mode:'per_indicator',cognitive_targets:{knowledge:Number($('knowledge').value||0),application:Number($('application').value||0),reasoning:Number($('reasoning').value||0)},settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
+ return {kind:'multi_indicator',paper_review_builder:true,review_passage_mode:subjects.includes('reading')&&!(subjects.length===1&&inds.length===1),grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections,count_mode:'per_indicator',cognitive_targets:{knowledge:Number($('knowledge').value||0),application:Number($('application').value||0),reasoning:Number($('reasoning').value||0)},settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
 }
 function questionIds(d){
  return (d.sections||[]).flatMap(s=>(s.questions||[]).map(q=>String(q.id||q.question_id||q.question||'')));
@@ -606,6 +611,7 @@ function validate(){
  if(!subjects.length)throw new Error('اختر مادة واحدة على الأقل.');
  const chosenRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
  if(!chosenRows.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
+ const flexible=flexibleSingleReading(chosenRows);
  const emptyReading=chosenRows.filter(r=>r.dataset.subject==='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0);
  if(emptyReading.length)throw new Error('مؤشر القراءة محدد بالفعل، لكن حصته صفر. راجع وجود نص محكّم يضم خمسة أسئلة على الأقل والعدد الكلي المختار.');
  if(!inds.length)throw new Error('المؤشرات محددة ولكن تعذّر تخصيص أسئلة لها. راجع سعة بنك الأسئلة.');
@@ -613,10 +619,10 @@ function validate(){
  const checkedRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
  const zeroSelected=checkedRows.filter(r=>r.dataset.subject!=='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0);
  if(zeroSelected.length)throw new Error('اخترت مؤشرات أكثر مما يمكن تمثيله داخل العدد المختار. قلل عدد مؤشرات الرياضيات أو العلوم المختارة حتى يحصل كل مؤشر على سؤال واحد على الأقل.');
- const badReading=checkedRows.filter(r=>r.dataset.subject==='reading'&&Number(r.dataset.passages5||0)<1);
+ const badReading=checkedRows.filter(r=>r.dataset.subject==='reading'&&Number(r.dataset.passages5||0)<1&&!flexible);
  if(badReading.length)throw new Error('يوجد '+badReading.length+' مؤشر قراءة محدد لا يملك نصًا يحوي خمسة أسئلة محكّمة؛ لا يمكن تخصيص أسئلة له. اختر مؤشرًا مؤهلًا أو أضف أسئلته أولًا.');
- if(subjects.includes('reading')&&inds.filter(x=>x.subject==='reading').some(x=>x.count%5!==0))throw new Error('مؤشرات القراءة تُوزع في مجموعات من ٥ أسئلة لكل نص.');
- if(subjects.length===1&&subjects[0]==='reading'&&q%5!==0)throw new Error('عند اختيار القراءة وحدها يجب أن يكون العدد من مضاعفات ٥ للحفاظ على النص مع أسئلته الخمسة.');
+ if(!flexible&&subjects.includes('reading')&&inds.filter(x=>x.subject==='reading').some(x=>x.count%5!==0))throw new Error('مؤشرات القراءة تُوزع في مجموعات من ٥ أسئلة لكل نص.');
+ if(!flexible&&subjects.length===1&&subjects[0]==='reading'&&q%5!==0)throw new Error('عند اختيار القراءة وحدها يجب أن يكون العدد من مضاعفات ٥ للحفاظ على النص مع أسئلته الخمسة.');
  if(sum!==q)throw new Error('مجموع أسئلة المؤشرات يجب أن يساوي العدد المختار: '+q+'.');
  const targets=subjectQuestionTargets();
  if(targets){
