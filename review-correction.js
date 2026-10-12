@@ -81,6 +81,18 @@ async function loadArchive(){
    state.textContent='تعذر تحميل الأرشيف من قاعدة البيانات: '+(e.message||e);
  }
 }
+function strictPrintableReading(model){
+ const items=(model?.sections||[]).flatMap(sec=>(sec.questions||[]).map(q=>({subject:sec.subject,context:q.context}))).filter(q=>q.subject==='reading');
+ if(!items.length)return true;
+ if(items.length%5!==0)return false;
+ const groups=new Map();
+ for(const q of items){
+  const key=normalizeContext(q.context||'');
+  if(!key)return false;
+  groups.set(key,(groups.get(key)||0)+1);
+ }
+ return groups.size===items.length/5&&[...groups.values()].every(n=>n===5);
+}
 function readingPaperStructure(payload){
  const models=Array.isArray(payload?.models)?payload.models:[];
  let invalid=0,totalReading=0;
@@ -712,6 +724,7 @@ async function buildModels(){
      const previous=models[i-1]||null;
      const modelStarted=performance.now();
      const d=await bestCandidate(letters[i],used,remaining,i,previous);
+     if(!strictPrintableReading(d))throw new Error('المولّد لم ينتج نصًا يتبعه خمسة أسئلة لكل مجموعة قراءة. أُوقف حفظ هذا النموذج غير الصالح؛ اختر مؤشرًا به نصوص مكتملة وأعد التوليد.');
      buildPerf.model_ms.push(Math.round(performance.now()-modelStarted));
      const overlap=overlapCount(d,used);
      repeatTotal+=overlap;
@@ -747,6 +760,7 @@ async function buildAssignments(){
  const bad=models.flatMap((m,i)=>incompleteChoices(m).map((q,n)=>({model:letters[i],question:q.question||'',n:n+1})));
  if(bad.length){setStatus('تم إيقاف التجهيز لأن هناك '+bad.length+' سؤالًا ناقص الاختيارات. أعد إنشاء النماذج؛ لن تُطبع ورقة ناقصة.','error');return;}
  if(models.some(m=>!hasValidAnswerKey(m))){setStatus('تم إيقاف التجهيز لأن مفتاح إجابة أحد الأسئلة غير مكتمل. أعد إنشاء النماذج.','error');return;}
+ if(models.some(m=>!strictPrintableReading(m))){setStatus('النماذج الحالية لا تحقق قاعدة القراءة: نص ثم ٥ أسئلة. أعد إنشاء النماذج قبل تجهيز التوزيع؛ لم يتم حفظ نموذج غير صالح.','error');return;}
  const list=selectedStudents(),count=models.length,subjects=paperOrderedSubjects(selectedSubjects());
  assignments=list.map((st,i)=>({student:st,model:i%count,letter:letters[i%count]}));
  const counts=Array.from({length:count},(_,i)=>assignments.filter(a=>a.model===i).length);
