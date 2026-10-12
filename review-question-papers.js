@@ -624,11 +624,34 @@ function prepareExactPrint(){
  const metrics=collectPrintMetrics();
  metrics.layout_ms=Math.round(performance.now()-started);
  localStorage.setItem('nafes_question_paper_last_print_metrics',JSON.stringify(metrics));
- const hardErrors=metrics.details.filter(x=>x.overflow_y_px>6||x.overflow_x_px>6||x.hidden_text_nodes>0);
+ // Give long reading passages the final existing compact layout before refusing printing.
+ // Do not hide text or relax the clipping thresholds.
+ let hardErrors=metrics.details.filter(x=>x.overflow_y_px>6||x.overflow_x_px>6||x.hidden_text_nodes>0);
+ if(hardErrors.length){
+   const pages=[...document.querySelectorAll('.paper-page')];
+   for(const item of hardErrors){
+     const page=pages[item.page-1];
+     if(!page)continue;
+     page.classList.add('compact-page','compact-page-strong','compact-page-tight');
+   }
+   // Retest without resetting the compact classes; repairOverflow may create a continuation.
+   document.querySelectorAll('.model-booklet').forEach(booklet=>{
+     repairOverflow(booklet);
+     removeEmptyPages(booklet);
+     renumberBooklet(booklet);
+   });
+   const retry=collectPrintMetrics();
+   metrics.details=retry.details;
+   metrics.pages=retry.pages;
+   metrics.max_overflow_px=retry.max_overflow_px;
+   hardErrors=retry.details.filter(x=>x.overflow_y_px>6||x.overflow_x_px>6||x.hidden_text_nodes>0);
+ }
+
  const softWarnings=metrics.details.filter(x=>x.unresolved||x.avoidable_large_gap);
  if(hardErrors.length){
    document.documentElement.classList.remove('print-preparing');
-   $('screenMeta').textContent='تعذر فتح الطباعة لأن '+ar(hardErrors.length)+' صفحة فيها قص حقيقي أو نص مخفي. أُوقف التصدير لحماية المحتوى.';
+   const detail=hardErrors.slice(0,12).map(x=>'ص'+ar(x.page)+' (رأسي '+Math.round(x.overflow_y_px)+'px، أفقي '+Math.round(x.overflow_x_px)+'px، مخفي '+x.hidden_text_nodes+')').join('، ');
+   $('screenMeta').textContent='تعذر فتح الطباعة: '+ar(hardErrors.length)+' صفحة لا تزال تتجاوز المساحة الآمنة بعد إعادة توزيعها. '+detail+'؛ تم إيقاف التصدير دون حذف أي سؤال.';
    return false;
  }
  const structuralGaps=metrics.details.filter(x=>x.large_gap&&!x.avoidable_large_gap).length;
