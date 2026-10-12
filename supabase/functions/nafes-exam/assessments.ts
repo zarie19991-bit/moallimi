@@ -521,7 +521,7 @@ function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string
     }
     const quality=available.length?available.reduce((s,q)=>s+structuralQuestionStrength(q),0)/available.length:0;
     return{context,available,quality,tie:randomFrom(seed+'|passage|'+context.slice(0,80))()};
-  }).filter(g=>g.available.length>0)
+  }).filter(g=>g.available.length>=5)
     .sort((a,b)=>b.quality-a.quality||b.tie-a.tie);
 
   const totalAvailable=prepared.reduce((s,g)=>s+g.available.length,0);
@@ -529,7 +529,10 @@ function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string
     fail(`موارد القراءة لهذا المؤشر غير كافية بعد استبعاد التكرار: المطلوب ${count} سؤالًا، والمتاح ${totalAvailable} سؤالًا صالحًا موزعًا على ${prepared.length} نصوص. أضف أسئلة/نصوص محكّمة أو خفّض عدد أسئلة المؤشر.`);
   }
 
-  const allocation=planReadingPassageAllocation(prepared.map(g=>g.available.length),count,5);
+  // One passage must contribute exactly five questions. Never split five across passages.
+  const blocksNeeded=count/5;
+  if(!Number.isInteger(blocksNeeded)||prepared.length<blocksNeeded)fail(`لا توجد نصوص قراءة مكتملة كافية: المطلوب ${blocksNeeded} نصوص × ٥ أسئلة، والمتاح ${prepared.length} نصوص مؤهلة للمؤشر.`);
+  const allocation=prepared.map((g,i)=>i<blocksNeeded?5:0);
   if(!allocation.length){
     fail(`تعذر توزيع ${count} سؤالًا على النصوص المتاحة توزيعًا صالحًا، رغم وجود ${totalAvailable} سؤالًا. راجع سلامة ارتباط الأسئلة بالنصوص.`);
   }
@@ -1566,7 +1569,7 @@ function validatePaperReviewPayload(raw:unknown,owner:Row):Row {
     indicator_counts:Array.isArray(p.indicator_counts)?p.indicator_counts:[],
     saved_at:tidy(p.saved_at,80)||new Date().toISOString()
   };
-  if(!Number.isInteger(compact.question_count)||compact.question_count<10||compact.question_count>60)fail('عدد أسئلة الاختبار يجب أن يكون من ١٠ إلى ٦٠ سؤالًا.');
+  if(!Number.isInteger(compact.question_count)||compact.question_count<5||compact.question_count>60)fail('عدد أسئلة الاختبار يجب أن يكون من ٥ إلى ٦٠ سؤالًا.');
   for(const model of models){
     for(const q of Array.isArray(model?.questions)?model.questions:[]){
       const indicator=tidy(q?.indicator,160);
@@ -1578,13 +1581,20 @@ function validatePaperReviewPayload(raw:unknown,owner:Row):Row {
   if(bytes>2500000)fail('حجم بيانات المراجعة أكبر من الحد المسموح.');
   return compact;
 }
+function paperVersionKey(value:any):string {
+  const canonical=(v:any):any=>Array.isArray(v)?v.map(canonical):(v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v);
+  return JSON.stringify(canonical(value));
+}
 async function teacherPaperReviewUpsert(db:any,b:Row,owner:Row){
   const payload=validatePaperReviewPayload(b.review||b.payload,owner);
   const row={
     owner_id:owner.id,review_id:payload.review_id,title:payload.title,subject:payload.subject,subjects:payload.subjects,
     class_name:payload.class_name||'',payload,updated_at:new Date().toISOString()
   };
-  const existing=must(await db.from('nafes_paper_reviews').select('id').eq('owner_id',owner.id).eq('review_id',payload.review_id).maybeSingle());
+  const existing=must(await db.from('nafes_paper_reviews').select('id,payload').eq('owner_id',owner.id).eq('review_id',payload.review_id).maybeSingle());
+  if(existing && ['models','answer_keys','assignments'].some(key=>paperVersionKey(existing.payload?.[key]||[])!==paperVersionKey(payload[key]||[]))){
+    fail('هذه نسخة محفوظة قد تكون مطبوعة. احفظ التغييرات كاختبار جديد لحماية مفتاح التصحيح الأصلي.',409);
+  }
   const saved=existing
     ?must(await db.from('nafes_paper_reviews').update(row).eq('id',existing.id).select('id,review_id,title,subject,subjects,class_name,updated_at').single())
     :must(await db.from('nafes_paper_reviews').insert(row).select('id,review_id,title,subject,subjects,class_name,updated_at').single());
@@ -1612,6 +1622,17 @@ async function teacherPaperReviewList(db:any,owner:Row){
     return scope==='all'||(subjects.length===1&&subjects[0]===scope);
   });
   return{ok:true,reviews:visible};
+}
+
+async function teacherPaperReviewDelete(db:any,b:Row,owner:Row){
+  const reviewId=tidy(b.review_id,80);
+  if(!reviewId)fail('اختر الاختبار المراد حذفه.');
+  const row=must(await db.from('nafes_paper_reviews').select('id,owner_id').eq('review_id',reviewId).eq('owner_id',owner.id).maybeSingle());
+  if(!row)fail('الاختبار غير موجود ضمن اختبارات حسابك.',404);
+  const sessions=must(await db.from('nafes_scan_sessions').select('id').eq('review_pk',row.id).limit(1));
+  if(sessions?.length)fail('لهذا الاختبار جلسات تصحيح محفوظة. يلزم مراجعتها وتصفير تصحيحه أولًا قبل حذف الاختبار.');
+  must(await db.from('nafes_paper_reviews').delete().eq('id',row.id).eq('owner_id',owner.id));
+  return{ok:true,review_id:reviewId};
 }
 
 async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
@@ -1808,6 +1829,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_paper_review_upsert')return await teacherPaperReviewUpsert(db,b,owner);
  if(b.action==='teacher_paper_review_get')return await teacherPaperReviewGet(db,b,owner);
  if(b.action==='teacher_paper_review_list')return await teacherPaperReviewList(db,owner);
+ if(b.action==='teacher_paper_review_delete')return await teacherPaperReviewDelete(db,b,owner);
  if(b.action==='teacher_paper_review_save')return await teacherPaperReviewSave(db,b,owner);
  if(b.action==='teacher_paper') {
   if(!SOURCES[b.source]||!isUUID(b.attempt_id)||b.source==='simulation')fail('المحاولة غير موجودة.',404);
@@ -1969,3 +1991,4 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_build_forms') {if(!SUBJECTS.includes(b.subject))fail('المادة غير صحيحة.');const pool=await fullPool(db,b.subject),expected=FRAMEWORK.filter(i=>i.subject===b.subject).length*30;if(pool.length!==expected)fail(`لم يكتمل البنك المراجع للمادة: ${pool.length} من ${expected}.`,409);const bank_hash=await hash(JSON.stringify(pool));const forms=buildForms(pool,b.subject);for(const f of forms){f.signature=await hash(f.signature);f.bank_hash=bank_hash;}const result=must(await db.rpc('replace_nafes_simulation_forms',{payload:forms}));return{ok:true,subject:b.subject,forms:60,question_slots:1800,unique_questions:new Set(forms.flatMap(f=>f.questions.map((q:Row)=>q.id))).size,result};}
  fail('إجراء غير معروف.');
 }
+

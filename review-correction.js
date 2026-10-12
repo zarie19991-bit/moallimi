@@ -20,7 +20,7 @@ function minimumRequiredRepeats(){
 function repeatLimit(){
  return minimumRequiredRepeats()+MAX_CROSS_MODEL_REPEATS;
 }
-let catalog=null,students=[],models=[],activeModel=0,assignments=[];const indicatorState=new Map();
+let catalog=null,students=[],models=[],activeModel=0,assignments=[],builtReviewId='';const indicatorState=new Map();
 const PAGE_CACHE_TTL_MS=5*60*1000;
 function cacheRead(key){
  try{
@@ -59,6 +59,7 @@ function archiveItem(row){
    '<div class="archive-meta"><span>'+esc(subject)+'</span><span>'+esc(cls)+'</span><span>'+esc(formatArchiveTime(row.updated_at||row.created_at))+'</span></div>'+
    '<div class="archive-actions">'+
      '<button type="button" class="open-review" data-open-review="'+esc(row.review_id||'')+'">الإعدادات والتعديل</button>'+
+     '<button type="button" class="secondary" data-delete-review="'+esc(row.review_id||'')+'">حذف الاختبار</button>'+
      '<a href="review-correction.html?rid='+rid+'#previewSection">أوراق الأسئلة</a>'+
      '<a href="review-bubble-sheets.html?rid='+rid+'&bv=20261004-optiontabs2">ورق التظليل</a>'+
      '<a href="review-scan.html?rid='+rid+'">رفع وتصحيح</a>'+
@@ -118,13 +119,13 @@ function showActivePaperReview(payload){
  box.hidden=false;
  const readingState=readingPaperStructure(payload);
  box.innerHTML='<b>أنت تعدّل الآن:</b> <span>'+esc(payload.title||'اختبار ورقي')+'</span><small>'+esc(subs||'—')+' · '+ar(payload.question_count||0)+' سؤال · '+ar(payload.model_count||0)+' نماذج</small>'+
-   (!readingState.valid&&readingState.totalReading?'<div class="status error" style="margin-top:10px">هذه النسخة حُفظت قبل قاعدة «٤ نصوص × ٥ أسئلة» للقراءة. اضغط «إنشاء النماذج» ثم «تجهيز التوزيع» مرة واحدة لاستبدال النسخة القديمة قبل الطباعة.</div>':'');
+   '<div class="status" style="margin-top:10px">هذه النسخة محفوظة. إعادة بناء الأسئلة تحفظ اختبارًا مستقلًا؛ يظل مفتاح تصحيح الأوراق المطبوعة مرتبطًا بهذه النسخة.</div>';
 }
 function resetPaperReview(){
  localStorage.removeItem('nafes_review_correction_draft');
  history.replaceState(null,'','review-correction.html');
  setReviewLinks('');
- models=[];assignments=[];activeModel=0;indicatorState.clear();
+ models=[];assignments=[];activeModel=0;builtReviewId='';indicatorState.clear();
  $('reviewTitle').value='اختبار نافس';
  document.querySelectorAll('.subject-check').forEach(x=>x.checked=false);
  const first=document.querySelector('.subject-check');if(first)first.checked=true;
@@ -154,7 +155,7 @@ async function openArchivedReview(reviewId){
    if(!res?.review?.payload)throw new Error('لم يتم العثور على المراجعة المحفوظة.');
    restoreReviewPayload(res.review.payload);
    showActivePaperReview(res.review.payload);
-   setStatus('تم فتح إعدادات الاختبار الورقي المحفوظ. يمكنك تعديلها ثم إعادة بناء النماذج وحفظ التغييرات على نفس الاختبار.','ok');
+   setStatus('تم فتح الاختبار المحفوظ. تعديل الأسئلة وإعادة بنائها يُحفظ كاختبار مستقل لحماية النسخة المطبوعة.','ok');
    document.querySelector('.builder-grid')?.scrollIntoView({behavior:'smooth'});
  }catch(e){setStatus('تعذر فتح المراجعة: '+(e.message||e),'error');}
 }
@@ -348,7 +349,7 @@ function repairSingleReadingSelection(){
  const suitable=Math.min(requested,maximum);
  const count=Math.floor(suitable/5)*5;
  if(count<5)return false;
- if(requested>maximum)qInput.value=String(count);
+ if(requested!==count)qInput.value=String(count);
  if(Number(input.value)!==count)input.value=String(count);
  input.disabled=false;
  const id=String(row.dataset.key||'');
@@ -732,6 +733,7 @@ async function buildModels(){
    }
    const sameAB=models.length>1?samePositionCount(models[0],models[1]):0;
    const signatures=models.map(modelSignature),distinctSets=new Set(signatures).size;
+   builtReviewId=makeReviewId();
    activeModel=0;renderQuality();renderModelTabs();renderModel(0);$('previewSection').classList.remove('hidden');$('previewSection').scrollIntoView({behavior:'smooth'});
    const repeatNote=repeatTotal>maxRepeats
      ?'استخدم النظام '+ar(repeatTotal)+' تكرارًا بين النماذج لأن بنك المؤشرات بعد فلاتر الجودة لا يسمح بالحد التقديري '+ar(maxRepeats)+'، مع اختيار أقل تكرار متاح.'
@@ -753,6 +755,7 @@ async function buildModels(){
    localStorage.setItem('nafes_paper_builder_last_metrics',JSON.stringify(metrics));
    const perfNote=' زمن البناء '+(metrics.total_ms/1000).toFixed(1)+' ث · '+ar(metrics.api_calls)+' طلبات خادم · '+ar(metrics.candidates)+' مرشحًا.';
    setStatus('تم إنشاء '+count+' نماذج منظمة حسب المواد. '+repeatNote+' مجموعات الأسئلة المختلفة: '+ar(distinctSets)+' من '+ar(count)+'. اختلاف مواضع أ/ب: '+ar(Math.max(0,modelQuestions(models[0]).length-sameAB))+' من '+ar(modelQuestions(models[0]).length)+'.'+perfNote,'ok');
+   await buildAssignments();
  }catch(e){setStatus('تعذر بناء النماذج: '+e.message,'error');}
  finally{btn.disabled=false;}
 }
@@ -769,7 +772,7 @@ async function buildAssignments(){
  $('assignmentSection').classList.remove('hidden');$('assignmentSection').scrollIntoView({behavior:'smooth'});
  try{
    const existing=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
-   const reviewId=existing?.review_id||makeReviewId();
+   const reviewId=builtReviewId||makeReviewId();
    const printable=models.map((m,i)=>({
      model:letters[i],
      questions:(m.sections||[]).flatMap(sec=>orderedQuestions(sec.questions||[]).map(q=>({...q,subject:sec.subject})))
@@ -800,15 +803,18 @@ async function buildAssignments(){
      }))})),
      saved_at:new Date().toISOString()
    };
-   localStorage.setItem('nafes_review_correction_draft',JSON.stringify(draftPayload));
-   history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(reviewId));setReviewLinks(reviewId);
    setStatus('جارٍ حفظ الاختبار متعدد المؤشرات والمواد في قاعدة البيانات…');
    await NafesTeacher.api('teacher_paper_review_upsert',{review:draftPayload});
+   builtReviewId=reviewId;
+   localStorage.setItem('nafes_review_correction_draft',JSON.stringify(draftPayload));
+   history.replaceState(null,'','review-correction.html?rid='+encodeURIComponent(reviewId));setReviewLinks(reviewId);
+   showActivePaperReview(draftPayload);
    setStatus('تم حفظ الاختبار. المواد مرتبة داخله: '+subjects.map(x=>labels[x]).join(' + ')+'.','ok');await loadArchive();
- }catch(e){setStatus('تم تجهيز الأوراق على هذا الجهاز، لكن تعذر الحفظ الدائم: '+e.message,'error');}
+ }catch(e){$('assignmentSection').classList.add('hidden');setStatus('لم يتم حفظ هذا الاختبار. اضغط تجهيز التوزيع لإعادة المحاولة. '+e.message,'error');}
 }
 function restoreReviewPayload(payload){
  if(!payload||!Array.isArray(payload.models)||!payload.models.length)return false;
+ builtReviewId='';
  localStorage.setItem('nafes_review_correction_draft',JSON.stringify(payload));
  if($('reviewTitle'))$('reviewTitle').value=payload.title||'اختبار نافس';
  const payloadSubjects=(Array.isArray(payload.subjects)&&payload.subjects.length?payload.subjects:[payload.subject]).filter(x=>allowedSubjects().includes(x));
@@ -875,7 +881,7 @@ async function restoreSavedReview(){
    const local=JSON.parse(localStorage.getItem('nafes_review_correction_draft')||'null');
    const rid=new URLSearchParams(location.search).get('rid')||local?.review_id||'';
    let res=await NafesTeacher.api('teacher_paper_review_get',rid?{review_id:rid}:{});
-   if(!res?.review&&rid)res=await NafesTeacher.api('teacher_paper_review_get',{});
+   if(!res?.review&&new URLSearchParams(location.search).get('rid'))throw new Error('لم يُعثر على الاختبار المطلوب؛ لم يُفتح اختبار آخر بدلًا منه.');
    const payload=res?.review?.payload;
    if(payload&&restoreReviewPayload(payload)){setStatus('تمت استعادة آخر مراجعة محفوظة من قاعدة البيانات، بما فيها النماذج ومفاتيح الإجابة وتوزيع الطلاب.','ok');return true;}
    if(local?.review_id&&Array.isArray(local.models)&&local.models.length){
@@ -892,7 +898,7 @@ async function load(){
    setStatus('جارٍ تحميل بنك المؤشرات وسجل الطلاب…');
    await NafesTeacher.ensureProfile?.();
 
-   const cachedCatalog=cacheRead('nafes_paper_catalog_v1');
+   const cachedCatalog=cacheRead('nafes_paper_catalog_v2');
    const cachedStudents=cacheRead('nafes_paper_students_v1');
    if(cachedCatalog&&Array.isArray(cachedStudents?.students)){
      catalog=cachedCatalog;students=cachedStudents.students||[];
@@ -905,14 +911,13 @@ async function load(){
      NafesTeacher.api('teacher_students_list',{include_archived:false})
    ]).then(([cat,stu])=>{
      catalog=cat;students=stu.students||[];
-     cacheWrite('nafes_paper_catalog_v1',cat);
+     cacheWrite('nafes_paper_catalog_v2',cat);
      cacheWrite('nafes_paper_students_v1',stu);
      populateSubject();populateClasses();renderIndicators();updateLevelSummary();
      return true;
    });
 
-   if(!cachedCatalog||!Array.isArray(cachedStudents?.students))await freshPromise;
-   else freshPromise.catch(e=>console.warn('paper builder background refresh failed',e));
+   await freshPromise;
 
    const restored=await restoreSavedReview();
    await loadArchive();
@@ -944,7 +949,18 @@ $('assignModels').onclick=buildAssignments;
 $('modelTabs').addEventListener('click',e=>{const b=e.target.closest('[data-model]');if(b)renderModel(Number(b.dataset.model));});
 $('newPaperReview')?.addEventListener('click',resetPaperReview);
 $('refreshArchive')?.addEventListener('click',loadArchive);
-$('reviewArchive')?.addEventListener('click',e=>{const b=e.target.closest('[data-open-review]');if(b)openArchivedReview(b.dataset.openReview);});
+$('reviewArchive')?.addEventListener('click',async e=>{
+ const b=e.target.closest('[data-open-review]');if(b){openArchivedReview(b.dataset.openReview);return;}
+ const del=e.target.closest('[data-delete-review]');if(!del)return;
+ const rid=del.dataset.deleteReview;
+ const title=del.closest('.archive-item')?.querySelector('h3')?.textContent||rid;
+ if(!confirm('حذف الاختبار «'+title+'»؟ لن يمكنك تصحيح أوراقه بعد حذفه.'))return;
+ del.disabled=true;
+ try{await NafesTeacher.api('teacher_paper_review_delete',{review_id:rid});
+   if(new URLSearchParams(location.search).get('rid')===rid)resetPaperReview();
+   await loadArchive();setStatus('تم حذف الاختبار المحدد.','ok');
+ }catch(err){setStatus(err.message||String(err),'error');del.disabled=false;}
+});
 addEventListener('nafes:teacher-profile',()=>{const keep=selectedSubjects();populateSubject();document.querySelectorAll('.subject-check').forEach(x=>x.checked=keep.includes(String(x.value)));if(!document.querySelector('.subject-check:checked')&&document.querySelector('.subject-check'))document.querySelector('.subject-check').checked=true;$('subject').value=selectedSubjects()[0]||'reading';renderIndicators();});
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)load();});
 load();

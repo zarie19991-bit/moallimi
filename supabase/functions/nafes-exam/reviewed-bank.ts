@@ -2,6 +2,8 @@
 export const REVIEW_VERSION = 'question-review-v4';
 export const SCIENCE_REVIEW_VERSION = 'semantic-contract-v3';
 const normalize = (value: unknown) => String(value ?? '').normalize('NFC').trim().replace(/\s+/g, ' ');
+// Removing Arabic elongation is typography, not a change to reviewed content.
+const sameReviewedText = (a: unknown, b: unknown) => String(a ?? '').normalize('NFC').replace(/\u0640/g, '') === String(b ?? '').normalize('NFC').replace(/\u0640/g, '');
 const levels = ['knowledge', 'application', 'reasoning'];
 export type ReviewedRow = {
   id: string; indicator_text: string; measurement_focus: string;
@@ -34,7 +36,7 @@ export function hasCurrentReview(row: ReviewedRow | Record<string, any>, expecte
   if (e.validator === REVIEW_VERSION) {
     return row.alignment_profile === `${expectedFocus}:reviewed-v4` &&
       e.indicator_text === row.indicator_text && e.measurement_focus === expectedFocus &&
-      e.source_task === row.question_text && e.source_context === (row.context_text || '') &&
+      sameReviewedText(e.source_task, row.question_text) && sameReviewedText(e.source_context, row.context_text || '') &&
       JSON.stringify(e.source_options) === JSON.stringify(options) &&
       e.source_answer === options[row.correct_index] && e.explanation === row.explanation &&
       typeof e.target_aspect === 'string' && !!e.target_aspect.trim() &&
@@ -97,3 +99,4 @@ export function publicReviewedQuestions(items: Record<string, any>[]) {
   return items.map(q => ({ id: q.id, context: q.context || null, question: q.question,
     options: q.options, ...(q.image ? { image: q.image } : {}) }));
 }
+
