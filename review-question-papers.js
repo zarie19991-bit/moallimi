@@ -273,7 +273,7 @@ function splitOversizePassage(page,next){
  const flow=page?.querySelector('.questions-flow'),nextFlow=next?.querySelector('.questions-flow');
  const group=flow?.lastElementChild,passage=group?.querySelector(':scope > .passage');
  if(!flow||!nextFlow||!group||!passage||group.dataset.subject!=='reading')return false;
- const full=passage.textContent||'',words=full.match(/\S+\s*/gu)||[];
+ const full=passage.textContent||'',words=full.match(/\s+|\S+/gu)||[];
  if(words.length<4)return false;
  const siblings=[...group.children].filter(el=>el!==passage);
  siblings.forEach(el=>el.remove());
