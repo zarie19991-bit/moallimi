@@ -324,7 +324,26 @@ function distributeIndicatorCounts(){
  captureIndicatorState();
  updateIndicatorSummary();
 }
+function repairSingleReadingSelection(){
+ const rows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
+ if(rows.length!==1||rows[0].dataset.subject!=='reading'||selectedSubjects().length!==1)return false;
+ const row=rows[0],input=row.querySelector('.indicator-count'),available=Math.max(0,Math.trunc(Number(row.dataset.available)||0));
+ const qInput=$('questionCount');
+ if(!input||!qInput||available<5)return false;
+ const requested=selectedQuestionCount();
+ const maximum=Math.min(60,available);
+ const suitable=Math.min(requested,maximum);
+ const count=Math.floor(suitable/5)*5;
+ if(count<5)return false;
+ if(requested>maximum)qInput.value=String(count);
+ if(Number(input.value)!==count)input.value=String(count);
+ input.disabled=false;
+ const id=String(row.dataset.key||'');
+ if(id)indicatorState.set(id,{checked:true,count,subject:'reading'});
+ return true;
+}
 function updateIndicatorSummary(){
+ repairSingleReadingSelection();
  captureIndicatorState();
  const target=selectedQuestionCount(),targets=subjectQuestionTargets();
  const checkedRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
@@ -605,6 +624,7 @@ async function bestCandidate(letter,used,repeatBudget,modelIndex,previous){
  return best;
 }
 function validate(){
+ repairSingleReadingSelection();
  const inds=getSelectedIndicators(),subjects=selectedSubjects(),q=Number($('questionCount').value),sum=inds.reduce((n,x)=>n+x.count,0),stu=selectedStudents();
  if(!$('reviewTitle').value.trim())throw new Error('اكتب اسم الاختبار.');
  if(!Number.isInteger(q)||q<5||q>60)throw new Error('اختر عدد الأسئلة من ٥ إلى ٦٠.');
