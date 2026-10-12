@@ -604,8 +604,12 @@ function validate(){
  if(!$('reviewTitle').value.trim())throw new Error('اكتب اسم الاختبار.');
  if(!Number.isInteger(q)||q<5||q>60)throw new Error('اختر عدد الأسئلة من ٥ إلى ٦٠.');
  if(!subjects.length)throw new Error('اختر مادة واحدة على الأقل.');
- if(!inds.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
- for(const subject of subjects)if(!inds.some(x=>x.subject===subject))throw new Error('اختر مؤشرًا واحدًا على الأقل من مادة '+labels[subject]+'.');
+ const chosenRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
+ if(!chosenRows.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
+ const emptyReading=chosenRows.filter(r=>r.dataset.subject==='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0);
+ if(emptyReading.length)throw new Error('مؤشر القراءة محدد بالفعل، لكن حصته صفر. راجع وجود نص محكّم يضم خمسة أسئلة على الأقل والعدد الكلي المختار.');
+ if(!inds.length)throw new Error('المؤشرات محددة ولكن تعذّر تخصيص أسئلة لها. راجع سعة بنك الأسئلة.');
+ for(const subject of subjects)if(!chosenRows.some(r=>r.dataset.subject===subject))throw new Error('اختر مؤشرًا واحدًا على الأقل من مادة '+labels[subject]+'.');
  const checkedRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
  const zeroSelected=checkedRows.filter(r=>r.dataset.subject!=='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0);
  if(zeroSelected.length)throw new Error('اخترت مؤشرات أكثر مما يمكن تمثيله داخل العدد المختار. قلل عدد مؤشرات الرياضيات أو العلوم المختارة حتى يحصل كل مؤشر على سؤال واحد على الأقل.');
