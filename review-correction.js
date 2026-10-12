@@ -665,7 +665,8 @@ async function buildModels(){
  try{validate();}catch(e){setStatus(e.message,'error');return;}
  const btn=$('buildModels');btn.disabled=true;models=[];assignments=[];$('previewSection').classList.add('hidden');$('assignmentSection').classList.add('hidden');
  buildPerf={started_at:performance.now(),total_ms:0,api_calls:0,candidates:0,pool_groups:0,server_ms:0,client_api_ms:0,model_ms:[]};
- const count=Number($('modelCount').value||5),used=new Set();let repeatTotal=0,maxRepeats=repeatLimit();
+ const count=Number($('modelCount').value||5),used=new Set();
+ if(!Number.isInteger(count)||count<1||count>10){setStatus('عدد النماذج يجب أن يكون من ١ إلى ١٠.','error');btn.disabled=false;return;}let repeatTotal=0,maxRepeats=repeatLimit();
  const requiredRepeats=minimumRequiredRepeats();
  try{
    for(let i=0;i<count;i++){
