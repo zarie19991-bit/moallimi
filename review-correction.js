@@ -222,7 +222,7 @@ function renderIndicators(){
      const readingMeta=subject==='reading'&&Number(i.passage_count||0)>0
        ?' · '+ar(i.passage_count)+' نصوص · أعلى سعة للنص '+ar(i.max_questions_per_passage||0)+' سؤالًا'
        :'';
-     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'" data-available="'+Math.max(0,Number(i.available||0))+'" data-passages5="'+Math.max(0,Number(i.passages_with_5plus||0))+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا'+readingMeta+(subject==='reading'&&Number(i.passages_with_5plus||0)<1?' · لامتحان مؤشر واحد تُستخدم الأسئلة من نصوص متعددة':'')+'</small></span><input class="indicator-count" type="number" min="0" max="60" value="'+Math.max(0,Number(state.count||0))+'" readonly '+(state.checked?'':'disabled')+' aria-label="الحصة المخصصة تلقائيًا من أصل 60 سؤالًا" title="يحددها النظام تلقائيًا من أصل 60 سؤالًا"></label>';
+     return '<label class="indicator-row" data-key="'+esc(i.key)+'" data-subject="'+subject+'" data-available="'+Math.max(0,Number(i.available||0))+'" data-passages5="'+Math.max(0,Number(i.passages_with_5plus||0))+'"><input class="indicator-check" type="checkbox" value="'+esc(i.key)+'" '+(state.checked?'checked':'')+'><span><p>'+ar(n+1)+') '+esc(i.text||i.key)+'</p><small>المتاح في البنك: '+ar(i.available||0)+' سؤالًا'+readingMeta+(subject==='reading'&&Number(i.passages_with_5plus||0)<1?' · يتطلب الاختبار نصًا تتبعه ٥ أسئلة مترابطة':'')+'</small></span><input class="indicator-count" type="number" min="0" max="60" value="'+Math.max(0,Number(state.count||0))+'" readonly '+(state.checked?'':'disabled')+' aria-label="الحصة المخصصة تلقائيًا من أصل 60 سؤالًا" title="يحددها النظام تلقائيًا من أصل 60 سؤالًا"></label>';
    }).join('');
    return '<section class="indicator-subject-group" data-indicator-subject="'+subject+'"><div class="indicator-subject-title"><b>'+labels[subject]+'</b><span>'+ar(items.length)+' مؤشرًا متاحًا</span></div><div class="indicator-subject-items">'+(rows||'<div class="archive-empty">لا توجد مؤشرات مطابقة للبحث في هذه المادة.</div>')+'</div></section>';
  }).join('');
@@ -307,7 +307,7 @@ function distributeIndicatorCounts(){
      const subjectRows=rows.filter(r=>r.dataset.subject===subject);
      if(subjectRows.length){
        const quota=Number(targets.get(subject)||0);
-       if(subject==='reading'&&quota%5===0&&!flexibleSingleReading(subjectRows))allocateReadingIndicatorRows(subjectRows,quota);
+       if(subject==='reading'&&quota%5===0)allocateReadingIndicatorRows(subjectRows,quota);
        else allocateIndicatorRows(subjectRows,quota);
      }
    }
@@ -318,7 +318,7 @@ function distributeIndicatorCounts(){
      const readingQuota=Math.max(5,quota);
      allocateReadingIndicatorRows(reading,readingQuota);
      allocateIndicatorRows(other,target-readingQuota);
-   }else if(reading.length){if(flexibleSingleReading(reading))allocateIndicatorRows(reading,target);else allocateReadingIndicatorRows(reading,target);}
+   }else if(reading.length)allocateReadingIndicatorRows(reading,target);
    else allocateIndicatorRows(other,target);
  }
  captureIndicatorState();
@@ -331,7 +331,8 @@ function repairSingleReadingSelection(){
  const qInput=$('questionCount');
  if(!input||!qInput||available<5)return false;
  const requested=selectedQuestionCount();
- const maximum=Math.min(60,available);
+ const eligiblePassages=Math.max(0,Math.trunc(Number(row.dataset.passages5)||0));
+ const maximum=Math.min(60,available,eligiblePassages*5);
  const suitable=Math.min(requested,maximum);
  const count=Math.floor(suitable/5)*5;
  if(count<5)return false;
@@ -353,7 +354,7 @@ function updateIndicatorSummary(){
  const availableTotal=checkedRows.reduce((n,r)=>n+Math.max(0,Number(r.dataset.available)||0),0);
  const zeroSelected=checkedRows.filter(r=>r.dataset.subject!=='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0).length;
  const readingChecked=checkedRows.filter(r=>r.dataset.subject==='reading').length;
- const flexible=flexibleSingleReading(checkedRows);
+ const flexible=false;
  const noPassage=checkedRows.filter(r=>r.dataset.subject==='reading'&&Number(r.dataset.passages5||0)<1&&!flexible);
  const unallocated=checkedRows.filter(r=>Number(r.querySelector('.indicator-count')?.value||0)===0);
  const readingCapacity=checkedRows.filter(r=>r.dataset.subject==='reading').reduce((n,r)=>n+(flexible?Math.max(0,Number(r.dataset.available)||0):5*Math.max(0,Number(r.dataset.passages5)||0)),0);
@@ -421,13 +422,13 @@ function configForModel(letter){
  const sections=subjects.map(subject=>{
    let items=inds.filter(x=>x.subject===subject);
    const target=targets?.get(subject);
-   if(subject==='reading'&&Number(target||0)>0&&!(subjects.length===1&&inds.length===1)){
+   if(subject==='reading'&&Number(target||0)>0){
      const rotated=readingIndicatorsForModel(letter,Number(target));
      if(rotated.length)items=rotated;
    }
    return {subject,question_count:items.reduce((n,x)=>n+x.count,0),duration_minutes:45,calculator:subject==='math',model_no:1,indicators:items.map(x=>({key:x.key,count:x.count}))};
  }).filter(s=>s.question_count>0);
- return {kind:'multi_indicator',paper_review_builder:true,review_passage_mode:subjects.includes('reading')&&!(subjects.length===1&&inds.length===1),grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections,count_mode:'per_indicator',cognitive_targets:{knowledge:Number($('knowledge').value||0),application:Number($('application').value||0),reasoning:Number($('reasoning').value||0)},settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
+ return {kind:'multi_indicator',paper_review_builder:true,review_passage_mode:subjects.includes('reading'),grade_key:'middle_3',title:$('reviewTitle').value.trim()+' — نموذج '+letter,class_name:$('className').value?('ثالث متوسط '+$('className').value):'ثالث متوسط',term:'الفصل الدراسي الأول',academic_term:'الفصل الدراسي الأول',school_name:'',teacher_name:'',principal_name:'',identity_mode:'manual',roster:[],sections,count_mode:'per_indicator',cognitive_targets:{knowledge:Number($('knowledge').value||0),application:Number($('application').value||0),reasoning:Number($('reasoning').value||0)},settings:{show_result:false,show_answers:false,show_indicator_result:false,show_correct_count:false,shuffle_questions:false,shuffle_options:false,allow_copy:false,disable_right_click:false,disable_print:false,disable_shortcuts:false,allow_back:true,one_per_page:false,lock_session:false,log_visibility:false,watermark:false,attempts:1,opens_at:null,closes_at:null,break_minutes:0}};
 }
 function questionIds(d){
  return (d.sections||[]).flatMap(s=>(s.questions||[]).map(q=>String(q.id||q.question_id||q.question||'')));
@@ -631,7 +632,7 @@ function validate(){
  if(!subjects.length)throw new Error('اختر مادة واحدة على الأقل.');
  const chosenRows=[...document.querySelectorAll('.indicator-row')].filter(r=>r.querySelector('.indicator-check')?.checked);
  if(!chosenRows.length)throw new Error('اختر مؤشرًا واحدًا على الأقل.');
- const flexible=flexibleSingleReading(chosenRows);
+ const flexible=false;
  const emptyReading=chosenRows.filter(r=>r.dataset.subject==='reading'&&Number(r.querySelector('.indicator-count')?.value||0)===0);
  if(emptyReading.length)throw new Error('مؤشر القراءة محدد بالفعل، لكن حصته صفر. راجع وجود نص محكّم يضم خمسة أسئلة على الأقل والعدد الكلي المختار.');
  if(!inds.length)throw new Error('المؤشرات محددة ولكن تعذّر تخصيص أسئلة لها. راجع سعة بنك الأسئلة.');
