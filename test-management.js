@@ -20,7 +20,28 @@ function enforceAllClassesScope(){
  if(label&&!step?.querySelector('.all-classes-scope-note')){const note=document.createElement('div');note.className='all-classes-scope-note';note.textContent='النطاق الافتراضي: جميع الفصول الأربعة. اختيار الطالب لفصله عند الدخول للتحقق من الهوية فقط، وليس لتقييد رابط الاختبار.';label.parentElement?.appendChild(note);}
 }
 async function api(action,body={}){if(!T?.getKey?.())throw new Error('يلزم دخول المعلم.');return T.api(action,body);}
-async function refresh(){if(loading||!T?.getKey?.())return;loading=true;try{const d=await api('teacher_catalog');tests=new Map((d.tests||[]).map(t=>[String(t.id),t]));decorate();}catch(e){console.error('test management',e);}finally{loading=false;}}
+async function refresh(){if(loading||!T?.getKey?.())return;loading=true;try{const d=await api('teacher_catalog');tests=new Map((d.tests||[]).map(t=>[String(t.id),t]));decorate();syncAnalysisRetakes();}catch(e){console.error('test management',e);const notice=document.getElementById('teacherRetakeNotice');if(notice)notice.textContent='تعذر تحميل الاختبارات: '+e.message+' — اضغط «تحديث القائمة». ';}finally{loading=false;}}
+
+function syncAnalysisRetakes(){
+ const root=document.getElementById('teacherRetakeToolbar');if(!root)return;
+ const select=root.querySelector('#teacherRetakeTest'),button=root.querySelector('#teacherRetakeButton'),message=root.querySelector('#teacherRetakeNotice');
+ if(!select||!button)return;
+ const old=select.value,fromUrl=new URLSearchParams(location.search).get('test')||'';
+ const manageable=[...tests.values()].filter(t=>t.kind!=='simulation'&&t.kind!=='legacy'&&t.can_manage!==false&&/^[0-9a-f-]{36}$/i.test(String(t.id||'')))
+  .sort((a,b)=>new Date(b.created_at||0).getTime()-new Date(a.created_at||0).getTime());
+ select.innerHTML='<option value="">اختر الاختبار لإدارته</option>'+manageable.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.title)+' — '+esc((t.subjects||[]).map(s=>({reading:'القراءة',math:'الرياضيات',science:'العلوم'}[s]||s)).join(' + ')||'اختبار مؤشر')+'</option>').join('');
+ const pick=[old,fromUrl].find(v=>manageable.some(t=>String(t.id)===v));
+ if(pick)select.value=pick;
+ button.disabled=!select.value;
+ if(message)message.textContent=manageable.length?'الاختبارات المتاحة للإدارة: '+manageable.length+' · اختر الاختبار ثم اضغط الزر.':'لا توجد اختبارات قابلة للإدارة لهذا الحساب.';
+ if(!root.dataset.bound){
+  root.dataset.bound='1';
+  const reload=root.querySelector('#teacherRetakeReload');if(reload)reload.addEventListener('click',()=>refresh());
+  select.addEventListener('change',()=>{button.disabled=!select.value;});
+  button.addEventListener('click',()=>{const id=select.value;if(id)openRetake(id);});
+ }
+}
+
 function idFromArticle(a){const direct=String(a?.dataset?.testId||'').trim();if(direct)return direct;const href=a.querySelector('a[href*="analysis.html?test="]')?.getAttribute('href')||'';try{return new URL(href,location.href).searchParams.get('test')||'';}catch{return'';}}
 function scheduleText(t){const state=t.manual_closed?'موقوف مؤقتًا':'متاح';return`${state} · الفتح: ${t.opens_at?fmt(t.opens_at):'فورًا'} · الإغلاق: ${t.closes_at?fmt(t.closes_at):'بدون موعد'}`;}
 function decorate(){
@@ -133,6 +154,6 @@ function openArchive(id){const t=tests.get(id);if(!t)return;const layer=modalShe
 async function reloadPublished(){if(typeof window.NafesReloadPublished==='function'){await window.NafesReloadPublished();await refresh();}else location.reload();}
 function handleClick(e){const id=e.target.closest('[data-test-id]')?.dataset.testId;if(!id)return;if(e.target.closest('[data-manage-retake]'))openRetake(id);else if(e.target.closest('[data-manage-edit]'))openEdit(id);else if(e.target.closest('[data-manage-toggle]'))toggleOpen(id);else if(e.target.closest('[data-manage-archive]'))openArchive(id);else if(e.target.closest('[data-manage-delete]'))openDelete(id);}
 function init(){injectStyle();enforceAllClassesScope();const list=document.getElementById('publishedList');list?.addEventListener('click',handleClick);if(list)new MutationObserver(()=>decorate()).observe(list,{childList:true,subtree:false});refresh();addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)refresh();else tests.clear();});}
-window.NafesTestManagement={refresh};
+window.NafesTestManagement={refresh,openRetake};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
