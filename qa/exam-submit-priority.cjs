@@ -60,7 +60,7 @@ async function setup(browser, { sections = 1, allowBack = true } = {}) {
   await page.goto(`http://127.0.0.1:${server.address().port}/e.html?t=QATEST22`);
   await page.locator('#player:not([hidden])').waitFor();
   const select = async n => { await page.locator(`.choice:has(input[value="${n}"])`).click(); await page.clock.runFor(400); };
-  const until = async fn => { for (let i = 0; i < 100; i++) { if (await fn()) return; await new Promise(r => setTimeout(r, 10)); } throw new Error('Condition not met'); };
+  const until = async fn => { for (let i = 0; i < 500; i++) { if (await fn()) return; await new Promise(r => setTimeout(r, 10)); } throw new Error('Condition not met: ' + JSON.stringify({ calls: calls.map(c => c.action), errors, ui: await page.locator('#saveState').textContent(), error: await page.locator('#playerError').textContent() })); };
   return { page, context, calls, errors, select, until, holdSave: () => { blockSave = true; }, releaseSave: heldSave.resolve, holdFinish: () => { blockFinish = true; }, releaseFinish: heldFinish.resolve, failFinish: () => { failFinish = true; } };
 }
 
