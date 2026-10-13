@@ -84,3 +84,31 @@ test('duplicate delivery clicks share one network request', async () => {
   assert.equal(a, b); assert.equal(calls.length, 1);
   calls[0].resolve({ submitted: true }); await Promise.all([a, b]);
 });
+
+function guardSetup(intent) {
+  const sent = [], events = {}, data = new Map();
+  if (intent) data.set('nafes_draft_v2_QATEST22', JSON.stringify(intent));
+  const storage = { getItem: k => data.get(k) || null, setItem: (k, v) => data.set(k, v) };
+  const c = { URLSearchParams, location: { search: '?t=QATEST22' }, localStorage: storage, sessionStorage: storage,
+    crypto: { randomUUID: () => 'session' }, addEventListener: (type, fn) => { events[type] = fn; },
+    confirm: () => false, fetch: async (_, init) => { sent.push(JSON.parse(init.body)); return {}; } };
+  c.window = c; vm.createContext(c);
+  vm.runInContext(fs.readFileSync(require('node:path').join(__dirname, '../exam-session-guard.js'), 'utf8'), c);
+  const finish = id => c.fetch('/functions/v1/nafes-exam', { method: 'POST', body: JSON.stringify({ action: 'assessment_finish', attempt_id: id }) });
+  return { sent, events, finish };
+}
+test('session guard blocks unconfirmed finish and intent from another attempt', async () => {
+  for (const intent of [null, { attempt_id: 'other', finish_requested: true }, { attempt_id: 'test', finish_requested: false }]) {
+    const g = guardSetup(intent); await g.finish('test'); assert.equal(g.sent[0].action, 'assessment_save');
+  }
+});
+test('confirmed attempt survives repeated delivery retries but page close only saves', async () => {
+  const g = guardSetup({ attempt_id: 'test', finish_requested: true, finish_requested_at: Date.now() - 60000 });
+  await g.finish('test'); await g.finish('test');
+  assert.deepEqual(g.sent.map(x => x.action), ['assessment_finish', 'assessment_finish']);
+  g.events.pagehide(); await g.finish('test'); assert.equal(g.sent[2].action, 'assessment_save');
+});
+test('recorded timer expiry can deliver the matching attempt', async () => {
+  const g = guardSetup({ attempt_id: 'test', finish_requested: true, auto_expiry: true });
+  await g.finish('test'); assert.equal(g.sent[0].action, 'assessment_finish');
+});

@@ -89,7 +89,7 @@ function openRetake(id){
     const count=Number(s.attempts_count||0),duration=s.last_duration_seconds==null?'':` · ${Math.max(0,Math.ceil(Number(s.last_duration_seconds)/60))} دقيقة`;
     const label=!count?'لم يختبر':s.has_active_attempt?'محاولة جارية':`اختبر ${count} مرة${count>1?'ات':''}`;
     const grant=s.retake_available?' · إعادة متاحة':'';
-    return `<tr style="border-bottom:1px solid #e6efeb"><td style="padding:9px"><b>${esc(s.full_name)}</b><small style="display:block;color:#637770">${esc(s.class_name||'')}</small></td><td style="padding:9px;font-size:12px">${esc(label+duration+grant)}</td><td style="padding:9px"><button type="button" data-retake-student="${esc(s.id)}" ${count===0?'disabled':''} style="font:inherit;padding:7px 9px;border:1px solid #b2d1c5;border-radius:8px;background:#eaf7f2;color:#075446;cursor:pointer" title="${count===0?'هذا الطالب يملك فرصته الأولى تلقائيًا':'السماح بمحاولة جديدة لهذا الطالب'}">${count===0?'لم يختبر':'إعادة الاختبار'}</button></td></tr>`;
+    return `<tr style="border-bottom:1px solid #e6efeb"><td style="padding:9px"><b>${esc(s.full_name)}</b><small style="display:block;color:#637770">${esc(s.class_name||'')}</small></td><td style="padding:9px;font-size:12px">${esc(label+duration+grant)}</td><td style="padding:9px"><button type="button" data-retake-student="${esc(s.id)}" style="font:inherit;padding:7px 9px;border:1px solid #b2d1c5;border-radius:8px;background:#eaf7f2;color:#075446;cursor:pointer" title="${count===0?'إتاحة المحاولة الأولى لهذا الطالب':'السماح بمحاولة جديدة لهذا الطالب'}">${count===0?'إتاحة الاختبار':'إعادة الاختبار'}</button></td></tr>`;
    }).join('')}</tbody></table>`:'<p>لا توجد أسماء مطابقة.</p>';
  }
  async function refreshRoster(){
@@ -103,7 +103,7 @@ function openRetake(id){
   const studentId=e.target.closest('[data-retake-student]')?.dataset.retakeStudent;
   if(!mode&&!studentId)return;
   const student=students.find(x=>x.id===studentId);
-  const message=mode==='all'?'ستُتاح محاولة جديدة لكل طالب سبق أن اختبر. هل تؤكد؟':mode==='absent'?'سيُفتح رابط الاختبار للطلاب الذين لم يختبروا، وتبقى المحاولات المكتملة مغلقة. هل تؤكد؟':`هل تؤكد إتاحة محاولة جديدة للطالب «${student?.full_name||''}» دون حذف نتيجته السابقة؟`;
+  const message=mode==='all'?'ستُتاح محاولة جديدة لكل طالب سبق أن اختبر. هل تؤكد؟':mode==='absent'?'سيُفتح رابط الاختبار للطلاب الذين لم يختبروا، وتبقى المحاولات المكتملة مغلقة. هل تؤكد؟':!Number(student?.attempts_count||0)?`هل تؤكد فتح الاختبار للطالب «${student?.full_name||''}» لأداء محاولته الأولى؟`:`هل تؤكد إتاحة محاولة جديدة للطالب «${student?.full_name||''}» دون حذف نتيجته السابقة؟`;
   if(!confirm(message))return;
   const button=e.target.closest('button');button.disabled=true;status.textContent='جارٍ حفظ الإذن في الخادم…';
   try{
