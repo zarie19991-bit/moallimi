@@ -14,7 +14,7 @@ function testId(a){return String(a?.test_id||a?.assessment_id||a?.exam_id||'').t
 function when(a){return Date.parse(a?.submitted_at||a?.completed_at||a?.finished_at||a?.started_at||0)||0}
 function indKey(q){return A?.indicatorKey?A.indicatorKey(q):(q?.indicator_key||null)}
 function subjectOfQ(q){const s=String(q?.subject||q?.subject_key||'').trim().toLowerCase();if(['reading','arabic','القراءة','العربية','اللغة العربية'].includes(s))return'reading';if(['math','mathematics','الرياضيات'].includes(s))return'math';if(['science','العلوم'].includes(s))return'science';return''}
-function qList(a){return Array.isArray(a?.questions)?a.questions:[]}
+function qList(a){return Array.isArray(a?.questions)?a.questions.filter(q=>!A?.reachedSubject||A.reachedSubject(a,subjectOfQ(q))):[]}
 function classMatches(a,c){return !c||String(a?.class_name||'').trim()===c}
 function titleOf(id){const t=tests.find(x=>String(x.id||x.test_id||'')===String(id));return String(t?.title||'اختبار نافس')}
 function level(p){if(A?.levelFor)return A.levelFor(p);if(p===null||p===undefined)return{key:'unmeasured',label:'غير مقاس'};if(p>=80)return{key:'mastered',label:'متقن'};if(p>=70)return{key:'near',label:'قريب من الإتقان'};if(p>=50)return{key:'support',label:'بحاجة إلى دعم'};return{key:'nonmastered',label:'غير متقن'}}

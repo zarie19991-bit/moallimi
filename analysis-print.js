@@ -16,7 +16,7 @@ function testId(a){return String(a?.test_id||a?.assessment_id||a?.exam_id||'').t
 function classKey(v){const raw=String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ').replace(/[إآا]/g,'أ');if(['أ','ب','ج','د'].includes(raw))return raw;const m=raw.match(/(?:^|[\s/\\\-()])([أبجد])(?:$|[\s/\\\-()])/);if(m)return m[1];const tail=raw.match(/(?:فصل|شعبة)?\s*([أبجد])$/);return tail?tail[1]:raw;}
 function classMatches(a,c){return !c||classKey(a?.class_name)===classKey(c);}
 function normSubject(v){const s=String(v||'').trim().toLowerCase();if(['reading','arabic','language','القراءة','العربية','اللغة العربية'].includes(s))return'reading';if(['math','mathematics','الرياضيات'].includes(s))return'math';if(['science','العلوم'].includes(s))return'science';return'';}
-function savedMeasure(a,subject){
+function savedMeasure(a,subject){if(A?.reachedSubject&&!A.reachedSubject(a,subject))return null;
  const sections=Array.isArray(a?.section_scores)?a.section_scores:[];
  const sec=sections.find(x=>normSubject(x?.subject||x?.subject_key)===subject);
  if(sec){const score=num(sec.score??sec.correct),total=num(sec.total),percent=num(sec.percent);if(score!==null&&total!==null&&total>0)return{correct:score,total,percent:percent!==null?percent:score/total*100,source:'saved_section'};}
@@ -31,7 +31,7 @@ function latestRecords(id,subject,cls=''){
  for(const a of attempts){if(!submitted(a)||testId(a)!==String(id)||!classMatches(a,cls))continue;const m=measure(a,subject);if(!m.total)continue;const k=ident(a);if(!k)continue;const old=map.get(k);if(!old||when(a)>when(old.a))map.set(k,{a,m});}
  return [...map.values()];
 }
-function participation(id,subject,cls){
+function participation(id,subject,cls){if(!rosterReady||!students.length)throw new Error('كشف الطلاب غير متاح؛ لا يمكن اعتماد المشاركة.');
  if(!rosterReady||!window.NafesReportAbsentees?.groups)return null;
  try{return window.NafesReportAbsentees.groups({roster:students,attempts,tests,selectedIds:[id],className:cls,subject})[0]||null;}
  catch(error){console.warn('official analysis participation',error);return null;}
@@ -45,7 +45,7 @@ function level(p){return p>=90?'excellent':p>=80?'verygood':p>=70?'good':p>=50?'
 function logo(src){return src?`<img src="${src}" alt="شعار وزارة التعليم">`:'<div class="sar-logo-fallback">وزارة التعليم</div>';}
 function ring(l,c,n){const p=n?c/n*100:0;return `<div class="sar-ring-item"><div class="sar-ring ${l.key}" style="--p:${Math.max(0,Math.min(100,p))}%"><div><b>${l.label}</b><strong>${pct(p)}</strong></div></div></div>`;}
 function bar(l,c,max){const h=max?(c/max*100):0;return `<div class="sar-bar-item"><div class="sar-bar-track"><i class="${l.key}" style="--h:${h}%">${c?`<b>${ar(c)}</b>`:''}</i></div><span>${l.label}</span></div>`;}
-function sheet(subject,id,cls=''){
+function sheet(subject,id,cls=''){window.NafesReportIntegrity.requireRoster(students);window.NafesReportIntegrity.requireValid(attempts,{testIds:[id]});
  const recs=latestRecords(id,subject,cls);if(!recs.length)return'';
  const scores=recs.map(x=>num(x.m.correct)).filter(x=>x!==null),totals=recs.map(x=>num(x.m.total)).filter(x=>x!==null),vals=recs.map(x=>num(x.m.percent)).filter(x=>x!==null);
  if(!scores.length||!totals.length)return'';
@@ -73,8 +73,8 @@ function addPreview(viewId,id){if($(id))return;const view=$(viewId),control=view
 function install(){const ov=$('overviewView')?.querySelector('.toolbar');if(ov){addSelect(ov,'analysisReadingTest','اختبار القراءة');addSelect(ov,'analysisMathTest','اختبار الرياضيات');addSelect(ov,'analysisScienceTest','اختبار العلوم');addButton(ov,'buildOverviewOfficialBtn','إنشاء التحليل الرسمي');addPreview('overviewView','overviewOfficialPreview');}const sv=$('subjectView')?.querySelector('.toolbar');if(sv){addSelect(sv,'analysisSubjectTest','الاختبار');addButton(sv,'buildSubjectOfficialBtn','إنشاء التحليل الرسمي');addPreview('subjectView','subjectOfficialPreview');}}
 function fill(id,subject){const el=$(id);if(!el)return;const rows=testsFor(subject),old=el.value;el.innerHTML=rows.length?rows.map(r=>`<option value="${esc(r.id)}">${esc(r.title)} (${ar(r.count)} نتيجة فعلية)</option>`).join(''):'<option value="">لا توجد درجات محفوظة مسلّمة</option>';if(rows.some(r=>r.id===old))el.value=old;}
 function populate(){fill('analysisReadingTest','reading');fill('analysisMathTest','math');fill('analysisScienceTest','science');fill('analysisSubjectTest',$('subjectSelect')?.value||'reading');}
-function buildOverview(){const cls=$('overviewClass')?.value||'',ids={reading:$('analysisReadingTest')?.value,math:$('analysisMathTest')?.value,science:$('analysisScienceTest')?.value};const html=SUBJECTS.map(s=>ids[s]?sheet(s,ids[s],cls):'').filter(Boolean).join('');const host=$('overviewOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">لا توجد درجات محفوظة فعلية للاختبارات المختارة.</div>';return html;}
-function buildSubject(){const s=$('subjectSelect')?.value||'reading',id=$('analysisSubjectTest')?.value||'',cls=$('subjectClass')?.value||'',html=id?sheet(s,id,cls):'';const host=$('subjectOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">اختر اختبارًا لديه درجات محفوظة فعلية لهذه المادة.</div>';return html;}
+function buildOverview(){try{const cls=$('overviewClass')?.value||'',ids={reading:$('analysisReadingTest')?.value,math:$('analysisMathTest')?.value,science:$('analysisScienceTest')?.value};const html=SUBJECTS.map(s=>ids[s]?sheet(s,ids[s],cls):'').filter(Boolean).join('');const host=$('overviewOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">لا توجد درجات محفوظة فعلية للاختبارات المختارة.</div>';return html;}catch(e){const h=$('overviewOfficialPreview');if(h)h.textContent='أُوقف التقرير: '+e.message;return '';}}
+function buildSubject(){try{const s=$('subjectSelect')?.value||'reading',id=$('analysisSubjectTest')?.value||'',cls=$('subjectClass')?.value||'',html=id?sheet(s,id,cls):'';const host=$('subjectOfficialPreview');if(host)host.innerHTML=html||'<div class="report-preview-empty">اختر اختبارًا لديه درجات محفوظة فعلية لهذه المادة.</div>';return html;}catch(e){const h=$('subjectOfficialPreview');if(h)h.textContent='أُوقف التقرير: '+e.message;return '';}}
 function printHtml(html){if(!html)return;const root=$('printRoot');root.innerHTML=html;root.setAttribute('aria-hidden','false');requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));}
 async function load(){
  if(loading||!T?.getKey?.())return;loading=true;

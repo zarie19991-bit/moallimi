@@ -24,7 +24,8 @@
  const testId=a=>clean(a.test_id||a.assessment_id||a.exam_id);
  function identityKey(row){const n=nameKey(row?.full_name||row?.student_name),c=classKey(row?.class_name),d=digits(row?.national_id_last3||row?.student_no);return n&&c&&d.length===3?`${n}\u0000${c}\u0000${d}`:''}
  function groups({roster,attempts=[],tests=[],selectedIds=[],className='',subject}={}){
-  if(!Array.isArray(roster))throw new Error('تعذر تحميل كشف الطلاب.');
+  if(root.NafesReportIntegrity?.requireRoster)root.NafesReportIntegrity.requireRoster(roster);
+  else if(!Array.isArray(roster)||!roster.length)throw new Error('كشف الطلاب غير متاح؛ لا يمكن اعتماد تقرير الغياب.');
   const active=new Map(),knownIds=new Set(),identityIndex=new Map();
   for(const student of roster){
    const id=clean(student?.id||student?.student_id);
@@ -40,6 +41,15 @@
    const completed=new Set();let unresolved=0,legacyLinked=0;
    for(const a of attempts){
     if(testId(a)!==id||!isSubmitted(a))continue;
+    if(subject){
+      const ordered=Array.isArray(a.subjects)?a.subjects:(Array.isArray(test.subjects)?test.subjects:[]);
+      const si=ordered.indexOf(subject);
+      if(si<0)continue;
+      if(a.source==='assessment'&&ordered.length>1){
+        const current=Number(a.current_section);
+        if(!Number.isInteger(current)||current<si)continue;
+      }
+    }
     let sid=[a.student_id,a.student_key].map(clean).find(key=>knownIds.has(key));
     if(!sid){const fallback=identityKey(a),matched=fallback?identityIndex.get(fallback):null;if(matched){sid=matched;legacyLinked++;}}
     if(sid){if(eligibleIds.has(sid))completed.add(sid);continue;}
@@ -64,6 +74,6 @@
     <footer class="na-footer">${settings.teacherName?`المعلم: ${esc(settings.teacherName)}`:'كشف متابعة الطلاب'}</footer></article>`).join('');
   }).join('');
  }
- async function create(options){try{const data=await root.NafesTeacher.api('teacher_students_list',{include_archived:false});return render(groups({...options,roster:data?.students}),options)}catch(error){return render([{title:'متابعة المشاركة في الاختبارات المحددة',total:null,tested:null,missing:[],warning:'تعذر تحميل كشف الطلاب لتحديد غير المختبرين. حدّث البيانات ثم أعد إنشاء التقرير.'}],options)}}
+ async function create(options){const data=await root.NafesTeacher.api('teacher_students_list',{include_archived:false});const groupList=groups({...options,roster:data?.students});if(groupList.some(g=>g.unresolved>0))throw new Error('يوجد تسليم غير مربوط بطالب في كشف المدرسة؛ لا يمكن اعتماد كشف الغياب قبل معالجة الربط.');return render(groupList,options);}
  return Object.freeze({groups,render,create});
 });

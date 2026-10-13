@@ -31,6 +31,11 @@
     return !!a.submitted_at || ['submitted', 'completed', 'finished'].includes(a.status);
   }
   const isAnalyzable = a => isSubmitted(a) && !clean(a.snapshot_warning);
+  function reachedSubject(a,subject){
+    if(!subject||a.source!=='assessment'||!Array.isArray(a.subjects)||a.subjects.length<2)return true;
+    const index=a.subjects.indexOf(subject),current=Number(a.current_section);
+    return index>=0&&Number.isInteger(current)&&current>=index;
+  }
 
   function studentIdentity(a) {
     if (clean(a.student_id)) return `student:${clean(a.student_id)}`;
@@ -79,7 +84,7 @@
   }
 
   function measure(a, filters = {}) {
-    const questions = a.questions.filter(q => matchesQuestion(q, filters));
+    const questions = a.questions.filter(q => matchesQuestion(q, filters) && reachedSubject(a,q.subject));
     const valid = isAnalyzable(a) ? questions.filter(isScorable) : [];
     const correct = valid.filter(q => q.correct).length;
     return { correct, total: valid.length, percent: valid.length ? correct / valid.length * 100 : null, excluded: questions.length - valid.length, unknownIndicators: valid.filter(q => !indicatorKey(q)).length };
@@ -101,7 +106,7 @@
     if (!isAnalyzable(a)) return groups;
     for (const q of a.questions) {
       const key = indicatorKey(q);
-      if (!key || !isScorable(q) || !matchesQuestion(q, filters)) continue;
+      if (!key || !isScorable(q) || !matchesQuestion(q, filters) || !reachedSubject(a,q.subject)) continue;
       if (!groups.has(key)) groups.set(key, { key, subject: q.subject, text: clean(q.indicator_text) || key, correct: 0, total: 0, attempt: a, at: a.submitted_at || a.started_at });
       const g = groups.get(key); g.total++; if (q.correct) g.correct++;
     }
@@ -232,7 +237,7 @@
   function questionSummary(attempts, filters = {}) {
     const groups = new Map();
     for (const a of latestByStudentTest(attempts).sort(compareTime)) {
-      for (const q of a.questions.filter(q => matchesQuestion(q, filters))) {
+      for (const q of a.questions.filter(q => matchesQuestion(q, filters) && reachedSubject(a,q.subject))) {
         const fingerprint = questionFingerprint(q);
         if (!groups.has(fingerprint)) groups.set(fingerprint, { fingerprint, question: q.question || 'نص غير متاح', subject: q.subject, indicator_key: indicatorKey(q), indicator_text: q.indicator_text || 'مؤشر غير معروف', students: new Map(), example: a, questionId: String(q.id) });
         const group = groups.get(fingerprint);
@@ -267,5 +272,5 @@
     } };
   }
 
-  return Object.freeze({ THRESHOLDS, LEVELS, UNKNOWN_CLASS, num, clean, canonicalDigits, dateValue, attemptRef, timeOf, compareTime, isSubmitted, isAnalyzable, studentIdentity, normalizeAttempt, savedPercent, isScorable, indicatorKey, matchesQuestion, measure, levelFor, needsSupport, mean, skillMeasurements, observations, comparison, latestComparison, followupFor, latestByStudentTest, matchesContext, studentRows, indicatorSummary, questionFingerprint, questionSummary, report });
+  return Object.freeze({ THRESHOLDS, LEVELS, UNKNOWN_CLASS, num, clean, canonicalDigits, dateValue, attemptRef, timeOf, compareTime, isSubmitted, isAnalyzable, reachedSubject, studentIdentity, normalizeAttempt, savedPercent, isScorable, indicatorKey, matchesQuestion, measure, levelFor, needsSupport, mean, skillMeasurements, observations, comparison, latestComparison, followupFor, latestByStudentTest, matchesContext, studentRows, indicatorSummary, questionFingerprint, questionSummary, report });
 });

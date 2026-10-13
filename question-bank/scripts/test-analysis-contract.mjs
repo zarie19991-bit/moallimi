@@ -20,6 +20,11 @@ assert.doesNotMatch(analysis, /نسبة النجاح/);
 assert.match(subject, /نسبة التحصيل/);
 assert.match(subject, /achievement=possible\?sum\/possible\*100:null/);
 assert.match(subject, /section_scores/);
+assert.match(subject, /NafesReportIntegrity\.requireValid/);
+assert.match(general, /NafesReportIntegrity\.requireValid/);
+assert.match(html, /report-integrity\.js\?v=/);
+assert.match(read('analysis-core.js'), /function reachedSubject\(/);
+assert.match(read('report-absentees.js'), /current_section/);
 assert.match(general, /savedMeasure/);
 assert.match(general, /score\/total\*100/);
 

@@ -108,8 +108,11 @@ T.loadAnalysis=async function(force=false){
    if(typeof window.dispatchEvent==='function'&&typeof CustomEvent==='function')window.dispatchEvent(new CustomEvent('nafes:analysis-progress',{detail:{count:all.length,complete:cursor===null}}));
   }while(cursor!==null);
   await roster;
-  const unique=new Map();for(const a of all)unique.set(`${a.source}:${a.id}`,a);
-  return {attempts:[...unique.values()].map(a=>window.NafesAnalytics.normalizeAttempt(a)),tests,indicators};
+  const unique=new Map();for(const a of all){const id=`${a.source}:${a.id}`;if(unique.has(id))throw new Error('تكررت محاولة في صفحات النتائج؛ أُوقف التحميل لمنع ازدواج الأعداد.');unique.set(id,a);}
+  const normalized=[...unique.values()].map(a=>window.NafesAnalytics.normalizeAttempt(a));
+  const audit=window.NafesReportIntegrity?.verify(normalized)||null;
+  window.__NAFES_REPORT_AUDIT__=audit;
+  return {attempts:normalized,tests,indicators,reportAudit:audit};
  })();
  const entry={promise,at:Date.now()};window[key]=entry;
  try{const data=await promise;if(epoch===dataEpoch&&window[key]===entry)window[key]={data,at:Date.now()};return data;}

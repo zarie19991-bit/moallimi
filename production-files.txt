@@ -114,6 +114,7 @@ report-absentees.css
 report-readability.css
 report-font-12.css
 analysis-core.js
+report-integrity.js
 analysis-data-service.js
 delivery-health.js
 analysis.js

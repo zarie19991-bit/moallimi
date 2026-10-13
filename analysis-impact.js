@@ -52,6 +52,7 @@ function report(){
  const target=$('impactResult'),subject=state.subject,preId=state.before,postId=state.after,indicator=state.indicator;
  if(!preId||!postId||!indicator){target.innerHTML='<p>لا يوجد اختباران يحملان بيانات موثوقة للمؤشر نفسه حتى الآن.</p>';return}
  if(preId===postId){target.innerHTML='<p>اختر اختبارين مختلفين؛ لا يمكن قياس الأثر بمقارنة الاختبار بنفسه.</p>';return}
+ try{window.NafesReportIntegrity.requireValid(state.attempts,{testIds:[preId,postId]});}catch(error){target.innerHTML='<p role="alert">'+E(error.message)+'</p>';return;}
  const preMap=collect(preId,subject,indicator),postMap=collect(postId,subject,indicator);
  const t1=state.tests.find(t=>String(t.id)===preId),t2=state.tests.find(t=>String(t.id)===postId);
  if(examTime(t1)&&examTime(t2)&&examTime(t2)<examTime(t1)){target.innerHTML='<p>يجب أن يكون الاختبار البعدي أحدث من القبلي. عكس الترتيب لا يمثل قياس أثر.</p>';return}

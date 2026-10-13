@@ -122,11 +122,11 @@ function render({test,subject,testId,className,recs,attempts,students,part}){
   const cognitiveSingle=box('٤. المستوى المعرفي',table(['المستوى','عدد الأسئلة','نسبة الأداء'],['معرفة','تطبيق','استدلال'].map(l=>[E(l),E(new Set(questionDetails.filter(q=>q.level===l).map(q=>q.id)).size),P(score(cognitive.get(l)))]))+'<p>أضعف مستوى معرفي: <b>'+E(weakLevels[0]||'لم يُقَس')+'</b></p>');
   const weakest=box('٥. أضعف ثلاثة أسئلة',table(['السؤال','نسبة الصحيح','المستوى المعرفي'],weakQuestions.slice(0,3).map(q=>[E(q.number),P(q.rate),E(q.level)])));
   const best=box(goodQuestions.some(q=>q.rate>=threshold)?'٦. أعلى ثلاثة أسئلة':'٦. أعلى ثلاثة أسئلة',table(['السؤال','نسبة الصحيح','المستوى المعرفي'],goodQuestions.slice(0,3).map(q=>[E(q.number),P(q.rate),E(q.level)])));
-  const singleCategory=p=>p.v===null?'لم يُقَس':p.v<50?'علاجي':p.v<80?'تعزيز':'إثرائي/متقن';
+  const singleCategory=p=>p.v===null?'لم يُقَس':p.v<50?'علاجي':p.v<threshold?'تعزيز':'إثرائي/متقن';
   const singleStudentRows=studentsData.map(p=>[E(p.name),E(p.a?.class_name||className||'غير محفوظ'),E(p.score)+' / '+E(p.total),P(p.v),E(p.score),E(singleCategory(p))])
    .concat(notMeasured.map(p=>[E(p.name),'—','لم يُقَس','—','—','لم يُقَس']));
   const studentSection=box('٧. تحليل الطلاب في المؤشر','<div class="iad-meta"><span>عدد الطلاب الذين قيسوا: <b>'+E(measured.length)+'</b></span><span>لم يُقَس: <b>'+E(notMeasured.length)+'</b></span></div><p class="iad-note">توجد أسماء الطلاب ودرجاتهم في الملحق التفصيلي المستقل.</p>');
-  const roster=box('ملحق القسم ٧ — تفاصيل الطلاب',table(['اسم الطالب','الفصل','الدرجة من 15','النسبة','عدد الصحيح','التصنيف'],singleStudentRows));
+  const roster=box('ملحق القسم ٧ — تفاصيل الطلاب',table(['اسم الطالب','الفصل','الدرجة من مجموع أسئلة المؤشر','النسبة','عدد الصحيح','التصنيف'],singleStudentRows));
   const tally=box('٨. ملخص التدخل','<div class="iad-meta"><span>علاجي: <b>'+E(cs.therapy.length)+'</b></span><span>تعزيز: <b>'+E(cs.boost.length)+'</b></span><span>إثرائي: <b>'+E(cs.enrich.length)+'</b></span><span>لم يُقَس: <b>'+E(notMeasured.length)+'</b></span></div>');
   const advice=box('٩. التوصية','<p>تركيز المعالجة على المستوى المعرفي: <b>'+E(weakLevels[0]||'غير محدد')+'</b>، مع تدريب موجه للأسئلة '+E(weakQuestions.slice(0,3).map(q=>q.number).join('، ')||'غير المحددة')+' ثم إجراء قياس بعدي للمؤشر نفسه.</p>');
   const historical=box('١٠. قياس الأثر',changes.length?impactMetadata+table(['السابق','الحالي','التغير','طلاب مشتركون'],changes.map(g=>[P(g.old),P(g.now),E(g.d.toFixed(1))+' نقطة',E(g.n)])):'<p>لا يوجد قياس سابق/لاحق مرتبط بهذا المؤشر حتى الآن.</p>');
