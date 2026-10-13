@@ -177,3 +177,13 @@ test('publication re-fetches approved reviewed-bank fallback questions by exact 
  assert.match(source,/if\(!hasCurrentReview\(q\)\)continue/);
  assert.doesNotMatch(source,/if\(!ids\?\.length\)\{\s*const scoped/);
 });
+
+test('a saved draft reopens through an owner-scoped endpoint and retains a resume link',()=>{
+ const source=fs.readFileSync(new URL('../../supabase/functions/nafes-exam/assessments.ts',import.meta.url),'utf8');
+ const ui=fs.readFileSync(new URL('../../create.js',import.meta.url),'utf8');
+ assert.match(source,/b.action==='teacher_draft_get'/);
+ assert.match(source,/const t=await findDraft\(db,b.draft_id,owner\)/);
+ assert.match(ui,/teacher_draft_get/);
+ assert.match(ui,/params.set\('draft',d.draft_id\)/);
+ assert.match(ui,/params.delete\('draft'\)/);
+});
