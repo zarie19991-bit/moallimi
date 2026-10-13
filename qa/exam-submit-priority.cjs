@@ -65,6 +65,18 @@ async function setup(browser, { sections = 1, allowBack = true } = {}) {
 }
 
 async function run(browser, name) {
+  // Cancel must leave the attempt open and send no finish or advance request.
+  {
+    const t = await setup(browser);
+    await t.page.locator('#finish').click();
+    assert.equal(await t.page.locator('[role="dialog"]').isVisible(), true);
+    assert.equal(t.calls.filter(c => /finish|advance/.test(c.action)).length, 0);
+    await t.page.locator('[data-cancel-submit]').click();
+    assert.equal(await t.page.locator('[role="dialog"]').count(), 0);
+    assert.equal(await t.page.locator('#player').isVisible(), true);
+    assert.equal(t.calls.filter(c => /finish|advance/.test(c.action)).length, 0);
+    assert.deepEqual(t.errors, []); await t.context.close();
+  }
   // Reproduce the video: final question, slow save, repeated save intents, then delivery.
   {
     const t = await setup(browser);
@@ -72,7 +84,7 @@ async function run(browser, name) {
     await t.select(2); await t.select(3); await t.page.clock.runFor(30000);
     assert.equal(t.calls.length, 1, 'only one request in flight');
     assert.equal(await t.page.locator('#next').isVisible(), false, 'no Next button after the final question');
-    t.holdFinish(); await t.page.locator('#finish').click();
+    t.holdFinish(); await t.page.locator('#finish').click(); await t.page.locator('[data-confirm-submit]').click();
     assert.match(await t.page.locator('#finish').textContent(), /جارٍ تسليم الاختبار/);
     assert.equal(await t.page.locator('#finish').isDisabled(), true);
     t.releaseSave(); await t.until(() => t.calls.some(c => c.action === 'assessment_finish'));
@@ -93,7 +105,7 @@ async function run(browser, name) {
   }
   {
     const t = await setup(browser);
-    await t.context.setOffline(true); await t.select(2); await t.page.locator('#finish').click();
+    await t.context.setOffline(true); await t.select(2); await t.page.locator('#finish').click(); await t.page.locator('[data-confirm-submit]').click();
     await t.until(async () => !await t.page.locator('#finish').isDisabled());
     const draft = await t.page.evaluate(() => JSON.parse(localStorage.getItem('nafes_draft_v2_QATEST22')));
     assert.equal(draft.finish_requested, true); assert.equal(draft.answers['q0-19'], 2);
@@ -104,17 +116,17 @@ async function run(browser, name) {
   }
   {
     const t = await setup(browser);
-    t.failFinish(); await t.page.locator('#finish').click();
+    t.failFinish(); await t.page.locator('#finish').click(); await t.page.locator('[data-confirm-submit]').click();
     await t.until(async () => !await t.page.locator('#finish').isDisabled());
     assert.match(await t.page.locator('#playerError').textContent(), /تعذر تأكيد/);
-    await t.page.locator('#finish').click(); await t.page.locator('#result:not([hidden])').waitFor();
+    await t.page.locator('#finish').click(); await t.page.locator('[data-confirm-submit]').click(); await t.page.locator('#result:not([hidden])').waitFor();
     assert.equal(t.calls.filter(c => c.action === 'assessment_finish').length, 2);
     assert.deepEqual(t.errors, []); await t.context.close();
   }
   {
     const t = await setup(browser, { sections: 2 });
     t.holdSave(); await t.select(1); await t.until(() => t.calls.length === 1);
-    await t.select(2); await t.page.locator('#finish').click(); t.releaseSave();
+    await t.select(2); await t.page.locator('#finish').click(); await t.page.locator('[data-confirm-submit]').click(); t.releaseSave();
     await t.until(async () => (await t.page.locator('#sectionTitle').textContent()).includes('الرياضيات'));
     assert.deepEqual(t.calls.map(c => c.action), ['assessment_save', 'assessment_advance']);
     assert.equal(t.calls[1].expected_section, 0); assert.equal(t.calls[1].answers['q0-19'], 2);
@@ -130,7 +142,37 @@ async function run(browser, name) {
     assert.equal(t.calls.length, 1, 'repeated navigation cannot skip locked questions');
     assert.deepEqual(t.errors, []); await t.context.close();
   }
-  console.log(`PASS ${name}: 6 mobile delivery scenarios`);
+  {
+    const context = await browser.newContext({ viewport: { width: 384, height: 832 }, locale: 'ar-SA', isMobile: true, hasTouch: true });
+    const page = await context.newPage();
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    page.on('dialog', d => d.accept());
+    await page.setContent('<html dir="rtl"><body><div id="publishedList"><article class="published-test" data-test-id="11111111-1111-4111-8111-111111111111"><b>اختبار تجريبي</b></article></div></body></html>');
+    await page.evaluate(() => {
+      window.retakeCalls = [];
+      window.NafesTeacher = { getKey: () => 'mock', api: async (action, body) => {
+        if (action === 'teacher_catalog') return { tests: [{ id: '11111111-1111-4111-8111-111111111111', title: 'اختبار تجريبي' }] };
+        if (action === 'teacher_test_retake_roster') return { students: [
+          { id: 'absent', full_name: 'طالب لم يختبر', attempts_count: 0 },
+          { id: 'completed', full_name: 'طالب أنهى بسرعة', attempts_count: 1, last_duration_seconds: 30 }
+        ] };
+        if (action === 'teacher_test_retake') { window.retakeCalls.push(body); return { message: 'تم تسجيل الإذن بنجاح.' }; }
+        throw new Error('Unexpected action: ' + action);
+      } };
+    });
+    await page.addScriptTag({ path: path.join(root, 'test-management.js') });
+    await page.locator('[data-manage-retake]').click();
+    const absent = page.locator('[data-retake-student="absent"]');
+    assert.equal(await absent.isEnabled(), true);
+    assert.match(await absent.textContent(), /إتاحة الاختبار/);
+    for (const selector of ['[data-retake-student="absent"]', '[data-retake-student="completed"]', '[data-retake-mode="absent"]', '[data-retake-mode="all"]']) {
+      await page.locator(selector).click();
+      await page.waitForFunction(() => document.querySelector('#retakeRoster table') && document.querySelector('#retakeStatus').textContent.includes('تم تسجيل'));
+    }
+    assert.deepEqual(await page.evaluate(() => window.retakeCalls.map(c => [c.mode, c.student_id || null])), [['student', 'absent'], ['student', 'completed'], ['absent', null], ['all', null]]);
+    assert.deepEqual(errors, []); await context.close();
+  }
+  console.log(`PASS ${name}: 7 mobile delivery scenarios and 4 teacher retake actions`);
 }
 (async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
