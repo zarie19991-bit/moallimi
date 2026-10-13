@@ -85,6 +85,7 @@ test('long lists keep every full name, paginate, and escape imported text',()=>{
 const source=name=>fs.readFileSync(new URL(`../../${name}`,import.meta.url),'utf8');
 const settle=async()=>{for(let i=0;i<25;i++)await Promise.resolve();};
 function harness({attempts=[attempt('local-a')],rosterRead=async()=>({students:roster})}={}){
+  const verifiedAttempts=attempts.map(a=>{const subject=a.subjects?.[0]||'math';return {...a,source:'assessment',current_section:0,percent:Number(a.score||0)*10,questions:Array.from({length:10},(_,i)=>({id:'mock-'+i,subject,indicator_key:subject+':x:i1',correct:false,correct_index:0,scorable:true})),section_scores:[{subject,score:0,total:10,percent:0}]};});
   const elements=new Map();
   const el=id=>{
     if(!elements.has(id))elements.set(id,{value:'',innerHTML:'',disabled:false,dataset:{},handlers:{},
@@ -98,21 +99,20 @@ function harness({attempts=[attempt('local-a')],rosterRead=async()=>({students:r
       querySelectorAll:()=>[{dataset:{testId:'local-math'}},{dataset:{testId:'local-reading'}}]},
     NafesTeacher:{getKey:()=>'local-only',api:async action=>{
       if(action==='teacher_students_list')return rosterRead();
-      return {attempts,tests,next_cursor:null};
+      return {attempts:verifiedAttempts,tests,next_cursor:null};
     }},print(){el('printed').innerHTML=el('printRoot').innerHTML;}
   });
   ctx.window=ctx;
   const run=name=>vm.runInContext(source(name),ctx);
-  run('analysis-core.js');run('report-absentees.js');
+  run('analysis-core.js');run('report-integrity.js');run('report-absentees.js');
   el('reportSubjectSelect').value='math';
   return {ctx,el,run};
 }
 
-test('roster failures leave a printable explanation without invented names or counts',async()=>{
+test('roster failures block report publication instead of inventing attendance',async()=>{
   const h=harness({rosterRead:async()=>{throw new Error('local simulated offline');}});
-  const html=await h.ctx.NafesReportAbsentees.create({tests,selectedIds:['local-math']});
-  assert.match(html,/تعذر تحميل كشف الطلاب/);
-  assert.doesNotMatch(html,/class="na-counts"|class="na-table"|أدّى جميع الطلاب/);
+  await assert.rejects(()=>h.ctx.NafesReportAbsentees.create({tests,selectedIds:['local-math']}),/local simulated offline/);
+  assert.equal(h.el('printed').innerHTML,'');
 });
 
 test('the subject report includes and prints names even when the selected class has no graded attempts',async()=>{
@@ -174,4 +174,14 @@ test('the all-classes subject report uses the selected scope in its title and ab
   assert.doesNotMatch(html,/الثالث متوسط\s*[·/]\s*[أبجد]|الثالث المتوسط · كل الفصول/);
   assert.match(html,/طالب محلي ثالث/);assert.match(html,/الفصل: جميع الفصول/);
   h.el('printSubjectReportBtn').onclick();assert.equal(h.el('printed').innerHTML,html);
+});
+
+
+test('a score that disagrees with the question snapshot stops official reports',async()=>{
+ const h=harness({attempts:[attempt('local-a','local-math',{score:3})]});
+ h.run('subject-report-separate.js');await settle();
+ h.el('reportSubjectTest').value='local-math';
+ await h.el('buildSubjectReportBtn').onclick();
+ assert.equal(h.el('printSubjectReportBtn').disabled,true);
+ assert.match(h.el('subjectReportState').textContent,/أُوقف التقرير/);
 });
