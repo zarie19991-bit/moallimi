@@ -1046,7 +1046,7 @@ async function teacherTestRetake(db:any,b:Row,owner:Row){
   if(prior?.length){config.retake_student_grants={...(original.retake_student_grants||{}),[student.id]:{tag:crypto.randomUUID(),issued_at:now}};message='أُتيحت محاولة إضافية لهذا الطالب مع حفظ الدرجة السابقة.';}
   else message='الطالب لم يختبر بعد، وقد فُتح الاختبار لمحاولته الأولى.';
  }else if(mode==='all'){config.retake_all_grant={tag:crypto.randomUUID(),issued_at:now};message='أُتيحت محاولة إضافية للجميع مع الاحتفاظ بجميع النتائج السابقة.';}
- else message='فُتح الاختبار لغير المختبرين دون فتح محاولة إضافية للطلاب الذين سبق أن اختبروا.';
+ else {delete config.retake_all_grant;delete config.retake_student_grants;message='فُتح الاختبار لغير المختبرين دون فتح محاولة إضافية للطلاب الذين سبق أن اختبروا.';}
  config.retake_audit=[...(Array.isArray(original.retake_audit)?original.retake_audit:[]).slice(-49),{at:now,teacher_id:owner.id,mode,student_id:mode==='student'?b.student_id:null}];
  must(await db.from('nafes_assessments').update({config}).eq('id',t.id).eq('status','published').select('id').single());
  return{ok:true,mode,message};
