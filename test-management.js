@@ -20,7 +20,7 @@ function enforceAllClassesScope(){
  if(label&&!step?.querySelector('.all-classes-scope-note')){const note=document.createElement('div');note.className='all-classes-scope-note';note.textContent='النطاق الافتراضي: جميع الفصول الأربعة. اختيار الطالب لفصله عند الدخول للتحقق من الهوية فقط، وليس لتقييد رابط الاختبار.';label.parentElement?.appendChild(note);}
 }
 async function api(action,body={}){if(!T?.getKey?.())throw new Error('يلزم دخول المعلم.');return T.api(action,body);}
-async function refresh(){if(loading||!T?.getKey?.())return;loading=true;try{const d=await api('teacher_catalog');tests=new Map((d.tests||[]).map(t=>[String(t.id),t]));decorate();syncAnalysisRetakes();}catch(e){console.error('test management',e);}finally{loading=false;}}
+async function refresh(){if(loading||!T?.getKey?.())return;loading=true;try{const d=await api('teacher_catalog');tests=new Map((d.tests||[]).map(t=>[String(t.id),t]));decorate();syncAnalysisRetakes();}catch(e){console.error('test management',e);const notice=document.getElementById('teacherRetakeNotice');if(notice)notice.textContent='تعذر تحميل الاختبارات: '+e.message+' — اضغط «تحديث القائمة». ';}finally{loading=false;}}
 
 function syncAnalysisRetakes(){
  const root=document.getElementById('teacherRetakeToolbar');if(!root)return;
@@ -36,6 +36,7 @@ function syncAnalysisRetakes(){
  if(message)message.textContent=manageable.length?'الاختبارات المتاحة للإدارة: '+manageable.length+' · اختر الاختبار ثم اضغط الزر.':'لا توجد اختبارات قابلة للإدارة لهذا الحساب.';
  if(!root.dataset.bound){
   root.dataset.bound='1';
+  const reload=root.querySelector('#teacherRetakeReload');if(reload)reload.addEventListener('click',()=>refresh());
   select.addEventListener('change',()=>{button.disabled=!select.value;});
   button.addEventListener('click',()=>{const id=select.value;if(id)openRetake(id);});
  }
