@@ -407,7 +407,35 @@ $('questions').onchange=e=>{if(deliveryJob||transitionPending)return;if(!e.targe
 async function navigate(n){if(!active||navigating||deliveryJob||transitionPending)return;const section=Number(state.current_section||0),count=state.sections[section].questions.length;if(!Number.isInteger(n)||n<0||n>=count)return;navigating=true;clearTimeout(saveDelay);const prior=cursor;cursor=n;try{await save();if(active&&!deliveryJob&&Number(state.current_section||0)===section){render();$('questions').scrollIntoView({behavior:'smooth',block:'start'});}}catch(_){if(Number(state.current_section||0)===section)cursor=prior;}finally{navigating=false;}}
 $('next').onclick=()=>navigate(cursor+1);$('prev').onclick=()=>navigate(cursor-1);$('progress').onclick=e=>{const b=e.target.closest('[data-go]');if(b&&state.settings.allow_back)navigate(Number(b.dataset.go));};
 $('review').onclick=()=>{if(deliveryJob||transitionPending)return;const s=state.sections[currentSection];const unanswered=s.questions.map((q,i)=>answers[q.id]===undefined?i:null).filter(i=>i!==null);if(unanswered.length){if(confirm(`لم تجب عن ${ar(unanswered.length)} سؤالًا. الانتقال إلى أول سؤال دون إجابة؟`))navigate(unanswered[0]);}else alert('أجبت عن جميع أسئلة القسم. يمكنك تسليمه.');};
-$('finish').onclick=async()=>{if(transitionPending||deliveryJob||examNow()<new Date(state.section_started_at).getTime())return;const remaining=state.sections[currentSection].questions.filter(q=>answers[q.id]===undefined).length;if(!confirm(`${remaining?`بقي ${ar(remaining)} سؤالًا دون إجابة. `:''}هل تريد تسليم ${currentSection===state.sections.length-1?'الاختبار':'هذا القسم والانتقال للتالي'}؟`))return;transitionPending=true;clearTimeout(saveDelay);const finalSection=currentSection===state.sections.length-1;if(finalSection)markFinishIntent();$('finish').disabled=true;try{await save(finalSection?'assessment_finish':'assessment_advance');cursor=state.cursor||0;if(active)render();}catch(_){if(finalSection)setTimeout(retryPendingFinish,4000);}finally{transitionPending=false;$('finish').disabled=false;}};
+
+let submissionDialogOpen=false;
+function confirmSubmission(remaining,finalSection){
+ return new Promise(resolve=>{
+  const overlay=document.createElement('div');
+  overlay.className='exam-submit-confirm';
+  overlay.setAttribute('role','presentation');
+  overlay.style.cssText='position:fixed;inset:0;z-index:99999;display:grid;place-items:center;background:rgba(6,38,35,.73);padding:16px;';
+  overlay.innerHTML=`<section role="dialog" aria-modal="true" aria-labelledby="submitConfirmTitle" aria-describedby="submitConfirmDescription" dir="rtl" style="width:min(480px,100%);border-radius:20px;background:#fff;padding:24px;box-shadow:0 30px 90px #001b1a55;color:#163d36;font-family:Tahoma,Arial,sans-serif">
+   <div style="font-size:30px;margin-bottom:6px" aria-hidden="true">📝</div>
+   <h2 id="submitConfirmTitle" style="font-size:21px;line-height:1.7;margin:0 0 10px">تأكيد ${finalSection?'تسليم الاختبار':'تسليم القسم'}</h2>
+   <p id="submitConfirmDescription" style="font-size:15px;line-height:2;margin:0 0 16px">${remaining?`لديك <b>${ar(remaining)} سؤالًا دون إجابة</b> في هذا القسم. `:''}هل تريد ${finalSection?'تسليم الاختبار نهائيًا؟':'تسليم هذا القسم والانتقال للقسم التالي؟'} لن تتمكن من تعديل ${finalSection?'الإجابات بعد التسليم':'إجابات هذا القسم بعد الانتقال'}.</p>
+   <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button type="button" data-cancel-submit style="flex:1;min-width:140px;padding:13px;border-radius:12px;border:1px solid #b4d1c7;background:#f4f9f7;color:#124e40;font:inherit;font-weight:800;cursor:pointer">لا، متابعة الإجابة</button>
+    <button type="button" data-confirm-submit style="flex:1;min-width:140px;padding:13px;border-radius:12px;border:0;background:#08765f;color:white;font:inherit;font-weight:800;cursor:pointer">نعم، ${finalSection?'تسليم الاختبار':'تسليم القسم'}</button>
+   </div><p style="font-size:12px;color:#60766d;margin:12px 0 0;line-height:1.7">لن تظهر رسالة النجاح إلا بعد تأكيد حفظ النتيجة في الخادم.</p>
+  </section>`;
+  const previous=document.activeElement;
+  const done=choice=>{document.removeEventListener('keydown',onKey,true);overlay.remove();try{previous?.focus?.();}catch(_){}resolve(choice);};
+  const onKey=e=>{if(e.key==='Escape'){e.preventDefault();done(false)}};
+  document.addEventListener('keydown',onKey,true);
+  overlay.querySelector('[data-cancel-submit]').onclick=()=>done(false);
+  overlay.querySelector('[data-confirm-submit]').onclick=()=>done(true);
+  document.body.appendChild(overlay);
+  overlay.querySelector('[data-cancel-submit]').focus();
+ });
+}
+
+$('finish').onclick=async()=>{if(transitionPending||deliveryJob||examNow()<new Date(state.section_started_at).getTime())return;const remaining=state.sections[currentSection].questions.filter(q=>answers[q.id]===undefined).length;if(submissionDialogOpen)return;submissionDialogOpen=true;const finalForConfirm=currentSection===state.sections.length-1;const confirmed=await confirmSubmission(remaining,finalForConfirm);submissionDialogOpen=false;if(!confirmed||!active||state.submitted||transitionPending||deliveryJob)return;transitionPending=true;clearTimeout(saveDelay);const finalSection=currentSection===state.sections.length-1;if(finalSection)markFinishIntent();$('finish').disabled=true;try{await save(finalSection?'assessment_finish':'assessment_advance');cursor=state.cursor||0;if(active)render();}catch(_){if(finalSection)setTimeout(retryPendingFinish,4000);}finally{transitionPending=false;$('finish').disabled=false;}};
 function event(type){if(!active||!state.settings.log_visibility||Date.now()-lastEvent<500)return;lastEvent=Date.now();save('assessment_event',{event:{type}}).catch(()=>{});}
 for(const type of ['copy','cut','dragstart','selectstart'])document.addEventListener(type,e=>{if(active&&!state.settings.allow_copy&&e.target.closest('#questions')){e.preventDefault();event('copy_blocked');}});
 document.addEventListener('contextmenu',e=>{if(active&&state.settings.disable_right_click){e.preventDefault();event('copy_blocked');}});

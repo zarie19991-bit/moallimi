@@ -96,3 +96,18 @@ body.no-copy #questions,body.no-copy #questionCard{-webkit-user-select:none;user
   .pre-exam-actions{flex-direction:column}
   .pre-exam-edit{order:2}
 }
+
+
+/* Explicit, finger-friendly submission action on narrow student screens. */
+#player #finish{
+  display:inline-flex!important;visibility:visible!important;
+  align-items:center;justify-content:center;min-height:54px;min-width:160px;
+  background:#08765f!important;color:#fff!important;border:2px solid #075a49!important;
+  font-weight:900!important;opacity:1!important;cursor:pointer;
+  box-shadow:0 7px 18px rgba(8,118,95,.18)
+}
+#player #finish:disabled{cursor:wait;opacity:.75!important}
+@media(max-width:640px){
+  #player .exam-nav{display:flex;gap:10px;flex-wrap:wrap}
+  #player .exam-nav #finish{flex:1 1 100%;width:100%;min-height:58px;font-size:16px!important}
+}

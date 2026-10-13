@@ -1012,6 +1012,46 @@ async function manageablePublishedTest(db:any,testId:unknown,owner:Row){
   if(teacherScope(owner)!=='all'&&String(t.owner_id||'')!==String(owner.id))fail('لا يمكنك إدارة اختبار أنشأه حساب آخر.',403);
   return t;
 }
+
+function availableRetakeGrant(config:Row,studentId:string,previous:Row[]):string|null{
+ for(const x of [config.retake_student_grants?.[studentId],config.retake_all_grant]){
+  const tag=String(x?.tag||''),issued=Date.parse(String(x?.issued_at||''));
+  if(tag&&Number.isFinite(issued)&&previous.some((a:Row)=>a.submitted_at&&Date.parse(a.started_at)<issued)&&!previous.some((a:Row)=>a.config?.retake_grant_tag===tag))return tag;
+ }
+ return null;
+}
+async function teacherTestRetakeRoster(db:any,b:Row,owner:Row){
+ const t=await manageablePublishedTest(db,b.test_id,owner);
+ if(t.kind==='legacy')fail('هذا الاختبار قديم ولا يقبل آلية الإعادة الجديدة.',409);
+ const pupils=must(await db.from('nafes_students').select('id,full_name,class_name').eq('is_active',true).eq('is_demo',false).order('class_name',{ascending:true}).order('full_name',{ascending:true}));
+ const attempts=must(await db.from('nafes_assessment_attempts').select('student_id,attempt_no,started_at,expires_at,submitted_at,percent,config').eq('assessment_id',t.id).eq('is_demo',false).order('attempt_no',{ascending:false}));
+ const map=new Map<string,Row[]>();
+ for(const a of attempts||[]){const k=String(a.student_id||'');if(!k)continue;const entries=map.get(k)||[];entries.push(a);map.set(k,entries);}
+ return{ok:true,test_id:t.id,students:(pupils||[]).map((student:Row)=>{
+  const prior=map.get(String(student.id))||[],last=prior[0]||null;
+  const seconds=last?.submitted_at?Math.max(0,Math.round((Date.parse(last.submitted_at)-Date.parse(last.started_at))/1000)):null;
+  return{id:student.id,full_name:student.full_name,class_name:student.class_name,attempts_count:prior.length,submitted_count:prior.filter((a:Row)=>a.submitted_at).length,has_active_attempt:prior.some((a:Row)=>!a.submitted_at&&Date.parse(a.expires_at)>Date.now()),last_duration_seconds:Number.isFinite(seconds)?seconds:null,last_percent:last?.percent??null,retake_available:!!availableRetakeGrant(t.config||{},String(student.id),prior)};
+ })};
+}
+async function teacherTestRetake(db:any,b:Row,owner:Row){
+ const t=await manageablePublishedTest(db,b.test_id,owner);if(t.kind==='legacy')fail('هذا الاختبار قديم ولا يقبل آلية الإعادة الجديدة.',409);
+ const mode=String(b.mode||'');if(!['student','all','absent'].includes(mode))fail('اختر نوع إعادة الاختبار.',400);
+ const now=new Date().toISOString(),original:Row=t.config||{},config:Row={...original,settings:{...(original.settings||{}),manual_closed:false,opens_at:null,closes_at:null}};
+ let message='';
+ if(mode==='student'){
+  if(!isUUID(b.student_id))fail('الطالب غير محدد.',400);
+  const student=must(await db.from('nafes_students').select('id').eq('id',b.student_id).eq('is_active',true).eq('is_demo',false).maybeSingle());
+  if(!student)fail('الطالب غير موجود.',404);
+  const prior=must(await db.from('nafes_assessment_attempts').select('id').eq('assessment_id',t.id).eq('student_id',student.id).eq('is_demo',false).limit(1));
+  if(prior?.length){config.retake_student_grants={...(original.retake_student_grants||{}),[student.id]:{tag:crypto.randomUUID(),issued_at:now}};message='أُتيحت محاولة إضافية لهذا الطالب مع حفظ الدرجة السابقة.';}
+  else message='الطالب لم يختبر بعد، وقد فُتح الاختبار لمحاولته الأولى.';
+ }else if(mode==='all'){config.retake_all_grant={tag:crypto.randomUUID(),issued_at:now};message='أُتيحت محاولة إضافية للجميع مع الاحتفاظ بجميع النتائج السابقة.';}
+ else {delete config.retake_all_grant;delete config.retake_student_grants;message='فُتح الاختبار لغير المختبرين دون فتح محاولة إضافية للطلاب الذين سبق أن اختبروا.';}
+ config.retake_audit=[...(Array.isArray(original.retake_audit)?original.retake_audit:[]).slice(-49),{at:now,teacher_id:owner.id,mode,student_id:mode==='student'?b.student_id:null}];
+ must(await db.from('nafes_assessments').update({config}).eq('id',t.id).eq('status','published').select('id').single());
+ return{ok:true,mode,message};
+}
+
 async function teacherTestUpdateSchedule(db:any,b:Row,owner:Row){
   const t=await manageablePublishedTest(db,b.test_id,owner);
   const parse=(v:unknown)=>{if(v===null||v===undefined||String(v).trim()==='')return null;const d=new Date(String(v));if(!Number.isFinite(d.getTime()))fail('التاريخ غير صالح.');return d.toISOString();};
@@ -1483,11 +1523,12 @@ async function studentAction(db:any,body:Row) {
     if(!isDemo&&s.lock_session&&active.session_id!==session&&now<new Date(active.lease_until).getTime())fail('المحاولة مفتوحة في جهاز أو تبويب آخر. أغلقها هناك وانتظر ٤٥ ثانية لإكمالها هنا.',409);
     active=must(await db.from('nafes_assessment_attempts').update({session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),version:active.version+1}).eq('id',active.id).eq('version',active.version).is('submitted_at',null).select().maybeSingle());if(!active)fail('فُتحت المحاولة في تبويب آخر؛ أعد المحاولة.',409);return{...attemptResponse(active),access_token:access,resumed:true,recovery_resumed:recoveryResumed};}
    const completed=previous.find((a:Row)=>!!a.submitted_at);
-   if(completed&&!isDemo&&body.start_new_attempt!==true){
+   const retakeGrant=!isDemo?availableRetakeGrant(c,student_id,previous):null;
+   if(completed&&!isDemo&&body.start_new_attempt!==true&&!retakeGrant){
      await recordTiming(db,completed,{timing_events:[{id:crypto.randomUUID(),type:'previous_result',section:Number(completed.section_index)||0,at:new Date().toISOString(),visible_ms:0}]},'assessment',true).catch(e=>console.error('timing observation failed',e?.code||'unknown'));
      return {...attemptResponse(completed),resumed:true,completed_before:true,training_url:`${BASE}training.html?t=${t.short_code}`};
    }
-   if(!isDemo&&previous.length>=s.attempts){if(previous[0])return{...attemptResponse(previous[0]),attempts_exhausted:true,training_url:`${BASE}training.html?t=${t.short_code}`};fail('استُنفد عدد المحاولات المسموح به.',409);}
+   if(!isDemo&&previous.length>=s.attempts&&!retakeGrant){if(previous[0])return{...attemptResponse(previous[0]),attempts_exhausted:true,training_url:`${BASE}training.html?t=${t.short_code}`};fail('استُنفد عدد المحاولات المسموح به.',409);}
    const seed=token(12);const rand=randomFrom(seed);const sections=t.rendered_sections.map((section:Row)=>{
      // Indicator tests preserve the learning progression. Only simulation mode may randomize question order.
      const ordered=(c.kind==='simulation'&&s.shuffle_questions)
@@ -1496,7 +1537,7 @@ async function studentAction(db:any,body:Row) {
      return{...section,questions:ordered.map((q:Row)=>s.shuffle_options?permuteQuestion(q,rand):q)};
    });
    const duration=c.sections.reduce((n:number,sec:Row)=>n+sec.duration_minutes,0)+s.break_minutes*(sections.length-1);const expires=new Date(Math.min(now+duration*60000,s.closes_at?new Date(s.closes_at).getTime():Infinity)).toISOString();
-   const r=await db.from('nafes_assessment_attempts').insert({assessment_id:t.id,student_id,student_name:name,student_no:no,student_key,class_name:className,attempt_no:previous.length+1,config:c,rendered_sections:sections,session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),expires_at:expires,is_demo:isDemo}).select().single();if(r.error?.code==='23505')fail('بدأت محاولة لهذا الطالب؛ أعد فتحها من التبويب الأصلي.',409);const created=must(r);return{...attemptResponse(created),access_token:access,resumed:false};
+   const r=await db.from('nafes_assessment_attempts').insert({assessment_id:t.id,student_id,student_name:name,student_no:no,student_key,class_name:className,attempt_no:previous.length+1,config:retakeGrant?{...c,retake_grant_tag:retakeGrant}:c,rendered_sections:sections,session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),expires_at:expires,is_demo:isDemo}).select().single();if(r.error?.code==='23505')fail('بدأت محاولة لهذا الطالب؛ أعد فتحها من التبويب الأصلي.',409);const created=must(r);return{...attemptResponse(created),access_token:access,resumed:false};
  }
  if(!isUUID(body.attempt_id)||!body.access_token)fail('تعذر التحقق من المحاولة.',403);let a=must(await db.from('nafes_assessment_attempts').select('*').eq('id',body.attempt_id).eq('access_hash',await hash(String(body.access_token))).maybeSingle());if(!a)fail('تعذر التحقق من المحاولة.',403);
  if(!a.submitted_at&&a.config.settings.lock_session&&a.session_id!==body.session_id)fail('المحاولة قيد الاستخدام في تبويب آخر.',409);
@@ -1810,6 +1851,8 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_test_update_schedule')return await teacherTestUpdateSchedule(db,b,owner);
  if(b.action==='teacher_test_rename')return await teacherTestRename(db,b,owner);
  if(b.action==='teacher_test_set_open')return await teacherTestSetOpen(db,b,owner);
+  if(b.action==='teacher_test_retake_roster')return await teacherTestRetakeRoster(db,b,owner);
+  if(b.action==='teacher_test_retake')return await teacherTestRetake(db,b,owner);
  if(b.action==='teacher_test_archive')return await teacherTestArchive(db,b,owner);
  if(b.action==='teacher_question_create')return await teacherQuestionCreate(db,b,owner);
  if(b.action==='teacher_test_clear_results'){assertMainAccount(owner);return await teacherTestClearResults(db,b,owner);}

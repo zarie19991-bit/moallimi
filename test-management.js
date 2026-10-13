@@ -35,11 +35,65 @@ function decorate(){
   if(!actions){actions=document.createElement('div');actions.className='test-manage-actions';a.appendChild(actions);}
   actions.innerHTML=`
     <button type="button" data-manage-edit data-test-id="${esc(id)}">تعديل الاختبار</button>
+     <button type="button" data-manage-retake data-test-id="${esc(id)}">إعادة إتاحة الاختبار للطلاب</button>
     <button type="button" class="${t.manual_closed?'':'pause'}" data-manage-toggle data-test-id="${esc(id)}">${t.manual_closed?'تشغيل الاختبار':'إيقاف مؤقت'}</button>
     <button type="button" data-manage-archive data-test-id="${esc(id)}">سحب من الطلاب</button>
     <button type="button" class="danger" data-manage-delete data-test-id="${esc(id)}">حذف نهائي</button>`;
  }
 }
+
+// تحكم المعلم في إعادة الاختبار دون حذف أو استبدال أي محاولة سابقة.
+function openRetake(id){
+ const t=tests.get(id);if(!t)return;
+ if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id)){alert('إعادة الاختبار الفردية متاحة للاختبارات المنشورة الجديدة. لا تدعم الاختبارات القديمة هذا الإجراء.');return;}
+ const layer=modalShell('إدارة إعادة الاختبار: '+t.title,`
+ <p>يمكنك فتح الاختبار لمن لم يدخل، أو السماح بمحاولة إضافية للجميع، أو لطالب محدد. <b>لا تُحذف النتائج السابقة، وتُسجَّل المحاولة الجديدة مستقلة.</b></p>
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0">
+  <button type="button" data-retake-mode="absent" style="padding:10px;border:1px solid #9ebdb6;border-radius:10px;background:#eef7f4;color:#0d594d;font:inherit;font-weight:800;cursor:pointer">فتح لغير المختبرين فقط</button>
+  <button type="button" data-retake-mode="all" style="padding:10px;border:1px solid #e5c584;border-radius:10px;background:#fff8e9;color:#775013;font:inherit;font-weight:800;cursor:pointer">إعادة الاختبار لجميع الطلاب</button>
+ </div>
+ <div id="retakeStatus" role="status" style="color:#125948;font-weight:800;min-height:1.5em"></div>
+ <label style="display:grid;gap:5px;margin:12px 0"><span>البحث باسم الطالب أو الفصل</span><input type="search" id="retakeSearch" placeholder="اكتب الاسم أو الفصل" style="font:inherit;border:1px solid #d5e2dd;border-radius:10px;padding:10px"></label>
+ <div id="retakeRoster" style="max-height:45vh;overflow:auto" aria-live="polite">جارٍ تحميل الطلاب…</div>
+ <p style="font-size:12px;color:#637770">الطالب الذي لم يختبر أصلًا لا يحتاج إلى حذف محاولة أو إعادة ضبط درجته. وإذا انتهى من الاختبار بسرعة، يمكنك السماح له بمحاولة جديدة من صف اسمه.</p>`,
+ '<button type="button" class="nafes-manage-cancel" data-close-manage>إغلاق</button>');
+ const status=layer.querySelector('#retakeStatus'),roster=layer.querySelector('#retakeRoster'),search=layer.querySelector('#retakeSearch');
+ let students=[];
+ function paint(){
+  const term=search.value.trim().toLowerCase();
+  const rows=students.filter(s=>!term||String(s.full_name||'').toLowerCase().includes(term)||String(s.class_name||'').toLowerCase().includes(term));
+  roster.innerHTML=rows.length?`<table style="width:100%;border-collapse:collapse;min-width:470px;text-align:right">
+   <thead><tr><th style="padding:9px;border-bottom:2px solid #d8e8e1">الطالب / الفصل</th><th style="padding:9px;border-bottom:2px solid #d8e8e1">الحالة والمدة</th><th style="padding:9px;border-bottom:2px solid #d8e8e1">الإجراء</th></tr></thead>
+   <tbody>${rows.map(s=>{
+    const count=Number(s.attempts_count||0),duration=s.last_duration_seconds==null?'':` · ${Math.max(0,Math.ceil(Number(s.last_duration_seconds)/60))} دقيقة`;
+    const label=!count?'لم يختبر':s.has_active_attempt?'محاولة جارية':`اختبر ${count} مرة${count>1?'ات':''}`;
+    const grant=s.retake_available?' · إعادة متاحة':'';
+    return `<tr style="border-bottom:1px solid #e6efeb"><td style="padding:9px"><b>${esc(s.full_name)}</b><small style="display:block;color:#637770">${esc(s.class_name||'')}</small></td><td style="padding:9px;font-size:12px">${esc(label+duration+grant)}</td><td style="padding:9px"><button type="button" data-retake-student="${esc(s.id)}" ${count===0?'disabled':''} style="font:inherit;padding:7px 9px;border:1px solid #b2d1c5;border-radius:8px;background:#eaf7f2;color:#075446;cursor:pointer" title="${count===0?'هذا الطالب يملك فرصته الأولى تلقائيًا':'السماح بمحاولة جديدة لهذا الطالب'}">${count===0?'لم يختبر':'إعادة الاختبار'}</button></td></tr>`;
+   }).join('')}</tbody></table>`:'<p>لا توجد أسماء مطابقة.</p>';
+ }
+ async function refreshRoster(){
+   roster.textContent='جارٍ تحميل أسماء الطلاب وحالات المحاولات…';
+   try{const d=await api('teacher_test_retake_roster',{test_id:id});students=Array.isArray(d.students)?d.students:[];paint();}
+   catch(e){roster.textContent='تعذر تحميل الطلاب: '+e.message;}
+ }
+ search.addEventListener('input',paint);
+ layer.addEventListener('click',async e=>{
+  const mode=e.target.closest('[data-retake-mode]')?.dataset.retakeMode;
+  const studentId=e.target.closest('[data-retake-student]')?.dataset.retakeStudent;
+  if(!mode&&!studentId)return;
+  const student=students.find(x=>x.id===studentId);
+  const message=mode==='all'?'ستُتاح محاولة جديدة لكل طالب سبق أن اختبر. هل تؤكد؟':mode==='absent'?'سيُفتح رابط الاختبار للطلاب الذين لم يختبروا، وتبقى المحاولات المكتملة مغلقة. هل تؤكد؟':`هل تؤكد إتاحة محاولة جديدة للطالب «${student?.full_name||''}» دون حذف نتيجته السابقة؟`;
+  if(!confirm(message))return;
+  const button=e.target.closest('button');button.disabled=true;status.textContent='جارٍ حفظ الإذن في الخادم…';
+  try{
+   const result=await api('teacher_test_retake',{test_id:id,mode:mode||'student',student_id:studentId||undefined});
+   status.textContent=result.message||'تم تسجيل الإذن بنجاح.';await refreshRoster();await refresh();
+  }catch(err){status.textContent='تعذر تنفيذ الإجراء: '+err.message;}
+  finally{button.disabled=false;}
+ });
+ refreshRoster();
+}
+
 function closeModal(){document.querySelector('.nafes-manage-modal')?.remove();}
 function modalShell(title,body,buttons){closeModal();const layer=document.createElement('div');layer.className='nafes-manage-modal';layer.innerHTML=`<div class="nafes-manage-box" role="dialog" aria-modal="true"><h3>${esc(title)}</h3>${body}<div class="nafes-manage-error"></div><div class="nafes-manage-actions">${buttons}</div></div>`;layer.addEventListener('click',e=>{if(e.target===layer||e.target.closest('[data-close-manage]'))closeModal();});document.body.appendChild(layer);return layer;}
 function openEdit(id){
@@ -77,7 +131,7 @@ function openSchedule(id){const t=tests.get(id);if(!t)return;const layer=modalSh
 async function toggleOpen(id){const t=tests.get(id);if(!t)return;const verb=t.manual_closed?'تشغيل':'إيقاف';if(!confirm(`هل تريد ${verb} الاختبار «${t.title}»؟`))return;try{await api('teacher_test_set_open',{test_id:id,open:t.manual_closed===true});await reloadPublished();}catch(e){alert(e.message);}}
 function openArchive(id){const t=tests.get(id);if(!t)return;const layer=modalShell(`سحب الاختبار: ${t.title}`,`<p><b>سيختفي الاختبار من قائمة الطلاب ويتوقف رابطه عن بدء محاولات جديدة.</b><br>نتائج الطلاب السابقة ستبقى محفوظة للتحليل والتقارير. اكتب كلمة <b>سحب</b> للتأكيد.</p><label class="nafes-manage-field"><span>كلمة التأكيد</span><input id="manageArchiveConfirm" autocomplete="off"></label>`,`<button type="button" class="nafes-manage-cancel" data-close-manage>إلغاء</button><button type="button" class="nafes-manage-danger" data-archive-manage>سحب الاختبار</button>`);layer.querySelector('[data-archive-manage]').onclick=async()=>{const b=layer.querySelector('[data-archive-manage]'),err=layer.querySelector('.nafes-manage-error'),word=layer.querySelector('#manageArchiveConfirm').value.trim();if(word!=='سحب'){err.textContent='اكتب كلمة «سحب» للتأكيد.';return;}b.disabled=true;try{await api('teacher_test_archive',{test_id:id,confirm_word:'سحب'});closeModal();await reloadPublished();}catch(e){err.textContent=e.message;b.disabled=false;}};}
 async function reloadPublished(){if(typeof window.NafesReloadPublished==='function'){await window.NafesReloadPublished();await refresh();}else location.reload();}
-function handleClick(e){const id=e.target.closest('[data-test-id]')?.dataset.testId;if(!id)return;if(e.target.closest('[data-manage-edit]'))openEdit(id);else if(e.target.closest('[data-manage-toggle]'))toggleOpen(id);else if(e.target.closest('[data-manage-archive]'))openArchive(id);else if(e.target.closest('[data-manage-delete]'))openDelete(id);}
+function handleClick(e){const id=e.target.closest('[data-test-id]')?.dataset.testId;if(!id)return;if(e.target.closest('[data-manage-retake]'))openRetake(id);else if(e.target.closest('[data-manage-edit]'))openEdit(id);else if(e.target.closest('[data-manage-toggle]'))toggleOpen(id);else if(e.target.closest('[data-manage-archive]'))openArchive(id);else if(e.target.closest('[data-manage-delete]'))openDelete(id);}
 function init(){injectStyle();enforceAllClassesScope();const list=document.getElementById('publishedList');list?.addEventListener('click',handleClick);if(list)new MutationObserver(()=>decorate()).observe(list,{childList:true,subtree:false});refresh();addEventListener('nafes:auth-changed',e=>{if(e.detail?.authenticated)refresh();else tests.clear();});}
 window.NafesTestManagement={refresh};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
