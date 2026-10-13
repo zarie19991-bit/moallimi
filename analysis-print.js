@@ -16,7 +16,7 @@ function testId(a){return String(a?.test_id||a?.assessment_id||a?.exam_id||'').t
 function classKey(v){const raw=String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ').replace(/[إآا]/g,'أ');if(['أ','ب','ج','د'].includes(raw))return raw;const m=raw.match(/(?:^|[\s/\\\-()])([أبجد])(?:$|[\s/\\\-()])/);if(m)return m[1];const tail=raw.match(/(?:فصل|شعبة)?\s*([أبجد])$/);return tail?tail[1]:raw;}
 function classMatches(a,c){return !c||classKey(a?.class_name)===classKey(c);}
 function normSubject(v){const s=String(v||'').trim().toLowerCase();if(['reading','arabic','language','القراءة','العربية','اللغة العربية'].includes(s))return'reading';if(['math','mathematics','الرياضيات'].includes(s))return'math';if(['science','العلوم'].includes(s))return'science';return'';}
-function savedMeasure(a,subject){
+function savedMeasure(a,subject){if(A?.reachedSubject&&!A.reachedSubject(a,subject))return null;
  const sections=Array.isArray(a?.section_scores)?a.section_scores:[];
  const sec=sections.find(x=>normSubject(x?.subject||x?.subject_key)===subject);
  if(sec){const score=num(sec.score??sec.correct),total=num(sec.total),percent=num(sec.percent);if(score!==null&&total!==null&&total>0)return{correct:score,total,percent:percent!==null?percent:score/total*100,source:'saved_section'};}
@@ -31,7 +31,7 @@ function latestRecords(id,subject,cls=''){
  for(const a of attempts){if(!submitted(a)||testId(a)!==String(id)||!classMatches(a,cls))continue;const m=measure(a,subject);if(!m.total)continue;const k=ident(a);if(!k)continue;const old=map.get(k);if(!old||when(a)>when(old.a))map.set(k,{a,m});}
  return [...map.values()];
 }
-function participation(id,subject,cls){
+function participation(id,subject,cls){if(!rosterReady||!students.length)throw new Error('كشف الطلاب غير متاح؛ لا يمكن اعتماد المشاركة.');
  if(!rosterReady||!window.NafesReportAbsentees?.groups)return null;
  try{return window.NafesReportAbsentees.groups({roster:students,attempts,tests,selectedIds:[id],className:cls,subject})[0]||null;}
  catch(error){console.warn('official analysis participation',error);return null;}
