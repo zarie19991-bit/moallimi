@@ -305,27 +305,53 @@ function curatedQuestionEligible(q:Row,subject:string){
   if(needsVisual&&(!q?.image?.url||!q?.image?.alt))return false;
   return true;
 }
-function allocateSectionLevelTargets(indicators:Row[],pool:Row[],subject:string,total:number,custom?:Row|null,fixedModel?:number|null){
-  const remaining=levelTargets(subject,total,custom),plans=new Map<string,Record<string,number>>();
-  const levels=['knowledge','application','reasoning'];
+export function allocateSectionLevelTargets(indicators:Row[],pool:Row[],subject:string,total:number,custom?:Row|null,fixedModel?:number|null){
+  // Each 3+-question indicator must measure all three cognitive levels.
+  // Reserve those mandatory slots across ALL indicators before allocating
+  // any remaining question, otherwise the first indicator consumes the
+  // knowledge quota and later indicators fail publication.
+  const levels=['knowledge','application','reasoning'] as const;
+  const remaining=levelTargets(subject,total,custom);
+  const plans=new Map<string,Record<string,number>>();
+  const capacities=new Map<string,Record<string,number>>();
   for(const ind of indicators||[]){
-    const need=Math.max(0,Number(ind.count||0));
-    let candidates=pool.filter(q=>q.indicator_key===ind.key&&curatedQuestionEligible(q,subject));
+    const key=String(ind.key||''),need=Math.max(0,Math.trunc(Number(ind.count||0)));
+    let candidates=pool.filter(q=>q.indicator_key===key&&curatedQuestionEligible(q,subject));
     if(fixedModel)candidates=candidates.filter(q=>q.model_no===fixedModel);
-    const available:Object=Object.fromEntries(levels.map(level=>[level,candidates.filter(q=>q.cognitive_level===level).length]));
-    const plan:Record<string,number>={knowledge:0,application:0,reasoning:0};
-    for(let slot=0;slot<need;slot++){
-      const feasible=levels.filter(level=>plan[level]<Number((available as any)[level]||0));
-      if(!feasible.length)break;
+    const available={knowledge:0,application:0,reasoning:0};
+    for(const level of levels){
+      // Text-equivalent copies must not inflate cognitive capacity.
+      available[level]=new Set(candidates.filter(q=>q.cognitive_level===level).map(q=>selectionStemKey(q,subject)).filter(Boolean)).size;
+    }
+    const plan={knowledge:0,application:0,reasoning:0};
+    if(need>=3){
+      for(const level of levels){
+        if(available[level]<1)fail(`المؤشر ${key} يحتاج سؤالًا صالحًا على الأقل في مستوى ${level} لإكمال المعرفة والتطبيق والاستدلال؛ لا يوجد ما يكفي في البنك المعتمد.`,409);
+        plan[level]=1;
+        remaining[level]--;
+      }
+    }
+    plans.set(key,plan);
+    capacities.set(key,available);
+  }
+  // Allocate leftover slots after all required knowledge/application/reasoning
+  // items are secured. Do not reduce the mandated cognitive coverage.
+  for(const ind of indicators||[]){
+    const key=String(ind.key||''),need=Math.max(0,Math.trunc(Number(ind.count||0)));
+    const plan=plans.get(key)!,available=capacities.get(key)!;
+    for(let slot=plan.knowledge+plan.application+plan.reasoning;slot<need;slot++){
+      const feasible=levels.filter(level=>plan[level]<available[level]);
+      if(!feasible.length)fail(`المؤشر ${key} ليس لديه ${need} أسئلة مستقلة موزعة على المستويات المعرفية؛ أضف أسئلة سليمة قبل تكوين المسودة.`,409);
       feasible.sort((x,y)=>{
         const rx=Math.max(0,Number(remaining[x]||0)),ry=Math.max(0,Number(remaining[y]||0));
         if(ry!==rx)return ry-rx;
-        const ax=Number((available as any)[x]||0)-plan[x],ay=Number((available as any)[y]||0)-plan[y];
+        const ax=available[x]-plan[x],ay=available[y]-plan[y];
         return ay-ax;
       });
-      const level=feasible[0];plan[level]++;if(remaining[level]>0)remaining[level]--;
+      const level=feasible[0];
+      plan[level]++;
+      remaining[level]--;
     }
-    plans.set(String(ind.key),plan);
   }
   return plans;
 }
@@ -2004,6 +2030,14 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   const sections=await draftSections(db,config,b.regenerate===true,Array.isArray(b.exclude_question_ids)?b.exclude_question_ids:[]);
   const draft=must(await db.from('nafes_assessments').insert({owner_id:owner.id,kind:config.kind,title:config.title,config,rendered_sections:sections}).select().single());
   return preview(draft);
+ }
+ if(b.action==='teacher_rebalance_draft') {
+  const t=await findDraft(db,b.draft_id,owner);
+  if(t.kind==='simulation'||t.config?.bank_source==='simulation_bank')fail('تم إيقاف قسم الاختبارات المحاكية.',400);
+  const rebuilt=await draftSections(db,t.config,true,[]);
+  const saved=must(await db.from('nafes_assessments').update({rendered_sections:rebuilt})
+    .eq('id',t.id).eq('status','draft').select().single());
+  return {...preview(saved),cognitive_rebalanced:true};
  }
  if(b.action==='teacher_replace') {
   const t=await findDraft(db,b.draft_id,owner);

@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {normalizeConfig,permuteQuestion,randomFrom,gradeQuestions,publicQuestions,buildForms,cleanAnswers,questionKey,selectUnique} from '../../supabase/functions/nafes-exam/assessment-engine.ts';
-import {planReadingPassageAllocation,sequenceLearningQuestions,rebalanceQuestionOptions,matchesBankSnapshot,handleAssessments} from '../../supabase/functions/nafes-exam/assessments.ts';
+import {planReadingPassageAllocation,sequenceLearningQuestions,rebalanceQuestionOptions,matchesBankSnapshot,allocateSectionLevelTargets,handleAssessments} from '../../supabase/functions/nafes-exam/assessments.ts';
 import analytics from '../../analysis-core.js';
 const q={id:'q1',subject:'math',indicator_key:'math:x:i1',indicator_text:'مهارة',question:'مسألة',context:'سياق',options:['نعم','لا','أحيانًا','لا يمكن'],correctIndex:0};
 test('shuffling retains exactly the correct answer and never produces -1',()=>{for(let n=0;n<80;n++){const mixed=permuteQuestion(q,randomFrom(String(n)));assert.equal(mixed.options[mixed.correctIndex],'نعم');assert.equal(gradeQuestions([mixed],{q1:mixed.correctIndex}).score,1);}});
@@ -136,3 +136,36 @@ test('publishing repairs an existing unbalanced draft atomically and rejects tam
 import "./test-joint-recovery.mjs";
 
 import './test-attempt-timing.mjs';
+
+test('six science indicators each preserve knowledge, application and reasoning before publication',()=>{
+  const levels=['knowledge','application','reasoning'];
+  const inds=Array.from({length:6},(_,i)=>({key:'science:example:i'+(i+1),count:5}));
+  const pool=inds.flatMap((ind,i)=>levels.flatMap(level=>Array.from({length:6},(_,j)=>({
+    id:ind.key+'-'+level+'-'+j,
+    indicator_key:ind.key,cognitive_level:level,model_no:(j%2)+1,
+    subject:'science',
+    question:'سؤال علمي مستقل عن المؤشر '+i+' المستوى '+level+' النموذج '+j+'؛ ماذا تستنتج من الموقف المعروض؟',
+    options:['إجابة تجريبية أ','إجابة تجريبية ب','إجابة تجريبية ج','إجابة تجريبية د'],
+    correctIndex:0
+  }))));
+  for(const fixedModel of [null,1,2]){
+    const plans=allocateSectionLevelTargets(inds,pool,'science',30,null,fixedModel);
+    assert.equal(plans.size,6);
+    const counts={knowledge:0,application:0,reasoning:0};
+    for(const ind of inds){
+      const plan=plans.get(ind.key);
+      assert.equal(levels.reduce((n,k)=>n+plan[k],0),5);
+      for(const k of levels){assert.ok(plan[k]>=1,ind.key+': missing '+k);counts[k]+=plan[k];}
+    }
+    assert.deepEqual(counts,{knowledge:6,application:14,reasoning:10});
+  }
+});
+test('allocation fails early when a measured indicator has no knowledge questions',()=>{
+ const ind={key:'science:x:i1',count:5};
+ const pool=['application','reasoning'].flatMap(level=>Array.from({length:5},(_,j)=>({
+  id:level+j,indicator_key:ind.key,cognitive_level:level,model_no:1,
+  question:'موقف علمي مستقل '+level+j+'؛ ما التفسير الصحيح؟',
+  options:['ألف','باء','جيم','دال'],correctIndex:0
+ })));
+ assert.throws(()=>allocateSectionLevelTargets([ind],pool,'science',5),/مستوى knowledge/);
+});

@@ -66,7 +66,7 @@
   </section>
   <div id="formError" class="form-error"></div><button class="create-button" type="submit">تكوين الاختبار ومعاينة الأسئلة</button>
  </form>
- <section id="previewPanel" class="step hidden"><h2>معاينة الاختبار قبل النشر</h2><p>راجع الأسئلة أولًا. في الاختبارات المخصصة يمكن تبديل السؤال من المؤشر نفسه قبل النشر.</p><div id="previewMeta"></div><div id="previewQuestions"></div><div class="preview-actions"><button id="regenerate" type="button">إعادة تكوين الاختبار</button><button id="publish" type="button">نشر الاختبار وإنشاء رابط الطالب</button></div><p id="previewError" role="alert"></p></section>
+ <section id="previewPanel" class="step hidden"><h2>معاينة الاختبار قبل النشر</h2><p>راجع الأسئلة أولًا. في الاختبارات المخصصة يمكن تبديل السؤال من المؤشر نفسه قبل النشر.</p><div id="previewMeta"></div><div id="previewQuestions"></div><div class="preview-actions"><button id="regenerate" type="button">إعادة تكوين الاختبار</button> <button id="rebalanceDraft" type="button">إصلاح توزيع المستويات في المسودة الحالية</button><button id="publish" type="button">نشر الاختبار وإنشاء رابط الطالب</button></div><p id="previewError" role="alert"></p></section>
  <section id="created" class="created hidden"><span class="success">تم إنشاء الرابط</span><h2>الاختبار جاهز للإرسال</h2><div id="createdSummary" class="created-summary"></div><div class="link-row"><input id="createdLink" readonly><button id="copyLink" type="button">نسخ الرابط</button></div><div id="qr"></div><div class="preview-actions"><button id="downloadQr" type="button">تحميل QR</button><button id="printQr" type="button">طباعة QR</button><a id="analysisLink" href="analysis.html">تحليل نتائج الاختبار</a></div><a id="openLink" target="_blank">فتح الاختبار</a></section>
  <section id="questionDesigner" class="step hidden">
   <header><span>٤</span><div><h2>تصميم سؤال جديد</h2><p>للحساب الرئيس فقط. يضاف السؤال مباشرة إلى بنك المؤشر بعد التحقق من عدم تكرار الصياغة.</p></div></header>
@@ -91,5 +91,5 @@
  <section id="publishedTests" class="step my-tests-section"><header><span>٥</span><div><h2>اختباراتي</h2><p>الاختبارات الآلية التي أنشأها هذا الحساب. يمكنك فتح الاختبار أو تحليله أو تعديل إعداداته أو حذفه بشكل انتقائي.</p></div></header><div id="publishedList"></div></section>
 </main>
 <script src="nafes-reading.js?v=20260909-final"></script><script src="nafes-math.js?v=20260909-final"></script><script src="nafes-science.js?v=20260909-final"></script><script src="teacher-access.js?v=20260930-mainfix2"></script><script src="qr.js?v=20260909-final"></script><script src="question-media.js?v=20260909-final"></script>
-<script src="create.js?v=20261013-retake-alltests-v2"></script><script src="test-management.js?v=20261013-retake-individual-v3"></script>
+<script src="create.js?v=20261013-cognitive-fix-v1"></script><script src="test-management.js?v=20261013-retake-individual-v3"></script>
 <script src="platform-auto-correct.js?v=20261003-corrector1"></script>\n</body></html>
