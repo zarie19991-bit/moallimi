@@ -6,7 +6,7 @@ const ar=x=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:2}).format(x),n
 const sessionKey='nafes_session_'+code;let session;try{session=sessionStorage.getItem(sessionKey)||crypto.randomUUID();sessionStorage.setItem(sessionKey,session);}catch(_){session=crypto.randomUUID();}
 let serverAnchor=null,transitionPending=false;
 function examNow(){return serverAnchor?serverAnchor.time+(performance.now()-serverAnchor.tick):Date.now();}
-let info,state,access='',answers={},cursor=0,timer,saving=Promise.resolve(),saveDelay,active=false,lockRelease,locked=false,starting=false,lastEvent=0,telemetryFlushing=false,finalRetrying=false,pendingStart=null,lastIdentity={name:'',class:''};
+let info,state,access='',answers={},cursor=0,timer,saveDelay,active=false,lockRelease,locked=false,starting=false,lastEvent=0,telemetryFlushing=false,finalRetrying=false,pendingStart=null,lastIdentity={name:'',class:''};
 const identityKey='nafes_student_identity_session', demoIdentityKey='nafes_demo_student_identity_v1', legacyIdentityKey='nafes_student_identity', resumeKey='nafes_attempt_'+code, resumeMarkerKey='nafes_attempt_marker_'+code, draftKey='nafes_draft_v2_'+code, deliveryQueueKey='nafes_delivery_queue_v1_'+code, RESUME_MARKER_MAX_AGE=12*60*60*1000;
 try{localStorage.removeItem(legacyIdentityKey);}catch(_){}
 const activity=window.NafesActivity?.create({url:EDGE,now:()=>examNow(),isActive:()=>active&&!state?.submitted&&examNow()>=Date.parse(state?.section_started_at)&&examNow()<Date.parse(state?.expires_at),payload:()=>state?.attempt_id&&access?{action:'assessment_timing',code,session_id:session,attempt_id:state.attempt_id,access_token:access}:null});
@@ -177,35 +177,86 @@ async function startDemoDirect(){
   throw e;
  }
 }
+// One request in flight; keep only the latest waiting autosave and prioritize delivery.
+const saveQueue=[];
+let saveRunning=false,deliveryJob=null,navigating=false;
+function setDeliveryBusy(busy){
+ const button=$('finish');
+ button.disabled=busy;
+ button.setAttribute('aria-busy',String(busy));
+ button.textContent=busy
+  ?(Number(state?.current_section||0)===state.sections.length-1?'جارٍ تسليم الاختبار…':'جارٍ تسليم القسم…')
+  :(Number(state?.current_section||0)===state.sections.length-1?'تسليم الاختبار':'تسليم القسم');
+ $('questions').querySelectorAll('input[type=radio]').forEach(input=>{input.disabled=busy;});
+}
 function save(action='assessment_save',extra={}){
  writeDraft();
+ const delivery=action==='assessment_finish'||action==='assessment_advance';
+ if(deliveryJob)return deliveryJob.promise;
  const payload={...authBody(),...extra};
- saving=saving.catch(()=>{}).then(async()=>{
-  if(!active&&action!=='assessment_resume')return state;
-  $('saveState').textContent=action==='assessment_finish'?'جارٍ تأكيد التسليم مع الخادم…':'جارٍ الحفظ…';
-  const d=await api(action,payload);
-  state={...state,...d};
-  if(d.submitted){
-   answers=d.answers||answers;
-   showResult(d);
-  }else{
-   if(d.current_section!==undefined&&(d.current_section!==currentSection||d.cursor!==cursor&&action==='assessment_advance')){
-    answers=d.answers||answers;cursor=d.cursor||0;render();
-   }
-   writeDraft({server_version:d.version||state.version||0});
+ if(action==='assessment_save'){
+  const queued=saveQueue.find(job=>job.action===action&&job.payload.expected_section===payload.expected_section);
+  if(queued){queued.payload=payload;return queued.promise;}
+ }
+ let resolve,reject;
+ const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});
+ const job={action,payload,promise,resolve,reject,delivery};
+ if(delivery){
+  deliveryJob=job;
+  clearTimeout(saveDelay);
+  // The delivery contains all current answers, making queued autosaves redundant.
+  for(let i=saveQueue.length-1;i>=0;i--){
+   if(saveQueue[i].action==='assessment_save')saveQueue.splice(i,1)[0].resolve(state);
   }
-  $('saveState').textContent='تم الحفظ';
-  $('playerError').textContent='';
-  flushDeliveryEvents();
-  return d;
- }).catch(e=>{
-  writeDraft();
-  $('saveState').textContent=navigator.onLine?'لم يكتمل الحفظ — ستتم إعادة المحاولة تلقائيًا':'محفوظ على الجهاز — بانتظار الاتصال';
-  $('playerError').textContent=e.message;
-  throw e;
- });
- return saving;
+  saveQueue.unshift(job);
+  setDeliveryBusy(true);
+  $('saveState').textContent='جارٍ تأكيد التسليم مع الخادم…';
+ }else saveQueue.push(job);
+ drainSaveQueue();
+ return promise;
 }
+async function drainSaveQueue(){
+ if(saveRunning)return;
+ saveRunning=true;
+ try{
+  while(saveQueue.length){
+   const job=saveQueue.shift(),{action,payload,delivery}=job;
+   try{
+    if(!active&&action!=='assessment_resume'){job.resolve(state);continue;}
+    // Old subject requests must never overwrite the next subject's answers or cursor.
+    if(payload.expected_section!==Number(state.current_section||0)){job.resolve(state);continue;}
+    if(!navigator.onLine)throw new Error('الاتصال منقطع. إجاباتك محفوظة على الجهاز؛ أعد المحاولة عند عودة الاتصال.');
+    if(delivery||!deliveryJob)$('saveState').textContent=delivery?'جارٍ تأكيد التسليم مع الخادم…':'جارٍ الحفظ…';
+    const d=await api(action,payload);
+    state={...state,...d};
+    if(delivery&&!d.submitted&&(action==='assessment_finish'||Number(d.current_section)<=payload.expected_section))throw new Error('لم يؤكد الخادم التسليم بعد. إجاباتك محفوظة؛ أعد محاولة التسليم.');
+    if(d.submitted){
+     answers=d.answers||answers;
+     showResult(d);
+    }else{
+     if(d.current_section!==undefined&&(d.current_section!==currentSection||d.cursor!==cursor&&action==='assessment_advance')){
+      answers=d.answers||answers;cursor=d.cursor||0;render();
+     }
+     writeDraft({server_version:d.version||state.version||0});
+     if(delivery||!deliveryJob)$('saveState').textContent='تم الحفظ';
+    }
+    if(delivery||!deliveryJob)$('playerError').textContent='';
+    flushDeliveryEvents();
+    job.resolve(d);
+   }catch(e){
+    writeDraft();
+    if(delivery||!deliveryJob){
+     $('saveState').textContent=delivery?'لم يتأكد التسليم — إجاباتك محفوظة على الجهاز':navigator.onLine?'لم يكتمل الحفظ — ستتم إعادة المحاولة تلقائيًا':'محفوظ على الجهاز — بانتظار الاتصال';
+     $('playerError').textContent=e.message;
+    }
+    job.reject(e);
+   }finally{
+    if(delivery){deliveryJob=null;setDeliveryBusy(false);}
+   }
+  }
+ }finally{saveRunning=false;}
+}
+
 let currentSection=0;
 function remaining(){const s=state.sections[state.current_section];return Math.min(new Date(state.expires_at).getTime(),new Date(state.section_started_at).getTime()+s.duration_minutes*60000)-examNow();}
 function tick(){if(!active)return;const wait=new Date(state.section_started_at).getTime()-examNow();if(wait>0){$('player').hidden=true;$('breakPanel').hidden=false;$('breakText').textContent=`يبدأ القسم التالي بعد ${ar(Math.ceil(wait/1000))} ثانية.`;return;}if(!$('breakPanel').hidden){$('breakPanel').hidden=true;$('player').hidden=false;render();}const left=remaining();$('timer').textContent=`${String(Math.max(0,Math.floor(left/60000))).padStart(2,'0')}:${String(Math.max(0,Math.floor(left/1000)%60)).padStart(2,'0')}`;if(left<=0&&!transitionPending){transitionPending=true;clearInterval(timer);const finalSection=Number(state.current_section||0)===state.sections.length-1;if(finalSection)writeDraft({finish_requested:true,finish_requested_at:Date.now(),auto_expiry:true});const action=finalSection?'assessment_finish':'assessment_advance';save(action).then(()=>{if(active){cursor=state.cursor||0;render();timer=setInterval(tick,1000);}}).catch(()=>{timer=setInterval(tick,1000);if(finalSection)setTimeout(retryPendingFinish,4000);}).finally(()=>{transitionPending=false;});}}
@@ -352,11 +403,11 @@ $('identity').onsubmit=e=>{
  openPreExamGate({name,no,cls});
 };
 $('studentNo')?.addEventListener('input',e=>{e.target.value=normalizeDigits(e.target.value).replace(/\D/g,'').slice(0,3);});
-$('questions').onchange=e=>{if(!e.target.matches('input[type=radio]'))return;const id=e.target.closest('[data-question]').dataset.question;answers[id]=Number(e.target.value);writeDraft();e.target.closest('.choices').querySelectorAll('.choice').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked));clearTimeout(saveDelay);saveDelay=setTimeout(()=>save().catch(()=>{}),350);$('progress').querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('answered',answers[state.sections[currentSection].questions[Number(b.dataset.go)].id]!==undefined));};
-async function navigate(n){if(!active)return;clearTimeout(saveDelay);const prior=cursor;cursor=n;try{await save();render();$('questions').scrollIntoView({behavior:'smooth',block:'start'});}catch(_){cursor=prior;}}
+$('questions').onchange=e=>{if(deliveryJob||transitionPending)return;if(!e.target.matches('input[type=radio]'))return;const id=e.target.closest('[data-question]').dataset.question;answers[id]=Number(e.target.value);writeDraft();e.target.closest('.choices').querySelectorAll('.choice').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked));clearTimeout(saveDelay);saveDelay=setTimeout(()=>save().catch(()=>{}),350);$('progress').querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('answered',answers[state.sections[currentSection].questions[Number(b.dataset.go)].id]!==undefined));};
+async function navigate(n){if(!active||navigating||deliveryJob||transitionPending)return;const section=Number(state.current_section||0),count=state.sections[section].questions.length;if(!Number.isInteger(n)||n<0||n>=count)return;navigating=true;clearTimeout(saveDelay);const prior=cursor;cursor=n;try{await save();if(active&&!deliveryJob&&Number(state.current_section||0)===section){render();$('questions').scrollIntoView({behavior:'smooth',block:'start'});}}catch(_){if(Number(state.current_section||0)===section)cursor=prior;}finally{navigating=false;}}
 $('next').onclick=()=>navigate(cursor+1);$('prev').onclick=()=>navigate(cursor-1);$('progress').onclick=e=>{const b=e.target.closest('[data-go]');if(b&&state.settings.allow_back)navigate(Number(b.dataset.go));};
-$('review').onclick=()=>{const s=state.sections[currentSection];const unanswered=s.questions.map((q,i)=>answers[q.id]===undefined?i:null).filter(i=>i!==null);if(unanswered.length){if(confirm(`لم تجب عن ${ar(unanswered.length)} سؤالًا. الانتقال إلى أول سؤال دون إجابة؟`))navigate(unanswered[0]);}else alert('أجبت عن جميع أسئلة القسم. يمكنك تسليمه.');};
-$('finish').onclick=async()=>{if(transitionPending||examNow()<new Date(state.section_started_at).getTime())return;const remaining=state.sections[currentSection].questions.filter(q=>answers[q.id]===undefined).length;if(!confirm(`${remaining?`بقي ${ar(remaining)} سؤالًا دون إجابة. `:''}هل تريد تسليم ${currentSection===state.sections.length-1?'الاختبار':'هذا القسم والانتقال للتالي'}؟`))return;transitionPending=true;clearTimeout(saveDelay);const finalSection=currentSection===state.sections.length-1;if(finalSection)markFinishIntent();$('finish').disabled=true;try{await save(finalSection?'assessment_finish':'assessment_advance');cursor=state.cursor||0;if(active)render();}catch(_){if(finalSection)setTimeout(retryPendingFinish,4000);}finally{transitionPending=false;$('finish').disabled=false;}};
+$('review').onclick=()=>{if(deliveryJob||transitionPending)return;const s=state.sections[currentSection];const unanswered=s.questions.map((q,i)=>answers[q.id]===undefined?i:null).filter(i=>i!==null);if(unanswered.length){if(confirm(`لم تجب عن ${ar(unanswered.length)} سؤالًا. الانتقال إلى أول سؤال دون إجابة؟`))navigate(unanswered[0]);}else alert('أجبت عن جميع أسئلة القسم. يمكنك تسليمه.');};
+$('finish').onclick=async()=>{if(transitionPending||deliveryJob||examNow()<new Date(state.section_started_at).getTime())return;const remaining=state.sections[currentSection].questions.filter(q=>answers[q.id]===undefined).length;if(!confirm(`${remaining?`بقي ${ar(remaining)} سؤالًا دون إجابة. `:''}هل تريد تسليم ${currentSection===state.sections.length-1?'الاختبار':'هذا القسم والانتقال للتالي'}؟`))return;transitionPending=true;clearTimeout(saveDelay);const finalSection=currentSection===state.sections.length-1;if(finalSection)markFinishIntent();$('finish').disabled=true;try{await save(finalSection?'assessment_finish':'assessment_advance');cursor=state.cursor||0;if(active)render();}catch(_){if(finalSection)setTimeout(retryPendingFinish,4000);}finally{transitionPending=false;$('finish').disabled=false;}};
 function event(type){if(!active||!state.settings.log_visibility||Date.now()-lastEvent<500)return;lastEvent=Date.now();save('assessment_event',{event:{type}}).catch(()=>{});}
 for(const type of ['copy','cut','dragstart','selectstart'])document.addEventListener(type,e=>{if(active&&!state.settings.allow_copy&&e.target.closest('#questions')){e.preventDefault();event('copy_blocked');}});
 document.addEventListener('contextmenu',e=>{if(active&&state.settings.disable_right_click){e.preventDefault();event('copy_blocked');}});
