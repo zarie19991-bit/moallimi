@@ -52,13 +52,15 @@ window.fetch=async function(input,init={}){
   let payload;
   try{payload=JSON.parse(init.body);}catch(_){return previousFetch(input,init);}
 
-  // A refresh, page close, back navigation, visibility event, retry, or any
-  // background lifecycle code must never be able to finish an active attempt.
-  // Before the real timer expires, assessment_finish is accepted only directly
-  // after the student's explicit confirmation dialog. Timer expiry continues to
-  // use assessment_advance and remains unaffected.
+  // A finish requires confirmation for this exact attempt (or the player's
+  // recorded timer expiry). The durable intent survives a slow save and an
+  // offline retry; a five-second native-confirm window alone cannot do that.
+  // Lifecycle events without an existing intent still only save answers.
   if(payload?.action==='assessment_finish'){
-    const explicit=!unloading&&Date.now()<=explicitSubmitUntil;
+    let intent=null;
+    try{intent=JSON.parse(localStorage.getItem(`nafes_draft_v2_${code}`)||'null');}catch(_){}
+    const confirmedAttempt=!!payload.attempt_id&&intent?.attempt_id===payload.attempt_id&&intent.finish_requested===true;
+    const explicit=!unloading&&(confirmedAttempt||Date.now()<=explicitSubmitUntil);
     explicitSubmitUntil=0;
     if(!explicit){
       payload={...payload,action:'assessment_save'};

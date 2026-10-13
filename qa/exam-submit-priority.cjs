@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
 });
 const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve }; };
 
-async function setup(browser, { sections = 1, allowBack = true } = {}) {
+async function setup(browser, { sections = 1, allowBack = true, durationMinutes = 30 } = {}) {
   const context = await browser.newContext({ viewport: { width: 384, height: 832 }, locale: 'ar-SA', isMobile: true, hasTouch: true });
   const page = await context.newPage();
   await page.clock.install();
@@ -27,7 +27,7 @@ async function setup(browser, { sections = 1, allowBack = true } = {}) {
     current_section: 0, cursor: allowBack ? 19 : 0,
     answers: Object.fromEntries(Array.from({ length: 20 }, (_, i) => ['q0-' + i, 0])),
     section_started_at: new Date(Date.now() - 1000).toISOString(), expires_at: new Date(Date.now() + 3600000).toISOString(), settings,
-    sections: Array.from({ length: sections }, (_, s) => ({ subject: s ? 'math' : 'reading', duration_minutes: 30, questions: Array.from({ length: 20 }, (_, i) => ({ id: `q${s}-${i}`, context: 'نص تجريبي للتحقق من التسليم.', question: 'سؤال تجريبي ' + (i + 1), options: ['الأول', 'الثاني', 'الثالث', 'الرابع'] })) }))
+    sections: Array.from({ length: sections }, (_, s) => ({ subject: s ? 'math' : 'reading', duration_minutes: durationMinutes, questions: Array.from({ length: 20 }, (_, i) => ({ id: `q${s}-${i}`, context: 'نص تجريبي للتحقق من التسليم.', question: 'سؤال تجريبي ' + (i + 1), options: ['الأول', 'الثاني', 'الثالث', 'الرابع'] })) }))
   };
   await context.addInitScript(() => {
     sessionStorage.setItem('nafes_attempt_QATEST22', JSON.stringify({ attempt_id: 'qa-attempt', access_token: 'qa-token' }));
@@ -75,6 +75,13 @@ async function run(browser, name) {
     assert.equal(await t.page.locator('[role="dialog"]').count(), 0);
     assert.equal(await t.page.locator('#player').isVisible(), true);
     assert.equal(t.calls.filter(c => /finish|advance/.test(c.action)).length, 0);
+    assert.deepEqual(t.errors, []); await t.context.close();
+  }
+  {
+    const t = await setup(browser, { durationMinutes: 1 });
+    await t.page.clock.runFor(61000);
+    await t.page.locator('#result:not([hidden])').waitFor();
+    assert.equal(t.calls.filter(c => c.action === 'assessment_finish').length, 1, 'timer expiry still delivers automatically');
     assert.deepEqual(t.errors, []); await t.context.close();
   }
   // Reproduce the video: final question, slow save, repeated save intents, then delivery.
@@ -172,7 +179,7 @@ async function run(browser, name) {
     assert.deepEqual(await page.evaluate(() => window.retakeCalls.map(c => [c.mode, c.student_id || null])), [['student', 'absent'], ['student', 'completed'], ['absent', null], ['all', null]]);
     assert.deepEqual(errors, []); await context.close();
   }
-  console.log(`PASS ${name}: 7 mobile delivery scenarios and 4 teacher retake actions`);
+  console.log(`PASS ${name}: 8 mobile delivery scenarios and 4 teacher retake actions`);
 }
 (async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
