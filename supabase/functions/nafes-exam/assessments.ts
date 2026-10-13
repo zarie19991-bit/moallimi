@@ -2035,6 +2035,11 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   const draft=must(await db.from('nafes_assessments').insert({owner_id:owner.id,kind:config.kind,title:config.title,config,rendered_sections:sections}).select().single());
   return preview(draft);
  }
+ if(b.action==='teacher_draft_get') {
+  const t=await findDraft(db,b.draft_id,owner);
+  if(t.kind==='simulation'||t.config?.bank_source==='simulation_bank')fail('تم إيقاف قسم الاختبارات المحاكية.',400);
+  return preview(t);
+ }
  if(b.action==='teacher_rebalance_draft') {
   const t=await findDraft(db,b.draft_id,owner);
   if(t.kind==='simulation'||t.config?.bank_source==='simulation_bank')fail('تم إيقاف قسم الاختبارات المحاكية.',400);
