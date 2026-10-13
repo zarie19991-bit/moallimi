@@ -1411,7 +1411,7 @@ async function teacherReopenIncomplete(db:any,b:Row,owner:Row){
  return {ok:true,attempt_id:row.id,recovery_pending:true};
 }
 
-const DELIVERY_EVENT_TYPES=new Set(['offline','online','retry','recovered','request_failed','submit_intent','submit_receipt','draft_restored']);
+const DELIVERY_EVENT_TYPES=new Set(['offline','online','retry','recovered','request_failed','submit_intent','draft_restored']);
 function deliverySubjects(a:Row):string[]{return [...new Set((a.rendered_sections||[]).map((s:Row)=>String(s.subject||'')).filter((subject:string)=>SUBJECTS.includes(subject)))];}
 function deliveryInt(v:unknown,max:number):number|null{
  if(v===null||v===undefined||v==='')return null;
