@@ -63,3 +63,16 @@ test('live pages publish the resilience assets',()=>{
   assert.match(manifest,/^exam-durable-store\.js$/m);
   assert.match(manifest,/^delivery-health\.js$/m);
 });
+
+
+test('delivery telemetry actions are handled and server submission receipts are recorded',()=>{
+  const backend=read('supabase/functions/nafes-exam/assessments.ts');
+  assert.match(backend,/body\.action==='assessment_delivery_event'.*recordStudentDeliveryEvent/);
+  assert.match(backend,/b\.action==='teacher_delivery_health'.*teacherDeliveryHealth/);
+  assert.match(backend,/event_type:'submit_receipt'/);
+  assert.match(backend,/recordServerSubmissionReceipt\(db,r\)/);
+  assert.match(backend,/response\.submission_receipt=/);
+  assert.match(backend,/client_event_id.*b\.client_event_id/);
+  assert.match(backend,/teacherScope\(owner\)/);
+  assert.match(backend,/pending_attempts:pending\.length/);
+});
