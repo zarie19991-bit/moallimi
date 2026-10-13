@@ -121,7 +121,7 @@ test('publishing repairs an existing unbalanced draft atomically and rejects tam
   const draft={id,status:'draft',kind:'multi_indicator',title:'اختبار',config:{},rendered_sections:[{subject:'math',questions:structuredClone(questions)}]};
   if(tamper)draft.rendered_sections[0].questions[0].correctIndex=1;
   const writes=[];
-  const db={from(table){let payload=null,byCode=false;const query={select(){return this;},eq(k){if(k==='short_code')byCode=true;return this;},in(){return this;},order(){return this;},range(){return Promise.resolve({data:bank,error:null});},update(p){payload=p;return this;},maybeSingle(){return Promise.resolve({data:table==='nafes_teacher_access'?{id:'owner',subject_scope:'all'}:byCode?null:draft,error:null});},single(){writes.push(payload);return Promise.resolve({data:{...draft,...payload},error:null});}};return query;}};
+  const db={from(table){let payload=null,byCode=false;const query={select(){return this;},eq(k){if(k==='short_code')byCode=true;return this;},in(){return this;},lte(){return this;},order(){return this;},range(){return Promise.resolve({data:bank,error:null});},update(p){payload=p;return this;},maybeSingle(){return Promise.resolve({data:table==='nafes_teacher_access'?{id:'owner',subject_scope:'all'}:byCode?null:draft,error:null});},single(){writes.push(payload);return Promise.resolve({data:{...draft,...payload},error:null});}};return query;}};
   const req=new Request('https://test.invalid',{headers:{'x-teacher-key':'1234567890'}});
   if(tamper){await assert.rejects(()=>handleAssessments(db,req,{action:'teacher_publish',draft_id:id}),/تغير البنك/);assert.equal(writes.length,0);return;}
   const result=await handleAssessments(db,req,{action:'teacher_publish',draft_id:id});
