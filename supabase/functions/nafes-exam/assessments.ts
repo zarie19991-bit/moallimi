@@ -1368,8 +1368,8 @@ export function matchesBankSnapshot(bank:Row,draft:Row):boolean {
   return snapshotKey(bank)===snapshotKey({...draft,options:a,correctIndex:bank.correctIndex});
 }
 const flat=(a:Row)=>(a.rendered_sections||[]).flatMap((s:Row)=>s.questions||[]);
-async function finish(db:any,a:Row,answers=a.answers) {if(a.submitted_at)return a;const result=gradeSections(a.rendered_sections,answers);const end=new Date(Math.min(Date.now(),new Date(a.expires_at).getTime())).toISOString();const r=must(await db.from('nafes_assessment_attempts').update({answers,...result,submitted_at:end,version:a.version+1}).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select().maybeSingle());return r||must(await db.from('nafes_assessment_attempts').select('*').eq('id',a.id).single());}
-export function attemptResponse(a:Row) {const c=a.config,s=c.settings;const response:Row={attempt_id:a.id,server_now:new Date().toISOString(),completion_reason:a.submitted_at&&(new Date(a.submitted_at).getTime()>=new Date(a.expires_at).getTime())?'time_expired':null,submitted:!!a.submitted_at,expires_at:a.expires_at,started_at:a.started_at,section_started_at:a.section_started_at,current_section:a.section_index,cursor:a.cursor,version:a.version,answers:a.answers,sections:publicSections(a.rendered_sections),settings:s,student_name:a.student_name,demo_mode:a.is_demo===true};if(a.submitted_at){if(s.show_result)Object.assign(response,{score:a.score,total:a.total,percent:a.percent,section_scores:a.section_scores});else response.result_hidden=true;if(s.show_correct_count)response.correct_count=a.score;if(s.show_indicator_result){const groups=new Map<string,Row[]>();for(const q of flat(a)){const key=indicatorOf(q),g=groups.get(key)||[];g.push(q);groups.set(key,g);}response.indicators=[...groups].map(([key,qs])=>({key,text:qs[0].indicator_text,...gradeSections([{subject:qs[0].subject,questions:qs}],a.answers)}));}if(s.show_answers)response.review=flat(a).map(q=>({id:q.id,correct_index:q.correctIndex,explanation:q.explanation,indicator_text:q.indicator_text}));}return response;}
+async function finish(db:any,a:Row,answers=a.answers) {if(a.submitted_at)return a;const result=gradeSections(a.rendered_sections,answers);const end=new Date(Math.min(Date.now(),new Date(a.expires_at).getTime())).toISOString();const r=must(await db.from('nafes_assessment_attempts').update({answers,...result,submitted_at:end,version:a.version+1}).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select().maybeSingle());if(r){await recordServerSubmissionReceipt(db,r);return r;}return must(await db.from('nafes_assessment_attempts').select('*').eq('id',a.id).single());}
+export function attemptResponse(a:Row) {const c=a.config,s=c.settings;const response:Row={attempt_id:a.id,server_now:new Date().toISOString(),completion_reason:a.submitted_at&&(new Date(a.submitted_at).getTime()>=new Date(a.expires_at).getTime())?'time_expired':null,submitted:!!a.submitted_at,expires_at:a.expires_at,started_at:a.started_at,section_started_at:a.section_started_at,current_section:a.section_index,cursor:a.cursor,version:a.version,answers:a.answers,sections:publicSections(a.rendered_sections),settings:s,student_name:a.student_name,demo_mode:a.is_demo===true};if(a.submitted_at){response.submission_receipt={receipt_no:'NFS-'+String(a.id).slice(0,8).toUpperCase(),submitted_at:a.submitted_at};if(s.show_result)Object.assign(response,{score:a.score,total:a.total,percent:a.percent,section_scores:a.section_scores});else response.result_hidden=true;if(s.show_correct_count)response.correct_count=a.score;if(s.show_indicator_result){const groups=new Map<string,Row[]>();for(const q of flat(a)){const key=indicatorOf(q),g=groups.get(key)||[];g.push(q);groups.set(key,g);}response.indicators=[...groups].map(([key,qs])=>({key,text:qs[0].indicator_text,...gradeSections([{subject:qs[0].subject,questions:qs}],a.answers)}));}if(s.show_answers)response.review=flat(a).map(q=>({id:q.id,correct_index:q.correctIndex,explanation:q.explanation,indicator_text:q.indicator_text}));}return response;}
 export async function saveState(db:any,a:Row,body:Row) {
  if(a.submitted_at)return a;const now=Date.now();
  // Retries carry the section they were issued from. Never apply them to a later subject.
@@ -1410,6 +1410,85 @@ async function teacherReopenIncomplete(db:any,b:Row,owner:Row){
  if(!row)fail('تغيرت المحاولة؛ حدّث النتائج وأعد المحاولة.',409);
  return {ok:true,attempt_id:row.id,recovery_pending:true};
 }
+
+const DELIVERY_EVENT_TYPES=new Set(['offline','online','retry','recovered','request_failed','submit_intent','submit_receipt','draft_restored']);
+function deliverySubjects(a:Row):string[]{return [...new Set((a.rendered_sections||[]).map((s:Row)=>String(s.subject||'')).filter((subject:string)=>SUBJECTS.includes(subject)))];}
+function deliveryInt(v:unknown,max:number):number|null{
+ if(v===null||v===undefined||v==='')return null;
+ const n=Number(v);return Number.isInteger(n)&&n>=0&&n<=max?n:null;
+}
+async function recordStudentDeliveryEvent(db:any,a:Row,b:Row):Promise<Row>{
+ if(!isUUID(b.client_event_id)||!DELIVERY_EVENT_TYPES.has(String(b.event_type)))fail('حدث التسليم غير صالح.',400);
+ const now=Date.now(),requested=Date.parse(String(b.occurred_at||''));
+ const occurred=Number.isFinite(requested)&&Math.abs(now-requested)<7*86400000?new Date(requested).toISOString():new Date(now).toISOString();
+ const payload={
+  client_event_id:String(b.client_event_id),attempt_id:a.id,assessment_id:a.assessment_id,
+  subjects:deliverySubjects(a),event_type:String(b.event_type),
+  action_name:tidy(b.action_name||'',40)||null,
+  retry_count:deliveryInt(b.retry_count,20),status_code:deliveryInt(b.status_code,999),
+  latency_ms:deliveryInt(b.latency_ms,600000),network_online:typeof b.network_online==='boolean'?b.network_online:null,
+  occurred_at:occurred,metadata:{source:'student_client'}
+ };
+ const saved=await db.from('nafes_delivery_events').insert(payload);
+ if(saved.error&&saved.error.code!=='23505')throw saved.error;
+ return{ok:true,event_received:true};
+}
+async function recordServerSubmissionReceipt(db:any,a:Row):Promise<void>{
+ try{
+  const result=await db.from('nafes_delivery_events').insert({
+   client_event_id:crypto.randomUUID(),attempt_id:a.id,assessment_id:a.assessment_id,
+   subjects:deliverySubjects(a),event_type:'submit_receipt',action_name:'server_finish',
+   status_code:200,network_online:true,occurred_at:a.submitted_at||new Date().toISOString(),
+   metadata:{source:'server',version:a.version}
+  });
+  if(result.error)console.error('delivery receipt audit failed',result.error.code||'unknown');
+ }catch(e){console.error('delivery receipt audit exception',(e as Row)?.code||'unknown');}
+}
+async function teacherDeliveryHealth(db:any,b:Row,owner:Row):Promise<Row>{
+ const hours=[1,24,72].includes(Number(b.hours))?Number(b.hours):24;
+ const since=new Date(Date.now()-hours*3600000).toISOString(),scope=teacherScope(owner);
+ let query=db.from('nafes_delivery_events')
+  .select('attempt_id,event_type,action_name,received_at,assessment_id,subjects')
+  .gte('received_at',since).order('received_at',{ascending:false}).limit(2500);
+ if(scope!=='all')query=query.contains('subjects',[scope]);
+ const events:Row[]=must(await query)||[];
+ const ids=[...new Set(events.map((e:Row)=>String(e.attempt_id||'')).filter(isUUID))];
+ const attempts=new Map<string,Row>();
+ for(let i=0;i<ids.length;i+=150){
+  const rows=must(await db.from('nafes_assessment_attempts').select('id,student_name,class_name,submitted_at,expires_at,is_demo').in('id',ids.slice(i,i+150)));
+  for(const a of rows||[])if(!a.is_demo)attempts.set(String(a.id),a);
+ }
+ const latest=new Map<string,Row>();
+ for(const ev of events)if(attempts.has(String(ev.attempt_id))&&!latest.has(String(ev.attempt_id)))latest.set(String(ev.attempt_id),ev);
+ const activeEvents=events.filter(ev=>attempts.has(String(ev.attempt_id)));
+ const pending:Row[]=[];
+ for(const [id,ev] of latest){
+  const a=attempts.get(id),unresolved=!a?.submitted_at&&['submit_intent','request_failed','retry'].includes(String(ev.event_type));
+  const elapsed=Date.now()-Date.parse(String(ev.received_at||''));
+  if(unresolved&&elapsed>60000)pending.push({student_name:a?.student_name,class_name:a?.class_name,event_type:ev.event_type,action_name:ev.action_name,last_event_at:ev.received_at,attempt_id:id});
+ }
+ // Detect attempts whose time expired but no submission reached the database, even without client telemetry.
+ let expired=db.from('nafes_assessment_attempts').select('id,student_name,class_name,submitted_at,expires_at,rendered_sections')
+  .gte('started_at',since).lt('expires_at',new Date(Date.now()-120000).toISOString())
+  .is('submitted_at',null).eq('is_demo',false).order('expires_at',{ascending:false}).limit(150);
+ const abandoned:Row[]=must(await expired)||[];
+ for(const a of abandoned){
+  if(scope!=='all'&&!deliverySubjects(a).includes(scope))continue;
+  if(pending.some(x=>x.attempt_id===a.id))continue;
+  pending.push({student_name:a.student_name,class_name:a.class_name,event_type:'expired_without_submission',action_name:'assessment_finish',last_event_at:a.expires_at,attempt_id:a.id});
+ }
+ pending.sort((a,b)=>Date.parse(String(b.last_event_at))-Date.parse(String(a.last_event_at)));
+ return{ok:true,hours,summary:{
+  affected_attempts:latest.size,
+  retry_events:activeEvents.filter(x=>x.event_type==='retry').length,
+  offline_events:activeEvents.filter(x=>x.event_type==='offline').length,
+  failed_events:activeEvents.filter(x=>x.event_type==='request_failed').length,
+  submit_receipts:activeEvents.filter(x=>x.event_type==='submit_receipt').length,
+  pending_attempts:pending.length,
+  events_truncated:events.length===2500
+ },pending:pending.slice(0,100)};
+}
+
 async function studentAction(db:any,body:Row) {
  async function demoStudentByCode(codeValue:unknown){
    const demoCode=String(codeValue||'').trim();
@@ -1542,6 +1621,7 @@ async function studentAction(db:any,body:Row) {
  if(!isUUID(body.attempt_id)||!body.access_token)fail('تعذر التحقق من المحاولة.',403);let a=must(await db.from('nafes_assessment_attempts').select('*').eq('id',body.attempt_id).eq('access_hash',await hash(String(body.access_token))).maybeSingle());if(!a)fail('تعذر التحقق من المحاولة.',403);
  if(!a.submitted_at&&a.config.settings.lock_session&&a.session_id!==body.session_id)fail('المحاولة قيد الاستخدام في تبويب آخر.',409);
  if(body.action==='assessment_timing')return await recordTiming(db,a,body,'assessment');
+ if(body.action==='assessment_delivery_event')return await recordStudentDeliveryEvent(db,a,body);
  if(!['assessment_save','assessment_finish','assessment_advance','assessment_resume','assessment_event'].includes(body.action))fail('إجراء غير معروف.');
  if(body.action==='assessment_resume'&&!a.submitted_at&&Date.now()<new Date(a.expires_at).getTime())return attemptResponse(a);
  a=await saveState(db,a,body);return{ok:true,...attemptResponse(a)};
@@ -1868,6 +1948,7 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
   const scope=teacherScope(owner),events=await readTiming(db,b.source,allowed.map((a:Row)=>a.id));
   return {events:events.filter((e:Row)=>scope==='all'||e.subject===scope)};
  }
+ if(b.action==='teacher_delivery_health')return await teacherDeliveryHealth(db,b,owner);
  if(b.action==='teacher_data')return await scopedTeacherData(db,b,owner);
  if(b.action==='teacher_paper_review_upsert')return await teacherPaperReviewUpsert(db,b,owner);
  if(b.action==='teacher_paper_review_get')return await teacherPaperReviewGet(db,b,owner);
