@@ -98,13 +98,17 @@ async function fullPool(db:any,subject:string,keys?:string[],ids?:string[]) {
     // cognitive level. Supplement with currently-reviewed approved bank items
     // for the exact same indicator. Selection below still enforces structure,
     // cognitive level, uniqueness, distractor quality, and semantic audit.
-    if(!ids?.length){
+    // In publication checks, ids contains the exact rendered question IDs.
+    // Approved fallback items must be loaded by those IDs as well; otherwise
+    // any draft that used the reviewed-bank fallback fails snapshot verification.
+    {
       const scoped=keys?.map(key=>FRAMEWORK.find(i=>i.key===key)).filter(Boolean)||[];
       for(let start=0;;start+=500){
         let fallback=db.from('nafes_question_bank').select(BANK_COLUMNS)
           .eq('grade_key','middle_3').eq('subject_key',subject).eq('is_active',true)
           .eq('review_status','approved').lte('model_no',4).order('id');
         if(scoped.length)fallback=fallback.in('outcome_code',[...new Set(scoped.map(i=>i!.outcome))]).in('indicator_index',[...new Set(scoped.map(i=>i!.indicator))]);
+        if(ids?.length)fallback=fallback.in('id',ids);
         const page=must(await fallback.range(start,start+499));
         for(const q of page||[]){
           if(!hasCurrentReview(q))continue;
