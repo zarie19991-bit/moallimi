@@ -41,6 +41,15 @@
    const completed=new Set();let unresolved=0,legacyLinked=0;
    for(const a of attempts){
     if(testId(a)!==id||!isSubmitted(a))continue;
+    if(subject){
+      const ordered=Array.isArray(a.subjects)?a.subjects:(Array.isArray(test.subjects)?test.subjects:[]);
+      const si=ordered.indexOf(subject);
+      if(si<0)continue;
+      if(a.source==='assessment'&&ordered.length>1){
+        const current=Number(a.current_section);
+        if(!Number.isInteger(current)||current<si)continue;
+      }
+    }
     let sid=[a.student_id,a.student_key].map(clean).find(key=>knownIds.has(key));
     if(!sid){const fallback=identityKey(a),matched=fallback?identityIndex.get(fallback):null;if(matched){sid=matched;legacyLinked++;}}
     if(sid){if(eligibleIds.has(sid))completed.add(sid);continue;}
