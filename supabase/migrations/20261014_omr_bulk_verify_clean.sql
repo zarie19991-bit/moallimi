@@ -133,7 +133,7 @@ BEGIN
   VALUES(p_session,p_reviewer,actually_verified,cardinality(actually_verified));
  END IF;
  RETURN response||jsonb_build_object('preview',false,'verified_now',cardinality(actually_verified));
-END
+END;
 $batch$;
 
 REVOKE ALL ON FUNCTION public.nafes_scan_bulk_verify_clean(uuid,uuid,boolean) FROM PUBLIC,anon,authenticated;
