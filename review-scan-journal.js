@@ -151,7 +151,8 @@ function firstPending(){return sheets.findIndex(s=>!s.reviewed_at);}
 function decisionReason(question,before,after,extra=''){
  const fmt=marks=>Array.isArray(marks)&&marks.length?marks.map(v=>letters[v]||'?').join(' + '):'فارغة';
  const note=String(extra||'').trim();
- return ('قرار المعلم في السؤال '+ar(question)+': تغيير التظليل من ('+fmt(before)+') إلى ('+fmt(after)+')'+(note?'؛ ملاحظة: '+note:'')).slice(0,1000);
+ const unchanged=JSON.stringify(before||[])===JSON.stringify(after||[]);
+ return ('قرار المعلم في السؤال '+ar(question)+': '+(unchanged?'تأكيد التظليل المعلّق ('+fmt(after)+')':'تغيير التظليل من ('+fmt(before)+') إلى ('+fmt(after)+')')+(note?'؛ ملاحظة: '+note:'')).slice(0,1000);
 }
 function ready(){return session&&sheets.length===session.expected_count;}
 function lock(value){busy=value;for(const id of ['finishReviewAllBtn','bulkCleanReviewBtn','doubleAnswerReviewBtn','unclearAnswerReviewBtn','saveSheetBtn','rescanSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','resetOmrAttemptsBtn','applyManualAssignmentBtn','refreshIdentityGradeBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
@@ -671,9 +672,13 @@ async function editAnswer(question,choice){
    const value=Number(choice);
    marked=$('editMode').checked?(a.marked.includes(value)?a.marked.filter(v=>v!==value):[...a.marked,value].sort()):[value];
  }
- if(JSON.stringify(marked)===JSON.stringify(a.marked||[])){
-   message('هذا الاختيار محفوظ مسبقًا. إذا كانت القراءة سليمة اضغط «حفظ التحقق من الورقة» دون تعديل.',true);return;
+ const sameMarks=JSON.stringify(marked)===JSON.stringify(a.marked||[]);
+ const needsDecision=a.state==='uncertain'||a.status==='ambiguous'||a.review_pending===true||
+   a.requires_verification===true||Object.values(a.uncertainty||{}).some(v=>Array.isArray(v)&&v.length>0);
+ if(sameMarks&&!needsDecision){
+   message('هذا الاختيار محفوظ ومؤكد. إذا كانت القراءة سليمة اضغط «حفظ التحقق من الورقة».',true);return;
  }
+ if(sameMarks&&needsDecision&&!confirm('سيُسجل قرارك بتأكيد الاختيار المعلق نفسه بعد مراجعة صورة الورقة. هل تؤكد التظليل؟'))return;
  const reason=decisionReason(question,a.marked,marked,extra);
  lock(true);let refresh=false;
  try{
