@@ -30,7 +30,7 @@ jobs:
               *.js) node --check "$file" ;;
             esac
           done < production-files.txt
-          node --test question-bank/scripts/test-reviewed-contract.mjs question-bank/scripts/test-assessments.mjs question-bank/scripts/test-analysis-contract.mjs question-bank/scripts/test-report-integrity.mjs question-bank/scripts/test-analysis-loading.mjs question-bank/scripts/test-report-absentees.mjs question-bank/scripts/test-analysis-exclusion-contract.mjs question-bank/scripts/test-delivery-reliability-contract.mjs question-bank/scripts/test-science-biodiversity-bank.mjs question-bank/scripts/test-omr-safe-approval.mjs
+          node --test question-bank/scripts/test-reviewed-contract.mjs question-bank/scripts/test-assessments.mjs question-bank/scripts/test-analysis-contract.mjs question-bank/scripts/test-report-integrity.mjs question-bank/scripts/test-analysis-loading.mjs question-bank/scripts/test-report-absentees.mjs question-bank/scripts/test-analysis-exclusion-contract.mjs question-bank/scripts/test-delivery-reliability-contract.mjs question-bank/scripts/test-science-biodiversity-bank.mjs question-bank/scripts/test-omr-safe-approval.mjs question-bank/scripts/test-omr-bulk-review-contract.mjs
           node question-bank/scripts/test-paper-builder-performance.mjs
           node question-bank/scripts/simulate-delivery-chaos.mjs
           node question-bank/scripts/test-ux-cognitive-contract.mjs
