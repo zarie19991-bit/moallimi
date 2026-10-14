@@ -41,3 +41,13 @@ test('the final approval button follows completed, stored review decisions, not 
  assert.match(client,/\!\['verified','requires_rescan','duplicate'\]\.includes/);
  assert.doesNotMatch(client,/sheets\.some\(s=>\!s\.blocked_duplicate\&\&s\.disposition!=='requires_rescan'\&\&\(safety\.unresolvedSheet\(s\)\|\|failedRead\(effective\(s\)\)\)\)/);
 });
+
+
+test('confirmation of an uncertain answer can preserve its original shaded option',()=>{
+ const client=fs.readFileSync(new URL('../../review-scan-journal.js',import.meta.url),'utf8');
+ assert.match(client,/const sameMarks=JSON\.stringify\(marked\)===JSON\.stringify\(a\.marked\|\|\[\]\)/);
+ assert.match(client,/const needsDecision=a\.state==='uncertain'/);
+ assert.match(client,/if\(sameMarks&&!needsDecision\)/);
+ assert.match(client,/if\(sameMarks&&needsDecision&&!confirm/);
+ assert.match(client,/تأكيد التظليل المعلّق/);
+});
