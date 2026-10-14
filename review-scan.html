@@ -93,7 +93,7 @@
 <button id="doubleAnswerReviewBtn" class="secondary" type="button">مراجعة الإجابتين فقط</button>
 <button id="unclearAnswerReviewBtn" class="secondary" type="button">الإجابات غير الواضحة</button>
 <button id="reviewNextBtn" class="secondary" type="button">متابعة المراجعة</button><button id="rereadAllBtn" class="secondary" type="button">إعادة قراءة التظليل بدقة</button><button id="selectAllBtn" class="secondary" type="button">تحديد الكل</button><button id="deleteSelectedBtn" class="secondary" type="button" disabled>حذف التصحيحات المحددة</button><button id="resetOmrAttemptsBtn" class="secondary" type="button" disabled title="حذف أوراق ومحاولات التصحيح الآلي لهذا الاختبار من قاعدة البيانات، دون حذف الاختبار أو المحاولات الإلكترونية">تصفير التصحيح الآلي نهائيًا</button>
-        <button id="approveBtn" class="primary" type="button">اعتماد النتائج</button>
+        <button id="finishReviewAllBtn" class="primary" type="button" disabled>إنهاء المراجعة بعد حسم الحالات</button> <button id="approveBtn" class="primary" type="button">اعتماد النتائج</button>
       </div>
     </header>
     <p id="resetOmrScopeNote" style="margin:6px 0 10px;font-size:.85rem;color:#8b1e1e">زر التصفير يحذف جميع أوراق ومحاولات التصحيح الورقي لهذا الاختبار من قاعدة البيانات عبر كل جلساته، بما فيها النتائج المعتمدة المرتبطة بها إن وُجدت. لا يحذف الاختبار نفسه ولا محاولات الاختبارات الإلكترونية. يحتفظ النظام بسجل تدقيق مختصر.</p>
@@ -150,8 +150,8 @@
           <button id="visionReadBtn" class="secondary" type="button" disabled>اقتراح قراءة الصورة بالذكاء الاصطناعي</button>
           <div id="visionProposal" role="status" aria-live="polite"></div>
         </section>
-        <label for="manualReviewReason">سبب التعديل اليدوي أو تصحيح الهوية (إلزامي)</label>
-        <textarea id="manualReviewReason" minlength="3" maxlength="1000" rows="2" placeholder="اذكر ما تحققت منه في صورة الورقة؛ لا تدخل بيانات شخصية."></textarea>
+        <label for="manualReviewReason">ملاحظة إضافية اختيارية (يسجّل النظام وصف التعديل تلقائيًا)</label>
+        <textarea id="manualReviewReason" minlength="3" maxlength="1000" rows="2" placeholder="اختياري؛ سيُسجّل نوع القرار والسؤال والتظليل قبل التعديل وبعده تلقائيًا. لا تدخل بيانات شخصية."></textarea>
         <label class="edit-mode"><input id="editMode" type="checkbox"> تحديد أكثر من إجابة للسؤال (اختياري)</label><p class="omr-choice-explanation">الخيار الأزرق هو الاختيار الذي قرأه الجهاز من التظليل، وليس دليلًا على صحته. تظهر النتيجة النهائية فقط بعد حسم الإجابات ومراجعتها.</p><div id="answerEditor" class="answer-editor"></div>
       </div>
     </div>
@@ -175,7 +175,7 @@
 <script src="review-draft-sync.js?v=20260930-2"></script>
 <script src="review-omr-safety.js?v=20261010-independent-verify"></script>
 <script src="review-scan-name-ocr.js?v=20261010-crops-diagnostics2"></script>
-<script src="review-scan-journal.js?v=20261014-bulk-clean-review1"></script>
+<script src="review-scan-journal.js?v=20261014-manual-reason-final-gate1"></script>
 <script src="review-scan.js?v=20261010-qr-identity-recovery3"></script>
 </body>
 </html>
