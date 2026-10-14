@@ -32,7 +32,7 @@ test('only low-risk, high-quality, unambiguous images are eligible for bulk revi
   /'identity_valid'/,
   /'markers_ok'/,
   /'omr_reader_error'/,
-  /'multiple'/,
+  /NOT IN \('correct','incorrect','blank'\)/,
   /'uncertainty'/,
   /'correct_index'/,
   /'score' IS DISTINCT FROM/,
