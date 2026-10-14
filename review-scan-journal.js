@@ -35,7 +35,7 @@ function duplicateExplanation(s,rows=sheets){
  if(scope==='legacy_attempt')return 'هناك نتيجة ورقية سابقة مرتبطة بهذا الاختبار؛ تحقق منها قبل اعتماد الورقة.';
  return 'يوجد تطابق مع ورقة مسجلة سابقًا لهذا الاختبار. راجع رقم الورقة ورمز QR قبل الاعتماد.';
 }
-const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكررة':s.disposition==='requires_rescan'?'مراجَع — يلزم إعادة المسح':s.reviewed_at?'تم التحقق':'بانتظار التحقق';
+const status=s=>s.disposition==='duplicate'?'مراجَع — نسخة مكررة':s.disposition==='requires_rescan'?'مستبعدة مؤقتًا — تتطلب إعادة المسح (لم تُحتسب درجة)':s.reviewed_at?'تم التحقق':'بانتظار التحقق';
 // A rejected optical read never has a valid numeric grade, even if old data stored 0.
 const failedRead=a=>!a||a.markers_ok!==true||!!a.omr_reader_error||a.grade_status==='unreadable';
 // A stored numeric zero is NOT a verified zero when an answer is still uncertain.
@@ -149,7 +149,7 @@ function exportQualityReport(){
 function message(t,error=false){$('journalStatus').textContent=t;$('journalStatus').className='notice '+(error?'error':'');if($('modalFeedback')){$('modalFeedback').textContent=t;$('modalFeedback').className=error?'notice error':'notice';}}
 function firstPending(){return sheets.findIndex(s=>!s.reviewed_at);}
 function ready(){return session&&sheets.length===session.expected_count;}
-function lock(value){busy=value;for(const id of ['saveSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','resetOmrAttemptsBtn','applyManualAssignmentBtn','refreshIdentityGradeBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
+function lock(value){busy=value;for(const id of ['saveSheetBtn','rescanSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','resetOmrAttemptsBtn','applyManualAssignmentBtn','refreshIdentityGradeBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
 function ensureSelectAll(){
  let box=$('selectAllSheets');
  if(!box){
@@ -169,6 +169,7 @@ function ensureSelectAll(){
 }
 function renderButtons(){
  const s=sheets[active];
+ if($('rescanSheetBtn'))$('rescanSheetBtn').disabled=busy||!ready()||!s||!!s.reviewed_at||!!session?.completed_at||loadedImage!==s.id;
  if($('visionReadBtn'))$('visionReadBtn').disabled=busy||!visionAvailable||!s;
  if($('printedNameOcrBtn'))$('printedNameOcrBtn').disabled=busy||printedNameOcrBusy||
   !s||effective(s)?.identity_valid||!imageCache.has(s.id);
@@ -216,7 +217,7 @@ function renderButtons(){
  $('nextSheetBtn').disabled=busy||!s||active>=sheets.length-1;
  $('finishReviewBtn').disabled=busy||!ready()||firstPending()>=0||!!session.completed_at;
  $('approveBtn').disabled=busy||!session?.completed_at||!sheets.some(s=>s.disposition==='verified')||
-   sheets.some(s=>!s.blocked_duplicate&&(safety.unresolvedSheet(s)||failedRead(effective(s))));
+   sheets.some(s=>!s.blocked_duplicate&&s.disposition!=='requires_rescan'&&(safety.unresolvedSheet(s)||failedRead(effective(s))));
  if($('deleteSelectedBtn')){$('deleteSelectedBtn').disabled=busy||selected.size===0;$('deleteSelectedBtn').textContent=selected.size?'حذف التصحيحات المحددة ('+ar(selected.size)+')':'حذف التصحيحات المحددة';}if($('selectAllBtn')){$('selectAllBtn').disabled=busy||!sheets.length;$('selectAllBtn').textContent=sheets.length&&selected.size===sheets.length?'إلغاء تحديد الكل':'تحديد الكل';}
  if($('applyManualAssignmentBtn'))$('applyManualAssignmentBtn').disabled=busy||!s||effective(s).identity_valid===true||!!session?.completed_at||!$('manualAssignment')?.value;
  document.querySelectorAll('[data-edit-question],[data-resolve-question]').forEach(b=>{b.disabled=busy||!ready()||!s||loadedImage!==s.id||!!session?.completed_at||!!s?.reviewed_at;});
@@ -228,14 +229,39 @@ function render(){
  const count=sheets.reduce((m,s)=>{for(const a of effective(s).answers||[]){
    const k=safety.unresolved(a)?'uncertain':a.state;m[k]=(m[k]||0)+1;
  }return m;},{});
- $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تمت مراجعتها',sheets.filter(s=>s.reviewed_at).length],['حالات تطابق الأوراق',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
+ $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تم حفظ التحقق',sheets.filter(s=>s.disposition==='verified').length],['لإعادة المسح — بلا درجة',sheets.filter(s=>s.disposition==='requires_rescan').length],['حالات تطابق الأوراق',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
  const only=$('alertFilter').checked;
  $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.identity_valid?a.student_name:'هوية غير مرتبطة — راجع QR')+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td>'+esc(status(s))+' <span class="quality-risk '+riskOf(s)+'">'+riskLabel(riskOf(s))+'</span>'+(duplicate(s)?' <strong class="duplicate-label" title="'+esc(duplicateExplanation(s))+'">'+esc(duplicateTitle(s))+'</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">محاولة قراءة رمز QR</button> '+
  '<button class="secondary" data-assign-identity="'+i+'" type="button">ربط الطالب بعد مطابقة الورقة</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
  if($('duplicateLive')&&!sheets.some(duplicate))$('duplicateLive').textContent='';
  $('sessionProgress').textContent=session?(session.completed_at?'جلسة منتهية · ':'')+'تم التحقق من '+ar(sheets.filter(s=>s.reviewed_at).length)+' من '+ar(session.expected_count)+' ورقة':'';
  if($('selectAllSheets')){$('selectAllSheets').checked=sheets.length>0&&selected.size===sheets.length;$('selectAllSheets').indeterminate=selected.size>0&&selected.size<sheets.length;}
- renderQualityReport();renderButtons();
+ renderQualityReport();renderApprovalChecklist();renderButtons();
+}
+function renderApprovalChecklist(){
+ const panel=$('approvalChecklist');if(!panel)return;
+ if(!session){panel.textContent='اختر جلسة تصحيح لعرض المتطلبات.';return;}
+ const verified=sheets.filter(s=>s.disposition==='verified').length;
+ const rescan=sheets.filter(s=>s.disposition==='requires_rescan').length;
+ const duplicateCount=sheets.filter(s=>s.disposition==='duplicate').length;
+ const pendingRows=sheets.map((s,i)=>({s,i})).filter(x=>!x.s.reviewed_at);
+ const uncertain=sheets.filter(s=>!s.reviewed_at&&!s.blocked_duplicate&&
+     (safety.unresolvedSheet(s)||pendingAnswerCount(effective(s))>0)).length;
+ const failed=sheets.filter(s=>!s.reviewed_at&&!s.blocked_duplicate&&failedRead(effective(s))).length;
+ const remaining=Math.max(0,Number(session.expected_count)-sheets.length);
+ const first=pendingRows[0];
+ const summary=['أوراق محفوظة: '+ar(sheets.length)+' من '+ar(session.expected_count),
+   'تم حفظ التحقق: '+ar(verified),'تنتظر تأكيد المراجع: '+ar(pendingRows.length),
+   'قراءة تحتاج حسمًا: '+ar(uncertain),'فشل قراءة: '+ar(failed),
+   'مؤجلة لإعادة المسح، دون درجة: '+ar(rescan),
+   'نسخ مكررة مستبعدة: '+ar(duplicateCount)];
+ panel.innerHTML='<b>ماذا يمنع الاعتماد؟</b><p>'+summary.map(esc).join(' · ')+'</p>'+
+   (remaining?'<p>لم يكتمل رفع العدد المتوقع بعد.</p>':'')+
+   (first?'<p>ابدأ بمراجعة الورقة رقم '+ar(first.s.ordinal)+'. فتح الصورة وحده ليس حفظًا للتحقق؛ ضع علامة «تحققت» ثم اضغط «حفظ التحقق من الورقة». إذا تعذرت قراءتها اختر «تتطلب إعادة المسح» مع السبب، ولن تدخل في التحصيل.</p>':
+   '<p>جميع الأوراق لها قرار مراجعة مسجل. اضغط «تم المراجعة» لإنهاء الجلسة، ثم «اعتماد النتائج» لحفظ درجات الأوراق المتحقق منها فقط.</p>')+
+   (first?'<button id="goPendingReview" type="button" class="secondary">فتح أول ورقة تنتظر حفظ التحقق (رقم '+ar(first.s.ordinal)+')</button>':'')+
+   (session.completed_at?'<p>جلسة المراجعة منتهية بالفعل.</p>':'');
+ if(first)$('goPendingReview').onclick=()=>open(first.i);
 }
 function populateStudentNames(filter='',selectedId=''){
  const sheet=sheets[active],list=draft?.assignments||[],input=$('manualAssignment');
@@ -648,6 +674,22 @@ async function verify(){
  try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0,verified:true});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(effective(r.sheet))+' · '+status(r.sheet);message('حُفظ التحقق من الورقة بشكل مستقل. يمكنك اختيار أي ورقة أخرى؛ الاعتماد النهائي للدفعة يتطلب استكمال بقية الأوراق.');render();}
  catch(e){message('لم يُحفظ التحقق: '+e.message,true);}finally{lock(false);}
 }
+async function markForRescan(){
+ const sheet=sheets[active];
+ if(busy||!sheet||sheet.reviewed_at||session?.completed_at||loadedImage!==sheet.id)return;
+ const reason=$('manualReviewReason')?.value?.trim()||'';
+ if(reason.length<10){message('اكتب سببًا واضحًا لإعادة المسح (10 أحرف على الأقل) بعد فحص الصورة.',true);return;}
+ if(!confirm('الورقة رقم '+ar(sheet.ordinal)+' لن تُحتسب لها درجة في التقرير الحالي، وستبقى محفوظة لإعادة المسح. هل تؤكد أنها لا يمكن اعتماد قراءتها الآن؟'))return;
+ lock(true);
+ try{
+  const r=await api('teacher_scan_mark_rescan',{sheet_id:sheet.id,answer_version:sheet.answer_version||0,reason});
+  sheets[active]=r.sheet;
+  $('sheetModal').classList.add('hidden');
+  message('سُجلت الورقة رقم '+ar(sheet.ordinal)+' «تتطلب إعادة المسح» بلا درجة. استمر في مراجعة الأوراق السليمة.');
+  render();
+ }catch(e){message('تعذر تأجيل الورقة لإعادة المسح: '+e.message,true);}
+ finally{lock(false);}
+}
 async function finish(){
  if(busy||$('finishReviewBtn').disabled)return;lock(true);
  try{const r=await api('teacher_scan_finish');session=r.session;$('sheetModal').classList.add('hidden');message('تم المراجعة — سُجل وقت الإنهاء رسميًا. يمكنك اعتماد الأوراق المتحقق منها.');render();await sessions();}
@@ -797,7 +839,7 @@ if($('printedNameOcrCandidates'))$('printedNameOcrCandidates').onclick=e=>{
 };
 if($('refreshIdentityGradeBtn'))$('refreshIdentityGradeBtn').onclick=refreshIdentityGrade;$('rereadAllBtn').onclick=()=>rereadAllStrict({auto:false,onlyStale:false});
 $('loadEditHistoryBtn').onclick=editHistory;
-$('saveSheetBtn').onclick=verify;$('nextSheetBtn').onclick=()=>open(active+1);$('finishReviewBtn').onclick=finish;
+$('saveSheetBtn').onclick=verify;if($('rescanSheetBtn'))$('rescanSheetBtn').onclick=markForRescan;$('nextSheetBtn').onclick=()=>open(active+1);$('finishReviewBtn').onclick=finish;
 $('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>open(Math.max(0,firstPending()));
 $('resultsBody').onclick=e=>{
  const openBtn=e.target.closest('[data-open]');if(openBtn){open(Number(openBtn.dataset.open));return;}
