@@ -179,7 +179,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  const {session}=await scanSession(db,b,owner);
  const mutations=['teacher_scan_finalize_upload','teacher_scan_register','teacher_scan_assign_identity',
-   'teacher_scan_reprocess_server','teacher_scan_reclassify','teacher_scan_refresh_identity_grade','teacher_scan_edit_answer','teacher_scan_resolve_multiple','teacher_scan_verify','teacher_scan_finish'];
+   'teacher_scan_reprocess_server','teacher_scan_reclassify','teacher_scan_refresh_identity_grade','teacher_scan_edit_answer','teacher_scan_resolve_multiple','teacher_scan_verify','teacher_scan_mark_rescan','teacher_scan_finish'];
  if(mutations.includes(b.action)&&session.reviewer_id!==owner.id)fail('التعديل متاح لمراجع الجلسة المسجل فقط.',403);
  if(b.action==='teacher_scan_list'){
     const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
@@ -481,6 +481,16 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    // SQL still owns the atomic version check and audit; its source must be verified separately.
    return {ok:true,sheet:must(await db.rpc('nafes_scan_verify_current',{p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,p_ack:b.acknowledge_duplicate===true,p_version:b.answer_version}))};
  }
+ if(b.action==='teacher_scan_mark_rescan'){
+   if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات الورقة غير صالحة.',400);
+   const reason=String(b.reason||'').trim();
+   if(reason.length<10||reason.length>600)fail('دوّن سبب إعادة المسح من 10 إلى 600 حرف.',400);
+   const saved=must(await db.rpc('nafes_scan_mark_rescan',{
+     p_session:session.id,p_sheet:b.sheet_id,p_reviewer:owner.id,
+     p_version:b.answer_version,p_reason:reason
+   }));
+   return{ok:true,sheet:saved,requires_rescan:true,grade_published:false};
+ }
  if(b.action==='teacher_scan_finish'){
    await reviewedBatchSheets(db,session);
    return {ok:true,session:publicSession(must(await db.rpc('nafes_scan_finish',{p_session:session.id})))};
@@ -502,8 +512,9 @@ function assertReviewedSheet(sheet:Row,questionCount:number){
    }
 }
 async function reviewedBatchSheets(db:any,session:Row){
- const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('blocked_duplicate',false).order('ordinal'));
- if(!sheets.length)fail('لا توجد أوراق قابلة للاعتماد؛ راجع تنبيهات التكرار وإعادة المسح.',409);
+ const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('blocked_duplicate',false).eq('disposition','verified').order('ordinal'));
+ // Rescan exceptions remain visible in scan history but NEVER become graded attempts.
+ if(!sheets.length)fail('لا توجد أوراق تحقق معتمدة للنشر. راجع الأوراق السليمة أولًا.',409);
  for(const sheet of sheets){
    if(sheet.disposition!=='verified')fail('توجد أوراق لم تُحسم مراجعتها؛ لا يمكن اعتماد الدفعة.',409);
    assertReviewedSheet(sheet,Number(session.review_snapshot?.question_count));
