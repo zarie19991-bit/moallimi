@@ -1935,7 +1935,7 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     assignments:Array.isArray(baseReview.assignments)?baseReview.assignments:(Array.isArray(b.assignments)?b.assignments:[])
   },owner);
   const publication=must(await db.rpc('nafes_scan_publish_attempts',{p_session:b.session_id,p_owner:owner.id,
-    p_assessment:{title,config,rendered_sections:assessmentSections,review_payload:reviewPayload},p_attempts:prepared}));
+    p_assessment:{title,config,rendered_sections:assessmentSections,review_payload:reviewPayload,partial_approval:b.partial_approval===true},p_attempts:prepared}));
   const assessment={id:publication.assessment_id};
   saved.push(...publication.results);
 
