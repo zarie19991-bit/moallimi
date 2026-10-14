@@ -59,7 +59,7 @@ BEGIN
       OR snap->'omr_verification'->>'risk' IS DISTINCT FROM 'low'
       OR (coalesce(nullif(snap->'omr_verification'->>'quality_score',''),'0'))::numeric <95
       OR jsonb_typeof(snap->'answers') IS DISTINCT FROM 'array'
-      OR CASE WHEN jsonb_typeof(snap->'answers')='array' THEN jsonb_array_length(snap->'answers') ELSE -1 END <> expected
+      OR jsonb_array_length(jsonb_path_query_array(snap,'$.answers[*]')) <> expected
       OR snap->>'grade_status' IN ('unreadable','needs_review')
       OR EXISTS(SELECT 1 FROM public.nafes_scan_alerts WHERE sheet_id=r.id)
    THEN
@@ -84,10 +84,8 @@ BEGIN
            ))
         OR a->>'correct_index' !~ '^[0-3]$'
         OR jsonb_typeof(a->'marked') IS DISTINCT FROM 'array'
-        OR (
-          CASE WHEN jsonb_typeof(a->'marked')='array' THEN jsonb_array_length(a->'marked') ELSE -1 END
-          <> CASE WHEN a->>'status'='blank' THEN 0 ELSE 1 END
-        )
+        OR (a->>'status'='blank' AND jsonb_array_length(jsonb_path_query_array(a,'$.marked[*]'))<>0)
+        OR (a->>'status'='clear' AND jsonb_array_length(jsonb_path_query_array(a,'$.marked[*]'))<>1)
         OR (a->>'status'='blank' AND (
            a->>'state'<>'blank' OR a->'selected' IS DISTINCT FROM 'null'::jsonb
            OR a->'correct' IS DISTINCT FROM 'false'::jsonb
