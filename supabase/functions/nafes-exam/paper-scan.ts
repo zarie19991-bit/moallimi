@@ -3,6 +3,7 @@ import { identityOnlyUncertainty, preserveOpticalEvidence } from "./omr-identity
 // Auth is performed by handleAssessments before invoking this module.
 import { fail, hash } from './assessment-engine.ts';
 import { readOmrJpeg } from './omr-server.ts';
+import {verifiedSheetsForPublication} from './omr-publish-filter.ts';
 import { proposeVisionReading } from './omr-vision-assist.ts';
 type Row=Record<string,any>;
 const must=(r:any)=>{if(r.error)fail(r.error.message,400);return r.data;};
@@ -512,7 +513,8 @@ function assertReviewedSheet(sheet:Row,questionCount:number){
    }
 }
 async function reviewedBatchSheets(db:any,session:Row){
- const sheets=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).eq('blocked_duplicate',false).eq('disposition','verified').order('ordinal'));
+ const all=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
+ const sheets=verifiedSheetsForPublication(all) as Row[];
  // Rescan exceptions remain visible in scan history but NEVER become graded attempts.
  if(!sheets.length)fail('لا توجد أوراق تحقق معتمدة للنشر. راجع الأوراق السليمة أولًا.',409);
  for(const sheet of sheets){
