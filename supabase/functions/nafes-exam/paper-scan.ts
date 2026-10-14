@@ -180,7 +180,7 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
  }
  const {session}=await scanSession(db,b,owner);
  const mutations=['teacher_scan_finalize_upload','teacher_scan_register','teacher_scan_assign_identity',
-   'teacher_scan_reprocess_server','teacher_scan_reclassify','teacher_scan_refresh_identity_grade','teacher_scan_edit_answer','teacher_scan_resolve_multiple','teacher_scan_verify','teacher_scan_mark_rescan','teacher_scan_finish'];
+   'teacher_scan_reprocess_server','teacher_scan_reclassify','teacher_scan_refresh_identity_grade','teacher_scan_edit_answer','teacher_scan_resolve_multiple','teacher_scan_verify','teacher_scan_bulk_verify_clean','teacher_scan_mark_rescan','teacher_scan_finish'];
  if(mutations.includes(b.action)&&session.reviewer_id!==owner.id)fail('التعديل متاح لمراجع الجلسة المسجل فقط.',403);
  if(b.action==='teacher_scan_list'){
     const rows=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
@@ -472,6 +472,16 @@ export async function handlePaperScan(db:any,b:Row,owner:Row){
    const edits=must(await db.from('nafes_scan_answer_edits').select('*').eq('sheet_id',b.sheet_id).order('answer_version',{ascending:false}).range(cursor,cursor+199));
    const identity_edits=must(await db.from('nafes_scan_identity_edits').select('*').eq('sheet_id',b.sheet_id).order('created_at',{ascending:false}).range(cursor,cursor+199));
    return {ok:true,edits,identity_edits,next_cursor:edits.length===200||identity_edits.length===200?cursor+200:null};
+ }
+ if(b.action==='teacher_scan_bulk_verify_clean'){
+   // A preview cannot approve anything. A separate explicit confirmation in
+   // the teacher UI invokes apply. Both paths use identical DB validation.
+   const apply=b.apply===true;
+   if(!uuid(session.id))fail('جلسة المراجعة غير صالحة.',400);
+   const result=must(await db.rpc('nafes_scan_bulk_verify_clean',{
+      p_session:session.id,p_reviewer:owner.id,p_apply:apply
+   }));
+   return{...result,ok:true,grades_published:false};
  }
  if(b.action==='teacher_scan_verify'){
    if(!uuid(b.sheet_id)||!Number.isInteger(b.answer_version))fail('بيانات التحقق من الورقة غير صالحة.');

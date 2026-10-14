@@ -87,9 +87,12 @@
 
   <section id="resultsSection" class="card hidden">
     <header class="section-head">
-      <div><h2>٢. مراجعة الأوراق</h2><p>تحقق من كل ورقة بالترتيب. يمكنك تعديل أي إجابة؛ يحفظ السجل القراءة الأصلية وتعديلاتك.</p></div>
+      <div><h2>٢. مراجعة الأوراق</h2><p>اضغط «مراجعة جميع الأوراق السليمة» مرة واحدة؛ ثم افحص بنفسك التظليل المزدوج والحالات غير الواضحة فقط. لا تُنشر النتائج إلا بعد موافقتك النهائية.</p></div>
       <div class="actions">
-        <button id="reviewNextBtn" class="secondary" type="button">متابعة المراجعة</button><button id="rereadAllBtn" class="secondary" type="button">إعادة قراءة التظليل بدقة</button><button id="selectAllBtn" class="secondary" type="button">تحديد الكل</button><button id="deleteSelectedBtn" class="secondary" type="button" disabled>حذف التصحيحات المحددة</button><button id="resetOmrAttemptsBtn" class="secondary" type="button" disabled title="حذف أوراق ومحاولات التصحيح الآلي لهذا الاختبار من قاعدة البيانات، دون حذف الاختبار أو المحاولات الإلكترونية">تصفير التصحيح الآلي نهائيًا</button>
+        <button id="bulkCleanReviewBtn" class="primary" type="button" title="يحفظ مراجعة الأوراق منخفضة الخطورة التي اجتازت جميع فحوص الهوية والتظليل والدرجات، ولا يعتمد أو ينشر النتائج">مراجعة جميع الأوراق السليمة</button>
+<button id="doubleAnswerReviewBtn" class="secondary" type="button">مراجعة الإجابتين فقط</button>
+<button id="unclearAnswerReviewBtn" class="secondary" type="button">الإجابات غير الواضحة</button>
+<button id="reviewNextBtn" class="secondary" type="button">متابعة المراجعة</button><button id="rereadAllBtn" class="secondary" type="button">إعادة قراءة التظليل بدقة</button><button id="selectAllBtn" class="secondary" type="button">تحديد الكل</button><button id="deleteSelectedBtn" class="secondary" type="button" disabled>حذف التصحيحات المحددة</button><button id="resetOmrAttemptsBtn" class="secondary" type="button" disabled title="حذف أوراق ومحاولات التصحيح الآلي لهذا الاختبار من قاعدة البيانات، دون حذف الاختبار أو المحاولات الإلكترونية">تصفير التصحيح الآلي نهائيًا</button>
         <button id="approveBtn" class="primary" type="button">اعتماد النتائج</button>
       </div>
     </header>
@@ -172,7 +175,7 @@
 <script src="review-draft-sync.js?v=20260930-2"></script>
 <script src="review-omr-safety.js?v=20261010-independent-verify"></script>
 <script src="review-scan-name-ocr.js?v=20261010-crops-diagnostics2"></script>
-<script src="review-scan-journal.js?v=20261014-approval-diagnostics1"></script>
+<script src="review-scan-journal.js?v=20261014-bulk-clean-review1"></script>
 <script src="review-scan.js?v=20261010-qr-identity-recovery3"></script>
 </body>
 </html>
