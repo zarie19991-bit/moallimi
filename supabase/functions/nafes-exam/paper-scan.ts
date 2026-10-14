@@ -537,7 +537,7 @@ export async function reviewedScanPayload(db:any,b:Row,owner:Row){
  if(!uuid(b.session_id))fail('أكمل جلسة مراجعة الأوراق قبل اعتماد النتائج.',409);
  const {review,session}=await scanSession(db,b,owner);
  if(session.reviewer_id!==owner.id)fail('نشر النتائج متاح لمراجع الجلسة المسجل فقط.',403);
- if(!session.completed_at)fail('اضغط «تم المراجعة» قبل اعتماد النتائج.',409);
+ if(!session.completed_at&&b.partial_approval!==true)fail('اضغط «تم المراجعة» قبل اعتماد النتائج.',409);
  const sheets=await reviewedBatchSheets(db,session);
- return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answer_version:s.answer_version,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length,policy:x.omr_policy||null,risk:x.omr_verification?.risk||null,quality_score:x.omr_verification?.quality_score||null}};})};
+ return {...session.review_snapshot,partial_approval:b.partial_approval===true,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answer_version:s.answer_version,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length,policy:x.omr_policy||null,risk:x.omr_verification?.risk||null,quality_score:x.omr_verification?.quality_score||null}};})};
 }
