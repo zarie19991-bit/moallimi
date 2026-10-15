@@ -40,7 +40,7 @@ const {chromium,webkit}=require('playwright');
    await page.setViewportSize({width:390,height:844});
    assert.equal(await page.locator('#reviewFocusFilter').isVisible(),true);
    await page.setContent(fs.readFileSync('review-correction.html','utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<link\b[^>]*>/gi,''));
-   await page.addStyleTag({path:'review-correction.css'});
+   await page.addStyleTag({content:fs.readFileSync('tamakkun-design-system.css','utf8')+'\n'+fs.readFileSync('review-correction.css','utf8').replace(/@import[^;]+;/g,'')});
    assert.equal(await page.locator('#paperTests').isVisible(),true);
    assert.equal(await page.locator('#reviewTitle').isVisible(),false);
    await page.locator('#paperBuilder>summary').click();
