@@ -110,15 +110,19 @@ function componentSquares(im:GrayImage,threshold:number){
   }
   return out.sort((a,b)=>b.score-a.score).slice(0,48);
 }
-function detectMarkers(im:GrayImage){
+function detectMarkers(im:GrayImage,recovery=false){
  const threshold=otsuThreshold(im),I=binaryIntegral(im,threshold);
   const components=componentSquares(im,threshold);
   const candidates=(zone:number[],ex:number,ey:number)=>{
     const c=components.filter(p=>p.x>=im.width*zone[0]&&p.x<=im.width*zone[1]&&p.y>=im.height*zone[2]&&p.y<=im.height*zone[3]);
     // Use the original detector as fallback for skewed/fragmented printed squares.
-    if(c.length>=2)return c.slice(0,24);
+    if(!recovery&&c.length>=2)return c.slice(0,24);
+    // Printed corner squares may be worn while filled answers dominate the
+    // strongest windows. Reserve candidates from the outer margin as well.
+    const margin=zone[0]>.5?[.85,1,zone[2],zone[3]]:[0,.15,zone[2],zone[3]];
+    const edge=recovery?squareCandidates(I,margin,ex,ey,4):[];
     const original=squareCandidates(I,zone,ex,ey,12);
-    return [...c,...original.filter(p=>!c.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<q.size))].slice(0,24);
+    return [...edge,...c,...original.filter(p=>!c.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<q.size))].slice(0,24);
   };
   const TL=candidates([0,.45,0,.85],.10,.59),
         TR=candidates([.55,1,0,.85],.88,.59),
@@ -152,7 +156,7 @@ function detectMarkers(im:GrayImage){
  return{
    tl:best.tl,tr:best.tr,bl:best.bl,br:best.br,
     confidence:clamp(1-best.aspectErr,0,.995),
-    detector:'otsu-component-grid-dev',threshold
+    detector:recovery?'printed-grid-marker-recovery':'otsu-component-grid-dev',threshold,recovered:recovery
  };
 }
 function mapPoint(m:any,x:number,y:number){
@@ -291,20 +295,26 @@ function locateBubbleGrid(im:GrayImage,scale:number){
   return{blocks,score:median(blocks.map(b=>b.score))};
 }
 function orientTemplate(source:GrayImage,scale:number){
-  const candidates:any[]=[];let im=source;
-  for(let turn=0;turn<4;turn++){
-    try{
-      const m=detectMarkers(im),warped=warpTemplate(im,m,scale),grid=locateBubbleGrid(warped,scale);
-      candidates.push({m,im:warped,grid,rotation:turn*90});
-    }catch(e:any){
-      if(!String(e?.message||e).includes('علامات محاذاة'))throw e;
+  const scan=(recovery:boolean)=>{
+    const candidates:any[]=[];let im=source;
+    for(let turn=0;turn<4;turn++){
+      try{
+        const detected=detectMarkers(im,recovery);
+        const warped=warpTemplate(im,detected,scale),grid=locateBubbleGrid(warped,scale);
+        candidates.push({m:detected,im:warped,grid,rotation:turn*90});
+      }catch(e:any){if(!String(e?.message||e).includes('علامات محاذاة'))throw e;}
+      im=rotate90(im);
     }
-    im=rotate90(im);
-  }
-  candidates.sort((a,b)=>b.grid.score-a.grid.score);
+    return candidates.sort((a,b)=>b.grid.score-a.grid.score);
+  };
+  let candidates=scan(false);
+  // Keep successful existing reads identical. Recovery is only for rejected geometry.
+  if(!candidates[0]||candidates[0].grid.score<.07)candidates=scan(true);
   const best=candidates[0],runner=candidates[1];
   if(!best||best.grid.score<.07)throw new Error('لم يتم العثور على علامات محاذاة وشبكة فقاعات موثوقة للقالب.');
   if(runner&&best.grid.score-runner.grid.score<.025)throw new Error('اتجاه الورقة غير حاسم؛ يلزم مراجعة الصورة.');
+  // Recovery requires evidence from every printed block, not just a median match.
+  if(best.m.recovered&&best.grid.blocks.some((b:any)=>b.score<.10))throw new Error('شبكة الفقاعات غير مكتملة بعد استعادة علامات المحاذاة؛ راجع الصورة.');
   return best;
 }
 export function readOmrJpeg(src:string,total:number,startNo=1){
@@ -425,7 +435,7 @@ export function readOmrJpeg(src:string,total:number,startNo=1){
      reader:'center-proof-review',confidence:Math.min(.49,Number(answer.confidence)||0)};
  });
  const ambiguous=verifiedAnswers.filter((a:any)=>a.status==='ambiguous').length,multiple=verifiedAnswers.filter((a:any)=>a.status==='multiple').length;
-  const geometryUncertain=m.confidence<.85||grid.score<.10;
+  const geometryUncertain=m.confidence<.85||grid.score<.10||m.recovered===true;
   const requiresReview=!!(ambiguous||multiple||geometryUncertain);
   return{answers:verifiedAnswers,markers_ok:true,marker_confidence:Number(m.confidence.toFixed(3)),detector:String(m.detector||'otsu-component-grid-dev'),rotation,
    color_calibration:{method:'local-paper-annular-median',weak_second_ink:'manual-review'},

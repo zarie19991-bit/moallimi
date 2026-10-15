@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#17324d">
 <title>رفع أوراق الطلاب وتصحيحها | معلّمي</title>
-<link rel="stylesheet" href="review-scan.css?v=20261010-arabic-text-match1">
+<link rel="stylesheet" href="review-scan.css?v=20261015-focused1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -118,7 +118,7 @@
   <div class="modal-card">
     <header><div><b id="modalTitle"></b><span id="modalSub"></span></div><button id="closeModal" type="button">×</button></header>
     <div class="modal-grid">
-      <div class="scan-preview"><img id="scanImage" alt="صورة ورقة التظليل الممسوحة"></div>
+      <div class="scan-preview"><label class="scan-zoom-tools">تكبير صورة الورقة <select id="scanZoom" aria-label="تكبير صورة الورقة"><option value="100">ملاءمة العرض</option><option value="150">١٥٠٪</option><option value="200">٢٠٠٪</option><option value="300">٣٠٠٪</option></select></label><img id="scanImage" alt="صورة ورقة التظليل الممسوحة"></div>
       <div>
         <div id="manualAssignmentWrap" class="manual-assignment hidden">
           <p><strong>الاسم المطبوع موجود في الورقة؟</strong> جرّب قراءة الاسم بالعربية ثم طابقه بالقائمة. فشل QR لا يعني أن الطالب مجهول أو أن التظليل فشل.</p>
@@ -175,7 +175,9 @@
 <script src="review-draft-sync.js?v=20260930-2"></script>
 <script src="review-omr-safety.js?v=20261010-independent-verify"></script>
 <script src="review-scan-name-ocr.js?v=20261010-crops-diagnostics2"></script>
-<script src="review-scan-journal.js?v=20261014-confirm-uncertain-v2"></script>
+<script src="review-focus.js?v=20261015-focused1"></script>
+<script>document.getElementById("scanZoom").onchange=function(){document.getElementById("scanImage").style.width=this.value+"%";};</script>
+<script src="review-scan-journal.js?v=20261015-focused1"></script>
 <script src="review-scan.js?v=20261010-qr-identity-recovery3"></script>
 </body>
 </html>
