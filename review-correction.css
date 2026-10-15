@@ -34,3 +34,7 @@
 .review-archive .archive-item{border:1px solid #d7e5e0;border-radius:14px;padding:15px;background:#fff}
 .review-archive .archive-actions .open-review{background:#0f6b63;color:#fff;border-color:#0f6b63;font-weight:900}
 @media(max-width:700px){.review-archive-card .archive-toolbar>*{width:100%}.active-paper-review{align-items:flex-start}}
+
+/* Keep saved tests first; reveal setup and secondary actions on request. */
+.paper-builder>summary,.archive-more>summary{cursor:pointer;padding:14px;font-weight:700;border:1px solid #cedbd7;border-radius:10px;background:#f4f8f6;color:#174d3a}
+.paper-builder>summary{margin:18px 0}.archive-more{max-width:100%}.archive-more[open]{flex-basis:100%}.archive-more .archive-actions{padding:12px 0}.archive-actions{align-items:start}.paper-builder[open]>.builder-grid{margin-top:16px}

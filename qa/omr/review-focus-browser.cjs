@@ -8,6 +8,12 @@ const {chromium,webkit}=require('playwright');
    const page=await browser.newPage({viewport:{width:1280,height:900}});
    await page.setContent(fs.readFileSync('review-scan.html','utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<link\b[^>]*>/gi,''));
    await page.addStyleTag({path:'review-scan.css'});
+   await page.evaluate(()=>document.getElementById('resultsSection').classList.remove('hidden'));
+   assert.equal(await page.locator('#approveBtn').isVisible(),true);
+   assert.equal(await page.locator('#resetOmrAttemptsBtn').isVisible(),false);
+   await page.locator('.scan-extra>summary').click();
+   assert.equal(await page.locator('#resetOmrAttemptsBtn').isVisible(),true);
+   await page.locator('.scan-extra>summary').click();
    await page.evaluate(()=>{
     document.getElementById('sheetModal').classList.remove('hidden');
     document.getElementById('answerEditor').innerHTML=[1,2,3].map(q=>'<div class="answer-row-edit" data-question="'+q+'"><b>السؤال '+q+'</b><button>أ</button></div>').join('');
@@ -33,6 +39,12 @@ const {chromium,webkit}=require('playwright');
    assert.equal(await page.locator('#answerEditor>[data-question]:visible').count(),3);
    await page.setViewportSize({width:390,height:844});
    assert.equal(await page.locator('#reviewFocusFilter').isVisible(),true);
+   await page.setContent(fs.readFileSync('review-correction.html','utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<link\b[^>]*>/gi,''));
+   await page.addStyleTag({path:'review-correction.css'});
+   assert.equal(await page.locator('#paperTests').isVisible(),true);
+   assert.equal(await page.locator('#reviewTitle').isVisible(),false);
+   await page.locator('#paperBuilder>summary').click();
+   assert.equal(await page.locator('#reviewTitle').isVisible(),true);
    console.log('PASS '+name+': pending focus, navigation, saved decision, all questions and mobile view');
   }finally{await browser.close();}
  }

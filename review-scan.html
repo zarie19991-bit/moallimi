@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#17324d">
 <title>رفع أوراق الطلاب وتصحيحها | معلّمي</title>
-<link rel="stylesheet" href="review-scan.css?v=20261015-focused1">
+<link rel="stylesheet" href="review-scan.css?v=20261015-simple1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
 <body>
@@ -68,23 +68,6 @@
     <div id="summaryCards" class="summary-grid"></div>
   </section>
 
-  <section id="qualitySection" class="card hidden">
-    <header class="section-head">
-      <div>
-        <h2>تقرير التحقق قبل المراجعة</h2>
-        <p>يصنف النظام الأوراق حسب خطورة القراءة ويعرض سبب الشك قبل أي اعتماد يدوي. الهدف التشغيلي للدقة 99.5% ولا يُعد متحققًا إلا بعد اختبار مرجعي موثق.</p>
-      </div>
-      <div class="actions"><button id="qualityExportBtn" class="secondary" type="button">تصدير تقرير الجودة CSV</button></div>
-    </header>
-    <div id="qualityCards" class="summary-grid"></div>
-    <div class="table-wrap quality-table-wrap">
-      <table>
-        <thead><tr><th>الطالب</th><th>النموذج</th><th>الدرجة الحالية</th><th>الخطورة</th><th>جودة القراءة</th><th>سبب المراجعة</th><th>الإجراء</th></tr></thead>
-        <tbody id="qualityBody"></tbody>
-      </table>
-    </div>
-  </section>
-
   <section id="resultsSection" class="card hidden">
     <header class="section-head">
       <div><h2>٢. مراجعة الأوراق</h2><p>اضغط «مراجعة جميع الأوراق السليمة» مرة واحدة؛ ثم افحص بنفسك التظليل المزدوج والحالات غير الواضحة فقط. لا تُنشر النتائج إلا بعد موافقتك النهائية.</p></div>
@@ -92,11 +75,12 @@
         <button id="bulkCleanReviewBtn" class="primary" type="button" title="يحفظ مراجعة الأوراق منخفضة الخطورة التي اجتازت جميع فحوص الهوية والتظليل والدرجات، ولا يعتمد أو ينشر النتائج">مراجعة جميع الأوراق السليمة</button>
 <button id="doubleAnswerReviewBtn" class="secondary" type="button">مراجعة الإجابتين فقط</button>
 <button id="unclearAnswerReviewBtn" class="secondary" type="button">الإجابات غير الواضحة</button>
-<button id="reviewNextBtn" class="secondary" type="button">متابعة المراجعة</button><button id="rereadAllBtn" class="secondary" type="button">إعادة قراءة التظليل بدقة</button><button id="selectAllBtn" class="secondary" type="button">تحديد الكل</button><button id="deleteSelectedBtn" class="secondary" type="button" disabled>حذف التصحيحات المحددة</button><button id="resetOmrAttemptsBtn" class="secondary" type="button" disabled title="حذف أوراق ومحاولات التصحيح الآلي لهذا الاختبار من قاعدة البيانات، دون حذف الاختبار أو المحاولات الإلكترونية">تصفير التصحيح الآلي نهائيًا</button>
-        <button id="finishReviewAllBtn" class="primary" type="button" disabled>إنهاء المراجعة بعد حسم الحالات</button> <button id="approveBtn" class="primary" type="button">اعتماد النتائج</button>
+<button id="reviewNextBtn" class="secondary" type="button">متابعة المراجعة</button>        <button id="finishReviewAllBtn" class="primary" type="button" disabled>إنهاء المراجعة بعد حسم الحالات</button> <button id="approveBtn" class="primary" type="button">اعتماد النتائج</button>
       </div>
     </header>
-    <p id="resetOmrScopeNote" style="margin:6px 0 10px;font-size:.85rem;color:#8b1e1e">زر التصفير يحذف جميع أوراق ومحاولات التصحيح الورقي لهذا الاختبار من قاعدة البيانات عبر كل جلساته، بما فيها النتائج المعتمدة المرتبطة بها إن وُجدت. لا يحذف الاختبار نفسه ولا محاولات الاختبارات الإلكترونية. يحتفظ النظام بسجل تدقيق مختصر.</p>
+    <details class="scan-extra"><summary>إعادة القراءة وإدارة الأوراق</summary><div class="actions"><button id="rereadAllBtn" class="secondary" type="button">إعادة قراءة التظليل بدقة</button><button id="selectAllBtn" class="secondary" type="button">تحديد الكل</button><button id="deleteSelectedBtn" class="secondary" type="button" disabled>حذف التصحيحات المحددة</button><button id="resetOmrAttemptsBtn" class="secondary" type="button" disabled title="حذف أوراق ومحاولات التصحيح الآلي لهذا الاختبار من قاعدة البيانات، دون حذف الاختبار أو المحاولات الإلكترونية">تصفير التصحيح الآلي نهائيًا</button>
+</div>    <p id="resetOmrScopeNote" style="margin:6px 0 10px;font-size:.85rem;color:#8b1e1e">زر التصفير يحذف جميع أوراق ومحاولات التصحيح الورقي لهذا الاختبار من قاعدة البيانات عبر كل جلساته، بما فيها النتائج المعتمدة المرتبطة بها إن وُجدت. لا يحذف الاختبار نفسه ولا محاولات الاختبارات الإلكترونية. يحتفظ النظام بسجل تدقيق مختصر.</p>
+</details>
     <section id="approvalChecklist" class="notice" role="status" aria-live="polite" style="margin:10px 0;padding:14px;border:1px solid #bccdd1;border-radius:10px;line-height:1.9;">جارٍ فحص شروط اعتماد نتائج الجلسة…</section>
 <div class="review-toolbar"><strong id="sessionProgress"></strong><label><input id="selectAllSheets" type="checkbox"> تحديد الكل</label><label><input id="alertFilter" type="checkbox"> عرض الأوراق ذات تنبيهات التكرار فقط</label></div>
 <div class="legend"><span class="state-blank">أحمر: غير محلول</span><span class="state-multiple">أصفر: متعدد الإجابات</span><span class="state-correct">أخضر: صحيح مؤكد</span><span>نص رمادي: خاطئ / قراءة غير مؤكدة</span></div>
@@ -107,6 +91,24 @@
       </table>
     </div>
   </section>
+
+  <details id="qualitySection" class="card hidden">
+    <summary>تفاصيل جودة القراءة وأسباب التنبيه</summary>
+    <header class="section-head">
+      <div>
+        <h2>تقرير التحقق قبل المراجعة</h2>
+        <p>يصنف النظام الأوراق حسب خطورة القراءة ويعرض سبب الشك قبل أي اعتماد يدوي.</p>
+      </div>
+      <div class="actions"><button id="qualityExportBtn" class="secondary" type="button">تصدير تقرير الجودة CSV</button></div>
+    </header>
+    <div id="qualityCards" class="summary-grid"></div>
+    <div class="table-wrap quality-table-wrap">
+      <table>
+        <thead><tr><th>الطالب</th><th>النموذج</th><th>الدرجة الحالية</th><th>الخطورة</th><th>جودة القراءة</th><th>سبب المراجعة</th><th>الإجراء</th></tr></thead>
+        <tbody id="qualityBody"></tbody>
+      </table>
+    </div>
+  </details>
 
   <section id="approvedSection" class="card hidden">
     <header class="section-head"><div><h2>٣. النتائج المعتمدة</h2><p>تم حفظ نتيجة هذه الدفعة في منصة معلّمي وربط كل إجابة بمؤشرها، وأصبحت متاحة في تحليل النتائج.</p></div><div class="actions"><a id="paperIndicatorLink" class="analysis-link" href="review-indicator-detail.html">تقرير المؤشرات التفصيلي</a><a id="paperAnalysisLink" class="analysis-link" href="review-analysis.html">فتح التحليل المستقل</a><a id="paperReportLink" class="analysis-link" href="review-report.html">فتح التقرير الرسمي</a><button id="exportBtn" class="secondary" type="button">تصدير CSV</button></div></header>
@@ -143,13 +145,13 @@
         </div>
         <p id="sheetWarning" role="status"></p><p id="modalFeedback" role="status" aria-live="polite"></p>
         <div id="omrUncertaintyReasons" role="status" aria-live="polite"></div>
-        <section id="visionAssistPanel" aria-label="قارئ التظليل بالذكاء الاصطناعي" style="border:1px solid #d6e0df;border-radius:10px;padding:10px;margin:10px 0">
-          <strong>قارئ صور ذكي مساعد — اقتراح فقط</strong>
+        <details id="visionAssistPanel" aria-label="قارئ التظليل بالذكاء الاصطناعي" style="border:1px solid #d6e0df;border-radius:10px;padding:10px;margin:10px 0">
+          <summary>قراءة ذكية مساعدة عند تعثر القراءة</summary>
           <p id="visionAssistStatus" role="status">غير مفعل؛ لن تُرسل أي صور أو تُحتسب تكاليف.</p>
           <p style="font-size:.9em">يُرسل الجزء السفلي فقط من صورة الورقة إلى مزود ذكاء اصطناعي خارجي بعد موافقتك. قد يحتوي الجزء المرسل على تفاصيل من الورقة؛ تأكد من موافقة المدرسة على مشاركة بيانات الطلاب. قد يترتب رسم استخدام على حساب مزود الخدمة. لا يحسب هذا الزر أي درجة ولا يعتمد أي إجابة.</p>
           <button id="visionReadBtn" class="secondary" type="button" disabled>اقتراح قراءة الصورة بالذكاء الاصطناعي</button>
           <div id="visionProposal" role="status" aria-live="polite"></div>
-        </section>
+        </details>
         <label for="manualReviewReason">ملاحظة إضافية اختيارية (يسجّل النظام وصف التعديل تلقائيًا)</label>
         <textarea id="manualReviewReason" minlength="3" maxlength="1000" rows="2" placeholder="اختياري؛ سيُسجّل نوع القرار والسؤال والتظليل قبل التعديل وبعده تلقائيًا. لا تدخل بيانات شخصية."></textarea>
         <label class="edit-mode"><input id="editMode" type="checkbox"> تحديد أكثر من إجابة للسؤال (اختياري)</label><p class="omr-choice-explanation">الخيار الأزرق هو الاختيار الذي قرأه الجهاز من التظليل، وليس دليلًا على صحته. تظهر النتيجة النهائية فقط بعد حسم الإجابات ومراجعتها.</p><div id="answerEditor" class="answer-editor"></div>

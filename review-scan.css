@@ -50,3 +50,5 @@ button:disabled{opacity:.5;cursor:not-allowed}.scan-preview{overflow:auto;max-he
 .scan-zoom-tools select{font:inherit;padding:8px}.scan-preview{overflow:auto!important;max-height:75vh!important;position:sticky;top:8px;align-self:start}
 .scan-preview #scanImage{max-width:none;cursor:zoom-in;transform-origin:top right}.scan-preview:has(#scanZoom) #scanImage{width:100%}
 @media(max-width:760px){.scan-preview{position:relative;top:auto;max-height:45vh!important}.review-focus-toolbar{position:relative}}
+
+.scan-extra{margin:12px 0;padding:12px;border:1px solid #d6e0df;border-radius:10px}.scan-extra>summary,#qualitySection>summary,#visionAssistPanel>summary{cursor:pointer;font-weight:700;padding:10px}.scan-extra[open]>.actions{margin-top:10px}
