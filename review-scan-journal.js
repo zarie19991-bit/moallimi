@@ -315,6 +315,7 @@ async function openNextException(kind){
  await open(found.i);
  if(kind==='multiple'){
   const x=(effective(found.sh)?.answers||[]).find(a=>a.state==='multiple'||a.status==='multiple');
+  window.NafesReviewFocus?.focus(x?.question||1);
   message('الورقة '+ar(found.sh.ordinal)+' — راجع السؤال '+ar(x?.question||1)+' ذا الإجابتين، ثم احفظ قرارك.');
  }
 }
@@ -427,8 +428,9 @@ async function open(i){
      '<button type="button" data-resolve-question="'+x.question+'" data-resolution="count_wrong" class="secondary">إبقاء التظليل المتعدد واحتسابه خطأ (0)</button></div>':
      x.reviewed_manually&&String(x.manual_reason||'').startsWith('قرار مراجعة متعدد التظليل')?
      '<small class="multiple-resolution">قرار المراجع محفوظ في سجل التعديلات: '+esc(x.state==='correct'?'مُنحت درجة للإجابة الصحيحة الموجودة ضمن التظليل':'تظليل متعدد محسوب خطأ')+'</small>':'';
-   return '<div class="answer-row-edit state-'+x.state+'"><div><b>س '+ar(x.question)+'</b><small>'+labels[x.state]+' · '+(x.reviewed_manually?'معدلة يدويًا':'تقدير آلي '+ar(Math.round(Number(x.confidence||0)*100))+'/100 (ليس قياسًا للدقة)')+'</small>'+evidence+(x.reviewed_manually?'<small class="original-answer">القراءة الأصلية: '+esc(originalText)+' — '+labels[original.state]+'</small>':'')+'</div><div class="choice-buttons" aria-label="تعديل إجابة السؤال '+x.question+'">'+letters.map((l,j)=>'<button type="button" data-edit-question="'+x.question+'" data-choice="'+j+'" aria-pressed="'+x.marked.includes(j)+'" class="readonly-choice '+(x.marked.includes(j)?'selected':'')+'">'+l+'</button>').join('')+'<button type="button" data-edit-question="'+x.question+'" data-choice="blank" class="blank-choice" aria-pressed="'+(x.marked.length===0)+'">فارغة</button></div>'+multiDecision+'</div>';
+   return '<div data-question="'+x.question+'" class="answer-row-edit state-'+x.state+'"><div><b>س '+ar(x.question)+'</b><small>'+labels[x.state]+' · '+(x.reviewed_manually?'معدلة يدويًا':'تقدير آلي '+ar(Math.round(Number(x.confidence||0)*100))+'/100 (ليس قياسًا للدقة)')+'</small>'+evidence+(x.reviewed_manually?'<small class="original-answer">القراءة الأصلية: '+esc(originalText)+' — '+labels[original.state]+'</small>':'')+'</div><div class="choice-buttons" aria-label="تعديل إجابة السؤال '+x.question+'">'+letters.map((l,j)=>'<button type="button" data-edit-question="'+x.question+'" data-choice="'+j+'" aria-pressed="'+x.marked.includes(j)+'" class="readonly-choice '+(x.marked.includes(j)?'selected':'')+'">'+l+'</button>').join('')+'<button type="button" data-edit-question="'+x.question+'" data-choice="blank" class="blank-choice" aria-pressed="'+(x.marked.length===0)+'">فارغة</button></div>'+multiDecision+'</div>';
  }).join('');
+ window.NafesReviewFocus?.mount(s.id,a.answers);
  $('sheetEditHistory').innerHTML='';$('editHistoryDetails').open=false;
  $('editMode').disabled=!!session?.completed_at;
  const verificationReasons=Array.isArray(a.omr_verification?.reasons)?a.omr_verification.reasons:[];
@@ -845,7 +847,7 @@ async function transfer(){
 }
 async function approve(){
  if(busy||$('approveBtn').disabled)return;lock(true);
- try{const r=await api('teacher_paper_review_save');$('approvedSection').classList.remove('hidden');$('indicatorSummary').textContent='تم اعتماد '+ar(r.saved_count)+' ورقة وربط نتائجها بالتحليل. النسخ المكررة والأوراق المطلوب إعادة مسحها مستبعدة.';for(const [id,page]of [['paperAnalysisLink','review-analysis.html'],['paperReportLink','review-report.html'],['paperIndicatorLink','review-indicator-detail.html']])$(id).href=page+'?rid='+encodeURIComponent(draft.review_id);message('حُفظت النتائج في المنصة.');}
+ try{const r=await api('teacher_paper_review_save');$('approvedSection').classList.remove('hidden');$('indicatorSummary').textContent='تم اعتماد '+ar(r.saved_count)+' ورقة وربط نتائجها بالتحليل. النسخ المكررة والأوراق المطلوب إعادة مسحها مستبعدة.';for(const [id,page]of [['paperAnalysisLink','review-analysis.html'],['paperReportLink','review-report.html'],['paperIndicatorLink','review-indicator-detail.html']])$(id).href=page+'?rid='+encodeURIComponent(draft.review_id);NafesTeacher.clearReadCache?.();message('حُفظت النتائج في المنصة؛ جارٍ فتح تحليل المؤشرات المعتمد…');location.assign('review-analysis.html?rid='+encodeURIComponent(draft.review_id));}
  catch(e){message('تعذر الاعتماد: '+e.message,true);}finally{lock(false);}
 }
 function download(rows,name){const safe=v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};const blob=new Blob(['\ufeff'+rows.map(r=>r.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}

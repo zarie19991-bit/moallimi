@@ -38,3 +38,17 @@ button:disabled{opacity:.5;cursor:not-allowed}.scan-preview{overflow:auto;max-he
 #manualAssignmentWrap #printedNameOcrCandidates p{width:100%;margin:0}
 #manualAssignmentWrap #printedNameOcrCandidates button{min-height:36px;white-space:normal;max-width:100%;text-align:right}
 #manualAssignmentWrap .ocr-privacy{font-size:12px;color:#405763;padding:6px 0}
+
+/* Keep the paper visible beside the current decision on desktop. */
+.review-focus-toolbar{position:sticky;top:0;z-index:2;background:#f1f8f6;border:1px solid #bdd8d0;border-radius:12px;padding:14px;margin:12px 0;color:#153e35}
+.review-focus-toolbar h3{margin:0 0 8px;font-size:18px}.review-focus-toolbar p{font-size:14px;line-height:1.8;margin:6px 0}
+.review-focus-toolbar select,.review-focus-toolbar button{font:inherit;min-height:42px;padding:8px 12px;border:1px solid #b4cdc5;border-radius:8px;background:white;color:#17324d}
+.review-focus-toolbar .actions{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+#answerEditor{display:block!important}#answerEditor>.answer-row-edit{margin-bottom:12px;padding:16px;border-radius:12px}#answerEditor>.answer-row-edit[hidden]{display:none!important}
+#answerEditor .choice-buttons button{min-height:44px;min-width:44px;font-size:17px;padding:10px}
+.scan-zoom-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;padding:10px;border-bottom:1px solid #d7e1df;position:sticky;top:0;z-index:2}
+.scan-zoom-tools select{font:inherit;padding:8px}.scan-preview{overflow:auto!important;max-height:75vh!important;position:sticky;top:8px;align-self:start}
+.scan-preview #scanImage{max-width:none;cursor:zoom-in;transform-origin:top right}.scan-preview:has(#scanZoom) #scanImage{width:100%}
+@media(max-width:760px){.scan-preview{position:relative;top:auto;max-height:45vh!important}.review-focus-toolbar{position:relative}}
+
+.scan-extra{margin:12px 0;padding:12px;border:1px solid #d6e0df;border-radius:10px}.scan-extra>summary,#qualitySection>summary,#visionAssistPanel>summary{cursor:pointer;font-weight:700;padding:10px}.scan-extra[open]>.actions{margin-top:10px}

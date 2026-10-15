@@ -27,17 +27,22 @@ function pearson(xs,ys){
 
 function paperEvent(a,rid){return (a?.events||[]).find(e=>e?.type==='paper_scan'&&String(e.review_id||'')===String(rid||''));}
 async function allAttempts(){
- let cursor=0,out=[],guard=0;
- while(guard++<200){
+ let cursor=0,out=[];const seen=new Set();
+ for(let page=0;page<200;page++){
+   if(seen.has(cursor))throw new Error('تكرر مؤشر النتائج؛ أُوقف إنشاء التقرير لتجنب بيانات ناقصة. أعد التحميل.');
+   seen.add(cursor);
    const d=await T.api('teacher_data',{cursor,limit:100});
-   out.push(...(d.attempts||[]));
-   if(d.next_cursor===null||d.next_cursor===undefined)break;
-   cursor=Number(d.next_cursor);
+   if(!Array.isArray(d.attempts))throw new Error('لم تصل قائمة نتائج صالحة؛ أعد تحميل التقرير.');
+   out.push(...d.attempts);
+   if(d.next_cursor===null||d.next_cursor===undefined)return out;
+   const next=Number(d.next_cursor);
+   if(!Number.isInteger(next)||next<=cursor)throw new Error('تعذر استكمال صفحات النتائج؛ لن يُنشأ تقرير جزئي.');
+   cursor=next;
  }
- return out;
+ throw new Error('لم يكتمل تحميل جميع النتائج؛ أعد المحاولة قبل إنشاء التقرير.');
 }
 async function listReviews(){const d=await T.api('teacher_paper_review_list',{});return d.reviews||[];}
-async function roster(){try{const d=await T.api('teacher_students_list',{include_archived:false});return d.students||[];}catch(_){return[];}}
+async function roster(){const d=await T.api('teacher_students_list',{include_archived:false});if(!Array.isArray(d.students))throw new Error('تعذر تحميل كشف الطلاب لحساب غير المختبرين.');return d.students;}
 async function getReview(reviewId){const d=await T.api('teacher_paper_review_get',reviewId?{review_id:reviewId}:{});return d.review||null;}
 function latestByStudent(rows){
  const map=new Map();
@@ -87,7 +92,9 @@ function absentStudents(payload,attempts,className='',rosterRows=[]){
 }
 function studentRows(attempts){
  return attempts.map(a=>{
-   const score=Number(a.score||0),total=Number(a.total||0),percent=Number.isFinite(Number(a.percent))?Number(a.percent):(total?score*100/total:null);
+   const score=a.score==null?NaN:Number(a.score),total=a.total==null?NaN:Number(a.total);
+   if(!Number.isFinite(score)||!Number.isFinite(total)||total<=0||score<0||score>total)throw new Error('توجد نتيجة معتمدة بدرجة غير مكتملة؛ راجع سجل التصحيح قبل إصدار التقرير.');
+   const percent=score*100/total;
    const ev=(a.events||[]).find(e=>e?.type==='paper_scan')||{};
    return{name:a.student_name||'—',student_id:a.student_id||'',className:a.class_name||'—',model:ev.model||'—',score,total,percent,level:level(percent),attempt:a};
  }).sort((a,b)=>(a.percent??999)-(b.percent??999)||a.name.localeCompare(b.name,'ar'));

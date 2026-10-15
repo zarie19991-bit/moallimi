@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#065f46">
 <title>الاختبار الآلي والتصحيح | معلّمي</title>
-<link rel="stylesheet" href="review-correction.css?v=20261004-cognitive1">
+<link rel="stylesheet" href="review-correction.css?v=20261015-simple1">
 <link rel="stylesheet" href="moallimi-brand.css?v=20261004-cognitive1">
 <script src="teacher-preboot.js?v=20260919-scope2"></script>
 </head>
@@ -26,37 +26,14 @@
     <div>
       <span class="eyebrow">نظام الاختبارات الورقية الآلية</span>
       <h1>الاختبار الآلي والتصحيح</h1>
-      <p>إنشاء اختبارات من ٥ إلى ٦٠ سؤالًا من بنك المؤشرات، ثم توزيع النماذج وتجهيز التظليل والتصحيح والتحليل.</p>
+      <p>اختر اختبارك المحفوظ للطباعة أو التصحيح أو عرض النتائج، أو أنشئ اختبارًا جديدًا.</p>
     </div>
-    <div class="hero-status">
-      <span>النماذج الافتراضية</span>
-      <b>من ١ إلى ١٠ نماذج</b>
-      <small>قابلة للزيادة حتى ١٠</small>
-    </div>
-  </section>
-
-  <section class="review-tools" aria-label="أدوات الاختبار السريعة">
-    <a class="tool-main" href="review-scan.html"><strong>رفع أوراق الطلاب وتصحيحها</strong><span>ارفع PDF واحدًا بعد التظليل وابدأ التصحيح الآلي</span></a>
-    <a href="review-bubble-sheets.html?bv=20261004-optiontabs2"><strong>طباعة أوراق التظليل</strong><span>بأسماء الطلاب وQR</span></a>
-    <a href="review-question-papers.html?pv=20261004-reading4x5"><strong>طباعة أوراق الأسئلة</strong><span>النماذج المعتمدة</span></a>
-    <a href="review-analysis.html"><strong>تحليل الاختبار الورقي</strong><span>طلاب · مؤشرات · أسئلة · مستويات</span></a>
-    <a href="review-indicator-detail.html"><strong>تقرير المؤشرات التفصيلي</strong><span>التقرير التنفيذي · ملحق الطلاب · طباعة بعد اعتماد التصحيح</span></a>
-    <a href="review-report.html"><strong>التقرير الرسمي</strong><span>تقرير مستقل للطباعة والحفظ</span></a>
-  </section>
-
-  <section class="progress" aria-label="مراحل العمل">
-    <div class="stage active"><b>١</b><span>إعداد الاختبار</span></div>
-    <div class="stage"><b>٢</b><span>بناء النماذج</span></div>
-    <div class="stage"><b>٣</b><span>توزيع الطلاب</span></div>
-    <div class="stage"><b>٤</b><span>أوراق التظليل</span></div>
-    <div class="stage"><b>٥</b><span>رفع وتصحيح</span></div>
-    <div class="stage"><b>٦</b><span>التحليل</span></div>
   </section>
 
   <div id="status" class="status">جارٍ تحميل بنك المؤشرات والطلاب…</div>
 
   <section class="card review-archive-card" id="paperTests">
-    <header class="card-head"><span class="step-no">★</span><div><h2>اختباراتي الورقية</h2><p>كل اختبار ورقي أنشأته محفوظ هنا بصورة مستقلة. افتح إعداداته للتعديل أو انتقل مباشرة إلى الطباعة والتظليل والتصحيح والتحليل.</p></div></header>
+    <header class="card-head"><span class="step-no">★</span><div><h2>اختباراتي الورقية</h2><p>اختبارات محفوظة، ولكل اختبار أدواته ونتائجه.</p></div></header>
     <div class="archive-toolbar">
       <button id="newPaperReview" type="button" class="primary">اختبار ورقي جديد</button>
       <button id="refreshArchive" type="button" class="secondary">تحديث القائمة</button>
@@ -66,6 +43,8 @@
     <div id="reviewArchive" class="review-archive"></div>
   </section>
 
+  <details id="paperBuilder" class="paper-builder">
+    <summary>إعداد الاختبار ومعاينة نماذجه</summary>
   <section class="builder-grid">
     <article class="card">
       <header class="card-head"><span class="step-no">١</span><div><h2>بيانات الاختبار</h2><p>اضبط الاختبار مرة واحدة، والمنصة تبني النماذج المتكافئة ضمن نطاق ٥–٦٠ سؤالًا.</p></div></header>
@@ -142,12 +121,14 @@
       <span>بعد التظليل امسح أوراق الطلاب في PDF واحد، ثم ارفع الملف للتصحيح الجماعي ومراجعة الحالات غير الواضحة.</span>
     </div>
   </section>
+  </details>
 </main>
 
 <script src="nafes-reading.js?v=20260909-final"></script>
 <script src="nafes-math.js?v=20260909-final"></script>
 <script src="nafes-science.js?v=20260909-final"></script>
 <script src="teacher-access.js?v=20260930-mainfix1"></script>
-<script src="review-correction.js?v=20261012-independent-tests-142"></script>
-<script src="platform-auto-correct.js?v=20261003-corrector1"></script>\n</body>
+<script src="review-correction.js?v=20261015-simple1"></script>
+<script src="platform-auto-correct.js?v=20261003-corrector1"></script>
+</body>
 </html>

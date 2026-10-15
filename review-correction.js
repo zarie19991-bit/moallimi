@@ -58,14 +58,16 @@ function archiveItem(row){
    '<h3>'+esc(row.title||'اختبار ورقي')+'</h3>'+
    '<div class="archive-meta"><span>'+esc(subject)+'</span><span>'+esc(cls)+'</span><span>'+esc(formatArchiveTime(row.updated_at||row.created_at))+'</span></div>'+
    '<div class="archive-actions">'+
-     '<button type="button" class="open-review" data-open-review="'+esc(row.review_id||'')+'">الإعدادات والتعديل</button>'+
+     '<a class="open-review" href="review-scan.html?rid='+rid+'">تصحيح الأوراق</a>'+
+     '<a href="review-analysis.html?rid='+rid+'">النتائج والتقرير</a>'+
+     '<details class="archive-more"><summary>الطباعة وإدارة الاختبار</summary><div class="archive-actions">'+
+     '<a href="review-correction.html?rid='+rid+'#previewSection">معاينة أوراق الأسئلة</a>'+
+     '<a href="review-bubble-sheets.html?rid='+rid+'&bv=20261004-optiontabs2">طباعة التظليل</a>'+
+     '<button type="button" data-open-review="'+esc(row.review_id||'')+'">الإعدادات والتعديل</button>'+
+     '<a href="review-indicator-detail.html?rid='+rid+'">تقرير المؤشرات</a>'+
+     '<a href="review-report.html?rid='+rid+'">التقرير الرسمي</a>'+
      '<button type="button" class="secondary" data-delete-review="'+esc(row.review_id||'')+'">حذف الاختبار</button>'+
-     '<a href="review-correction.html?rid='+rid+'#previewSection">أوراق الأسئلة</a>'+
-     '<a href="review-bubble-sheets.html?rid='+rid+'&bv=20261004-optiontabs2">ورق التظليل</a>'+
-     '<a href="review-scan.html?rid='+rid+'">رفع وتصحيح</a>'+
-     '<a href="review-analysis.html?rid='+rid+'">التحليل</a>'+
-     '<a href="review-indicator-detail.html?rid='+rid+'">تقرير المؤشرات التفصيلي</a>'+
-     '<a href="review-report.html?rid='+rid+'">التقرير</a>'+
+     '</div></details>'+
    '</div></article>';
 }
 async function loadArchive(){
@@ -145,6 +147,7 @@ function resetPaperReview(){
  $('assignments').innerHTML='';$('assignmentStats').innerHTML='';
  showActivePaperReview(null);
  setStatus('اختبار ورقي جديد: اضبط الإعدادات ثم أنشئ النماذج.','ok');
+ if($('paperBuilder'))$('paperBuilder').open=true;
  document.querySelector('.builder-grid')?.scrollIntoView({behavior:'smooth'});
 }
 async function openArchivedReview(reviewId){
@@ -156,7 +159,8 @@ async function openArchivedReview(reviewId){
    restoreReviewPayload(res.review.payload);
    showActivePaperReview(res.review.payload);
    setStatus('تم فتح الاختبار المحفوظ. تعديل الأسئلة وإعادة بنائها يُحفظ كاختبار مستقل لحماية النسخة المطبوعة.','ok');
-   document.querySelector('.builder-grid')?.scrollIntoView({behavior:'smooth'});
+   if($('paperBuilder'))$('paperBuilder').open=true;
+ document.querySelector('.builder-grid')?.scrollIntoView({behavior:'smooth'});
  }catch(e){setStatus('تعذر فتح المراجعة: '+(e.message||e),'error');}
 }
 function paperOrderedSubjects(subjects){
@@ -813,6 +817,7 @@ async function buildAssignments(){
  }catch(e){$('assignmentSection').classList.add('hidden');setStatus('لم يتم حفظ هذا الاختبار. اضغط تجهيز التوزيع لإعادة المحاولة. '+e.message,'error');}
 }
 function restoreReviewPayload(payload){
+ if(new URLSearchParams(location.search).has('rid')&&$('paperBuilder'))$('paperBuilder').open=true;
  if(!payload||!Array.isArray(payload.models)||!payload.models.length)return false;
  builtReviewId='';
  localStorage.setItem('nafes_review_correction_draft',JSON.stringify(payload));

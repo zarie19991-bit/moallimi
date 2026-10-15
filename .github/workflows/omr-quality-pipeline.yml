@@ -1,0 +1,27 @@
+name: OMR quality and focused review
+on:
+  pull_request:
+    paths:
+      - 'review-focus.js'
+      - 'review-scan*'
+      - 'review-results-core.js'
+      - 'supabase/functions/nafes-exam/omr-server.ts'
+      - 'qa/omr/quality-pipeline.test.mjs'
+      - 'qa/omr/review-focus-browser.cjs'
+      - '.github/workflows/omr-quality-pipeline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --no-save jpeg-js@0.4.4 playwright@1.55.0
+      - run: node --test qa/omr/quality-pipeline.test.mjs qa/omr/blank-bubble-consensus.test.mjs qa/omr/center-evidence-diagnostics.test.mjs
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node qa/omr/review-focus-browser.cjs
