@@ -227,7 +227,7 @@ function renderButtons(){
  $('finishReviewBtn').disabled=busy||!ready()||firstPending()>=0||!!session.completed_at;
  if($('finishReviewAllBtn'))$('finishReviewAllBtn').disabled=$('finishReviewBtn').disabled;
  // Publication validates the verified subset on the server; pending papers stay open.
- $('approveBtn').disabled=busy||!ready()||!sheets.some(s=>s.disposition==='verified'&&!s.blocked_duplicate);
+ $('approveBtn').disabled=busy||!session||!sheets.some(s=>s.disposition==='verified'&&!s.blocked_duplicate);
  $('approveBtn').textContent='اعتماد الدرجات الجاهزة ('+ar(sheets.filter(s=>s.disposition==='verified'&&!s.blocked_duplicate).length)+')';
 }
 function render(){
