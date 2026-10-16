@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - 'qa/omr/**'
+      - 'supabase/migrations/*omr_partial_publication.sql'
       - 'supabase/functions/nafes-exam/**'
       - 'review-scan*'
       - 'review-omr-safety.js'
@@ -46,6 +47,11 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/production/001_omr_staged_compat.sql
       - name: Reapply migration to prove idempotence
         run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/production/001_omr_staged_compat.sql
+      - name: Apply partial publication with unchanged per-paper validation
+        run: psql -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261016132539_omr_partial_publication.sql
+      - name: Test partial publication and later completion in rolled-back synthetic fixture
+        run: |
+          (echo 'BEGIN;'; cat qa/omr/isolation/partial-publication.sql; echo 'ROLLBACK;') | psql -X -v ON_ERROR_STOP=1
       - name: Test ACL, atomic publication, replay, review, tamper and rollback
         run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/isolation/smoke.sql
       - name: Check browser safety contract syntax
