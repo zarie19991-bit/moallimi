@@ -35,11 +35,19 @@ test('manual answer modifications automatically record an audit reason without f
  assert.match(page,/ملاحظة إضافية اختيارية/);
  assert.match(page,/id="finishReviewAllBtn"/);
 });
-test('the final approval button follows completed, stored review decisions, not old optical risk flags',()=>{
+test('ready grades can be approved while pending papers remain open',()=>{
  const client=fs.readFileSync(new URL('../../review-scan-journal.js',import.meta.url),'utf8');
- assert.match(client,/\!session\?\.completed_at\|\|\!sheets.some\(s=>s.disposition==='verified'\)/);
- assert.match(client,/\!\['verified','requires_rescan','duplicate'\]\.includes/);
- assert.doesNotMatch(client,/sheets\.some\(s=>\!s\.blocked_duplicate\&\&s\.disposition!=='requires_rescan'\&\&\(safety\.unresolvedSheet\(s\)\|\|failedRead\(effective\(s\)\)\)\)/);
+ const expression=client.match(/\$\('approveBtn'\)\.disabled=([^;]+);/)[1];
+ const disabled=new Function('busy','ready','sheets','return '+expression);
+ const good={disposition:'verified',blocked_duplicate:false};
+ const pending={disposition:null,reviewed_at:null};
+ assert.equal(disabled(false,()=>true,[good,pending]),false);
+ assert.equal(disabled(false,()=>true,[pending]),true);
+ assert.equal(disabled(false,()=>true,[{...good,blocked_duplicate:true}]),true);
+ assert.equal(disabled(true,()=>true,[good]),true);
+ assert.equal(disabled(false,()=>false,[good]),true);
+ const server=fs.readFileSync(new URL('../../supabase/functions/nafes-exam/paper-scan.ts',import.meta.url),'utf8');
+ assert.doesNotMatch(server.slice(server.indexOf('export async function reviewedScanPayload')),/if\(!session.completed_at\)/);
 });
 
 

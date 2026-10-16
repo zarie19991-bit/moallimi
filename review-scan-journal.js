@@ -226,14 +226,9 @@ function renderButtons(){
  $('nextSheetBtn').disabled=busy||!s||active>=sheets.length-1;
  $('finishReviewBtn').disabled=busy||!ready()||firstPending()>=0||!!session.completed_at;
  if($('finishReviewAllBtn'))$('finishReviewAllBtn').disabled=$('finishReviewBtn').disabled;
- // Backend session completion has already validated every approved grade; stale
- // optical-risk flags must not override authoritative stored decisions.
- $('approveBtn').disabled=busy||!session?.completed_at||!sheets.some(s=>s.disposition==='verified')||
-   sheets.some(s=>!s.reviewed_at||!['verified','requires_rescan','duplicate'].includes(String(s.disposition||'')));
- if($('deleteSelectedBtn')){$('deleteSelectedBtn').disabled=busy||selected.size===0;$('deleteSelectedBtn').textContent=selected.size?'حذف التصحيحات المحددة ('+ar(selected.size)+')':'حذف التصحيحات المحددة';}if($('selectAllBtn')){$('selectAllBtn').disabled=busy||!sheets.length;$('selectAllBtn').textContent=sheets.length&&selected.size===sheets.length?'إلغاء تحديد الكل':'تحديد الكل';}
- if($('applyManualAssignmentBtn'))$('applyManualAssignmentBtn').disabled=busy||!s||effective(s).identity_valid===true||!!session?.completed_at||!$('manualAssignment')?.value;
- document.querySelectorAll('[data-edit-question],[data-resolve-question]').forEach(b=>{b.disabled=busy||!ready()||!s||loadedImage!==s.id||!!session?.completed_at||!!s?.reviewed_at;});
- $('retryUploadBtn').classList.toggle('hidden',!pending);
+ // Publication validates the verified subset on the server; pending papers stay open.
+ $('approveBtn').disabled=busy||!ready()||!sheets.some(s=>s.disposition==='verified'&&!s.blocked_duplicate);
+ $('approveBtn').textContent='اعتماد الدرجات الجاهزة ('+ar(sheets.filter(s=>s.disposition==='verified'&&!s.blocked_duplicate).length)+')';
 }
 function render(){
  ensureSelectAll();
@@ -267,11 +262,11 @@ function renderApprovalChecklist(){
    'قراءة تحتاج حسمًا: '+ar(uncertain),'فشل قراءة: '+ar(failed),
    'مؤجلة لإعادة المسح، دون درجة: '+ar(rescan),
    'نسخ مكررة مستبعدة: '+ar(duplicateCount)];
- panel.innerHTML='<b>ماذا يمنع الاعتماد؟</b><p>'+summary.map(esc).join(' · ')+'</p>'+
-   (remaining?'<p>لم يكتمل رفع العدد المتوقع بعد.</p>':'')+
+ panel.innerHTML='<b>الدرجات الجاهزة والأوراق المعلّقة</b><p>'+summary.map(esc).join(' · ')+'</p>'+
+   (remaining?'<p>لم يكتمل رفع العدد المتوقع بعد؛ يمكنك اعتماد الدرجات الجاهزة واستكمال الباقي لاحقًا.</p>':'')+
    (!remaining&&first?'<p><b>أرقام الأوراق التي تنتظر قرارك:</b> '+esc(pendingRows.map(x=>x.s.ordinal).join('، '))+'</p>':'')+
-   (first?'<p>اضغط أولًا «مراجعة جميع الأوراق السليمة» لتوثيق الأوراق الموثوقة دفعة واحدة. ثم راجع التظليل المزدوج بنفسك من زر «مراجعة الإجابتين»، والحالات غير الواضحة منفردة أو ضعها «تتطلب إعادة المسح» بلا درجة. الورقة الأولى المعلقة رقم '+ar(first.s.ordinal)+'.</p>':
-   '<p>جميع الأوراق لها قرار مراجعة مسجل. اضغط «تم المراجعة» لإنهاء الجلسة، ثم «اعتماد النتائج» لحفظ درجات الأوراق المتحقق منها فقط.</p>')+
+   (first?'<p>يمكنك اعتماد الدرجات الجاهزة الآن؛ تبقى الأوراق المعلّقة بلا درجة وتستطيع مراجعتها لاحقًا. اضغط «مراجعة جميع الأوراق السليمة» لتوثيق الأوراق الموثوقة دفعة واحدة. ثم راجع التظليل المزدوج بنفسك من زر «مراجعة الإجابتين»، والحالات غير الواضحة منفردة أو ضعها «تتطلب إعادة المسح» بلا درجة. الورقة الأولى المعلقة رقم '+ar(first.s.ordinal)+'.</p>':
+   '<p>جميع الأوراق لها قرار مراجعة مسجل. اضغط «اعتماد الدرجات الجاهزة» لحفظ درجات الأوراق المتحقق منها.</p>')+
    (first?'<button id="goPendingReview" type="button" class="secondary">فتح أول ورقة تنتظر حفظ التحقق (رقم '+ar(first.s.ordinal)+')</button>':'')+
    (session.completed_at?'<p>جلسة المراجعة منتهية بالفعل.</p>':'');
  if(first)$('goPendingReview').onclick=()=>open(first.i);
@@ -846,7 +841,11 @@ async function transfer(){
  finally{lock(false);}
 }
 async function approve(){
- if(busy||$('approveBtn').disabled)return;lock(true);
+ if(busy||$('approveBtn').disabled)return;
+ const eligible=sheets.filter(s=>s.disposition==='verified'&&!s.blocked_duplicate).length;
+ const pendingCount=sheets.filter(s=>!s.reviewed_at).length+Math.max(0,Number(session.expected_count)-sheets.length);
+ if(!confirm('سيتم اعتماد '+ar(eligible)+' درجة جاهزة فقط.'+(pendingCount?' تبقى '+ar(pendingCount)+' ورقة معلّقة أو غير مرفوعة بلا درجة، ويمكن استكمالها لاحقًا.':'')+' هل تريد المتابعة؟'))return;
+ lock(true);
  try{const r=await api('teacher_paper_review_save');$('approvedSection').classList.remove('hidden');$('indicatorSummary').textContent='تم اعتماد '+ar(r.saved_count)+' ورقة وربط نتائجها بالتحليل. النسخ المكررة والأوراق المطلوب إعادة مسحها مستبعدة.';for(const [id,page]of [['paperAnalysisLink','review-analysis.html'],['paperReportLink','review-report.html'],['paperIndicatorLink','review-indicator-detail.html']])$(id).href=page+'?rid='+encodeURIComponent(draft.review_id);NafesTeacher.clearReadCache?.();message('حُفظت النتائج في المنصة؛ جارٍ فتح تحليل المؤشرات المعتمد…');location.assign('review-analysis.html?rid='+encodeURIComponent(draft.review_id));}
  catch(e){message('تعذر الاعتماد: '+e.message,true);}finally{lock(false);}
 }
