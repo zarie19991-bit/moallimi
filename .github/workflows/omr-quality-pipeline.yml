@@ -23,5 +23,6 @@ jobs:
           node-version: '24'
       - run: npm install --no-save jpeg-js@0.4.4 playwright@1.55.0
       - run: node --test qa/omr/quality-pipeline.test.mjs qa/omr/blank-bubble-consensus.test.mjs qa/omr/center-evidence-diagnostics.test.mjs
+      - run: node --test qa/omr/single-paper-publication.test.mjs
       - run: npx playwright install --with-deps chromium webkit
       - run: node qa/omr/review-focus-browser.cjs

@@ -4,6 +4,9 @@ const $=id=>document.getElementById(id),ar=n=>new Intl.NumberFormat('ar-SA').for
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={blank:'غير محلول',multiple:'إجابات متعددة',correct:'صحيح مؤكد',incorrect:'إجابة خاطئة',uncertain:'قراءة غير مؤكدة'};
 const letters=['أ','ب','ج','د'];
+const publishedSheets=new Set();
+const receiptKey=s=>s.id+':'+s.answer_version;
+const wasPublished=s=>publishedSheets.has(receiptKey(s));
 const OMR_POLICY='server_jpeg_homography_dev_grid';
 const safety=window.NafesOmrSafety;
 if(!safety)throw new Error('لم يُحمّل عقد سلامة مراجعة OMR؛ أعد تحميل الصفحة.');
@@ -155,7 +158,7 @@ function decisionReason(question,before,after,extra=''){
  return ('قرار المعلم في السؤال '+ar(question)+': '+(unchanged?'تأكيد التظليل المعلّق ('+fmt(after)+')':'تغيير التظليل من ('+fmt(before)+') إلى ('+fmt(after)+')')+(note?'؛ ملاحظة: '+note:'')).slice(0,1000);
 }
 function ready(){return session&&sheets.length===session.expected_count;}
-function lock(value){busy=value;for(const id of ['finishReviewAllBtn','bulkCleanReviewBtn','doubleAnswerReviewBtn','unclearAnswerReviewBtn','saveSheetBtn','rescanSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','resetOmrAttemptsBtn','applyManualAssignmentBtn','refreshIdentityGradeBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
+function lock(value){busy=value;for(const id of ['finishReviewAllBtn','bulkCleanReviewBtn','doubleAnswerReviewBtn','unclearAnswerReviewBtn','saveSheetBtn','approveSheetBtn','rescanSheetBtn','nextSheetBtn','finishReviewBtn','approveBtn','processBtn','clearBtn','sessionPicker','resumeSessionBtn','retryUploadBtn','deleteSelectedBtn','resetOmrAttemptsBtn','applyManualAssignmentBtn','refreshIdentityGradeBtn','rereadAllBtn','visionReadBtn'])if($(id))$(id).disabled=value;renderButtons();}
 function ensureSelectAll(){
  let box=$('selectAllSheets');
  if(!box){
@@ -174,6 +177,7 @@ function ensureSelectAll(){
  }
 }
 function renderButtons(){
+ document.querySelectorAll('[data-publish-sheet]').forEach(b=>{const sh=sheets.find(s=>s.id===b.dataset.publishSheet);b.disabled=busy||!sh||wasPublished(sh);});
  if($('bulkCleanReviewBtn'))$('bulkCleanReviewBtn').disabled=busy||!ready()||!!session?.completed_at;
  if($('doubleAnswerReviewBtn'))$('doubleAnswerReviewBtn').disabled=busy||!sheets.some(sh=>!sh.reviewed_at&&(effective(sh)?.answers||[]).some(a=>a.state==='multiple'||a.status==='multiple'));
  if($('unclearAnswerReviewBtn'))$('unclearAnswerReviewBtn').disabled=busy||!sheets.some(sh=>!sh.reviewed_at&&(failedRead(effective(sh))||pendingAnswerCount(effective(sh))>0));
@@ -193,7 +197,7 @@ function renderButtons(){
   effectiveCurrent.answers.some(a=>a?.review_pending_reason==='prior_uncertainty_requires_explicit_review');
  if($('identityRefreshPanel'))$('identityRefreshPanel').classList.toggle('hidden',!identityRefreshEligible);
  if($('refreshIdentityGradeBtn'))$('refreshIdentityGradeBtn').disabled=busy||!identityRefreshEligible||loadedImage!==s?.id;
- $('saveSheetBtn').disabled=busy||!ready()||!s||safety.unresolvedSheet(s)||
+ $('saveSheetBtn').disabled=busy||!session||!s||safety.unresolvedSheet(s)||
  pendingAnswerCount(effective(s))>0||scoreMismatch(effective(s))||
  failedRead(effective(s))||loadedImage!==s.id||!!s.reviewed_at||
  !$('verifiedCheck').checked||(duplicate(s)&&!$('duplicateCheck').checked);
@@ -201,7 +205,7 @@ function renderButtons(){
   const e=s?effective(s):null;
   let msg='اختر ورقة للمراجعة.';
   if(s?.reviewed_at)msg='تم حفظ التحقق من هذه الورقة.';
-  else if(e&&!ready())msg='انتظر اكتمال رفع العدد المستهدف قبل حفظ التحقق.';
+  else if(e&&!session)msg='افتح جلسة التصحيح لحفظ التحقق.';
   else if(e&&(!e.identity_valid||!s.student_id))msg='تعذرت مطابقة رمز QR والطالب أو نموذج الورقة؛ لا يعني هذا أن الاسم المطبوع غير مقروء. اختر الطالب بعد مطابقة الورقة الأصلية.';
   else if(e&&failedRead(e))msg='لم يتأكد القارئ من المحاذاة أو مواضع التظليل؛ يلزم إعادة المسح أو التشخيص، ولا تُعتمد درجة تخمينية.';
   else if(identityRefreshEligible)msg='تم تأكيد هوية الطالب يدويًا، لكن الإجابات ما زالت معلقة بسبب حالة الهوية القديمة. استخدم زر «إعادة تصنيف الإجابات بعد تثبيت هوية الطالب» لمقارنة الاختيارات المحفوظة بمفتاح النموذج دون مسح جديد.';
@@ -216,6 +220,7 @@ function renderButtons(){
   else if(e)msg='قراءة هذه الورقة مكتملة؛ راجع صورتها، ثم ضع علامة التحقق واحفظها دون انتظار الورقة الأولى.';
   $('reviewEligibilityNote').textContent=msg;
  }
+ if($('approveSheetBtn'))$('approveSheetBtn').disabled=busy||!s||s.disposition!=='verified'||s.blocked_duplicate||wasPublished(s);
  const target=$('omrUncertaintyReasons');
  if(target&&s){
    const answers=effective(s).answers||[];
@@ -239,7 +244,7 @@ function render(){
  $('summaryCards').innerHTML=[['الأوراق',sheets.length],['تم حفظ التحقق',sheets.filter(s=>s.disposition==='verified').length],['لإعادة المسح — بلا درجة',sheets.filter(s=>s.disposition==='requires_rescan').length],['حالات تطابق الأوراق',sheets.filter(s=>duplicate(s)).length],...Object.entries(labels).map(([k,l])=>[l,count[k]||0])].map(([l,n])=>'<div class="summary"><span>'+l+'</span><b>'+ar(n)+'</b></div>').join('');
  const only=$('alertFilter').checked;
  $('resultsBody').innerHTML=sheets.map((s,i)=>({s,i,a:effective(s)})).filter(({s})=>!only||duplicate(s)).map(({s,i,a})=>'<tr><td><input type="checkbox" data-select-sheet="'+esc(s.id)+'" '+(selected.has(s.id)?'checked':'')+' aria-label="تحديد تصحيح '+esc(a.student_name)+'"></td><td>'+esc(a.identity_valid?a.student_name:'هوية غير مرتبطة — راجع QR')+'</td><td>'+esc(a.model)+'</td><td>'+gradeText(a)+'</td><td>'+esc(status(s))+' <span class="quality-risk '+riskOf(s)+'">'+riskLabel(riskOf(s))+'</span>'+(duplicate(s)?' <strong class="duplicate-label" title="'+esc(duplicateExplanation(s))+'">'+esc(duplicateTitle(s))+'</strong>':'')+(!a.identity_valid?' <strong class="duplicate-label">الاسم غير مؤكد</strong>':'')+'</td><td><button class="secondary" data-open="'+i+'" type="button">مراجعة</button> '+(!a.identity_valid?'<button class="secondary" data-recover-identity="'+esc(s.id)+'" type="button">محاولة قراءة رمز QR</button> '+
- '<button class="secondary" data-assign-identity="'+i+'" type="button">ربط الطالب بعد مطابقة الورقة</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
+ '<button class="secondary" data-assign-identity="'+i+'" type="button">ربط الطالب بعد مطابقة الورقة</button> ':'')+(s.disposition==='verified'&&!s.blocked_duplicate?'<button class="secondary" data-publish-sheet="'+esc(s.id)+'" type="button" '+(busy||wasPublished(s)?'disabled':'')+'>'+(wasPublished(s)?'تم اعتماد الدرجة':'اعتماد هذه الورقة')+'</button> ':'')+'<button class="secondary" data-delete-sheet="'+esc(s.id)+'" type="button">حذف التصحيح</button></td></tr>').join('')||'<tr><td colspan="6">لا توجد أوراق مطابقة.</td></tr>';
  if($('duplicateLive')&&!sheets.some(duplicate))$('duplicateLive').textContent='';
  $('sessionProgress').textContent=session?(session.completed_at?'جلسة منتهية · ':'')+'تم التحقق من '+ar(sheets.filter(s=>s.reviewed_at).length)+' من '+ar(session.expected_count)+' ورقة':'';
  if($('selectAllSheets')){$('selectAllSheets').checked=sheets.length>0&&selected.size===sheets.length;$('selectAllSheets').indeterminate=selected.size>0&&selected.size<sheets.length;}
@@ -729,7 +734,7 @@ async function verify(){
  if(busy||$('saveSheetBtn').disabled||safety.unresolvedSheet(sheets[active])||
  pendingAnswerCount(effective(sheets[active]))>0||
  scoreMismatch(effective(sheets[active]))||failedRead(effective(sheets[active])))return;lock(true);
- try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0,verified:true});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(effective(r.sheet))+' · '+status(r.sheet);message('حُفظ التحقق من الورقة بشكل مستقل. يمكنك اختيار أي ورقة أخرى؛ الاعتماد النهائي للدفعة يتطلب استكمال بقية الأوراق.');render();}
+ try{const r=await api('teacher_scan_verify',{sheet_id:sheets[active].id,acknowledge_duplicate:$('duplicateCheck').checked,answer_version:sheets[active].answer_version||0,verified:true});sheets[active]=r.sheet;$('modalSub').textContent='الورقة '+ar(active+1)+' من '+ar(sheets.length)+' · الدرجة '+gradeText(effective(r.sheet))+' · '+status(r.sheet);message('حُفظ التحقق. يمكنك الآن الضغط على «اعتماد درجة هذه الورقة» دون انتظار بقية الأوراق.');render();}
  catch(e){message('لم يُحفظ التحقق: '+e.message,true);}finally{lock(false);}
 }
 async function markForRescan(){
@@ -840,15 +845,41 @@ async function transfer(){
  }catch(e){message('توقف الحفظ: '+e.message+' — تقدمك محفوظ؛ اضغط إعادة استكمال الرفع.',true);throw e;}
  finally{lock(false);}
 }
+async function publishSheets(rows){
+ const r=await api('teacher_paper_review_save',{sheet_ids:rows.map(s=>s.id)});
+ if(r.saved_count!==rows.length||!Array.isArray(r.saved_sheet_ids)||rows.some(s=>!r.saved_sheet_ids.includes(s.id)))throw new Error('لم يصل تأكيد حفظ جميع الدرجات؛ أعد المحاولة بأمان.');
+ rows.forEach(s=>publishedSheets.add(receiptKey(s)));
+ NafesTeacher.clearReadCache?.();
+ $('approvedSection').classList.remove('hidden');
+ $('indicatorSummary').textContent='الدرجات التي تم اعتمادها متاحة في التحليل. يمكنك متابعة بقية الأوراق.';
+ for(const [id,page]of [['paperAnalysisLink','review-analysis.html'],['paperReportLink','review-report.html'],['paperIndicatorLink','review-indicator-detail.html']])$(id).href=page+'?rid='+encodeURIComponent(draft.review_id);
+ render();return r;
+}
+async function approveOne(id){
+ const sheet=sheets.find(s=>s.id===id);
+ if(busy||!sheet||sheet.disposition!=='verified'||sheet.blocked_duplicate||wasPublished(sheet))return;
+ if(!confirm('اعتماد درجة الورقة رقم '+ar(sheet.ordinal)+' فقط وإضافتها إلى التحليل؟'))return;
+ lock(true);
+ try{await publishSheets([sheet]);message('تم اعتماد درجة الورقة رقم '+ar(sheet.ordinal)+' وحفظها في التحليل. يمكنك متابعة أي ورقة أخرى.');}
+ catch(e){message('تعذر اعتماد هذه الورقة: '+e.message,true);}
+ finally{lock(false);}
+}
 async function approve(){
  if(busy||$('approveBtn').disabled)return;
- const eligible=sheets.filter(s=>s.disposition==='verified'&&!s.blocked_duplicate).length;
- const pendingCount=sheets.filter(s=>!s.reviewed_at).length+Math.max(0,Number(session.expected_count)-sheets.length);
- if(!confirm('سيتم اعتماد '+ar(eligible)+' درجة جاهزة فقط.'+(pendingCount?' تبقى '+ar(pendingCount)+' ورقة معلّقة أو غير مرفوعة بلا درجة، ويمكن استكمالها لاحقًا.':'')+' هل تريد المتابعة؟'))return;
- lock(true);
- try{const r=await api('teacher_paper_review_save');$('approvedSection').classList.remove('hidden');$('indicatorSummary').textContent='تم اعتماد '+ar(r.saved_count)+' ورقة وربط نتائجها بالتحليل. النسخ المكررة والأوراق المطلوب إعادة مسحها مستبعدة.';for(const [id,page]of [['paperAnalysisLink','review-analysis.html'],['paperReportLink','review-report.html'],['paperIndicatorLink','review-indicator-detail.html']])$(id).href=page+'?rid='+encodeURIComponent(draft.review_id);NafesTeacher.clearReadCache?.();message('حُفظت النتائج في المنصة؛ جارٍ فتح تحليل المؤشرات المعتمد…');location.assign('review-analysis.html?rid='+encodeURIComponent(draft.review_id));}
- catch(e){message('تعذر الاعتماد: '+e.message,true);}finally{lock(false);}
+ const rows=sheets.filter(s=>s.disposition==='verified'&&!s.blocked_duplicate&&!wasPublished(s));
+ if(!rows.length){message('اعتمدت جميع الدرجات الجاهزة في هذه الجلسة. افتح التحليل لعرضها.');return;}
+ if(!confirm('سيتم حفظ '+ar(rows.length)+' درجة جاهزة على دفعات صغيرة. تبقى الأوراق المعلقة بلا درجة. هل تريد المتابعة؟'))return;
+ lock(true);let saved=0;
+ try{
+  for(let i=0;i<rows.length;i+=5){
+   message('جارٍ اعتماد الدرجات: '+ar(saved)+' من '+ar(rows.length)+'…');
+   const batch=rows.slice(i,i+5);await publishSheets(batch);saved+=batch.length;
+  }
+  message('تم حفظ '+ar(saved)+' درجة. جارٍ فتح التحليل…');location.assign('review-analysis.html?rid='+encodeURIComponent(draft.review_id));
+ }catch(e){message('توقف الاعتماد بعد تأكيد حفظ '+ar(saved)+' درجة في هذه العملية. الدرجات المحفوظة باقية؛ اضغط الاعتماد لاستكمال الباقي. '+e.message,true);}
+ finally{lock(false);}
 }
+
 function download(rows,name){const safe=v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};const blob=new Blob(['\ufeff'+rows.map(r=>r.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 async function report(){
  if(!draft)return;try{
@@ -905,12 +936,14 @@ if($('printedNameOcrCandidates'))$('printedNameOcrCandidates').onclick=e=>{
 };
 if($('refreshIdentityGradeBtn'))$('refreshIdentityGradeBtn').onclick=refreshIdentityGrade;$('rereadAllBtn').onclick=()=>rereadAllStrict({auto:false,onlyStale:false});
 $('loadEditHistoryBtn').onclick=editHistory;
-$('saveSheetBtn').onclick=verify;if($('finishReviewAllBtn'))$('finishReviewAllBtn').onclick=finish;
+$('saveSheetBtn').onclick=verify;
+if($('approveSheetBtn'))$('approveSheetBtn').onclick=()=>approveOne(sheets[active]?.id);if($('finishReviewAllBtn'))$('finishReviewAllBtn').onclick=finish;
 if($('bulkCleanReviewBtn'))$('bulkCleanReviewBtn').onclick=bulkVerifyClean;
 if($('doubleAnswerReviewBtn'))$('doubleAnswerReviewBtn').onclick=()=>openNextException('multiple');
 if($('unclearAnswerReviewBtn'))$('unclearAnswerReviewBtn').onclick=()=>openNextException('unclear');if($('rescanSheetBtn'))$('rescanSheetBtn').onclick=markForRescan;$('nextSheetBtn').onclick=()=>open(active+1);$('finishReviewBtn').onclick=finish;
 $('closeModal').onclick=()=>$('sheetModal').classList.add('hidden');$('reviewNextBtn').onclick=()=>open(Math.max(0,firstPending()));
 $('resultsBody').onclick=e=>{
+ const publish=e.target.closest('[data-publish-sheet]');if(publish){approveOne(publish.dataset.publishSheet);return;}
  const openBtn=e.target.closest('[data-open]');if(openBtn){open(Number(openBtn.dataset.open));return;}
  const recover=e.target.closest('[data-recover-identity]');if(recover){recoverIdentity(recover.dataset.recoverIdentity);return;}
  const assign=e.target.closest('[data-assign-identity]');if(assign){

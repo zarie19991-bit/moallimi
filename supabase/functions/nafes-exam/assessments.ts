@@ -1934,12 +1934,14 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
     model_count:models.length,models,answer_keys:answerKeys,indicator_counts:indicators,
     assignments:Array.isArray(baseReview.assignments)?baseReview.assignments:(Array.isArray(b.assignments)?b.assignments:[])
   },owner);
-  const publication=must(await db.rpc('nafes_scan_publish_attempts',{p_session:b.session_id,p_owner:owner.id,
-    p_assessment:{title,config,rendered_sections:assessmentSections,review_payload:reviewPayload},p_attempts:prepared}));
+  const publicationResult=await db.rpc('nafes_scan_publish_attempts',{p_session:b.session_id,p_owner:owner.id,
+    p_assessment:{title,config,rendered_sections:assessmentSections,review_payload:reviewPayload},p_attempts:prepared});
+  if(publicationResult.error?.code==='57014')fail('انتهت مهلة حفظ هذه الدفعة. الدرجات السابقة محفوظة؛ أعد المحاولة أو اعتمد الورقة منفردة.',503);
+  const publication=must(publicationResult);
   const assessment={id:publication.assessment_id};
   saved.push(...publication.results);
 
-  return{ok:true,review_id:reviewId,assessment_id:assessment.id,subjects,saved_count:saved.length,results:saved};
+  return{ok:true,review_id:reviewId,assessment_id:assessment.id,subjects,saved_count:saved.length,saved_sheet_ids:prepared.map((p:Row)=>p.sheet_id),results:saved};
 }
 
 export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {

@@ -522,9 +522,10 @@ function assertReviewedSheet(sheet:Row,questionCount:number){
      if(unresolved||invalidMultiple)fail('توجد قراءة غير محسومة أو أدلة متناقضة؛ تحقق منها قبل اعتماد النتائج.',409);
    }
 }
-async function reviewedBatchSheets(db:any,session:Row){
- const all=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).order('ordinal'));
+async function reviewedBatchSheets(db:any,session:Row,requestedIds:string[]){
+ const all=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).in('id',requestedIds).order('ordinal'));
  const sheets=verifiedSheetsForPublication(all) as Row[];
+ if(sheets.length!==requestedIds.length)fail('إحدى الأوراق المحددة غير جاهزة أو لا تنتمي إلى الجلسة؛ حدّث قائمة الأوراق.',409);
  // Rescan exceptions remain visible in scan history but NEVER become graded attempts.
  if(!sheets.length)fail('لا توجد أوراق تحقق معتمدة للنشر. راجع الأوراق السليمة أولًا.',409);
  for(const sheet of sheets){
@@ -538,6 +539,8 @@ export async function reviewedScanPayload(db:any,b:Row,owner:Row){
  const {review,session}=await scanSession(db,b,owner);
  if(session.reviewer_id!==owner.id)fail('نشر النتائج متاح لمراجع الجلسة المسجل فقط.',403);
  // Publish reviewed sheets while unresolved papers remain editable in this session.
- const sheets=await reviewedBatchSheets(db,session);
+ const requestedIds=Array.isArray(b.sheet_ids)?b.sheet_ids:(b.sheet_id?[b.sheet_id]:[]);
+ if(!requestedIds.length||requestedIds.length>5||requestedIds.some((id:unknown)=>!uuid(id))||new Set(requestedIds).size!==requestedIds.length)fail('حدّث صفحة التصحيح ثم اعتمد ورقة منفردة أو دفعة من خمس أوراق بحد أقصى.',400);
+ const sheets=await reviewedBatchSheets(db,session,requestedIds);
  return {...session.review_snapshot,review_owner_id:review.owner_id,session_id:session.id,results:sheets.map((s:Row)=>{const x=s.effective_snapshot||s.snapshot;return {student_id:s.student_id,student_name:x.student_name,model:x.model,sheet_id:s.id,answer_version:s.answer_version,answers:x.answers,omr:{answer_count:x.total,manual_answers:x.answers.filter((a:Row)=>a.reviewed_manually).length,policy:x.omr_policy||null,risk:x.omr_verification?.risk||null,quality_score:x.omr_verification?.quality_score||null}};})};
 }
