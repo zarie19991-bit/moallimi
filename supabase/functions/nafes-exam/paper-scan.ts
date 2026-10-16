@@ -522,10 +522,12 @@ function assertReviewedSheet(sheet:Row,questionCount:number){
      if(unresolved||invalidMultiple)fail('توجد قراءة غير محسومة أو أدلة متناقضة؛ تحقق منها قبل اعتماد النتائج.',409);
    }
 }
-async function reviewedBatchSheets(db:any,session:Row,requestedIds:string[]){
- const all=must(await db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id).in('id',requestedIds).order('ordinal'));
+async function reviewedBatchSheets(db:any,session:Row,requestedIds?:string[]){
+ let query=db.from('nafes_scan_sheets').select(summaryColumns).eq('session_id',session.id);
+ if(requestedIds)query=query.in('id',requestedIds);
+ const all=must(await query.order('ordinal'));
  const sheets=verifiedSheetsForPublication(all) as Row[];
- if(sheets.length!==requestedIds.length)fail('إحدى الأوراق المحددة غير جاهزة أو لا تنتمي إلى الجلسة؛ حدّث قائمة الأوراق.',409);
+ if(requestedIds&&sheets.length!==requestedIds.length)fail('إحدى الأوراق المحددة غير جاهزة أو لا تنتمي إلى الجلسة؛ حدّث قائمة الأوراق.',409);
  // Rescan exceptions remain visible in scan history but NEVER become graded attempts.
  if(!sheets.length)fail('لا توجد أوراق تحقق معتمدة للنشر. راجع الأوراق السليمة أولًا.',409);
  for(const sheet of sheets){

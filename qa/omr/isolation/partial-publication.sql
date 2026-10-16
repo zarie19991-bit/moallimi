@@ -74,7 +74,7 @@ BEGIN
  -- Later the second paper is resolved. First published grade remains immutable.
  UPDATE public.nafes_scan_sheets SET effective_snapshot=(SELECT x.snapshot FROM public.nafes_scan_sheets x WHERE x.id=sheet),
  disposition=null WHERE id=sheet2;
- PERFORM public.nafes_scan_verify_current(ses,sheet2,owner_id,true,0);
+ PERFORM public.nafes_scan_verify(ses,sheet2,owner_id,true);
  attempts:=attempts||jsonb_build_array(jsonb_set(jsonb_set(jsonb_set(jsonb_set(attempts->0,
  '{sheet_id}',to_jsonb(sheet2)),'{payload,student_id}',to_jsonb(stu2)),
  '{payload,events,0,scan_sheet_id}',to_jsonb(sheet2)),'{payload,session_id}','"qa-session-2"'));
