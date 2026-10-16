@@ -7,6 +7,7 @@ on:
     paths:
       - 'qa/omr/**'
       - 'supabase/migrations/*omr_partial_publication.sql'
+      - 'supabase/migrations/*omr_single_paper_publication.sql'
       - 'supabase/functions/nafes-exam/**'
       - 'review-scan*'
       - 'review-omr-safety.js'
@@ -49,6 +50,10 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -1 -f qa/omr/production/001_omr_staged_compat.sql
       - name: Apply partial publication with unchanged per-paper validation
         run: psql -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261016132539_omr_partial_publication.sql
+      - name: Apply bounded per-paper publication
+        run: psql -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261016150553_omr_single_paper_publication.sql
+      - name: Reapply bounded publication to verify idempotence
+        run: psql -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261016150553_omr_single_paper_publication.sql
       - name: Test partial publication and later completion in rolled-back synthetic fixture
         run: |
           (echo 'BEGIN;'; cat qa/omr/isolation/partial-publication.sql; echo 'ROLLBACK;') | psql -X -v ON_ERROR_STOP=1

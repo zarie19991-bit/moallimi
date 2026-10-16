@@ -73,11 +73,12 @@ BEGIN
  EXCEPTION WHEN OTHERS THEN IF SQLERRM LIKE 'FAIL:%' THEN RAISE; END IF; END;
  -- Later the second paper is resolved. First published grade remains immutable.
  UPDATE public.nafes_scan_sheets SET effective_snapshot=(SELECT x.snapshot FROM public.nafes_scan_sheets x WHERE x.id=sheet),
- reviewed_at=now(),reviewed_by=owner_id,disposition='verified' WHERE id=sheet2;
+ disposition=null WHERE id=sheet2;
+ PERFORM public.nafes_scan_verify(ses,sheet2,owner_id,true);
  attempts:=attempts||jsonb_build_array(jsonb_set(jsonb_set(jsonb_set(jsonb_set(attempts->0,
  '{sheet_id}',to_jsonb(sheet2)),'{payload,student_id}',to_jsonb(stu2)),
  '{payload,events,0,scan_sheet_id}',to_jsonb(sheet2)),'{payload,session_id}','"qa-session-2"'));
- PERFORM public.nafes_scan_publish_attempts(ses,owner_id,assessment,attempts);
+ PERFORM public.nafes_scan_publish_attempts(ses,owner_id,assessment,jsonb_build_array(attempts->1));
  IF (SELECT count(*) FROM public.nafes_assessment_attempts)<>2 THEN RAISE EXCEPTION 'FAIL: later paper not added'; END IF;
  IF has_function_privilege('anon','public.nafes_scan_validate_publishable(uuid)','EXECUTE') THEN RAISE EXCEPTION 'FAIL: validation ACL'; END IF;
  RAISE NOTICE 'PASS partial publication, unresolved exclusion, incomplete upload, authorization, immutable replay, tamper rejection and later completion';
