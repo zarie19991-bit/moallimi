@@ -180,7 +180,7 @@ begin
  update public.nafes_paper_reviews set payload=p_assessment->'review_payload',updated_at=now()
  where id=review.id;
  return jsonb_build_object('assessment_id',assessment.id,'results',items);
-end $function$
+end $function$;
 
 REVOKE ALL ON FUNCTION public.nafes_scan_publish_attempts(uuid,uuid,jsonb,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.nafes_scan_publish_attempts(uuid,uuid,jsonb,jsonb) TO service_role;
