@@ -26,11 +26,12 @@ let context=null;
 /* Extended item analysis: computed only from saved, scored, identified responses. */
 function iadAdvanced(people){
  const items=new Map(),forms=new Map();
+ const itemKey=q=>JSON.stringify([indicator(q),questionId(q),q.question||'',q.question_fingerprint||'',Array.isArray(q.options)?q.options.map(x=>typeof x==='string'?x:JSON.stringify(x)).sort():null,Array.isArray(q.options)?q.options[q.correct_index??q.correctIndex]:null]);
  for(const p of people){
   const qs=p.qs.filter(valid),total=qs.filter(q=>q.correct).length;
-  const keys=qs.map(q=>indicator(q)+'::'+questionId(q));
-  if(keys.length>1&&keys.every(k=>!k.endsWith('::'))&&new Set(keys).size===keys.length){
-   const signature=keys.slice().sort().join('|');
+  const keys=qs.map(itemKey);
+  const signature=JSON.stringify(keys.slice().sort());
+  if(keys.length>1&&qs.every(q=>questionId(q))&&qs.length===p.qs.length&&new Set(keys).size===keys.length){
    if(!forms.has(signature))forms.set(signature,{members:[],labels:new Set()});
    const f=forms.get(signature);f.members.push(qs);
    const label=String(p.a.model_code||p.a.model_name||p.a.form_code||p.a.model||'').trim();
@@ -38,16 +39,19 @@ function iadAdvanced(people){
   }
   for(const q of qs){
    const qid=questionId(q);if(!qid)continue;
-   const id=indicator(q)+'::'+qid;
+   const id=itemKey(q);
    if(!items.has(id))items.set(id,{id,number:qs.indexOf(q)+1,text:q.question||'سؤال محفوظ',correct:0,responses:[],optionSignatures:new Set(),optionsKnown:true});
    const g=items.get(id);g.correct+=q.correct?1:0;
-   const chosen=N(q.selected_index??q.selectedIndex);
+   const chosen=N(q.selected_index??q.selectedIndex??q.answer);
    const right=N(q.correct_index??q.correctIndex);
    const choices=Array.isArray(q.options)?q.options:Array.isArray(q.choices)?q.choices:null;
-   const sig=choices&&right!==null?JSON.stringify({right,options:choices.map(x=>typeof x==='string'?x:(x?.text??x?.label??JSON.stringify(x)))}):null;
+   const optionKeys=choices?.map(x=>typeof x==='string'?x:JSON.stringify(x));
+   const known=optionKeys&&new Set(optionKeys).size===optionKeys.length&&Number.isInteger(right)&&right>=0&&right<optionKeys.length;
+   const sig=known?JSON.stringify({right:optionKeys[right],options:optionKeys.slice().sort()}):null;
    if(sig)g.optionSignatures.add(sig);else g.optionsKnown=false;
    const unanswered=chosen===null&&(q.answer===null||q.answered===false||q.unanswered===true);
-   g.responses.push({correct:q.correct?1:0,rest:total-(q.correct?1:0),chosen,right,optionCount:choices?.length||0,unanswered});
+   const choiceValid=Number.isInteger(chosen)&&chosen>=0&&chosen<(choices?.length||0);
+   g.responses.push({correct:q.correct?1:0,rest:total-(q.correct?1:0),form:signature,chosen:choiceValid?optionKeys[chosen]:null,right:known?optionKeys[right]:null,optionCount:choices?.length||0,unanswered});
   }
  }
  const pearson=arr=>{
@@ -58,7 +62,7 @@ function iadAdvanced(people){
  };
  const itemRows=[...items.values()].map(g=>{
   const rr=g.responses,n=rr.length,facility=n?100*g.correct/n:null;
-  const discr=pearson(rr);
+  const discr=new Set(rr.map(x=>x.form)).size===1?pearson(rr):null;
   let distractor=null;
   if(g.optionsKnown&&g.optionSignatures.size===1&&rr.every(x=>x.unanswered||(x.chosen!==null&&x.right!==null))){
    const validResponses=rr.filter(x=>x.optionCount>1&&x.right!==null&&x.chosen!==null);
@@ -81,8 +85,8 @@ function iadAdvanced(people){
    if(variance===0)reason='تباين الدرجات يساوي صفرًا';
    else {
     let pq=0;
-    const ids=rows[0].map(q=>indicator(q)+'::'+questionId(q));
-    for(const id of ids){const p=rows.filter(qs=>qs.some(q=>indicator(q)+'::'+questionId(q)===id&&q.correct)).length/n;pq+=p*(1-p);}
+    const ids=rows[0].map(itemKey);
+    for(const id of ids){const p=rows.filter(qs=>qs.some(q=>itemKey(q)===id&&q.correct)).length/n;pq+=p*(1-p);}
     kr=k/(k-1)*(1-pq/variance);
     if(!Number.isFinite(kr)){kr=null;reason='بيانات غير كافية';}
    }
@@ -161,8 +165,8 @@ function render({test,subject,testId,className,recs,attempts,students,part}){
  const unsupported=recs.length-people.length;
  const adv=iadAdvanced(people);
  const metricVal=x=>x===null?'لم يُقَس':Number(x).toFixed(3);
- const distribution=box('توزيع مستويات الطلاب — أسوة بالتحليل الشامل',table(['التقدير','عدد الطلاب'],adv.bands.map(r=>[E(r[0]),E(r[1])]))+'<div class="iad-meta"><span>أعلى نسبة: <b>'+P(adv.highest)+'</b></span><span>أقل نسبة: <b>'+P(adv.lowest)+'</b></span><span>متوسط السهولة: <b>'+P(adv.weightedEase)+'</b></span><span>متوسط التمييز: <b>'+metricVal(adv.meanDiscrimination)+'</b></span></div>');
- const itemAnalysis=box('تحليل البنود — السهولة والتمييز وفاعلية المشتتات',table(['رقم السؤال','نص السؤال','الاستجابات','السهولة','التمييز المصحح','فاعلية المشتتات'],adv.itemRows.map(r=>[E(r.number),E(r.text),E(r.n),P(r.facility),metricVal(r.discr),P(r.distractor)]))+'<p class="iad-note">السهولة: نسبة الإجابات الصحيحة. التمييز: ارتباط السؤال بالدرجة بعد استبعاد السؤال نفسه؛ لا يحسب لعينة أقل من ٢٠ أو لدرجات بلا تباين. فاعلية المشتتات: نسبة البدائل الخاطئة المختارة من جميع البدائل الخاطئة، عند حفظ الخيارات بترتيب ثابت؛ وإلا تظهر «لم يُقَس». لا تفسر هذه المقاييس دون مراعاة حجم العينة.</p>');
+ const distribution=box('توزيع مستويات الطلاب',table(adv.bands.map(r=>r[0]),[adv.bands.map(r=>E(r[1])+' طالب')])+'<div class="iad-meta"><span>أعلى نسبة: <b>'+P(adv.highest)+'</b></span><span>أقل نسبة: <b>'+P(adv.lowest)+'</b></span><span>متوسط السهولة: <b>'+P(adv.weightedEase)+'</b></span><span>متوسط التمييز: <b>'+metricVal(adv.meanDiscrimination)+'</b></span></div>');
+ const itemAnalysis=box('تحليل البنود — السهولة والتمييز وفاعلية المشتتات',table(['رقم السؤال','نص السؤال','الاستجابات','السهولة','التمييز المصحح','فاعلية المشتتات'],adv.itemRows.map(r=>[E(r.number),E(r.text),E(r.n),P(r.facility),metricVal(r.discr),P(r.distractor)]))+'<p class="iad-note">السهولة: نسبة الإجابات الصحيحة. التمييز: ارتباط السؤال بالدرجة بعد استبعاد السؤال نفسه؛ لا يحسب لعينة أقل من ٢٠ أو لدرجات بلا تباين أو عند اختلاف تركيب النموذج. فاعلية المشتتات: نسبة البدائل الخاطئة المختارة من جميع البدائل الخاطئة، بعد مطابقة نصوص الخيارات ولو تغير ترتيبها؛ وإلا تظهر «لم يُقَس». لا تفسر هذه المقاييس دون مراعاة حجم العينة.</p>');
  const kr20=box('ثبات KR-20 حسب النموذج',table(['النموذج أو تركيب البنود','الطلاب','الأسئلة','KR-20','حالة القياس'],adv.formRows.map(r=>[E(r.name),E(r.n),E(r.k),metricVal(r.kr),E(r.reason||'محسوب')]))+'<p class="iad-note">يحسب KR-20 فقط لسجلات تحتوي على مجموعة البنود نفسها وبعينة لا تقل عن ٢٠ طالبًا وتباين درجات موجب؛ لا تُدمج النماذج ذات الأسئلة المختلفة أو السجلات الناقصة.</p>');
  const heading='<div class="iad-meta"><span>الاختبار: <b>'+E(test.title||'اختبار نافس')+'</b></span><span>المادة: <b>'+E({reading:'القراءة',math:'الرياضيات',science:'العلوم'}[subject]||subject)+'</b></span><span>الصف: <b>الثالث المتوسط</b></span><span>التاريخ: <b>'+(firstDate?E(new Date(firstDate).toLocaleDateString('ar-SA')):'غير متوفر')+'</b></span><span>الدرجة الكلية: <b>'+E(recs[0]?.m?.total??'غير محددة')+'</b></span><span>المستهدفون: <b>'+E(target??'غير متوفر')+'</b></span><span>المختبرون: <b>'+E(part?.tested??recs.length)+'</b></span><span>لم يختبروا: <b>'+E(missed??'غير متوفر')+'</b></span><span>المشاركة: <b>'+P(participation)+'</b></span><span>متوسط الدرجة: <b>'+(recs.length?(recs.reduce((s,x)=>s+x.m.score,0)/recs.length).toFixed(1):'—')+'</b></span><span>التحصيل: <b>'+P(recs.length?recs.reduce((s,x)=>s+x.m.percent,0)/recs.length:null)+'</b></span><span>أعلى درجة: <b>'+E(recs.length?Math.max(...recs.map(x=>x.m.score)):'—')+'</b></span><span>أقل درجة: <b>'+E(recs.length?Math.min(...recs.map(x=>x.m.score)):'—')+'</b></span><span>نسبة الطلاب المتقنين في الاختبار: <b>'+P(studentsData.length?100*studentsData.filter(p=>p.v>=threshold).length/studentsData.length:null)+'</b></span><span>حد الإتقان المعتمد: <b>'+E(threshold)+'٪</b></span></div>';
  const officialHeader='<header class="iad-official-head"><div class="iad-official-authority"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><b>إدارة التعليم بنجران</b><b>مدرسة ابن سينا المتوسطة</b></div></header>';
@@ -220,11 +224,11 @@ function render({test,subject,testId,className,recs,attempts,students,part}){
   const advice=box('٩. التوصية','<p>تركيز المعالجة على المستوى المعرفي: <b>'+E(weakLevels[0]||'غير محدد')+'</b>، مع تدريب موجه للأسئلة '+E(weakQuestions.slice(0,3).map(q=>q.number).join('، ')||'غير المحددة')+' ثم إجراء قياس بعدي للمؤشر نفسه.</p>');
   const historical=box('١٠. قياس الأثر',changes.length?impactMetadata+table(['السابق','الحالي','التغير','طلاب مشتركون'],changes.map(g=>[P(g.old),P(g.now),E(g.d.toFixed(1))+' نقطة',E(g.n)])):'<p>لا يوجد قياس سابق/لاحق مرتبط بهذا المؤشر حتى الآن.</p>');
   const summary=box('الملخص التنفيذي للمؤشر','<p>نسبة أداء المؤشر: <b>'+P(score(single))+'</b>؛ عدد المتقنين: '+E(masters.length)+'؛ أضعف مستوى معرفي: '+E(weakLevels[0]||'غير محدد')+'؛ أولويات العلاج هي الأسئلة '+E(weakQuestions.slice(0,3).map(q=>q.number).join('، ')||'غير محددة')+'.</p>');
-  return '<div class="iad-root iad-single-report" dir="rtl">'+options+'<div class="iad-executive-report">'+officialHeader+'<h1 class="iad-report-main-title">تقرير اختبار المؤشر التفصيلي</h1>'+identity+result+distribution+box('٣. تحليل الأسئلة',questionTable)+cognitiveSingle+weakest+best+studentSection+tally+advice+historical+summary+itemAnalysis+kr20+approvals+'</div><div class="iad-appendix" hidden>'+roster+'</div></div>';
+  return '<div class="iad-root iad-single-report" dir="rtl">'+options+'<div class="iad-executive-report">'+officialHeader+'<h1 class="iad-report-main-title">تقرير اختبار المؤشر التفصيلي</h1>'+identity+result+distribution+box('٣. تحليل الأسئلة',questionTable)+cognitiveSingle+'<div class="iad-pair">'+weakest+best+'</div>'+studentSection+tally+advice+historical+summary+'<div class="iad-full-detail">'+itemAnalysis+'</div>'+kr20+approvals+'</div><div class="iad-appendix" hidden>'+roster+'</div></div>';
  }
  return '<div class="iad-root" dir="rtl">'+options+'<div class="iad-executive-report">' +officialHeader+meta+distribution+inds+cards+levels+interventions+impact+itemAnalysis+kr20+'<section class="iad-page">'+executive+approvals+'</section></div><div class="iad-appendix" hidden>'+qs+appendix+'</div></div>';
 }
-function printIndicator(full){const preview=document.querySelector('#indicatorReportPreview .iad-root');if(!preview)return;const root=document.getElementById('printRoot');if(!root)return;const copy=preview.cloneNode(true);copy.querySelectorAll('.iad-actions,.iad-generated').forEach(x=>x.remove());const appendix=copy.querySelector('.iad-appendix');if(appendix)appendix.hidden=!full;root.innerHTML='<article class="subject-analysis-sheet official-analysis-sheet" data-indicator-report="true">'+copy.outerHTML+'</article>';root.setAttribute('aria-hidden','false');window.print();}
+function printIndicator(full){const preview=document.querySelector('#indicatorReportPreview .iad-root');if(!preview)return;const root=document.getElementById('printRoot');if(!root)return;const copy=preview.cloneNode(true);copy.querySelectorAll('.iad-actions,.iad-generated').forEach(x=>x.remove());if(!full)copy.querySelectorAll('.iad-full-detail').forEach(x=>x.remove());const appendix=copy.querySelector('.iad-appendix');if(appendix)appendix.hidden=!full;root.innerHTML='<article class="subject-analysis-sheet official-analysis-sheet" data-indicator-report="true">'+copy.outerHTML+'</article>';root.setAttribute('aria-hidden','false');window.print();}
 function printStandalone(html){const root=document.getElementById('printRoot');if(!root)return;root.innerHTML='<article class="subject-analysis-sheet official-analysis-sheet"><div class="iad-root">'+html+'</div></article>';root.setAttribute('aria-hidden','false');window.print();}
 function install(){
  document.addEventListener('click',e=>{
@@ -271,8 +275,10 @@ function install(){
 +'.iad-root .iad-page{break-before:page!important}'
 +'.iad-root .iad-appendix[hidden]{display:none!important}'
 +'.iad-root .iad-executive-report{width:100%!important}'
-+'}';document.head.appendChild(style);
++'}';
+ style.textContent+='.iad-pair{display:grid;grid-template-columns:1fr 1fr;gap:3mm}@media print{html body #printRoot article[data-indicator-report] .iad-root{font-size:9pt!important;line-height:1.35!important}html body #printRoot article[data-indicator-report] .iad-root :is(p,li,th,td,small,.iad-meta span,.iad-meta b){font-size:9pt!important;line-height:1.35!important}html body #printRoot article[data-indicator-report] .iad-root :is(h2,h3){font-size:11pt!important;line-height:1.3!important}html body #printRoot article[data-indicator-report] .iad-root :is(th,td){padding:1mm!important}html body #printRoot article[data-indicator-report] .iad-single-report .iad-executive-report>.iad-section:first-of-type .iad-meta>span:first-child{grid-column:1/-1}html body #printRoot article[data-indicator-report] .iad-root .iad-section{margin:1.2mm 0!important;padding:1.5mm!important}html body #printRoot article[data-indicator-report] .iad-root .iad-approvals{margin-top:1mm!important;padding:2mm!important}html body #printRoot article[data-indicator-report] .iad-root .iad-meta{align-items:start!important}html body #printRoot article[data-indicator-report] .iad-root .iad-full-detail td:nth-child(2){width:45%!important}}';
+ document.head.appendChild(style);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
-window.NafesIndicatorDetailedReport={render};
+window.NafesIndicatorDetailedReport={render,analyze:iadAdvanced};
 })();
