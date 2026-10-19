@@ -1687,7 +1687,7 @@ const submitted=!!a.submitted_at;const levelTotal=a.total||qs.length;return{id:a
 async function teacherData(db:any,b:Row) {
  const limit=Math.min(100,Math.max(1,Math.trunc(Number(b.limit)||100))),cursor=Math.max(0,Math.trunc(Number(b.cursor)||0));
  const page=must(await db.rpc('nafes_teacher_attempt_page',{p_cursor:cursor,p_limit:limit}));const attempts:Row[]=[];const offset=page.total;for(const source of Object.keys(SOURCES)){const rows=page.rows.filter((x:Row)=>x.source===source).map((x:Row)=>x.row).filter((a:Row)=>a?.is_demo!==true);if(!rows.length)continue;const map=await metadata(db,rows,source);attempts.push(...rows.map((a:Row)=>canonical(a,source,map)));}
- let tests:Row[]=[];if(cursor===0){const published=must(await db.from('nafes_assessments').select('id,owner_id,title,kind,status,config,short_code,created_at,published_at,legacy_target').eq('status','published').neq('kind','simulation'));tests=published.map(testInfo);}
+ let tests:Row[]=[];if(cursor===0){const {analysisTestCatalog}=await import('./analysis-test-catalog.ts');tests=(await analysisTestCatalog(db)).map(testInfo);}
  return{attempts,tests,indicators:cursor===0?FRAMEWORK:[],thresholds:THRESHOLDS,next_cursor:cursor+limit<offset?cursor+limit:null};
 }
 
