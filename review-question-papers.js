@@ -125,7 +125,7 @@ function renderQuestion(q,context){
  if(opts.length!==4){
    return '<article class="question question-error"><p class="stem">'+ar(q._no)+') '+esc(cleanStem(q.question,context))+'</p><div class="missing-choices">تعذر عرض هذا السؤال لأن الاختيارات الأربعة لم تُحفظ كاملة.</div></article>';
  }
- return '<article class="question"><p class="stem">'+ar(q._no)+') '+esc(cleanStem(q.question,context))+'</p><div class="choices'+(opts.every(o=>String(o).length<=24&&!/[\r\n]/.test(String(o)))?' choices-short':'')+'">'+
+ return '<article class="question" data-question-id="'+esc(q.id||'')+'"><p class="stem">'+ar(q._no)+') '+esc(cleanStem(q.question,context))+'</p><div class="choices'+(opts.every(o=>String(o).length<=24&&!/[\r\n]/.test(String(o)))?' choices-short':'')+'">'+
  opts.map((o,j)=>'<div class="choice"><b>'+letters[j]+')</b><span>'+esc(o)+'</span></div>').join('')+
  '</div></article>';
 }
@@ -316,6 +316,9 @@ function repairOverflow(booklet){
    page.removeAttribute('data-layout-unresolved');
    let guard=0;
    while(!pageFits(page)&&guard++<80){
+     // Tighten spacing at the same 11pt size before fragmenting a long passage.
+     page.classList.add('compact-page','compact-page-strong');
+     if(pageFits(page))break;
      // أولوية الطباعة: وضوح الخط قبل تقليل عدد الصفحات.
      // في القراءة لا ننقل النص الأخير كاملًا مباشرة؛ نقسمه أولًا
      // بحيث يبقى النص وما يتسع من أسئلته في الصفحة الحالية.
@@ -510,8 +513,9 @@ function fillAvailableSpace(booklet){
 
      // في القراءة لا نترك فراغًا كبيرًا لمجرد أن النص مع أسئلته الخمسة
      // لا يتسع ككتلة واحدة. نضع النص وما يتسع من أسئلته ثم نكمل الباقي.
-     if(candidate.dataset.subject==='reading'&&candidate.querySelector(':scope > .passage')&&candidate.querySelectorAll(':scope > .passage-questions > .question').length>1){
-       if(pullPartialReadingGroup(page,next,candidate))break;
+     if(candidate.dataset.subject==='reading'&&candidate.querySelector(':scope > .passage')){
+       if(candidate.querySelectorAll(':scope > .passage-questions > .question').length>1&&pullPartialReadingGroup(page,next,candidate))break;
+       nextFlow.prepend(candidate);
        // A long passage can use the remaining page without deleting or shortening
        // its text. Keep a substantial fragment on both sides of the page break.
        if(unusedBottomSpace(page)>=180){
@@ -531,7 +535,8 @@ function fillAvailableSpace(booklet){
 function resetFitState(booklet){
  [...booklet.querySelectorAll(':scope > .paper-page')].forEach(page=>{
    page.removeAttribute('data-layout-unresolved');
-   page.classList.remove('compact-page','compact-page-strong','compact-page-tight');
+   page.classList.remove('compact-page-tight');
+   page.classList.add('compact-page','compact-page-strong');
  });
 }
 function absorbSparseFinalContinuation(booklet){
@@ -700,12 +705,11 @@ function prepareExactPrint(){
      renumberBooklet(booklet);
    });
    const retry=collectPrintMetrics();
-   metrics.details=retry.details;
-   metrics.pages=retry.pages;
-   metrics.max_overflow_px=retry.max_overflow_px;
+   Object.assign(metrics,retry);
    hardErrors=retry.details.filter(x=>x.overflow_y_px>6||x.overflow_x_px>6||x.hidden_text_nodes>0);
  }
 
+ localStorage.setItem('nafes_question_paper_last_print_metrics',JSON.stringify(metrics));
  const softWarnings=metrics.details.filter(x=>x.unresolved||x.avoidable_large_gap);
  if(hardErrors.length){
    document.documentElement.classList.remove('print-preparing');
