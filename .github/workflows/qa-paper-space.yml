@@ -1,0 +1,29 @@
+name: Paper whitespace regression
+on:
+  pull_request:
+    branches: [main]
+    paths: ['review-question-papers.*', 'qa/paper-space-regression.cjs', '.github/workflows/qa-paper-space.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  paper-space:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --no-save playwright@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: node qa/paper-space-regression.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: paper-space-before-after
+          path: qa-output/paper-space/

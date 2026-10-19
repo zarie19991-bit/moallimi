@@ -154,3 +154,8 @@
  .exam-frame-head.no-exam-brand{grid-template-columns:1.25fr .7fr!important}
 }
 
+
+/* Short alternatives share one line; long alternatives retain two columns. */
+.choices.choices-short{grid-template-columns:repeat(4,minmax(0,1fr));column-gap:2mm}
+.choices.choices-short .choice{min-width:0;overflow-wrap:break-word}
+@media print{.choices.choices-short{grid-template-columns:repeat(4,minmax(0,1fr))!important;column-gap:2mm!important}}

@@ -125,7 +125,7 @@ function renderQuestion(q,context){
  if(opts.length!==4){
    return '<article class="question question-error"><p class="stem">'+ar(q._no)+') '+esc(cleanStem(q.question,context))+'</p><div class="missing-choices">تعذر عرض هذا السؤال لأن الاختيارات الأربعة لم تُحفظ كاملة.</div></article>';
  }
- return '<article class="question"><p class="stem">'+ar(q._no)+') '+esc(cleanStem(q.question,context))+'</p><div class="choices">'+
+ return '<article class="question"><p class="stem">'+ar(q._no)+') '+esc(cleanStem(q.question,context))+'</p><div class="choices'+(opts.every(o=>String(o).length<=24&&!/[\r\n]/.test(String(o)))?' choices-short':'')+'">'+
  opts.map((o,j)=>'<div class="choice"><b>'+letters[j]+')</b><span>'+esc(o)+'</span></div>').join('')+
  '</div></article>';
 }
@@ -272,13 +272,13 @@ function tryCompactCandidate(page){
 }
 // Split a passage which is taller than a printable A4 page.
 // Preserve every character and move its questions intact to the continuation.
-function splitOversizePassage(page,next){
+function splitOversizePassage(page,next,minPartChars=0){
  const flow=page?.querySelector('.questions-flow'),nextFlow=next?.querySelector('.questions-flow');
  const group=flow?.lastElementChild,passage=group?.querySelector(':scope > .passage');
  if(!flow||!nextFlow||!group||!passage||group.dataset.subject!=='reading')return false;
  const full=passage.textContent||'',words=full.match(/\s+|\S+/gu)||[];
  if(words.length<4)return false;
- const siblings=[...group.children].filter(el=>el!==passage);
+ const siblings=[...group.children].filter(el=>el!==passage&&!el.classList.contains('subject-divider'));
  siblings.forEach(el=>el.remove());
  // Test whether it is the passage itself that is too long, not the questions.
  const overlong=!pageFits(page,0);
@@ -296,7 +296,7 @@ function splitOversizePassage(page,next){
    return false;
  }
  const head=words.slice(0,low).join(''),tail=words.slice(low).join('');
- if(!tail){passage.textContent=full;siblings.forEach(el=>group.append(el));return false;}
+ if(!tail||head.trim().length<minPartChars||tail.trim().length<minPartChars){passage.textContent=full;siblings.forEach(el=>group.append(el));return false;}
  passage.textContent=head;
  const continuation=group.cloneNode(false);
  continuation.dataset.passageContinuation='1';
@@ -512,7 +512,13 @@ function fillAvailableSpace(booklet){
      // لا يتسع ككتلة واحدة. نضع النص وما يتسع من أسئلته ثم نكمل الباقي.
      if(candidate.dataset.subject==='reading'&&candidate.querySelector(':scope > .passage')&&candidate.querySelectorAll(':scope > .passage-questions > .question').length>1){
        if(pullPartialReadingGroup(page,next,candidate))break;
-       // الدالة أعادت المجموعة للصفحة التالية إذا لم يتسع النص مع سؤال واحد.
+       // A long passage can use the remaining page without deleting or shortening
+       // its text. Keep a substantial fragment on both sides of the page break.
+       if(unusedBottomSpace(page)>=180){
+         flow.append(candidate);
+         if(splitOversizePassage(page,next,180))break;
+         nextFlow.prepend(candidate);
+       }
        break;
      }
 
@@ -580,6 +586,10 @@ function fitBooklet(booklet){
 }
 function fitAllRenderedPages(){
  document.querySelectorAll('.model-booklet').forEach(fitBooklet);
+ const booklets=[...document.querySelectorAll('.model-booklet')];
+ const counts=new Map();
+ for(const b of booklets)if(!counts.has(b.dataset.booklet))counts.set(b.dataset.booklet,b.querySelectorAll(':scope > .paper-page').length);
+ if($('screenMeta')&&booklets.length)$('screenMeta').textContent=[...counts].map(([model,n])=>'نموذج '+model+': '+ar(n)+' صفحات').join(' · ')+' | إجمالي الطباعة: '+ar(document.querySelectorAll('.paper-page').length)+' صفحة';
 }
 function scheduleRealPageFit(){
  requestAnimationFrame(()=>requestAnimationFrame(()=>{
