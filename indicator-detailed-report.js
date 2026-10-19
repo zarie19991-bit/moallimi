@@ -81,7 +81,8 @@ function iadAdvanced(people){
    if(variance===0)reason='تباين الدرجات يساوي صفرًا';
    else {
     let pq=0;
-    for(let j=0;j<k;j++){const p=rows.filter(qs=>qs[j].correct).length/n;pq+=p*(1-p);}
+    const ids=rows[0].map(q=>indicator(q)+'::'+questionId(q));
+    for(const id of ids){const p=rows.filter(qs=>qs.some(q=>indicator(q)+'::'+questionId(q)===id&&q.correct)).length/n;pq+=p*(1-p);}
     kr=k/(k-1)*(1-pq/variance);
     if(!Number.isFinite(kr)){kr=null;reason='بيانات غير كافية';}
    }
