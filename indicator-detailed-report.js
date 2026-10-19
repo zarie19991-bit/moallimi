@@ -22,6 +22,89 @@ const score=g=>g&&g.t?100*g.c/g.t:null;
 const cats=(x,t)=>({therapy:x.filter(p=>p.v!==null&&p.v<50),boost:x.filter(p=>p.v!==null&&p.v>=50&&p.v<t),enrich:x.filter(p=>p.v!==null&&p.v>=t)});
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c');
 let context=null;
+
+/* Extended item analysis: computed only from saved, scored, identified responses. */
+function iadAdvanced(people){
+ const items=new Map(),forms=new Map();
+ for(const p of people){
+  const qs=p.qs.filter(valid),total=qs.filter(q=>q.correct).length;
+  const keys=qs.map(q=>indicator(q)+'::'+questionId(q));
+  if(keys.length>1&&keys.every(k=>!k.endsWith('::'))&&new Set(keys).size===keys.length){
+   const signature=keys.slice().sort().join('|');
+   if(!forms.has(signature))forms.set(signature,{members:[],labels:new Set()});
+   const f=forms.get(signature);f.members.push(qs);
+   const label=String(p.a.model_code||p.a.model_name||p.a.form_code||p.a.model||'').trim();
+   if(label)f.labels.add(label);
+  }
+  for(const q of qs){
+   const qid=questionId(q);if(!qid)continue;
+   const id=indicator(q)+'::'+qid;
+   if(!items.has(id))items.set(id,{id,number:qs.indexOf(q)+1,text:q.question||'سؤال محفوظ',correct:0,responses:[],optionSignatures:new Set(),optionsKnown:true});
+   const g=items.get(id);g.correct+=q.correct?1:0;
+   const chosen=N(q.selected_index??q.selectedIndex);
+   const right=N(q.correct_index??q.correctIndex);
+   const choices=Array.isArray(q.options)?q.options:Array.isArray(q.choices)?q.choices:null;
+   const sig=choices&&right!==null?JSON.stringify({right,options:choices.map(x=>typeof x==='string'?x:(x?.text??x?.label??JSON.stringify(x)))}):null;
+   if(sig)g.optionSignatures.add(sig);else g.optionsKnown=false;
+   const unanswered=chosen===null&&(q.answer===null||q.answered===false||q.unanswered===true);
+   g.responses.push({correct:q.correct?1:0,rest:total-(q.correct?1:0),chosen,right,optionCount:choices?.length||0,unanswered});
+  }
+ }
+ const pearson=arr=>{
+  if(arr.length<20)return null;
+  const n=arr.length,mx=arr.reduce((s,x)=>s+x.correct,0)/n,my=arr.reduce((s,x)=>s+x.rest,0)/n;
+  let xx=0,yy=0,xy=0;for(const x of arr){const a=x.correct-mx,b=x.rest-my;xx+=a*a;yy+=b*b;xy+=a*b;}
+  return xx>0&&yy>0?xy/Math.sqrt(xx*yy):null;
+ };
+ const itemRows=[...items.values()].map(g=>{
+  const rr=g.responses,n=rr.length,facility=n?100*g.correct/n:null;
+  const discr=pearson(rr);
+  let distractor=null;
+  if(g.optionsKnown&&g.optionSignatures.size===1&&rr.every(x=>x.unanswered||(x.chosen!==null&&x.right!==null))){
+   const validResponses=rr.filter(x=>x.optionCount>1&&x.right!==null&&x.chosen!==null);
+   const k=validResponses[0]?.optionCount||0;
+   if(k>1&&validResponses.every(x=>x.optionCount===k)){
+    const used=new Set(validResponses.filter(x=>x.chosen!==x.right).map(x=>x.chosen));
+    distractor=100*used.size/(k-1);
+   }
+  }
+  return {number:g.number,text:g.text,n,facility,discr,distractor};
+ }).sort((a,b)=>a.number-b.number||a.text.localeCompare(b.text,'ar'));
+ const formRows=[...forms.values()].map((f,i)=>{
+  const rows=f.members,n=rows.length,k=rows[0]?.length||0;
+  let kr=null,reason='';
+  if(n<20)reason='العينة أقل من ٢٠';
+  else if(k<2)reason='عدد البنود غير كافٍ';
+  else {
+   const scores=rows.map(qs=>qs.filter(q=>q.correct).length),avg=scores.reduce((a,b)=>a+b,0)/n;
+   const variance=scores.reduce((sum,x)=>sum+(x-avg)**2,0)/n;
+   if(variance===0)reason='تباين الدرجات يساوي صفرًا';
+   else {
+    let pq=0;
+    for(let j=0;j<k;j++){const p=rows.filter(qs=>qs[j].correct).length/n;pq+=p*(1-p);}
+    kr=k/(k-1)*(1-pq/variance);
+    if(!Number.isFinite(kr)){kr=null;reason='بيانات غير كافية';}
+   }
+  }
+  return {name:f.labels.size===1?[...f.labels][0]:'تركيب أسئلة '+(i+1),n,k,kr,reason};
+ });
+ const n=people.length,scoreValues=people.map(p=>100*p.qs.filter(q=>q.correct).length/p.qs.length).filter(Number.isFinite);
+ const bands=[
+  ['ممتاز (٩٠–١٠٠)',scoreValues.filter(x=>x>=90).length],
+  ['جيد جدًا (٨٠–أقل من ٩٠)',scoreValues.filter(x=>x>=80&&x<90).length],
+  ['جيد (٧٠–أقل من ٨٠)',scoreValues.filter(x=>x>=70&&x<80).length],
+  ['مقبول (٥٠–أقل من ٧٠)',scoreValues.filter(x=>x>=50&&x<70).length],
+  ['أقل من ٥٠',scoreValues.filter(x=>x<50).length]
+ ];
+ const totalItems=itemRows.reduce((x,r)=>x+r.n,0);
+ const weightedEase=totalItems?itemRows.reduce((x,r)=>x+(r.facility??0)*r.n,0)/totalItems:null;
+ const discriminationMeasured=itemRows.filter(x=>x.discr!==null);
+ const meanDiscrimination=discriminationMeasured.length?discriminationMeasured.reduce((x,r)=>x+r.discr,0)/discriminationMeasured.length:null;
+ return {itemRows,formRows,bands,weightedEase,meanDiscrimination,n,
+  highest:scoreValues.length?Math.max(...scoreValues):null,
+  lowest:scoreValues.length?Math.min(...scoreValues):null};
+}
+
 function render({test,subject,testId,className,recs,attempts,students,part}){
  const threshold=Math.max(1,Math.min(100,Number(localStorage.getItem(K))||80));
  const firstDate=Date.parse(test?.published_at||test?.created_at||'')||recs.map(r=>time(r.a)).filter(Boolean).sort((a,b)=>a-b)[0];
@@ -75,6 +158,11 @@ function render({test,subject,testId,className,recs,attempts,students,part}){
  const strengths=indicators.filter(x=>x.mastery!==null).slice().sort((a,b)=>b.mastery-a.mastery||b.mean-a.mean);
  const cs=cats(studentsData,threshold),weakLevels=['معرفة','تطبيق','استدلال'].filter(x=>cognitive.get(x)?.t).sort((a,b)=>score(cognitive.get(a))-score(cognitive.get(b)));
  const unsupported=recs.length-people.length;
+ const adv=iadAdvanced(people);
+ const metricVal=x=>x===null?'لم يُقَس':Number(x).toFixed(3);
+ const distribution=box('توزيع مستويات الطلاب — أسوة بالتحليل الشامل',table(['التقدير','عدد الطلاب'],adv.bands.map(r=>[E(r[0]),E(r[1])]))+'<div class="iad-meta"><span>أعلى نسبة: <b>'+P(adv.highest)+'</b></span><span>أقل نسبة: <b>'+P(adv.lowest)+'</b></span><span>متوسط السهولة: <b>'+P(adv.weightedEase)+'</b></span><span>متوسط التمييز: <b>'+metricVal(adv.meanDiscrimination)+'</b></span></div>');
+ const itemAnalysis=box('تحليل البنود — السهولة والتمييز وفاعلية المشتتات',table(['رقم السؤال','نص السؤال','الاستجابات','السهولة','التمييز المصحح','فاعلية المشتتات'],adv.itemRows.map(r=>[E(r.number),E(r.text),E(r.n),P(r.facility),metricVal(r.discr),P(r.distractor)]))+'<p class="iad-note">السهولة: نسبة الإجابات الصحيحة. التمييز: ارتباط السؤال بالدرجة بعد استبعاد السؤال نفسه؛ لا يحسب لعينة أقل من ٢٠ أو لدرجات بلا تباين. فاعلية المشتتات: نسبة البدائل الخاطئة المختارة من جميع البدائل الخاطئة، عند حفظ الخيارات بترتيب ثابت؛ وإلا تظهر «لم يُقَس». لا تفسر هذه المقاييس دون مراعاة حجم العينة.</p>');
+ const kr20=box('ثبات KR-20 حسب النموذج',table(['النموذج أو تركيب البنود','الطلاب','الأسئلة','KR-20','حالة القياس'],adv.formRows.map(r=>[E(r.name),E(r.n),E(r.k),metricVal(r.kr),E(r.reason||'محسوب')]))+'<p class="iad-note">يحسب KR-20 فقط لسجلات تحتوي على مجموعة البنود نفسها وبعينة لا تقل عن ٢٠ طالبًا وتباين درجات موجب؛ لا تُدمج النماذج ذات الأسئلة المختلفة أو السجلات الناقصة.</p>');
  const heading='<div class="iad-meta"><span>الاختبار: <b>'+E(test.title||'اختبار نافس')+'</b></span><span>المادة: <b>'+E({reading:'القراءة',math:'الرياضيات',science:'العلوم'}[subject]||subject)+'</b></span><span>الصف: <b>الثالث المتوسط</b></span><span>التاريخ: <b>'+(firstDate?E(new Date(firstDate).toLocaleDateString('ar-SA')):'غير متوفر')+'</b></span><span>الدرجة الكلية: <b>'+E(recs[0]?.m?.total??'غير محددة')+'</b></span><span>المستهدفون: <b>'+E(target??'غير متوفر')+'</b></span><span>المختبرون: <b>'+E(part?.tested??recs.length)+'</b></span><span>لم يختبروا: <b>'+E(missed??'غير متوفر')+'</b></span><span>المشاركة: <b>'+P(participation)+'</b></span><span>متوسط الدرجة: <b>'+(recs.length?(recs.reduce((s,x)=>s+x.m.score,0)/recs.length).toFixed(1):'—')+'</b></span><span>التحصيل: <b>'+P(recs.length?recs.reduce((s,x)=>s+x.m.percent,0)/recs.length:null)+'</b></span><span>أعلى درجة: <b>'+E(recs.length?Math.max(...recs.map(x=>x.m.score)):'—')+'</b></span><span>أقل درجة: <b>'+E(recs.length?Math.min(...recs.map(x=>x.m.score)):'—')+'</b></span><span>نسبة الطلاب المتقنين في الاختبار: <b>'+P(studentsData.length?100*studentsData.filter(p=>p.v>=threshold).length/studentsData.length:null)+'</b></span><span>حد الإتقان المعتمد: <b>'+E(threshold)+'٪</b></span></div>';
  const officialHeader='<header class="iad-official-head"><div class="iad-official-authority"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><b>إدارة التعليم بنجران</b><b>مدرسة ابن سينا المتوسطة</b></div></header>';
  const meta=box('بيانات الاختبار ومؤشرات الأداء',heading+'<p class="iad-note">النتائج التي لا تتضمن سجلات أسئلة ومؤشرات موثوقة مستبعدة من تحليل المهارات دون تغيير درجاتها المحفوظة. السجلات المستبعدة: '+unsupported+'.</p>'+(part?.warning?'<p class="iad-note">تنبيه المشاركة: '+E(part.warning)+'</p>':''));
@@ -131,9 +219,9 @@ function render({test,subject,testId,className,recs,attempts,students,part}){
   const advice=box('٩. التوصية','<p>تركيز المعالجة على المستوى المعرفي: <b>'+E(weakLevels[0]||'غير محدد')+'</b>، مع تدريب موجه للأسئلة '+E(weakQuestions.slice(0,3).map(q=>q.number).join('، ')||'غير المحددة')+' ثم إجراء قياس بعدي للمؤشر نفسه.</p>');
   const historical=box('١٠. قياس الأثر',changes.length?impactMetadata+table(['السابق','الحالي','التغير','طلاب مشتركون'],changes.map(g=>[P(g.old),P(g.now),E(g.d.toFixed(1))+' نقطة',E(g.n)])):'<p>لا يوجد قياس سابق/لاحق مرتبط بهذا المؤشر حتى الآن.</p>');
   const summary=box('الملخص التنفيذي للمؤشر','<p>نسبة أداء المؤشر: <b>'+P(score(single))+'</b>؛ عدد المتقنين: '+E(masters.length)+'؛ أضعف مستوى معرفي: '+E(weakLevels[0]||'غير محدد')+'؛ أولويات العلاج هي الأسئلة '+E(weakQuestions.slice(0,3).map(q=>q.number).join('، ')||'غير محددة')+'.</p>');
-  return '<div class="iad-root iad-single-report" dir="rtl">'+options+'<div class="iad-executive-report">'+officialHeader+'<h1 class="iad-report-main-title">تقرير اختبار المؤشر التفصيلي</h1>'+identity+result+box('٣. تحليل الأسئلة',questionTable)+cognitiveSingle+weakest+best+studentSection+tally+advice+historical+summary+approvals+'</div><div class="iad-appendix" hidden>'+roster+'</div></div>';
+  return '<div class="iad-root iad-single-report" dir="rtl">'+options+'<div class="iad-executive-report">'+officialHeader+'<h1 class="iad-report-main-title">تقرير اختبار المؤشر التفصيلي</h1>'+identity+result+distribution+box('٣. تحليل الأسئلة',questionTable)+cognitiveSingle+weakest+best+studentSection+tally+advice+historical+summary+itemAnalysis+kr20+approvals'</div><div class="iad-appendix" hidden>'+roster+'</div></div>';
  }
- return '<div class="iad-root" dir="rtl">'+options+'<div class="iad-executive-report">'+officialHeader+meta+inds+cards+levels+interventions+impact+'<section class="iad-page">'+executive+approvals+'</section></div><div class="iad-appendix" hidden>'+qs+appendix+'</div></div>';
+ return '<div class="iad-root" dir="rtl">'+options+'<div class="iad-executive-report">' +officialHeader+meta+distribution+inds+cards+levels+interventions+impact+itemAnalysis+kr20+'<section class="iad-page">'+executive+approvals+'</section></div><div class="iad-appendix" hidden>'+qs+appendix+'</div></div>';
 }
 function printIndicator(full){const preview=document.querySelector('#indicatorReportPreview .iad-root');if(!preview)return;const root=document.getElementById('printRoot');if(!root)return;const copy=preview.cloneNode(true);copy.querySelectorAll('.iad-actions,.iad-generated').forEach(x=>x.remove());const appendix=copy.querySelector('.iad-appendix');if(appendix)appendix.hidden=!full;root.innerHTML='<article class="subject-analysis-sheet official-analysis-sheet" data-indicator-report="true">'+copy.outerHTML+'</article>';root.setAttribute('aria-hidden','false');window.print();}
 function printStandalone(html){const root=document.getElementById('printRoot');if(!root)return;root.innerHTML='<article class="subject-analysis-sheet official-analysis-sheet"><div class="iad-root">'+html+'</div></article>';root.setAttribute('aria-hidden','false');window.print();}
