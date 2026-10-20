@@ -64,14 +64,18 @@ try{
       page_count:pages.length,
       reading_passages:readingGroups.length,
       reading_counts:readingGroups.map(g=>g.querySelectorAll(':scope > .passage-questions > .question').length),
+      reading_ids:[...document.querySelectorAll('.passage-group[data-subject="reading"] .question')].map(q=>q.dataset.questionId),
+      reading_text:readingGroups.map(g=>g.querySelector(':scope > .passage').textContent).join(''),
       final_page_questions:finalQuestions
     };
   });
 
   if(audit.error)throw new Error('mixed paper rendered layout error: '+audit.error);
   if(audit.total_questions!==60)throw new Error('mixed paper must contain 60 questions '+JSON.stringify(audit));
-  if(audit.reading_passages!==4)throw new Error('mixed reading must contain four passages '+JSON.stringify(audit));
-  if(audit.reading_counts.some(n=>n!==5))throw new Error('each mixed reading passage must have five questions '+JSON.stringify(audit));
+  const expectedReading=questions.filter(q=>q.subject==='reading');
+  if(JSON.stringify(audit.reading_ids)!==JSON.stringify(expectedReading.map(q=>q.id)))throw new Error('reading question identities or order changed');
+  const expectedText=[...new Set(expectedReading.map(q=>q.context))].join('');
+  if(audit.reading_text!==expectedText)throw new Error('reading text was omitted, duplicated or reordered across continuations');
 
   await page.evaluate(()=>{window.print=()=>{};document.getElementById('printBtn')?.click();});
   await page.waitForTimeout(250);
