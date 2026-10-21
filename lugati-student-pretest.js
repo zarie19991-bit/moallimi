@@ -3,7 +3,7 @@
 const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-pretest-worksheets';
 const EXACT='lugati_exact_session_v2',LEGACY='lugati_session_v1',LEGACY_ROLE='lugati_role_v1';
 const SUBJECTS={reading:{name:'القراءة',icon:'📖',curriculumTotal:16},math:{name:'الرياضيات',icon:'➗',curriculumTotal:null},science:{name:'العلوم',icon:'🔬',curriculumTotal:null}};
-const S={token:'',map:[],maps:{reading:[],math:[],science:[]},assessmentJourneys:{reading:null,math:null,science:null},teacherBundles:{reading:[],math:[],science:[]},activeCombinedJourney:null,activeSubject:'reading',current:null,activeLock:null,journey:null,stage:'map',guidedIndex:0,activity:null,objective:null,feedback:null,challenge:null,exit:null,support:null,rescueAnswer:null,enrich:null,retention:null,timer:null,loading:false,error:''};
+const S={token:'',map:[],maps:{reading:[],math:[],science:[]},assessmentJourneys:{reading:null,math:null,science:null},teacherBundles:{reading:[],math:[],science:[]},activeCombinedJourney:null,activeSubject:'reading',current:null,activeLock:null,journey:null,stage:'map',reviewStep:null,reviewIndex:0,reviewResume:null,guidedIndex:0,activity:null,objective:null,feedback:null,challenge:null,exit:null,support:null,rescueAnswer:null,enrich:null,retention:null,timer:null,loading:false,error:''};
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function session(){try{const x=JSON.parse(sessionStorage.getItem(EXACT)||localStorage.getItem(EXACT)||'null');if(x?.token&&x?.role==='student')return x}catch{}for(const st of [sessionStorage,localStorage]){try{const token=st.getItem(LEGACY),role=st.getItem(LEGACY_ROLE);if(token&&role==='student')return{token,role:'student'}}catch{}}return null}
 async function post(action,extra={}){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${S.token}`},body:JSON.stringify({action,...extra}),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);return d}
@@ -155,6 +155,7 @@ function injectHero(){
      document.getElementById('openCurrentJourney').onclick=()=>openCurrentJourney();
    } else primary.innerHTML='<div class="bg-white border rounded-3xl p-8 text-center"><div class="text-4xl">✅</div><div class="font-black mt-3">لا توجد مهمة نشطة الآن</div><div class="text-xs text-slate-400 mt-1">عندما يرسل المعلم مهارة جديدة ستظهر هنا مباشرة.</div></div>';
  }
+ if(primary){const entry=document.createElement('button');entry.type='button';entry.className='journey-secondary';entry.style.cssText='margin-top:12px;width:100%';entry.textContent='رحلة ما قبل الاختبار — فتح المؤشرات ومراجعتها';entry.onclick=()=>openMap(S.activeSubject);primary.appendChild(entry)}
  const stats=Object.keys(SUBJECTS).map(subjectStats);
  const pendingTotal=stats.reduce((a,x)=>a+x.pending,0),assignedTotal=stats.reduce((a,x)=>a+x.assigned,0),readyTotal=stats.reduce((a,x)=>a+x.ready,0);
  const taskSummary=document.getElementById('studentTasksSummary');
@@ -183,7 +184,7 @@ function injectHero(){
 }
 function openMap(subject='reading'){
  styles();S.activeSubject=SUBJECTS[subject]?subject:'reading';S.map=S.maps[S.activeSubject]||[];
- if(!document.getElementById('journeyOverlay')){const w=document.createElement('div');w.id='journeyOverlay';w.className='journey-overlay';w.innerHTML=`<div class="journey-shell"><header class="journey-head"><div class="journey-head-row"><div><small id="journeySubjectKicker"></small><h1>رحلتي نحو الجاهزية 🌟</h1><p>ابدأ بالمهارات التي أرسلها المعلم لك. في القراءة يمكنك أيضًا رؤية خريطة المهارات الست عشرة كاملة.</p></div><button id="closeJourney" class="journey-close">×</button></div></header><div id="journeyBody" class="journey-body"></div></div>`;document.body.appendChild(w);document.getElementById('closeJourney').onclick=closeOverlay;w.addEventListener('click',e=>{if(e.target===w)closeOverlay()})}
+ if(!document.getElementById('journeyOverlay')){const w=document.createElement('div');w.id='journeyOverlay';w.className='journey-overlay';w.innerHTML=`<div class="journey-shell"><header class="journey-head"><div class="journey-head-row"><div><small id="journeySubjectKicker"></small><h1>رحلتي نحو الجاهزية 🌟</h1><p>ابدأ بالمهارات التي أرسلها المعلم لك. في القراءة يمكنك أيضًا رؤية خريطة المهارات الست عشرة كاملة.</p></div><button id="closeJourney" class="journey-close">×</button></div></header><div id="journeyBody" class="journey-body"></div></div>`;document.body.appendChild(w);wireJourneyNavigation(w);document.getElementById('closeJourney').onclick=closeOverlay;w.addEventListener('click',e=>{if(e.target===w)closeOverlay()})}
  S.stage='map';renderMap();
 }
 function openCurrentJourney(){
@@ -218,6 +219,7 @@ function renderMap(){
  b.querySelectorAll('[data-open-assignment],[data-map-assignment]').forEach(x=>x.onclick=()=>openJourney(x.dataset.openAssignment||x.dataset.mapAssignment));
 }
 async function openJourney(id){
+ S.reviewStep=null;S.reviewResume=null;S.activity=null;S.challenge=null;S.exit=null;
  const b=document.getElementById('journeyBody');if(b)b.innerHTML='<div style="padding:70px;text-align:center;color:#64748b">جارٍ تجهيز رحلة المؤشر…</div>';
  try{
    const d=await post('get_journey',{assignment_id:id});S.journey=d;S.feedback=null;S.support={reviews:d.support_review||[],rescue:Array.isArray(d.rescue)?d.rescue:(d.rescue?[d.rescue]:[])};
@@ -229,7 +231,49 @@ async function openJourney(id){
    else{const guided=d.guided||[],resp=d.responses||{},first=guided.findIndex(q=>!(resp[q.id]?.activity_correct&&resp[q.id]?.objective_correct));S.guidedIndex=first<0?guided.length:first;S.stage=first===-1?'secret':(Object.keys(resp).length?'guided':'secret');renderJourney()}
  }catch(e){if(b)b.innerHTML=`<div class="journey-panel"><div class="feedback bad">${esc(e.message)}</div><button id="backMap" class="journey-secondary" style="margin-top:12px">العودة للخريطة</button></div>`;document.getElementById('backMap').onclick=()=>{S.stage='map';renderMap()}}
 }
-function progress(step){const names=['١. أفهم المطلوب','٢. أتدرب على الصياغات','٣. أحل وحدي','٤. أثبت الإتقان','٥. تم الإتقان'];return `<div class="journey-progress">${names.map((n,i)=>`<div class="journey-step ${i<step?'done':i===step?'active':''}">${i<step?'✓ ':''}${n}</div>`).join('')}</div>`}
+function hasSubmittedJourney(){const a=S.journey?.assignment||{};return !!(a.challenge_submitted_at||a.exit_submitted_at||a.journey_status==='ready'||a.journey_status==='support'||a.current_stage==='exit')}
+function progress(step){
+ const names=['أفهم المطلوب','أتدرب على الصياغات','أحل وحدي','أثبت الإتقان','النتيجة'];
+ const nav=hasSubmittedJourney()?`<nav class="journey-progress" aria-label="صفحات رحلة المؤشر">${names.map((n,i)=>`<button type="button" class="journey-step ${i===(S.reviewStep??step)?'active':''}" data-review-stage="${i}">${n}</button>`).join('')}</nav>`:originalProgress(step);
+ return `<button type="button" class="journey-secondary" data-journey-map style="margin-bottom:12px">خريطة المؤشرات</button>${nav}`;
+}
+async function openReview(step){
+ if(!hasSubmittedJourney())return;
+ const id=S.journey.assignment.id;
+ if(S.reviewStep===null)S.reviewResume=S.stage==='exit'&&S.exit?{id,exit:S.exit}:null;
+ clearInterval(S.timer);S.timer=null;
+ try{
+  const d=await post('get_journey',{assignment_id:id});
+  if(!document.getElementById('journeyOverlay')||S.journey?.assignment.id!==id)return;
+  S.journey=d;S.reviewStep=step;S.reviewIndex=0;S.stage='review';renderReview();
+ }catch(e){alert(e.message)}
+}
+function renderReview(){
+ const b=document.getElementById('journeyBody');if(!b||!S.journey)return;
+ const step=S.reviewStep;
+ if(step===0){S.stage='secret';renderJourney();S.stage='review';const go=document.getElementById('goGuided');if(go){go.textContent='مراجعة صفحات التدريب';go.onclick=()=>{S.reviewStep=1;S.reviewIndex=0;renderReview()}}return}
+ const a=S.journey.assignment;
+ const footer=`<button class="journey-secondary" data-resume-journey style="margin-top:16px;width:100%">${a.journey_status==='ready'?'العودة إلى الإتقان والإثراء':'متابعة التدريب من موضع التوقف'}</button>`;
+ const banner='<div class="feedback ok" style="margin-bottom:14px">مراجعة بعد التسليم — نتيجتك وإتقانك محفوظان.</div>';
+ if(step===4){b.innerHTML=`${progress(4)}<div class="journey-panel">${banner}<h2>${a.journey_status==='ready'?'أتقنت هذا المؤشر':'نتيجتك الحالية'}</h2><p class="sub">التحدي: ${a.challenge_percent==null?'لم يُسلّم':esc(a.challenge_percent)+'٪'}</p><p class="sub">اختبار الخروج: ${a.exit_percent==null?'لم يُسلّم':esc(a.exit_percent)+'٪'}</p>${footer}</div>`;return}
+ const items=step===1?(S.journey.guided||[]):(S.journey.review?.[step===2?'challenge':'exit']||[]);
+ const q=items[S.reviewIndex];
+ if(!q){b.innerHTML=`${progress(step)}<div class="journey-panel">${banner}<p class="sub">لا توجد صفحات مسلّمة في هذه المرحلة حتى الآن.</p>${footer}</div>`;return}
+ const r=step===1?S.journey.responses?.[q.id]:q.response;
+ S.activity=r?.activity_answer||null;S.objective=null;
+ const savedObjective=r?.objective_correct?S.journey.template.indicator_text:null;
+ b.innerHTML=`${progress(step)}<div class="journey-panel">${banner}<div class="activity-title">صفحة ${S.reviewIndex+1} من ${items.length}</div>${diagramHtml(q)}${q.stimulus?`<div class="activity-stimulus">${esc(q.stimulus)}</div>`:''}<div class="activity-prompt">${esc(q.prompt)}</div><fieldset disabled style="border:0;padding:0;margin:0">${activityHtml(q)}</fieldset>${step===1?`<div class="obj-box"><b>${esc(q.objective_prompt)}</b>${(q.objective_options||[]).map(o=>`<p class="sub">${savedObjective===o?'✓ ':''}${esc(o)}</p>`).join('')}</div>`:''}<p class="sub">${r?(step===1?(r.activity_correct&&r.objective_correct?'أُنجز التدريب بنجاح':'تحتاج هذه الصفحة إلى مراجعة'):(r.correct?'إجابتك صحيحة':'إجابتك غير صحيحة')):'لم تُسجّل إجابة لهذه الصفحة'}</p><div class="challenge-nav"><button class="journey-secondary" data-review-prev ${S.reviewIndex===0?'disabled':''}>السابق</button><button class="journey-primary" data-review-next ${S.reviewIndex===items.length-1?'disabled':''}>التالي</button></div>${footer}</div>`;
+}
+function wireJourneyNavigation(w){
+ w.addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t)return;
+  if(t.hasAttribute('data-journey-map')){clearInterval(S.timer);S.timer=null;S.reviewStep=null;S.activeCombinedJourney=null;S.stage='map';S.journey=null;S.challenge=null;S.exit=null;renderMap();return}
+  if(t.hasAttribute('data-review-stage')){openReview(Number(t.dataset.reviewStage));return}
+  if(t.hasAttribute('data-resume-journey')){S.reviewStep=null;S.activity=null;const saved=S.reviewResume;S.reviewResume=null;if(saved?.id===S.journey.assignment.id){S.exit=saved.exit;S.stage='exit';renderExit()}else openJourney(S.journey.assignment.id);return}
+  if(t.hasAttribute('data-review-prev')||t.hasAttribute('data-review-next')){S.reviewIndex+=t.hasAttribute('data-review-next')?1:-1;renderReview()}
+ });
+}
+function originalProgress(step){const names=['١. أفهم المطلوب','٢. أتدرب على الصياغات','٣. أحل وحدي','٤. أثبت الإتقان','٥. تم الإتقان'];return `<div class="journey-progress">${names.map((n,i)=>`<div class="journey-step ${i<step?'done':i===step?'active':''}">${i<step?'✓ ':''}${n}</div>`).join('')}</div>`}
 function renderJourney(){const b=document.getElementById('journeyBody');if(!b||!S.journey)return;if(S.stage==='secret'){const t=S.journey.template;b.innerHTML=`${progress(0)}<div class="journey-panel"><div class="secret-icon">💡</div><div class="activity-title">مفتاح السر • المؤشر ${t.global_indicator}</div><h2>${esc(t.student_title)}</h2><details class="skill-official" style="margin-top:8px"><summary style="cursor:pointer;font-weight:900;color:#047857">عرض نص المؤشر الرسمي</summary><div style="margin-top:6px">${esc(t.indicator_text)}</div></details><div class="gold-card"><b>🔑 قاعدة الحل الذهبية</b><br>${esc(t.golden_rule)}</div><div class="learn-grid"><div class="learn-box"><h3>👀 كيف أعرف أن السؤال على هذا المؤشر؟</h3><ul>${(t.recognition_cues||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div><div class="learn-box"><h3>🔄 كيف قد تتغير صيغة السؤال؟</h3><ul>${(t.question_patterns||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div><div class="learn-box" style="grid-column:1/-1"><h3>🧭 خطوات الحل مهما تغير النص</h3><ol>${(t.solution_steps||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div></div><div class="transfer-card"><b>قاعدة الانتقال لسؤال جديد:</b><br>${esc(t.transfer_rule||t.golden_rule)}</div><div class="trap-card"><b>⚠️ فخ نافس الشائع</b><br>${esc(t.common_trap)}</div><button id="goGuided" class="journey-action">فهمت الطريقة — دربني على الأنواع الثلاثة</button></div>`;document.getElementById('goGuided').onclick=()=>{S.stage='guided';const g=S.journey.guided||[],r=S.journey.responses||{};let i=g.findIndex(q=>!(r[q.id]?.activity_correct&&r[q.id]?.objective_correct));S.guidedIndex=i<0?g.length:i;resetActivity();renderGuided()};return}renderGuided()}
 function resetActivity(){const q=S.journey?.guided?.[S.guidedIndex];S.feedback=null;S.objective=null;if(!q){S.activity=null;return}const d=q.activity_data||{};if(q.activity_type==='choice'||q.activity_type==='true_false')S.activity={index:null};else if(q.activity_type==='matching')S.activity={pairs:Array((d.left||[]).length).fill(null)};else if(q.activity_type==='classification')S.activity={groups:Array((d.items||[]).length).fill(null)};else if(q.activity_type==='ordering')S.activity={order:(d.items||[]).map((_,i)=>i)};else S.activity=null}
 function readyActivity(q){if(!S.activity)return false;if(q.activity_type==='choice'||q.activity_type==='true_false')return Number.isInteger(S.activity.index);if(q.activity_type==='matching')return S.activity.pairs.every(Number.isInteger);if(q.activity_type==='classification')return S.activity.groups.every(Number.isInteger);if(q.activity_type==='ordering')return S.activity.order.length===(q.activity_data?.items||[]).length;return false}
@@ -254,7 +298,7 @@ async function submitChallenge(){
  const b=document.getElementById('journeyBody');if(b)b.innerHTML='<div style="padding:70px;text-align:center;color:#64748b">جارٍ تحليل نتيجة التحدي…</div>';
  try{
    const d=await post('submit_challenge',{assignment_id:S.journey.assignment.id,answers:S.challenge.answers});clearStoredChallenge(S.journey.assignment.id);
-   S.journey.assignment.challenge_score=d.score;S.journey.assignment.challenge_total=d.total;S.journey.assignment.challenge_percent=d.percent;S.journey.level_scores=d.level_scores||null;
+   S.journey.assignment.challenge_submitted_at=new Date().toISOString();S.journey.assignment.challenge_score=d.score;S.journey.assignment.challenge_total=d.total;S.journey.assignment.challenge_percent=d.percent;S.journey.level_scores=d.level_scores||null;
    if(d.challenge_passed){
      S.journey.assignment.journey_status='in_progress';S.journey.assignment.current_stage='exit';S.stage='exit';await beginExit();
    }else{
@@ -328,7 +372,7 @@ async function submitExit(){
  S.exit.submitting=true;const b=document.getElementById('journeyBody');if(b)b.innerHTML='<div style="padding:70px;text-align:center;color:#64748b">جارٍ التحقق من الإتقان…</div>';
  try{
    const d=await post('submit_exit',{assignment_id:S.journey.assignment.id,answers:S.exit.answers});
-   S.journey.assignment.exit_attempts=d.attempt;S.journey.assignment.exit_percent=d.percent;
+   S.journey.assignment.exit_submitted_at=new Date().toISOString();S.journey.assignment.exit_attempts=d.attempt;S.journey.assignment.exit_percent=d.percent;
    if(d.passed){
      S.journey.assignment.journey_status='ready';S.journey.assignment.current_stage='ready';S.journey.assignment.exit_passed=true;S.journey.assignment.retention_due_at=d.retention_due_at;S.stage='ready';await loadMap();renderReady();
    }else{
@@ -339,7 +383,9 @@ async function submitExit(){
 }
 async function renderReady(){
  clearInterval(S.timer);S.timer=null;const b=document.getElementById('journeyBody');if(!b||!S.journey)return;
+ const readyId=S.journey.assignment.id;
  let e=null,r=null;try{e=await post('enrichment',{assignment_id:S.journey.assignment.id,mode:'get'})}catch{}try{r=await post('retention',{assignment_id:S.journey.assignment.id,mode:'get'})}catch{}
+ if(S.stage!=='ready'||S.journey?.assignment.id!==readyId||!document.getElementById('journeyOverlay'))return;
  S.enrich=e;S.retention=r;const p=S.journey.assignment.exit_percent;
  const due=r?.due===true;
  b.innerHTML=`${progress(4)}<div class="journey-panel result-star"><div class="star">🌟</div><div class="activity-title">إتقان مثبت</div><h2>أتقنت هذا المؤشر</h2>${p!=null?`<div class="result-score">${Number(p).toLocaleString('ar-SA')}%</div>`:''}<p class="sub">لم تُمنح النجمة من التحدي أو العلاج؛ حصلت عليها بعد اجتياز اختبار خروج مستقل. ويمكنك في أي وقت متابعة أي مؤشر آخر أرسله المعلم.</p>
