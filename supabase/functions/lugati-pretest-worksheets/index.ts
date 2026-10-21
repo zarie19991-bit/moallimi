@@ -414,6 +414,24 @@ async function bundle(aid:string,sid:string){
  const {data:t,error:te}=await db.from("lugati_pretest_templates").select("*").eq("id",d.template_id).single();if(te)throw te;
  return{x,d,t};
 }
+// Review only submitted stages belonging to the authenticated student's assignment.
+async function submittedJourneyReview(z:any){
+ const responses=z.x.response_json||{},review:any={challenge:[],exit:[]};
+ if(z.x.challenge_submitted_at){
+  const {data,error}=await db.from("lugati_pretest_items").select("*").eq("template_id",z.t.id).eq("stage","challenge").order("order_no");if(error)throw error;
+  review.challenge=(data||[]).filter((i:any)=>visibleItem(z.t,i,"challenge")).map((i:any)=>({...publicItem(i),response:responses[i.id]||null}));
+ }
+ if(z.x.exit_submitted_at){
+  const raw=await rawExitItems(z.t.id);
+  review.exit=raw.filter((i:any)=>responses[i.id]?.stage==="exit").map((i:any)=>{
+   const response=responses[i.id],attempt=Number(response.attempt||1);
+   const previous=Object.fromEntries(raw.map((q:any)=>[q.id,Number(responses[q.id]?.attempt||0)<attempt&&responses[q.id]?.correct===true]));
+   const item=attempt>1?virtualExitRetryItems(z.t,raw,previous,attempt-1).find((q:any)=>q.source_id===i.id):i;
+   return item?{...publicItem(item),response}:null;
+  }).filter(Boolean);
+ }
+ return review;
+}
 async function getJourney(req:Request,b:any,a:Access){
  if(a.role!=="student")return json(req,{error:"هذه العملية للطالب فقط."},403);
  const z=await bundle(tidy(b?.assignment_id),String(a.student_id));
@@ -444,8 +462,9 @@ async function getJourney(req:Request,b:any,a:Access){
    const fake={...r};for(const i of sourceItems)if(assignment.support_source==="exit"&&levelState[i.id]===true)fake[i.id]={correct:true};
    rescue=virtualRescueItems(z.t,sourceItems,fake).map((x:any)=>publicItem(x));
  }
+ const review=await submittedJourneyReview({...z,x:assignment});
  const due=assignment.retention_due_at&&new Date(assignment.retention_due_at).getTime()<=Date.now()&&assignment.retention_status!=="passed";
- return json(req,{ok:true,assignment,template:{id:z.t.id,subject_key:z.t.subject_key,outcome_code:z.t.outcome_code,indicator_index:z.t.indicator_index,global_indicator:Number(z.t.display_index||globalNo(z.t.outcome_code,Number(z.t.indicator_index))),indicator_text:z.t.indicator_text,student_title:z.t.student_title,golden_rule:z.t.golden_rule,common_trap:z.t.common_trap,recognition_cues:z.t.recognition_cues||[],solution_steps:z.t.solution_steps||[],question_patterns:z.t.question_patterns||[],transfer_rule:z.t.transfer_rule||"",challenge_minutes:z.t.challenge_minutes,ready_percent:z.t.ready_percent},guided:guided.map((x:any)=>publicItem(x,objectiveFor(x,z.t,objPool))),responses:assignment.response_json||{},support_review,rescue,retention_due:!!due});
+ return json(req,{ok:true,assignment,template:{id:z.t.id,subject_key:z.t.subject_key,outcome_code:z.t.outcome_code,indicator_index:z.t.indicator_index,global_indicator:Number(z.t.display_index||globalNo(z.t.outcome_code,Number(z.t.indicator_index))),indicator_text:z.t.indicator_text,student_title:z.t.student_title,golden_rule:z.t.golden_rule,common_trap:z.t.common_trap,recognition_cues:z.t.recognition_cues||[],solution_steps:z.t.solution_steps||[],question_patterns:z.t.question_patterns||[],transfer_rule:z.t.transfer_rule||"",challenge_minutes:z.t.challenge_minutes,ready_percent:z.t.ready_percent},guided:guided.map((x:any)=>publicItem(x,objectiveFor(x,z.t,objPool))),responses:assignment.response_json||{},review,support_review,rescue,retention_due:!!due});
 }
 async function checkGuided(req:Request,b:any,a:Access){
  if(a.role!=="student")return json(req,{error:"هذه العملية للطالب فقط."},403);

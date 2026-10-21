@@ -1,0 +1,44 @@
+const fs=require('node:fs');
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const {stripTypeScriptTypes}=require('node:module');
+const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
+const tick=()=>new Promise(r=>setImmediate(r));
+(async()=>{
+ const dom=new JSDOM('<div id="studentPrimaryMission"></div>',{url:'https://example.test',runScripts:'outside-only'}),w=dom.window;
+ const requests=[];
+ const q=n=>({id:'q'+n,activity_type:'choice',prompt:'سؤال '+n,activity_data:{options:['أول','ثان']},objective_prompt:'الهدف',objective_options:['مؤشر'],cognitive_level:'knowledge'});
+ const fixture={assignment:{id:'a1',journey_status:'ready',exit_passed:true,current_stage:'ready',challenge_submitted_at:'saved',exit_submitted_at:'saved',challenge_percent:80,exit_percent:100},template:{indicator_text:'مؤشر',student_title:'المهارة'},guided:[q(1),q(2)],responses:{q1:{activity_answer:{index:0},activity_correct:true,objective_correct:true}},review:{challenge:[{...q(3),response:{activity_answer:{index:1},correct:true}}],exit:[{...q(4),response:{activity_answer:{index:0},correct:true}}]}};
+ w.fetch=async(_url,o)=>{const a=JSON.parse(o.body).action;requests.push(a);assert(['get_journey','enrichment','retention','journey_map'].includes(a),'Review must not submit or restart: '+a);return{ok:true,json:async()=>a==='get_journey'?structuredClone(fixture):a==='journey_map'?{subject_key:JSON.parse(o.body).subject_key,indicators:[]}:{}}};
+ let source=fs.readFileSync('lugati-student-pretest.js','utf8');
+ source=source.replace("if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();","window.testJourney={S,injectHero,openJourney,openReview};");
+ w.eval(source);const t=w.testJourney;
+ t.injectHero();assert.match(w.document.querySelector('#studentPrimaryMission').textContent,/رحلة ما قبل الاختبار/);
+ w.LugatiJourney.openMap();await t.openJourney('a1');await tick();
+ assert.equal(w.document.querySelectorAll('[data-review-stage]').length,5);
+ for(const step of [0,1,2,3,4]){await t.openReview(step);assert.equal(w.document.querySelectorAll('[data-review-stage]').length,5);if(step>0)assert.match(w.document.querySelector('#journeyBody').textContent,/نتيجتك وإتقانك محفوظان/)}
+ await t.openReview(1);w.document.querySelector('[data-review-next]').click();assert.match(w.document.querySelector('#journeyBody').textContent,/سؤال 2/);w.document.querySelector('[data-review-prev]').click();assert.match(w.document.querySelector('#journeyBody').textContent,/سؤال 1/);
+ assert(w.document.querySelector('fieldset').disabled);
+ await t.openReview(2);assert(w.document.querySelector('.choice-btn.selected').textContent.includes('ثان'));
+ w.document.querySelector('[data-journey-map]').click();assert.equal(t.S.stage,'map');assert.equal(t.S.journey,null);
+ await t.openJourney('a1');await tick();assert.equal(t.S.journey.assignment.exit_percent,100);
+ fixture.assignment.journey_status='support';fixture.assignment.current_stage='support';await t.openJourney('a1');assert.equal(w.document.querySelectorAll('[data-review-stage]').length,5);
+ dom.window.close();
+ const ts=fs.readFileSync('supabase/functions/lugati-pretest-worksheets/index.ts','utf8');
+ const ctx={};vm.createContext(ctx);
+ const retry=ts.slice(ts.indexOf('function virtualExitRetryItems('),ts.indexOf('\nasync function',ts.indexOf('function virtualExitRetryItems(')));
+ const helper=ts.slice(ts.indexOf('async function submittedJourneyReview('),ts.indexOf('async function getJourney('));
+ let reads=0;const raw=['knowledge','application','reasoning'].map((level,i)=>({id:'e'+i,cognitive_level:level,activity_data:{options:['original']}}));
+ Object.assign(ctx,{cleanText:v=>String(v||''),publicItem:x=>({...x,correct_answer:undefined}),visibleItem:()=>true,rawExitItems:async()=>raw,db:{from:()=>{reads++;return{select(){return this},eq(){return this},order:async()=>({data:[q(3)]})}}}});
+ vm.runInContext(stripTypeScriptTypes(retry+'\n'+helper),ctx);
+ const empty=await ctx.submittedJourneyReview({x:{},t:{}});assert.equal(empty.challenge.length,0);assert.equal(empty.exit.length,0);assert.equal(reads,0);
+ const template={golden_rule:'قاعدة',solution_steps:['أول خطوة','آخر خطوة']};
+ // Saved responses from different exit attempts must match their original option order.
+ const r={e0:{stage:'exit',attempt:1,correct:true,activity_answer:{index:0}},e1:{stage:'exit',attempt:2,correct:true,activity_answer:{index:3}},e2:{stage:'exit',attempt:3,correct:true,activity_answer:{index:2}}};
+ const z={t:template,x:{challenge_submitted_at:'saved',exit_submitted_at:'saved',response_json:r}};
+ const snap=JSON.stringify(z);const review=await ctx.submittedJourneyReview(z);
+ const second=ctx.virtualExitRetryItems(template,raw,{e0:true},1).find(x=>x.source_id==='e1');
+ const third=ctx.virtualExitRetryItems(template,raw,{e0:true,e1:true},2).find(x=>x.source_id==='e2');
+ assert.deepEqual(review.exit[1].activity_data.options,second.activity_data.options);assert.deepEqual(review.exit[2].activity_data.options,third.activity_data.options);assert.equal(JSON.stringify(z),snap);
+ console.log('PASS: completed and support navigation, all five stages, previous/next pages, read-only requests, retained scores, no unsubmitted test exposure, exact retry option order.');
+})().catch(e=>{console.error(e);process.exitCode=1});
