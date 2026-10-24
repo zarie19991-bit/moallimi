@@ -50,8 +50,8 @@ function renderOmrQr(box,payload){
 async function render(){
  activeDraft=await (window.NafesPaperReviewDraft?.load?.()||Promise.resolve(draft()));
  const d=draft();
- if(!d||!Array.isArray(d.assignments)||!d.assignments.length){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">لا توجد مراجعة مجهزة للطباعة.</div>';return;}
- if(Number(d.question_count||0)<1||Number(d.question_count||0)>60){document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">ورقة التظليل تدعم من سؤال واحد حتى ٦٠ سؤالًا.</div>';return;}
+ if(!d||!Array.isArray(d.assignments)||!d.assignments.length){document.getElementById('pages').innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">لا توجد مراجعة مجهزة للطباعة.</div>';return;}
+ if(Number(d.question_count||0)<1||Number(d.question_count||0)>60){document.getElementById('pages').innerHTML='<div style="padding:40px;text-align:center;font-family:Tahoma">ورقة التظليل تدعم من سؤال واحد حتى ٦٠ سؤالًا.</div>';return;}
  $('screenTitle').textContent=d.title||'أوراق التظليل';
  $('screenMeta').textContent=ar(d.assignments.length)+' طالب · '+ar(d.question_count)+' سؤال · '+(d.bubble_name_mode==='blank'?'الاسم فارغ':'الاسم مطبوع');
  const rid=d.review_id||new URLSearchParams(location.search).get('rid')||'';

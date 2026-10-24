@@ -8,6 +8,8 @@ students.css
 stitch-platform-theme.css
 homepage.css
 homepage-glass.css
+moallimi-workspace.css
+moallimi-workspace.js
 moallimi-brand.css
 platform-color-system.css
 moallimi-logo-final.webp
