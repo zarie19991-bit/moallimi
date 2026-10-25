@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import './build-workspace-styles.mjs';
 
 const root=process.cwd();
 const out=path.join(root,'_site');
