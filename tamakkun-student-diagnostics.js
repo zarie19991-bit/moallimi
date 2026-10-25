@@ -5,6 +5,7 @@ const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-s
 const S={host:null,token:null,scope:'all',data:null,student:'',cls:'all',subject:'all',search:'',loading:false,error:'',mountVersion:0,question:null,qError:'',qLoading:false};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const text=v=>String(v??'').trim();
+const stateRole=()=>S.token?'teacher':'unknown';
 const pct=n=>n===null||n===undefined||Number.isNaN(Number(n))?'لم يُقَس':(Math.round(Number(n)*10)/10).toLocaleString('ar-SA')+'٪';
 const sub=v=>({math:'الرياضيات',science:'العلوم',reading:'القراءة',lughati:'لغتي الخالدة'})[v]||'غير محدد';
 const when=v=>{if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('ar-SA',{timeZone:'Asia/Riyadh',dateStyle:'short',timeStyle:'short'})};
@@ -54,28 +55,30 @@ function errorDetails(){
  (x.image?'<div class="tsd-note">يحتوي السؤال على صورة؛ راجع ورقة الاختبار الأصلية.</div>':'')+
  '<p>إجابة الطالب: <b style="color:#ac2f3b">'+esc(x.answered?optionValue(x.options[x.selected]):'لم يجب')+'</b></p>'+
  '<p>الإجابة الصحيحة: <b style="color:#086c4b">'+esc(optionValue(x.options[x.correctIndex]))+'</b></p>'+
- '<div class="tsd-note"><strong>التفسير المسجل:</strong> '+esc(x.explanation||'لا يوجد تفسير محفوظ؛ يحتاج مراجعة المعلم.')+'</div></article>').join(''):'<p class="tsd-empty">لم يُسجل خطأ في أسئلة هذا المؤشر بهذه المحاولة.</p>')+'</section>';
+ '<div class="tsd-note"><strong>التفسير المسجل:</strong> '+esc(x.explanation||'لا يوجد تفسير محفوظ؛ يحتاج مراجعة المعلم.')+'</div></article>').join(''):'<p class="tsd-empty">لم يُسجل خطأ في أسئلة هذا المؤشر بهذه المحاولة.</p>')+
+ (wrong.length?'<div class="tsd-rowhead" style="margin-top:14px"><button class="tsd-btn primary" id="tsd-build-remedy">بناء تدريب علاجي جديد من أخطاء الطالب</button></div><div id="tsd-remedial-host"></div>':'')+'</section>';
 }
 async function showErrors(index){
  const st=student(),r=indicators()[index];if(!st||!r?.recent?.attempt_id)return;
- const id=String(st.id),version=S.mountVersion,token=S.token;S.question=null;S.qError='';S.qLoading=true;render();
+ const id=String(st.id),version=S.mountVersion,token=S.token;window.TamakkunRemedialStudio?.unmount();S.question=null;S.qError='';S.qLoading=true;render();
  try{
  const response=await fetch(attemptEndpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action:'attempt',source:'assessment',id:r.recent.attempt_id}),cache:'no-store'});
  const result=await response.json().catch(()=>({}));if(!response.ok||!result.ok||!result.attempt)throw Error(result.error||'لم تتوفر تفاصيل المحاولة.');
  if(String(result.attempt.student_id)!==id)throw Error('معرّف الطالب لا يطابق المحاولة.');
- const items=[],answers=result.attempt.answers||{};
+ const items=[],allQuestionIds=[],answers=result.attempt.answers||{};
  for(const section of(Array.isArray(result.attempt.rendered_sections)?result.attempt.rendered_sections:[])){
   for(const q of(Array.isArray(section.questions)?section.questions:[])){
+   if(q.id)allQuestionIds.push(String(q.id));
    if(String(q.subject||section.subject)!==String(r.ind.subject_key)||String(q.outcome)!==String(r.ind.outcome_code)||Number(q.indicator)!==Number(r.ind.indicator_index))continue;
    const options=Array.isArray(q.options)?q.options:[],correctIndex=Number(q.correctIndex);
    if(!q.id||!Number.isInteger(correctIndex)||correctIndex<0||correctIndex>=options.length)continue;
    const exists=Object.prototype.hasOwnProperty.call(answers,q.id),selected=exists?Number(answers[q.id]):null;
    const answered=exists&&answers[q.id]!==null&&answers[q.id]!==''&&Number.isInteger(selected)&&selected>=0&&selected<options.length;
-   items.push({no:q.question_no||items.length+1,body:q.question||'',context:q.context||'',image:q.image,options,selected,correctIndex,answered,right:answered&&selected===correctIndex,explanation:q.explanation||''});
+   items.push({id:String(q.id),no:q.question_no||items.length+1,body:q.question||'',context:q.context||'',image:q.image,level:q.cognitive_level||'',options,selected,correctIndex,answered,right:answered&&selected===correctIndex,explanation:q.explanation||''});
   }
  }
  if(version!==S.mountVersion||String(S.student)!==id||S.token!==token)return;
- if(items.length)S.question={items};else S.qError='لا توجد أسئلة لهذا المؤشر في المحاولة المحفوظة.';
+ if(items.length)S.question={items,indicator:r.ind,sourceIds:allQuestionIds};else S.qError='لا توجد أسئلة لهذا المؤشر في المحاولة المحفوظة.';
  }catch(e){if(version===S.mountVersion&&String(S.student)===id)S.qError=e.message}
  finally{if(version===S.mountVersion&&String(S.student)===id){S.qLoading=false;render()}}
 }
@@ -110,10 +113,11 @@ function render(){
  const on=(id,ev,fn)=>{const x=S.host.querySelector('#'+id);if(x)x.addEventListener(ev,fn)};
  on('tsd-retry','click',load);on('tsd-refresh','click',load);on('tsd-search','change',e=>{S.search=e.target.value;S.student='';render()});
  on('tsd-class','change',e=>{S.cls=e.target.value;S.student='';render()});
- on('tsd-subject','change',e=>{S.subject=e.target.value;S.question=null;S.qError='';S.qLoading=false;render()});
- on('tsd-student','change',e=>{S.student=e.target.value;S.question=null;S.qError='';S.qLoading=false;render()});
+ on('tsd-subject','change',e=>{window.TamakkunRemedialStudio?.unmount();S.subject=e.target.value;S.question=null;S.qError='';S.qLoading=false;render()});
+ on('tsd-student','change',e=>{window.TamakkunRemedialStudio?.unmount();S.student=e.target.value;S.question=null;S.qError='';S.qLoading=false;render()});
  on('tsd-print','click',printDraft);
- on('tsd-close-q','click',()=>{S.question=null;S.qError='';render()});
+ on('tsd-close-q','click',()=>{window.TamakkunRemedialStudio?.unmount();S.question=null;S.qError='';render()});
+ on('tsd-build-remedy','click',()=>{const st=student(),q=S.question;if(!st||!q?.indicator||!q.items.some(x=>!x.right))return;window.TamakkunRemedialStudio?.mount({role:stateRole(),token:S.token,student:{id:st.id,name:st.full_name,className:st.class_name},indicator:q.indicator,wrong:q.items.filter(x=>!x.right),attemptQuestionIds:q.sourceIds});});
  S.host.querySelectorAll('[data-tsd-errors]').forEach(b=>b.onclick=()=>showErrors(Number(b.dataset.tsdErrors)));
 }
 function printDraft(){
@@ -139,8 +143,8 @@ window.TamakkunStudentDiagnostics={mount(opts={}){
  if(opts.role!=='teacher'||!opts.token)return;
  S.mountVersion++;S.host=document.getElementById('tamakkunStudentDiagnosticsMount');if(!S.host)return;
  if(S.token!==opts.token){S.data=null;S.student='';S.search='';S.cls='all';S.subject='all';S.error='';}
- S.question=null;S.qError='';S.qLoading=false;S.token=opts.token;S.scope=['reading','math','science'].includes(opts.profile?.subject_scope)?opts.profile.subject_scope:'all';
+ window.TamakkunRemedialStudio?.unmount();S.question=null;S.qError='';S.qLoading=false;S.token=opts.token;S.scope=['reading','math','science'].includes(opts.profile?.subject_scope)?opts.profile.subject_scope:'all';
  if(S.subject!=='all'&&S.scope!=='all'&&S.subject!==S.scope)S.subject='all';
  if(S.data)render();else load();
-},unmount(){S.mountVersion++;S.question=null;S.qLoading=false;S.host=null;S.token=null;S.data=null},refresh:load};
+},unmount(){S.mountVersion++;window.TamakkunRemedialStudio?.unmount();S.question=null;S.qLoading=false;S.host=null;S.token=null;S.data=null},refresh:load};
 })();
