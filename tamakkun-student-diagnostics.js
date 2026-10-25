@@ -70,7 +70,7 @@ async function showErrors(index){
    const options=Array.isArray(q.options)?q.options:[],correctIndex=Number(q.correctIndex);
    if(!q.id||!Number.isInteger(correctIndex)||correctIndex<0||correctIndex>=options.length)continue;
    const exists=Object.prototype.hasOwnProperty.call(answers,q.id),selected=exists?Number(answers[q.id]):null;
-   const answered=exists&&Number.isInteger(selected)&&selected>=0&&selected<options.length;
+   const answered=exists&&answers[q.id]!==null&&answers[q.id]!==''&&Number.isInteger(selected)&&selected>=0&&selected<options.length;
    items.push({no:q.question_no||items.length+1,body:q.question||'',context:q.context||'',image:q.image,options,selected,correctIndex,answered,right:answered&&selected===correctIndex,explanation:q.explanation||''});
   }
  }
@@ -110,8 +110,8 @@ function render(){
  const on=(id,ev,fn)=>{const x=S.host.querySelector('#'+id);if(x)x.addEventListener(ev,fn)};
  on('tsd-retry','click',load);on('tsd-refresh','click',load);on('tsd-search','change',e=>{S.search=e.target.value;S.student='';render()});
  on('tsd-class','change',e=>{S.cls=e.target.value;S.student='';render()});
- on('tsd-subject','change',e=>{S.subject=e.target.value;S.question=null;S.qError='';render()});
- on('tsd-student','change',e=>{S.student=e.target.value;S.question=null;S.qError='';render()});
+ on('tsd-subject','change',e=>{S.subject=e.target.value;S.question=null;S.qError='';S.qLoading=false;render()});
+ on('tsd-student','change',e=>{S.student=e.target.value;S.question=null;S.qError='';S.qLoading=false;render()});
  on('tsd-print','click',printDraft);
  on('tsd-close-q','click',()=>{S.question=null;S.qError='';render()});
  S.host.querySelectorAll('[data-tsd-errors]').forEach(b=>b.onclick=()=>showErrors(Number(b.dataset.tsdErrors)));
@@ -138,8 +138,8 @@ window.TamakkunStudentDiagnostics={mount(opts={}){
  if(opts.role!=='teacher'||!opts.token)return;
  S.mountVersion++;S.host=document.getElementById('tamakkunStudentDiagnosticsMount');if(!S.host)return;
  if(S.token!==opts.token){S.data=null;S.student='';S.search='';S.cls='all';S.subject='all';S.error='';}
- S.question=null;S.qError='';S.token=opts.token;S.scope=['reading','math','science'].includes(opts.profile?.subject_scope)?opts.profile.subject_scope:'all';
+ S.question=null;S.qError='';S.qLoading=false;S.token=opts.token;S.scope=['reading','math','science'].includes(opts.profile?.subject_scope)?opts.profile.subject_scope:'all';
  if(S.subject!=='all'&&S.scope!=='all'&&S.subject!==S.scope)S.subject='all';
  if(S.data)render();else load();
-},unmount(){S.mountVersion++;S.question=null;S.host=null;S.token=null;S.data=null},refresh:load};
+},unmount(){S.mountVersion++;S.question=null;S.qLoading=false;S.host=null;S.token=null;S.data=null},refresh:load};
 })();
