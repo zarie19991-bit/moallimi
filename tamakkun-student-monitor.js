@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 const URL_API="https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-student-monitor";
-const M={host:null,token:null,data:null,rows:[],loading:false,q:"",subject:"all",indicator:"all",cls:"all",tier:"all",state:"all",presence:"all",page:1,attendanceDate:"",attendanceClass:"all",attendanceStatus:"all"};
+const M={host:null,token:null,data:null,rows:[],loading:false,q:"",subject:"all",indicator:"all",cls:"all",tier:"all",state:"all",presence:"all",page:1,attendanceDate:"",attendanceClass:"all",attendanceStatus:"all",generation:0};
 const E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const N=n=>Number(n??0).toLocaleString("ar-SA",{maximumFractionDigits:1});
 const D=x=>x?new Date(x).toLocaleString("ar-SA",{timeZone:"Asia/Riyadh",dateStyle:"short",timeStyle:"short"}):"—";
@@ -175,11 +175,11 @@ function bind(pages){
  M.host.querySelector("#tmo-next").onclick=()=>{M.page=Math.min(pages,M.page+1);render()};
 }
 async function load(force=false){
- if(M.loading||!M.token)return;M.loading=true;
+ if(M.loading||!M.token)return;const version=M.generation;M.loading=true;
  if(!M.data)render();
- try{const data=await request("snapshot");M.data=data;M.page=1;compile(data);render()}
- catch(e){if(M.host){M.host.innerHTML='<div class="tmo"><div class="tmo-hero"><h1>تعذر تحميل المتابعة</h1><p>'+E(e.message)+'</p><button id="tmo-retry" class="tmo-button secondary">إعادة المحاولة</button></div></div>';M.host.querySelector("#tmo-retry").onclick=()=>load(true)}}
- finally{M.loading=false}
+ try{const data=await request("snapshot");if(version!==M.generation)return;M.data=data;M.page=1;compile(data);render()}
+ catch(e){if(version===M.generation&&M.host){M.host.innerHTML='<div class="tmo"><div class="tmo-hero"><h1>تعذر تحميل المتابعة</h1><p>'+E(e.message)+'</p><button id="tmo-retry" class="tmo-button secondary">إعادة المحاولة</button></div></div>';M.host.querySelector("#tmo-retry").onclick=()=>load(true)}}
+ finally{if(version===M.generation)M.loading=false}
 }
-window.TamakkunStudentMonitor={mount({token,role}={}){if(role!=="teacher")return;const el=document.getElementById("tamakkunStudentMonitorMount");if(!el)return;M.host=el;M.token=token;if(M.data)render();else load()},unmount(){M.host=null;M.token=null;M.data=null;M.rows=[]},refresh(){return load(true)}};
+window.TamakkunStudentMonitor={mount({token,role}={}){if(role!=="teacher")return;const el=document.getElementById("tamakkunStudentMonitorMount");if(!el)return;if(M.token!==token){M.data=null;M.rows=[];M.loading=false}M.generation++;M.host=el;M.token=token;if(M.data)render();else load()},unmount(){M.generation++;M.host=null;M.token=null;M.data=null;M.rows=[];M.loading=false},refresh(){return load(true)}};
 })();
