@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 const URL_API="https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-student-monitor";
-const M={host:null,token:null,data:null,rows:[],loading:false,q:"",subject:"all",indicator:"all",cls:"all",tier:"all",state:"all",presence:"all",page:1,attendanceDate:"",attendanceClass:"all",attendanceStatus:"all",generation:0};
+const M={host:null,token:null,data:null,rows:[],loading:false,q:"",subject:"all",indicator:"all",cls:"all",tier:"all",state:"all",presence:"all",page:1,attendanceDate:"",attendanceClass:"all",attendanceStatus:"all",generation:0,attendanceCache:null};
 const E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const N=n=>Number(n??0).toLocaleString("ar-SA",{maximumFractionDigits:1});
 const D=x=>x?new Date(x).toLocaleString("ar-SA",{timeZone:"Asia/Riyadh",dateStyle:"short",timeStyle:"short"}):"—";
@@ -70,21 +70,32 @@ function line(r){
 
 const loginDay=x=>{if(!x)return "";const t=new Date(x);return Number.isFinite(t.getTime())?new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).format(t):""};
 const todayRiyadh=()=>loginDay(new Date().toISOString());
-function attendanceRows(data){
- const date=M.attendanceDate||todayRiyadh(),sessions=data.sessions||[];
+function attendanceRows(data,applyStatus=true){
+ const date=M.attendanceDate||todayRiyadh();
+ if(!M.attendanceCache||M.attendanceCache.data!==data||M.attendanceCache.date!==date){
+  const map=new Map();
+  for(const row of data.sessions||[]){
+   const id=String(row.student_id||"");
+   if(!id)continue;
+   let entry=map.get(id);
+   if(!entry){entry={first:null,active:null};map.set(id,entry)}
+   if(loginDay(row.created_at)===date&&(!entry.first||String(row.created_at)>String(entry.first.created_at)))entry.first=row;
+   if(loginDay(row.last_seen_at)===date&&(!entry.active||String(row.last_seen_at)>String(entry.active.last_seen_at)))entry.active=row;
+  }
+  M.attendanceCache={data,date,map};
+ }
+ const map=M.attendanceCache.map;
  return (data.students||[]).filter(st=>M.attendanceClass==="all"||st.class_name===M.attendanceClass).map(st=>{
-   const own=sessions.filter(x=>String(x.student_id)===String(st.id));
-   const first=own.filter(x=>loginDay(x.created_at)===date).sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")))[0]||null;
-   const active=own.filter(x=>loginDay(x.last_seen_at)===date).sort((a,b)=>String(b.last_seen_at||"").localeCompare(String(a.last_seen_at||"")))[0]||null;
-   const status=first?"entered":active?"previous":"none";
-   return{student:st,first,active,status};
- }).filter(x=>M.attendanceStatus==="all"||x.status===M.attendanceStatus).sort((a,b)=>String(a.student.class_name||"").localeCompare(String(b.student.class_name||""),"ar")||String(a.student.full_name||"").localeCompare(String(b.student.full_name||""),"ar"));
+  const found=map.get(String(st.id))||{first:null,active:null},first=found.first,active=found.active;
+  return{student:st,first,active,status:first?"entered":active?"previous":"none"};
+ }).filter(x=>!applyStatus||M.attendanceStatus==="all"||x.status===M.attendanceStatus)
+ .sort((a,b)=>String(a.student.class_name||"").localeCompare(String(b.student.class_name||""),"ar")||String(a.student.full_name||"").localeCompare(String(b.student.full_name||""),"ar"));
 }
 function attendanceWidget(data){
- const rows=attendanceRows(data),days=(data.sessions||[]).map(x=>loginDay(x.created_at)).filter(Boolean).sort();
+ const rows=attendanceRows(data),allClassRows=attendanceRows(data,false),days=(data.sessions||[]).map(x=>loginDay(x.created_at)).filter(Boolean).sort();
  const date=M.attendanceDate||todayRiyadh();
  const classes=[...new Set((data.students||[]).map(x=>x.class_name).filter(Boolean))].sort();
- const count=status=>rows.filter(x=>x.status===status).length;
+ const count=status=>allClassRows.filter(x=>x.status===status).length;
  return '<section class="tmo-box" id="tmo-day-register">'+
  '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><strong style="font-size:18px">سجل دخول الطلاب حسب التاريخ</strong><span class="tmo-sub">توقيت السعودية • دخول إلكتروني وليس حضورًا مدرسيًا</span></div><div class="tmo-actions"><button id="tmo-day-csv" class="tmo-button secondary">تصدير CSV</button> <button id="tmo-day-print" class="tmo-button secondary">طباعة الكشف</button></div></div>'+
  '<div class="tmo-filters" style="margin:14px 0"><div><label>تاريخ الدخول</label><input type="date" id="tmo-day-date" value="'+E(date)+'"></div>'+
@@ -181,5 +192,5 @@ async function load(force=false){
  catch(e){if(version===M.generation&&M.host){M.host.innerHTML='<div class="tmo"><div class="tmo-hero"><h1>تعذر تحميل المتابعة</h1><p>'+E(e.message)+'</p><button id="tmo-retry" class="tmo-button secondary">إعادة المحاولة</button></div></div>';M.host.querySelector("#tmo-retry").onclick=()=>load(true)}}
  finally{if(version===M.generation)M.loading=false}
 }
-window.TamakkunStudentMonitor={mount({token,role}={}){if(role!=="teacher")return;const el=document.getElementById("tamakkunStudentMonitorMount");if(!el)return;if(M.token!==token){M.data=null;M.rows=[];M.loading=false}M.generation++;M.host=el;M.token=token;if(M.data)render();else load()},unmount(){M.generation++;M.host=null;M.token=null;M.data=null;M.rows=[];M.loading=false},refresh(){return load(true)}};
+window.TamakkunStudentMonitor={mount({token,role}={}){if(role!=="teacher")return;const el=document.getElementById("tamakkunStudentMonitorMount");if(!el)return;if(M.token!==token){M.data=null;M.rows=[];M.loading=false;M.attendanceCache=null}M.generation++;M.host=el;M.token=token;if(M.data)render();else load()},unmount(){M.generation++;M.host=null;M.token=null;M.data=null;M.rows=[];M.loading=false;M.attendanceCache=null},refresh(){return load(true)}};
 })();
