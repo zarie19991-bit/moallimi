@@ -212,3 +212,7 @@ workspace-create.css
 workspace-stitch-platform-theme.css
 workspace-homepage.css
 workspace-analysis-print-scale-95.css
+
+my-tests.html
+my-tests.js
+my-tests.css

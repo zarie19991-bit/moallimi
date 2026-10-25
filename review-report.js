@@ -70,13 +70,13 @@ function subjectBlock(b,subject){
 }
 function build(){
  const b=bundle;if(!b?.review)return;
- const s=b.summary,cfg=settings(),date=$('reportDate').value.trim(),school=cfg.schoolName||'مدرسة ابن سينا المتوسطة',cls=$('classSelect').value||b.review.class_name||'الثالث المتوسط (جميع الفصول)';
+ const s=b.summary,cfg=settings(),date=window.NafesManualPrintDate?.value?.()||'',school=cfg.schoolName||'مدرسة ابن سينا المتوسطة',cls=$('classSelect').value||b.review.class_name||'الثالث المتوسط (جميع الفصول)';
  const kpis=[['الموزع عليهم',s.assigned],['المختبرون',s.tested],['غير المختبرين',b.absent.length],['المتوسط',R.pct(s.average)],['الإتقان',R.pct(s.masteryRate)],['بحاجة إلى دعم',s.support]].map(x=>'<div class="report-kpi"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join('');
  const absent=b.absent.length?'<ol class="report-list">'+b.absent.map(a=>'<li>'+esc(a.student_name||a.full_name||'طالب')+'</li>').join('')+'</ol>':'<p>لا يوجد طلاب غير مختبرين ضمن التوزيع المعتمد.</p>';
  const subjectSummary=(b.subjectSummary||[]).map(x=>'<tr><td>'+esc(x.label)+'</td><td>'+R.ar(x.correct)+'</td><td>'+R.ar(x.total)+'</td><td>'+R.pct(x.percent)+'</td><td>'+esc(x.level.label)+'</td></tr>').join('');
  $('reportSheet').innerHTML=
  reportHead(b,cfg,school)+
- '<div class="report-meta"><div><b>اسم الاختبار:</b><br>'+esc(b.review.title||'اختبار آلي')+'</div><div><b>الفصل:</b><br>'+esc(cls)+'</div><div><b>عدد الأسئلة:</b><br>'+R.ar(b.payload.question_count||b.students[0]?.total||0)+'</div><div><b>التاريخ:</b><br>'+esc(date||'—')+'</div></div>'+
+ '<div class="report-meta"><div><b>اسم الاختبار:</b><br>'+esc(b.review.title||'اختبار آلي')+'</div><div><b>الفصل:</b><br>'+esc(cls)+'</div><div><b>عدد الأسئلة:</b><br>'+R.ar(b.payload.question_count||b.students[0]?.total||0)+'</div><div><b>تاريخ التقرير:</b><br><span data-manual-report-value>'+esc(date||'—')+'</span></div></div>'+
  '<div class="report-kpis">'+kpis+'</div>'+
  '<section class="report-section"><h2>أداء المواد داخل الاختبار</h2><table class="report-table"><thead><tr><th>المادة</th><th>الصحيح</th><th>إجمالي الإجابات</th><th>النسبة</th><th>المستوى</th></tr></thead><tbody>'+subjectSummary+'</tbody></table></section>'+
  '<section class="report-section report-flow-section"><h2>نتائج الطلاب</h2><table class="report-table"><thead><tr><th>م</th><th>الطالب</th><th>الفصل</th><th>النموذج</th><th>الدرجة</th><th>النسبة</th><th>المستوى</th></tr></thead><tbody>'+(b.students.length?b.students.map(rowStudent).join(''):'<tr><td colspan="7">لا توجد نتائج معتمدة حتى الآن.</td></tr>')+'</tbody></table></section>'+
@@ -100,7 +100,7 @@ async function load(initial=false){
 }
 $('reviewSelect').addEventListener('change',()=>{$('classSelect').value='';load(true)});
 $('classSelect').addEventListener('change',()=>load(false));
-$('reportDate').addEventListener('input',build);
+
 $('printBtn').onclick=()=>window.print();
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)load(true)});
 load(true);
