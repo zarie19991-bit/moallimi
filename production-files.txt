@@ -205,3 +205,10 @@ review-indicator-detail.html
 review-indicator-detail.js
 
 analysis-impact.js
+
+# Font-independent teacher workspace styles
+workspace-styles.css
+workspace-create.css
+workspace-stitch-platform-theme.css
+workspace-homepage.css
+workspace-analysis-print-scale-95.css

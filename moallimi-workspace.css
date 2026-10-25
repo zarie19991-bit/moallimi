@@ -1,6 +1,6 @@
 /* Reference: رحلة الإتقان. All workspace styling is screen-only; print sheets retain their exact geometry. */
 @media screen {
- body.ml-workspace{--ink:#1d2b42;--muted:#65748a;--line:#e3e9f0;--paper:#f4f7fb;--teal:#188f91;--teal2:#137c80;--soft:#edf6f5;--shadow:0 9px 30px rgba(19,37,65,.055);margin:0;padding-right:258px;background:#f4f7fb!important;color:#1d2b42;font-family:'Tajawal',Tahoma,Arial,sans-serif;line-height:1.7;min-height:100vh}
+ body.ml-workspace{--ink:#1d2b42;--muted:#65748a;--line:#e3e9f0;--paper:#f4f7fb;--teal:#188f91;--teal2:#137c80;--soft:#edf6f5;--shadow:0 9px 30px rgba(19,37,65,.055);margin:0;padding-right:258px;background:#f4f7fb!important;color:#1d2b42;font-family:Tahoma,Arial,sans-serif;line-height:1.7;min-height:100vh}
  html body.ml-workspace{background:#f4f7fb!important}
  body.ml-workspace *{box-sizing:border-box}
  body.ml-workspace [hidden]{display:none!important}
