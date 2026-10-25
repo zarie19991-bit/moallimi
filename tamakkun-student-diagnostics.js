@@ -76,7 +76,8 @@ function render(){
 }
 function printDraft(){
  const s=student();if(!s)return;const arr=indicators().filter(x=>x.state==='low'||x.state==='mid'),items=arr.length?arr.map(x=>'<tr><td>'+esc(sub(x.ind.subject_key))+'</td><td>'+esc(x.ind.indicator_text||'—')+'</td><td>'+esc(pct(x.score))+'</td><td>مراجعة السؤال الخاطئ مع الطالب، شرح المهارة، تدريب جديد ثم قياس مستقل</td></tr>').join(''):'<tr><td colspan="4">لا توجد مؤشرات علاجية مطابقة للاختيار. راجع نتائج القياس قبل إصدار خطة.</td></tr>';
- const w=window.open('','_blank','noopener,noreferrer,width=900,height=850');if(!w){alert('اسمح بفتح نافذة الطباعة لهذا الموقع.');return}
+ const w=window.open('','_blank','width=900,height=850');if(!w){alert('اسمح بفتح نافذة الطباعة لهذا الموقع.');return}
+ try{w.opener=null}catch(_){}
  w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>مسودة خطة علاجية</title><style>body{font:14px Tahoma,Arial;padding:22px;color:#163b34;line-height:1.8}h1{font-size:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:9px;text-align:right;vertical-align:top}th{background:#edf5f1}.note{border:1px solid #d5e7dc;background:#f5faf6;padding:13px;margin:15px 0}@page{size:A4;margin:14mm}@media print{button{display:none}}</style></head><body><header><strong>المملكة العربية السعودية – وزارة التعليم – إدارة التعليم بنجران – مدرسة ابن سينا المتوسطة</strong><h1>مسودة خطة علاجية فردية • تمكّن</h1></header><p>الطالب: '+esc(s.full_name)+'　|　الفصل: '+esc(s.class_name||'—')+'</p><div class="note">هذه مسودة مراجعة للمعلم من نتائج المؤشرات. ليست شرحًا معتمدًا للأسئلة الخاطئة، ولا تنشئ خطة في قاعدة البيانات. يجب توثيق الأسئلة والمهارات الدقيقة وتحديد موعد القياس البعدي قبل الاعتماد.</div><table><thead><tr><th>المادة</th><th>المؤشر</th><th>القياس</th><th>الإجراء المقترح</th></tr></thead><tbody>'+items+'</tbody></table><p>ملاحظات المعلم: ____________________________________________</p><p>القياس البعدي: ____________________　النتيجة: ____________________</p><button onclick="print()">طباعة</button></body></html>');
  w.document.close();w.focus();
 }
@@ -94,6 +95,7 @@ async function load(){
 window.TamakkunStudentDiagnostics={mount(opts={}){
  if(opts.role!=='teacher'||!opts.token)return;
  S.mountVersion++;S.host=document.getElementById('tamakkunStudentDiagnosticsMount');if(!S.host)return;
+ if(S.token!==opts.token){S.data=null;S.student='';S.search='';S.cls='all';S.subject='all';S.error='';}
  S.token=opts.token;S.scope=['reading','math','science'].includes(opts.profile?.subject_scope)?opts.profile.subject_scope:'all';
  if(S.subject!=='all'&&S.scope!=='all'&&S.subject!==S.scope)S.subject='all';
  if(S.data)render();else load();
