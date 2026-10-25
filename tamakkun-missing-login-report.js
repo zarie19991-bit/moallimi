@@ -69,7 +69,7 @@ function attendance(data){
 }
 function options(rows,current){return rows.map(([v,l])=>'<option value="'+ESC(v)+'"'+(String(v)===String(current)?' selected':'')+'>'+ESC(l)+'</option>').join('')}
 function render(){
- if(!ST.host||!ST.data)return;style();const r=attendance(ST.data),classNames=[...new Set(ST.data.students.map(x=>txt(x.class_name)).filter(Boolean))].sort();
+ if(!ST.host||!ST.data)return;style();const r=getRows(),classNames=[...new Set(ST.data.students.map(x=>txt(x.class_name)).filter(Boolean))].sort();
  const never=r.allRows.filter(x=>x.allDays>0&&x.total===x.allDays).length,missingCount=r.allRows.filter(x=>x.total>0).length;
  let h='<section class="tml" id="tml-register"><div class="tml-row"><div><small class="tml-sub">منصة تمكّن • كشف مستقل للطباعة والمتابعة</small><h2>حصر الطلاب الذين لم يدخلوا خلال فترة</h2><p>اختر الفترة والفصل، ثم راجع عدد الأيام دون دخول مسجل وتواريخها لكل طالب.</p></div><div class="tml-actions"><button class="tml-btn light" id="tml-csv">تصدير كشف CSV</button><button class="tml-btn" id="tml-print">طباعة الكشف A4</button></div></div>'+
  '<div class="tml-controls">'+
@@ -119,7 +119,7 @@ window.TamakkunMissingLoginReport={
   if(ST.data!==data){ST.data=data;const d=initialDates();if(!ST.from)ST.from=d.from;if(!ST.to)ST.to=d.to}
   ST.host=host;render();
  },
- unmount(){ST.host=null;ST.data=null},
+ unmount(){ST.host=null;ST.data=null;ST.from='';ST.to='';ST.klass='all';ST.dayMode='school';ST.minDays=1;ST.name=''},
  _test:{attendance:(data)=>attendance(data),getRows:()=>getRows(),set:(opts)=>Object.assign(ST,opts)}
 };
 })();
