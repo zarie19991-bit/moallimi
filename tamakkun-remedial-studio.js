@@ -6,7 +6,7 @@
  * Does not assign or store interventions, change grades, or claim certified mastery.
  */
 const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-question-bank-read';
-const S={host:null,token:null,subject:'',outcome:'',index:0,indicator:'',student:null,wrong:[],sourceIds:new Set(),candidate:[],chosen:new Set(),focus:'',level:'match',approved:false,busy:false,error:'',generation:0};
+const S={host:null,token:null,subject:'',outcome:'',index:0,indicator:'',student:null,wrong:[],sourceIds:new Set(),candidate:[],chosen:new Set(),focus:'',level:'match',approved:false,busy:false,error:'',generation:0,page:1,sourceTexts:new Set()};
 const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const T=v=>String(v??'').trim();
 const subj=s=>({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||'';
@@ -14,6 +14,8 @@ const cognitive=s=>({knowledge:'معرفة',application:'تطبيق',reasoning:'
 const printableOption=o=>typeof o==='string'?o:T(o?.text??o?.label??o?.value??'');
 const OK_SUB=new Set(['reading','math','science']);
 const ID_MAX=10;
+const PAGE_SIZE=16;
+const norm=v=>T(v).normalize('NFKC').replace(/[\u064b-\u065f\u0670\u0640]/g,'').replace(/[^\p{L}\p{N}]/gu,'');
 function css(){
  if(document.getElementById('tmk-remedial-studio-css'))return;
  const el=document.createElement('style');el.id='tmk-remedial-studio-css';
@@ -26,7 +28,7 @@ function eligible(q){
  const ix=Number(q.correct_index);
  if(opts.length<2||!opts.every(x=>T(printableOption(x))))return false;
  if(!Number.isInteger(ix)||ix<0||ix>=opts.length)return false;
- if(S.sourceIds.has(String(q.id)))return false;
+ if(S.sourceIds.has(String(q.id))||S.sourceTexts.has(norm(q.question_text)))return false;
  // Image fields are not returned by the existing bank API.
  // Avoid questions that clearly reference graphics not available in this teacher review.
  if(/(?:الشكل|الصورة|الرسم|المخطط|الجدول)\s*(?:الآتي|التالي|أعلاه|أدناه|المرفق|يوضح|يبين)/.test(T(q.question_text)))return false;
@@ -54,13 +56,14 @@ function render(){
  if(S.error)markup+='<div class="trs-error">'+E(S.error)+'</div>';
  if(!S.busy){
  markup+='<div class="trs-row"><h3>اختر الأسئلة البديلة المناسبة</h3><span class="trs-status">المختارة: '+allChosen.length+' / '+ID_MAX+'</span></div>';
- markup+=items.length?'<div class="trs-list">'+items.map(q=>{
+ markup+=items.length?'<div class="trs-list">'+items.slice(0,S.page*PAGE_SIZE).map(q=>{
  const isSelected=S.chosen.has(String(q.id));
  return '<article class="trs-item"><div class="trs-row"><label style="display:flex;align-items:center;gap:9px"><input type="checkbox" data-trs-item="'+E(q.id)+'"'+(isSelected?' checked':'')+'><b>اختيار التدريب</b></label><small>'+E(cognitive(q.cognitive_level))+'</small></div>'+
  (q.context_text?'<p class="trs-context">'+E(q.context_text)+'</p>':'')+
  '<p><b>'+E(q.question_text)+'</b></p><div style="font-size:11px;color:#456253">'+q.options.map((v,i)=>'<div>'+'أبجد'[i%4]+' ـ '+E(printableOption(v))+'</div>').join('')+'</div>'+
  '<details style="font-size:11px;margin-top:8px"><summary>مفتاح السؤال وتفسيره للمعلم</summary><p>الإجابة: '+E(printableOption(q.options[q.correct_index]))+'</p><p>'+E(q.explanation||'يحتاج تفسير المعلم.')+'</p></details></article>';
  }).join('')+'</div>':'<div class="trs-empty">لا توجد أسئلة بديلة مناسبة لهذا الاختيار. غيّر المستوى المعرفي أو راجع بنك الأسئلة.</div>';
+ if(items.length>S.page*PAGE_SIZE)markup+='<button id="trs-more">عرض المزيد من التدريبات ('+(items.length-S.page*PAGE_SIZE)+')</button>';
  }
  if(S.approved)markup+='<div class="trs-note" style="border-color:#57b887">راجع المعلم الأسئلة المحددة ووافق على ملاءمتها للمهارة المذكورة. هذه الموافقة تخص هذه المسودة فقط ولا تسندها للطالب.</div>';
  markup+='<div class="trs-actions"><button id="trs-reload">تحديث المقترحات</button><button class="primary" id="trs-approve"'+(!S.focus.trim()||S.focus.trim().length<7||!allChosen.length||S.busy?' disabled':'')+'>'+(S.approved?'تمت مراجعة التدريبات ✓':'تأكيد مراجعة المعلم')+'</button>'+
@@ -69,7 +72,8 @@ function render(){
  S.host.innerHTML=markup;
  const at=id=>S.host?.querySelector('#'+id);
  if(at('trs-focus'))at('trs-focus').onchange=e=>{S.focus=T(e.target.value);S.approved=false;render()};
- if(at('trs-level'))at('trs-level').onchange=e=>{S.level=e.target.value;S.chosen.clear();S.approved=false;render()};
+ if(at('trs-level'))at('trs-level').onchange=e=>{S.level=e.target.value;S.chosen.clear();S.approved=false;S.page=1;render()};
+ if(at('trs-more'))at('trs-more').onclick=()=>{S.page++;render()};
  for(const el of S.host.querySelectorAll('[data-trs-item]'))el.onchange=e=>{
  const id=String(e.target.dataset.trsItem);
  if(e.target.checked){if(S.chosen.size>=ID_MAX){alert('الحد الأقصى عشرة تدريبات في الورقة الواحدة.');e.target.checked=false;return}S.chosen.add(id)}else S.chosen.delete(id);
@@ -125,7 +129,8 @@ window.TamakkunRemedialStudio={
    const host=document.getElementById('tsd-remedial-host');if(!host)return;
    S.generation++;S.host=host;S.token=token;S.subject=String(indicator.subject_key);S.outcome=T(indicator.outcome_code);S.index=Number(indicator.indicator_index);S.indicator=T(indicator.indicator_text);S.student={id:String(student.id),name:T(student.name),className:T(student.className)};S.wrong=wrong;
    S.sourceIds=new Set((opts.attemptQuestionIds||wrong.map(q=>q.id)).filter(Boolean).map(String));
-   S.focus='';S.level='match';S.approved=false;S.busy=false;S.error='';S.candidate=[];S.chosen.clear();
+   S.sourceTexts=new Set(wrong.map(q=>norm(q.body)).filter(Boolean));
+   S.focus='';S.level='match';S.page=1;S.approved=false;S.busy=false;S.error='';S.candidate=[];S.chosen.clear();
    if(!S.outcome||!Number.isInteger(S.index)||S.index<=0){S.error='لم يثبت تعريف المؤشر لهذا التدريب.';render();return}
    loadBank();
  },
