@@ -94,11 +94,14 @@ function attendanceRows(data,applyStatus=true){
 function attendanceWidget(data){
  const rows=attendanceRows(data),allClassRows=attendanceRows(data,false),days=(data.sessions||[]).map(x=>loginDay(x.created_at)).filter(Boolean).sort();
  const date=M.attendanceDate||todayRiyadh();
+ const baseDate=Date.parse(todayRiyadh()+"T12:00:00Z");
+ const recentDates=Array.from({length:30},(_,i)=>{const value=loginDay(new Date(baseDate-i*86400000).toISOString());return[value,new Date(value+"T12:00:00Z").toLocaleDateString("ar-SA",{dateStyle:"medium",timeZone:"Asia/Riyadh"})]});
+ if(!recentDates.some(x=>x[0]===date))recentDates.unshift([date,date]);
  const classes=[...new Set((data.students||[]).map(x=>x.class_name).filter(Boolean))].sort();
  const count=status=>allClassRows.filter(x=>x.status===status).length;
  return '<section class="tmo-box" id="tmo-day-register">'+
  '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><strong style="font-size:18px">سجل دخول الطلاب حسب التاريخ</strong><span class="tmo-sub">توقيت السعودية • دخول إلكتروني وليس حضورًا مدرسيًا</span></div><div class="tmo-actions"><button id="tmo-day-csv" class="tmo-button secondary">تصدير CSV</button> <button id="tmo-day-print" class="tmo-button secondary">طباعة الكشف</button></div></div>'+
- '<div class="tmo-filters" style="margin:14px 0"><div><label>تاريخ الدخول</label><input type="date" id="tmo-day-date" value="'+E(date)+'"></div>'+
+ '<div class="tmo-filters" style="margin:14px 0"><div><label>التاريخ من القائمة</label>'+select("tmo-day-preset",date,recentDates)+'</div><div><label>تاريخ آخر</label><input type="date" id="tmo-day-date" value="'+E(date)+'"></div>'+
  '<div><label>الفصل</label>'+select("tmo-day-class",M.attendanceClass,[["all","جميع الفصول"],...classes.map(c=>[c,c])])+'</div>'+
  '<div><label>الحالة</label>'+select("tmo-day-status",M.attendanceStatus,[["all","جميع الطلاب"],["entered","دخول مسجل – أخضر"],["previous","نشاط بجلسة سابقة – أصفر"],["none","لا دخول مسجل – أحمر"]])+'</div></div>'+
  '<div class="tmo-grid">'+[["دخلوا في هذا التاريخ",count("entered")],["نشاط بجلسة سابقة",count("previous")],["لا دخول مسجل",count("none")],["إجمالي المعروض",rows.length]].map(p=>'<div class="tmo-stat"><small>'+E(p[0])+'</small><b>'+N(p[1])+'</b></div>').join("")+'</div>'+
@@ -174,7 +177,7 @@ function bind(pages){
  for(const [id,property] of [["tmo-search","q"],["tmo-subject","subject"],["tmo-ind","indicator"],["tmo-class","cls"],["tmo-tier","tier"],["tmo-status","state"],["tmo-login","presence"]]){
   const el=M.host.querySelector("#"+id);if(el)el.onchange=()=>{if(property==="subject")M.indicator="all";change(property,el.value)};
  }
- for(const [id,prop] of [["tmo-day-date","attendanceDate"],["tmo-day-class","attendanceClass"],["tmo-day-status","attendanceStatus"]]){
+ for(const [id,prop] of [["tmo-day-date","attendanceDate"],["tmo-day-preset","attendanceDate"],["tmo-day-class","attendanceClass"],["tmo-day-status","attendanceStatus"]]){
   const el=M.host.querySelector("#"+id);if(el)el.onchange=()=>{M[prop]=el.value;render()};
  }
  M.host.querySelector("#tmo-day-csv").onclick=exportAttendance;
