@@ -2,7 +2,7 @@
 'use strict';
 /* Tamakkun phase 1: teacher-only, read-only, grounded in the existing authenticated monitor snapshot. */
 const ENDPOINT='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-student-monitor';
-const S={host:null,token:null,scope:'all',data:null,student:'',cls:'all',subject:'all',search:'',loading:false,error:'',mountVersion:0};
+const S={host:null,token:null,scope:'all',data:null,student:'',cls:'all',subject:'all',search:'',loading:false,error:'',mountVersion:0,question:null,qError:'',qLoading:false};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const text=v=>String(v??'').trim();
 const pct=n=>n===null||n===undefined||Number.isNaN(Number(n))?'لم يُقَس':(Math.round(Number(n)*10)/10).toLocaleString('ar-SA')+'٪';
@@ -40,6 +40,46 @@ function indicators(){
 function header(){
  return '<div class="tsd-head"><small>منصة تمكّن • المرحلة الأولى • للمعلم فقط</small><h1>ملف التشخيص الفردي للطالب</h1><p>متابعة مؤشرات نافس في الرياضيات والعلوم والقراءة، وربط النتائج بالتدخلات القائمة دون تغيير الدرجات أو منح إتقان تلقائي.</p></div>';
 }
+
+const attemptEndpoint='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-moallimi-read';
+const optionValue=v=>typeof v==='string'?v:text(v?.text??v?.label??v?.value??'');
+function errorDetails(){
+ if(S.qLoading)return '<section class="tsd-panel">جارٍ فتح الأسئلة الأصلية…</section>';
+ if(S.qError)return '<section class="tsd-panel"><div class="tsd-note">'+esc(S.qError)+'</div></section>';
+ if(!S.question)return '';
+ const wrong=S.question.items.filter(x=>!x.right);
+ return '<section class="tsd-panel"><div class="tsd-rowhead"><h2>شرح الأسئلة الخاطئة</h2><button id="tsd-close-q" class="tsd-btn">إغلاق</button></div><div class="tsd-note">'+wrong.length+' من '+S.question.items.length+' أسئلة أخطأ فيها الطالب أو لم يجب عنها. لا تثبت الإجابة الخاطئة وحدها سبب التعثر.</div>'+
+ (wrong.length?wrong.map(x=>'<article style="padding:13px;border:1px solid #dbe6db;margin:12px 0;border-radius:12px"><b>السؤال '+esc(x.no)+'</b>'+
+ (x.context?'<p style="white-space:pre-wrap">'+esc(x.context)+'</p>':'')+'<p style="white-space:pre-wrap">'+esc(x.body)+'</p>'+
+ (x.image?'<div class="tsd-note">يحتوي السؤال على صورة؛ راجع ورقة الاختبار الأصلية.</div>':'')+
+ '<p>إجابة الطالب: <b style="color:#ac2f3b">'+esc(x.answered?optionValue(x.options[x.selected]):'لم يجب')+'</b></p>'+
+ '<p>الإجابة الصحيحة: <b style="color:#086c4b">'+esc(optionValue(x.options[x.correctIndex]))+'</b></p>'+
+ '<div class="tsd-note"><strong>التفسير المسجل:</strong> '+esc(x.explanation||'لا يوجد تفسير محفوظ؛ يحتاج مراجعة المعلم.')+'</div></article>').join(''):'<p class="tsd-empty">لم يُسجل خطأ في أسئلة هذا المؤشر بهذه المحاولة.</p>')+'</section>';
+}
+async function showErrors(index){
+ const st=student(),r=indicators()[index];if(!st||!r?.recent?.attempt_id)return;
+ const id=String(st.id),version=S.mountVersion,token=S.token;S.question=null;S.qError='';S.qLoading=true;render();
+ try{
+ const response=await fetch(attemptEndpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action:'attempt',source:'assessment',id:r.recent.attempt_id}),cache:'no-store'});
+ const result=await response.json().catch(()=>({}));if(!response.ok||!result.ok||!result.attempt)throw Error(result.error||'لم تتوفر تفاصيل المحاولة.');
+ if(String(result.attempt.student_id)!==id)throw Error('معرّف الطالب لا يطابق المحاولة.');
+ const items=[],answers=result.attempt.answers||{};
+ for(const section of(Array.isArray(result.attempt.rendered_sections)?result.attempt.rendered_sections:[])){
+  for(const q of(Array.isArray(section.questions)?section.questions:[])){
+   if(String(q.subject||section.subject)!==String(r.ind.subject_key)||String(q.outcome)!==String(r.ind.outcome_code)||Number(q.indicator)!==Number(r.ind.indicator_index))continue;
+   const options=Array.isArray(q.options)?q.options:[],correctIndex=Number(q.correctIndex);
+   if(!q.id||!Number.isInteger(correctIndex)||correctIndex<0||correctIndex>=options.length)continue;
+   const exists=Object.prototype.hasOwnProperty.call(answers,q.id),selected=exists?Number(answers[q.id]):null;
+   const answered=exists&&Number.isInteger(selected)&&selected>=0&&selected<options.length;
+   items.push({no:q.question_no||items.length+1,body:q.question||'',context:q.context||'',image:q.image,options,selected,correctIndex,answered,right:answered&&selected===correctIndex,explanation:q.explanation||''});
+  }
+ }
+ if(version!==S.mountVersion||String(S.student)!==id||S.token!==token)return;
+ if(items.length)S.question={items};else S.qError='لا توجد أسئلة لهذا المؤشر في المحاولة المحفوظة.';
+ }catch(e){if(version===S.mountVersion&&String(S.student)===id)S.qError=e.message}
+ finally{if(version===S.mountVersion&&String(S.student)===id){S.qLoading=false;render()}}
+}
+
 function render(){
  if(!S.host)return;style();
  if(S.loading&&!S.data){S.host.innerHTML='<div class="tsd">'+header()+'<div class="tsd-panel tsd-empty">جارٍ تحميل النتائج المصرّح بها…</div></div>';return}
@@ -58,10 +98,10 @@ function render(){
  const rows=indicators(),measured=rows.filter(x=>x.score!==null),low=rows.filter(x=>x.state==='low'),pending=rows.filter(x=>x.score===null),assigned=rows.filter(x=>x.assignments>0),lastSeen=(d.sessions||[]).filter(x=>String(x.student_id)===String(s.id)).sort((a,b)=>String(b.last_seen_at||b.created_at).localeCompare(String(a.last_seen_at||a.created_at)))[0];
  html+='<section class="tsd-panel"><div class="tsd-rowhead"><div><strong>'+esc(s.full_name)+'</strong><div class="tsd-muted">'+esc(s.class_name||'الفصل غير محدد')+' • آخر نشاط مسجل: '+esc(when(lastSeen?.last_seen_at||lastSeen?.created_at))+'</div></div><span class="tsd-badge">معرّف الطالب موحّد داخل قاعدة نافس</span></div>'+
  '<div class="tsd-cards">'+[['مؤشرات قِيست',measured.length],['مؤشرات دون قياس',pending.length],['مؤشرات أقل من 50٪',low.length],['مؤشرات لها تكليف',assigned.length]].map(x=>'<div class="tsd-card"><small>'+esc(x[0])+'</small><b>'+x[1].toLocaleString('ar-SA')+'</b></div>').join('')+'</div>'+
- '<div class="tsd-note">هذه نتائج على مستوى المؤشر، وليست تحليلًا لرقم السؤال أو سبب اختيار المشتت. الشرح الخاص بالسؤال الخاطئ يتطلب ربط إجابات الطالب التفصيلية ومفتاح السؤال بنقطة قياس موثّقة. لا يُعد ارتفاع الدرجة وحده اعتمادًا للإتقان.</div></section>'+
- '<section class="tsd-panel"><h2 style="font-size:18px;font-weight:900;margin-bottom:12px">نتائج المؤشرات والخطط المسندة</h2><div class="tsd-tablewrap"><table><thead><tr><th>المادة</th><th>المؤشر</th><th>آخر قياس</th><th>التصنيف الأولي</th><th>التدخل</th><th>تاريخ القياس</th></tr></thead><tbody>'+
- (rows.length?rows.map(x=>'<tr><td>'+esc(sub(x.ind.subject_key))+'</td><td style="max-width:350px">'+esc(x.ind.indicator_text||('مؤشر '+x.ind.indicator_index))+'</td><td><b>'+esc(pct(x.score))+'</b></td><td><span class="tsd-badge '+x.state+'">'+(x.state==='unmeasured'?'لم يُقَس':x.state==='low'?'يحتاج علاجًا':x.state==='mid'?'يحتاج تعزيزًا':'أداء مرتفع')+'</span></td><td>'+(x.plan?esc(x.plan.solved?'مكتمل وفق سجل التكليف':x.plan.status||'مسند'):'غير مسند')+'</td><td>'+esc(when(x.recent?.submitted_at))+'</td></tr>').join(''):'<tr><td colspan="6" class="tsd-empty">لا توجد مؤشرات مطابقة للمرشح الحالي.</td></tr>')+
- '</tbody></table></div></section>';
+ '<div class="tsd-note">يمكن فتح أخطاء الأسئلة الأصلية وإجابات الطالب وتفسير الإجابة المحفوظ. يتطلب تحديد سبب التعثر مراجعة المعلم. لا يُعد ارتفاع الدرجة وحده اعتمادًا للإتقان.</div></section>'+
+ '<section class="tsd-panel"><h2 style="font-size:18px;font-weight:900;margin-bottom:12px">نتائج المؤشرات والخطط المسندة</h2><div class="tsd-tablewrap"><table><thead><tr><th>المادة</th><th>المؤشر</th><th>آخر قياس</th><th>التصنيف الأولي</th><th>التدخل</th><th>تاريخ القياس</th><th>تفاصيل الخطأ</th></tr></thead><tbody>'+
+ (rows.length?rows.map((x,i)=>'<tr><td>'+esc(sub(x.ind.subject_key))+'</td><td style="max-width:350px">'+esc(x.ind.indicator_text||('مؤشر '+x.ind.indicator_index))+'</td><td><b>'+esc(pct(x.score))+'</b></td><td><span class="tsd-badge '+x.state+'">'+(x.state==='unmeasured'?'لم يُقَس':x.state==='low'?'يحتاج علاجًا':x.state==='mid'?'يحتاج تعزيزًا':'أداء مرتفع')+'</span></td><td>'+(x.plan?esc(x.plan.solved?'مكتمل وفق سجل التكليف':x.plan.status||'مسند'):'غير مسند')+'</td><td>'+esc(when(x.recent?.submitted_at))+'</td><td>'+(x.recent?.attempt_id?'<button class="tsd-btn" data-tsd-errors="'+i+'">شرح الأسئلة الخاطئة</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="7" class="tsd-empty">لا توجد مؤشرات مطابقة للمرشح الحالي.</td></tr>')+
+ '</tbody></table></div></section>'+errorDetails();
  }else{
  html+='<div class="tsd-panel tsd-empty">اختر طالبًا من القائمة ليظهر تشخيصه القائم على سجلات المنصة.</div>';
  }
@@ -70,9 +110,11 @@ function render(){
  const on=(id,ev,fn)=>{const x=S.host.querySelector('#'+id);if(x)x.addEventListener(ev,fn)};
  on('tsd-retry','click',load);on('tsd-refresh','click',load);on('tsd-search','change',e=>{S.search=e.target.value;S.student='';render()});
  on('tsd-class','change',e=>{S.cls=e.target.value;S.student='';render()});
- on('tsd-subject','change',e=>{S.subject=e.target.value;render()});
- on('tsd-student','change',e=>{S.student=e.target.value;render()});
+ on('tsd-subject','change',e=>{S.subject=e.target.value;S.question=null;S.qError='';render()});
+ on('tsd-student','change',e=>{S.student=e.target.value;S.question=null;S.qError='';render()});
  on('tsd-print','click',printDraft);
+ on('tsd-close-q','click',()=>{S.question=null;S.qError='';render()});
+ S.host.querySelectorAll('[data-tsd-errors]').forEach(b=>b.onclick=()=>showErrors(Number(b.dataset.tsdErrors)));
 }
 function printDraft(){
  const s=student();if(!s)return;const arr=indicators().filter(x=>x.state==='low'||x.state==='mid'),items=arr.length?arr.map(x=>'<tr><td>'+esc(sub(x.ind.subject_key))+'</td><td>'+esc(x.ind.indicator_text||'—')+'</td><td>'+esc(pct(x.score))+'</td><td>مراجعة السؤال الخاطئ مع الطالب، شرح المهارة، تدريب جديد ثم قياس مستقل</td></tr>').join(''):'<tr><td colspan="4">لا توجد مؤشرات علاجية مطابقة للاختيار. راجع نتائج القياس قبل إصدار خطة.</td></tr>';
@@ -96,8 +138,8 @@ window.TamakkunStudentDiagnostics={mount(opts={}){
  if(opts.role!=='teacher'||!opts.token)return;
  S.mountVersion++;S.host=document.getElementById('tamakkunStudentDiagnosticsMount');if(!S.host)return;
  if(S.token!==opts.token){S.data=null;S.student='';S.search='';S.cls='all';S.subject='all';S.error='';}
- S.token=opts.token;S.scope=['reading','math','science'].includes(opts.profile?.subject_scope)?opts.profile.subject_scope:'all';
+ S.question=null;S.qError='';S.token=opts.token;S.scope=['reading','math','science'].includes(opts.profile?.subject_scope)?opts.profile.subject_scope:'all';
  if(S.subject!=='all'&&S.scope!=='all'&&S.subject!==S.scope)S.subject='all';
  if(S.data)render();else load();
-},unmount(){S.mountVersion++;S.host=null;S.token=null;S.data=null},refresh:load};
+},unmount(){S.mountVersion++;S.question=null;S.host=null;S.token=null;S.data=null},refresh:load};
 })();
