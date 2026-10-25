@@ -12,7 +12,7 @@ const today=()=>daySaudi(new Date().toISOString());
 const isoDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(txt(d))?txt(d):'';
 const parse=d=>new Date(d+'T12:00:00Z');
 const addDays=(d,n)=>ymdUTC(new Date(parse(d).getTime()+n*86400000));
-const dateLong=d=>new Date(d+'T12:00:00Z').toLocaleDateString('ar-SA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'});
+const dateLong=d=>new Date(d+'T12:00:00Z').toLocaleDateString('ar-SA-u-ca-gregory',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'});
 const daysOfWeek=d=>parse(d).getUTCDay();
 const school=d=>daysOfWeek(d)!==5&&daysOfWeek(d)!==6;
 const num=n=>Number(n).toLocaleString('ar-SA');
@@ -77,7 +77,7 @@ function render(){
  '<label>إلى تاريخ<input type="date" id="tml-to" value="'+ESC(ST.to)+'"></label>'+
  '<label>نوع الأيام<select id="tml-daymode">'+options([['school','أيام الدراسة (الأحد–الخميس)'],['all','جميع الأيام']],ST.dayMode)+'</select></label>'+
  '<label>الفصل<select id="tml-class">'+options([['all','جميع الفصول'],...classNames.map(x=>[x,x])],ST.klass)+'</select></label>'+
- '<label>أقل عدد أيام دون دخول<select id="tml-min">'+options([[1,'يوم فأكثر'],[2,'يومان فأكثر'],[3,'3 أيام فأكثر'],[5,'5 أيام فأكثر'],[10,'10 أيام فأكثر'],[10000,'لم يدخل مطلقًا (انظر أسفل)']],ST.minDays)+'</select></label>'+
+ '<label>أقل عدد أيام دون دخول<select id="tml-min">'+options([[1,'يوم فأكثر'],[2,'يومان فأكثر'],[3,'3 أيام فأكثر'],[5,'5 أيام فأكثر'],[10,'10 أيام فأكثر'],[10000,'لم يسجل دخول طوال الفترة']],ST.minDays)+'</select></label>'+
  '<label>اسم الطالب<input type="search" id="tml-search" placeholder="البحث في كشف الحصر" value="'+ESC(ST.name)+'"></label></div>';
  if(r.errors.length)h+='<div class="tml-error">'+r.errors.map(ESC).join(' • ')+'</div>';
  h+='<div class="tml-guide">'+r.warnings.map(ESC).join('<div style="margin-top:4px">')+'</div></div>';
@@ -98,7 +98,8 @@ function render(){
 function getRows(){const calc=attendance(ST.data);if(ST.minDays===10000)return{...calc,rows:calc.allRows.filter(x=>x.allDays>0&&x.total===x.allDays)};return calc}
 function csvCell(v){let s=txt(v);if(/^[\s]*[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function exportCSV(){
- const a=getRows(),headers=['م','الطالب','الفصل','عدد الأيام دون دخول مسجل','تواريخ الأيام دون دخول','عدد أيام النشاط المسجل','آخر نشاط','بداية الفترة','نهاية الفترة','نوع الأيام'];
+ const a=getRows();if(a.errors.length||!a.eligible.length){alert('اختر فترة تتوافر فيها سجلات دخول قابلة للحصر.');return}
+ const headers=['م','الطالب','الفصل','عدد الأيام دون دخول مسجل','تواريخ الأيام دون دخول','عدد أيام النشاط المسجل','آخر نشاط','بداية الفترة','نهاية الفترة','نوع الأيام'];
  const values=[headers,...a.rows.map((x,i)=>[i+1,x.student.full_name,x.student.class_name||'',x.total,x.missing.join('، '),x.visits.length,x.last||'',ST.from,ST.to,ST.dayMode==='school'?'الأحد–الخميس':'جميع الأيام'])];
  const csv='\ufeff'+values.map(row=>row.map(csvCell).join(',')).join('\r\n');
  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),el=document.createElement('a');
@@ -106,7 +107,8 @@ function exportCSV(){
  setTimeout(()=>URL.revokeObjectURL(url),2500);
 }
 function printReport(){
- const a=getRows(),w=window.open('','_blank','width=950,height=840');if(!w){alert('اسمح بفتح نافذة طباعة الكشف.');return}
+ const a=getRows();if(a.errors.length||!a.eligible.length){alert('اختر فترة تتوافر فيها سجلات دخول قابلة للحصر.');return}
+ const w=window.open('','_blank','width=950,height=840');if(!w){alert('اسمح بفتح نافذة طباعة الكشف.');return}
  try{w.opener=null}catch(_){}
  const out=a.rows.map((x,i)=>'<tr><td>'+num(i+1)+'</td><td>'+ESC(x.student.full_name)+'</td><td>'+ESC(x.student.class_name||'—')+'</td><td>'+num(x.total)+'</td><td style="line-height:1.8">'+x.missing.map(date=>ESC(dateLong(date))).join('، ')+'</td><td>'+num(x.visits.length)+'</td></tr>').join('');
  const body='<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف حصر عدم الدخول</title><style>@page{size:A4 landscape;margin:11mm}body{font:10.5pt Tahoma,Arial;color:#163b2d;line-height:1.7}h1{text-align:center;font-size:17pt}table{border-collapse:collapse;width:100%;table-layout:fixed}th,td{border:1px solid #9cae9f;padding:7px;text-align:right;vertical-align:top;overflow-wrap:anywhere}th{background:#e8f2e9}th:nth-child(5){width:37%}.disclaimer{font-size:8.5pt;color:#46594e;border:1px solid #c8d6cc;padding:9px;margin:12px 0}.meta{display:flex;justify-content:space-between}.actions{padding:9px}@media print{.actions{display:none}}tr{break-inside:avoid}</style></head><body><b>المملكة العربية السعودية – وزارة التعليم – إدارة التعليم بنجران – مدرسة ابن سينا المتوسطة</b><h1>كشف حصر الطلاب الذين لم يدخلوا منصة تمكّن</h1><div class="meta"><b>من: '+ESC(dateLong(ST.from))+'　 إلى: '+ESC(dateLong(ST.to))+'</b><b>الفصل: '+ESC(ST.klass==='all'?'كل الفصول':ST.klass)+'</b><b>نوع الأيام: '+(ST.dayMode==='school'?'أيام الدراسة':'جميع الأيام')+'</b></div><p>عدد الطلاب في الكشف: '+num(a.rows.length)+' | عدد الأيام المشمولة بالحساب: '+num(a.eligible.length)+'</p><table><thead><tr><th style="width:5%">م</th><th style="width:25%">الطالب</th><th style="width:12%">الفصل</th><th style="width:10%">عدد الأيام</th><th>التواريخ التي لم يُسجَّل فيها دخول</th><th style="width:11%">أيام النشاط</th></tr></thead><tbody>'+out+'</tbody></table><div class="disclaimer">'+a.warnings.map(ESC).join(' • ')+' لا يُثبت هذا الكشف الغياب المدرسي.</div><button class="actions" onclick="print()">طباعة / حفظ PDF</button></body></html>';
@@ -119,7 +121,6 @@ window.TamakkunMissingLoginReport={
   if(ST.data!==data){ST.data=data;const d=initialDates();if(!ST.from)ST.from=d.from;if(!ST.to)ST.to=d.to}
   ST.host=host;render();
  },
- unmount(){ST.host=null;ST.data=null;ST.from='';ST.to='';ST.klass='all';ST.dayMode='school';ST.minDays=1;ST.name=''},
- _test:{attendance:(data)=>attendance(data),getRows:()=>getRows(),set:(opts)=>Object.assign(ST,opts)}
+ unmount(){ST.host=null;ST.data=null;ST.from='';ST.to='';ST.klass='all';ST.dayMode='school';ST.minDays=1;ST.name=''}
 };
 })();
