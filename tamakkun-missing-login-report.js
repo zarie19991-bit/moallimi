@@ -2,7 +2,7 @@
 'use strict';
 /* Teacher-only, read-only: per-student missing-login days and dates from existing authorized snapshot.
    No claim that missing historical session = verified absence; roster is current active roster. */
-const ST={host:null,data:null,from:'',to:'',klass:'all',dayMode:'school',minDays:1,name:'',error:'',limit:366};
+const ST={host:null,data:null,from:'',to:'',klass:'all',dayMode:'school',minDays:1,minStreak:0,trackingStart:'',excluded:'',name:'',error:'',limit:366};
 const ESC=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const txt=s=>String(s??'').trim();
 const pad=n=>String(n).padStart(2,'0');
@@ -29,20 +29,29 @@ function attendance(data){
  const dates=allSessions.flatMap(s=>[daySaudi(s.created_at),daySaudi(s.last_seen_at)]).filter(Boolean).sort();
  const oldest=dates[0]||'',newest=dates[dates.length-1]||'';
  const from=isoDate(ST.from),to=isoDate(ST.to),errors=[];
+ const excludedTokens=txt(ST.excluded).split(/[\s,،؛;]+/).filter(Boolean);
+ const invalid=excludedTokens.filter(d=>!/^\d{4}-\d{2}-\d{2}$/.test(d)||ymdUTC(parse(d))!==d);
+ if(invalid.length)errors.push('تواريخ الاستبعاد غير صحيحة؛ اكتب تواريخ ميلادية YYYY-MM-DD مفصولة بفواصل.');
+ const excluded=new Set(excludedTokens.filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)));
+ const trackFrom=isoDate(ST.trackingStart);
+ if(ST.trackingStart&&(!trackFrom||ymdUTC(parse(trackFrom))!==trackFrom))errors.push('تاريخ بداية الاستهداف غير صحيح.');
  if(!from||!to||from>to)errors.push('اختر تاريخ بداية ونهاية صحيحين.');
  if(to>today())errors.push('لا يمكن احتساب أيام مستقبلية.');
  if(from&&to&&parse(to)-parse(from)>((ST.limit-1)*86400000))errors.push('الحد الأقصى للفترة '+ST.limit+' يومًا؛ اختر فترة أقصر.');
  const eligible=[];
  if(!errors.length&&oldest){
-  const begin=from<oldest?oldest:from;
+  const begin=[from,oldest,trackFrom].filter(Boolean).sort().at(-1);
   for(let day=begin;day<=to;day=addDays(day,1)){
-   if(ST.dayMode==='all'||school(day))eligible.push(day);
+   if((ST.dayMode==='all'||school(day))&&!excluded.has(day))eligible.push(day);
    if(eligible.length>ST.limit)break;
   }
  }
  const warnings=[];
  if(!oldest)warnings.push('لا توجد جلسات طلاب محفوظة في المصدر؛ لا يمكن استخراج كشف تاريخي موثوق.');
  if(oldest&&from<oldest)warnings.push('المدة المطلوبة تبدأ قبل أقدم سجل متاح ('+dateLong(oldest)+')؛ استُبعدت الأيام الأقدم بدل احتسابها غيابًا.');
+ if(trackFrom&&from<trackFrom)warnings.push('استُبعد ما قبل تاريخ بداية الاستهداف ('+dateLong(trackFrom)+').');
+ if(!trackFrom)warnings.push('بداية استهداف كل طالب غير متاحة حاليًا؛ يُرجى مراجعة تاريخ انضمامه قبل اعتماد الحصر.');
+ if(excluded.size)warnings.push('استُبعدت '+num(excluded.size)+' تواريخ إجازة أو توقف حددها المعلم.');
  if(to===today())warnings.push('اليوم الحالي لم ينتهِ؛ نتيجته مؤقتة حتى نهاية اليوم.');
  warnings.push('الحصر يعني عدم وجود دخول أو نشاط مسجل في الأيام المعروضة، وليس إثباتًا قاطعًا لعدم الدخول أو غياب الطالب عن المدرسة.');
  warnings.push('قائمة الطلاب تمثل الطلاب النشطين حاليًا؛ قد لا يكون الطالب مسجلًا في المنصة طوال المدة التاريخية.');
@@ -60,12 +69,15 @@ function attendance(data){
  .filter(s=>!ST.name||txt(s.full_name).toLocaleLowerCase('ar').includes(ST.name.toLocaleLowerCase('ar')));
  const rows=!errors.length&&oldest?roster.map(s=>{
   const seen=access.get(txt(s.id))||new Set();
-  const missing=eligible.filter(date=>!seen.has(date));
-  const visits=eligible.filter(date=>seen.has(date));
+  const studentStart=daySaudi(s.created_at||s.targeted_at||'');
+  const eligibleForStudent=studentStart?eligible.filter(day=>day>=studentStart):eligible;
+  const missing=eligibleForStudent.filter(day=>!seen.has(day));
+  const visits=eligibleForStudent.filter(day=>seen.has(day));
+  let longest=0,current=0;for(const day of eligibleForStudent){current=seen.has(day)?0:current+1;if(current>longest)longest=current}
   const last=[...seen].sort().at(-1)||'';
-  return{student:s,missing,visits,last,total:missing.length,allDays:eligible.length};
+  return{student:s,missing,visits,last,total:missing.length,allDays:eligibleForStudent.length,longest,endingStreak:current};
  }):[];
- return{rows:rows.filter(x=>x.total>=ST.minDays).sort((a,b)=>b.total-a.total||txt(a.student.class_name).localeCompare(txt(b.student.class_name),'ar')||txt(a.student.full_name).localeCompare(txt(b.student.full_name),'ar')),eligible,oldest,newest,errors,warnings,rosterTotal:roster.length,allRows:rows};
+ return{rows:rows.filter(x=>x.total>=ST.minDays&&x.longest>=ST.minStreak).sort((a,b)=>b.total-a.total||txt(a.student.class_name).localeCompare(txt(b.student.class_name),'ar')||txt(a.student.full_name).localeCompare(txt(b.student.full_name),'ar')),eligible,oldest,newest,errors,warnings,excluded:[...excluded].sort(),rosterTotal:roster.length,allRows:rows};
 }
 function options(rows,current){return rows.map(([v,l])=>'<option value="'+ESC(v)+'"'+(String(v)===String(current)?' selected':'')+'>'+ESC(l)+'</option>').join('')}
 function render(){
@@ -76,8 +88,11 @@ function render(){
  '<label>من تاريخ<input type="date" id="tml-from" value="'+ESC(ST.from)+'"></label>'+
  '<label>إلى تاريخ<input type="date" id="tml-to" value="'+ESC(ST.to)+'"></label>'+
  '<label>نوع الأيام<select id="tml-daymode">'+options([['school','أيام الدراسة (الأحد–الخميس)'],['all','جميع الأيام']],ST.dayMode)+'</select></label>'+
+ '<label>بداية استهداف الطلاب (اختياري)<input type="date" id="tml-start" value="'+ESC(ST.trackingStart)+'"></label>'+ 
+ '<label>تواريخ الإجازات المستبعدة<input type="text" id="tml-excluded" placeholder="2026-10-21، 2026-10-22" value="'+ESC(ST.excluded)+'"></label>'+ 
  '<label>الفصل<select id="tml-class">'+options([['all','جميع الفصول'],...classNames.map(x=>[x,x])],ST.klass)+'</select></label>'+
  '<label>أقل عدد أيام دون دخول<select id="tml-min">'+options([[1,'يوم فأكثر'],[2,'يومان فأكثر'],[3,'3 أيام فأكثر'],[5,'5 أيام فأكثر'],[10,'10 أيام فأكثر'],[10000,'لم يسجل دخول طوال الفترة']],ST.minDays)+'</select></label>'+
+ '<label>أطول انقطاع متتالٍ<select id="tml-streak">'+options([[0,'أي عدد'],[2,'يومان دراسيان متتاليان فأكثر'],[3,'ثلاثة أيام متتالية فأكثر'],[5,'خمسة أيام متتالية فأكثر']],ST.minStreak)+'</select></label>'+ 
  '<label>اسم الطالب<input type="search" id="tml-search" placeholder="البحث في كشف الحصر" value="'+ESC(ST.name)+'"></label></div>';
  if(r.errors.length)h+='<div class="tml-error">'+r.errors.map(ESC).join(' • ')+'</div>';
  h+='<div class="tml-guide">'+r.warnings.map(ESC).join('<div style="margin-top:4px">')+'</div></div>';
@@ -85,22 +100,22 @@ function render(){
  [['أيام الفترة المحتسبة',r.eligible.length],['طلاب بلا دخول مسجل ليوم فأكثر',missingCount],['لم يسجل لهم نشاط طوال الفترة',never],['الطلاب في الكشف',r.rows.length]].map(x=>'<div class="tml-card"><small>'+ESC(x[0])+'</small><b>'+num(x[1])+'</b></div>').join('')+'</div>';
  if(ST.minDays===10000)h+='<div class="tml-guide">لإظهار من لم يدخل طوال المدة، أُدرج الطلاب الذين يساوي عدد أيامهم دون دخول عدد أيام الفترة المحتسبة فقط.</div>';
  h+='<div class="tml-row" style="padding:6px 0 13px"><b>كشف عدم الدخول خلال المدة</b><small class="tml-sub">'+ESC(dateLong(ST.from))+' – '+ESC(dateLong(ST.to))+' • '+(ST.dayMode==='school'?'أيام الدراسة':'جميع الأيام')+' • '+num(r.rows.length)+' طالب</small></div>'+
- '<div class="tml-wrap"><table><thead><tr><th>م</th><th>الطالب</th><th>الفصل</th><th>عدد الأيام دون دخول مسجل</th><th>التواريخ بالتفصيل</th><th>أيام النشاط المسجلة</th><th>آخر نشاط متاح</th></tr></thead><tbody>'+
- (r.rows.length?r.rows.map((x,i)=>'<tr><td>'+num(i+1)+'</td><td><b>'+ESC(x.student.full_name)+'</b></td><td>'+ESC(x.student.class_name||'—')+'</td><td><span class="tml-count">'+num(x.total)+'</span></td><td class="tml-date-list">'+x.missing.map(d=>'<span style="white-space:nowrap">'+ESC(dateLong(d))+'</span>').join('، ')+'</td><td>'+num(x.visits.length)+'</td><td>'+ESC(x.last?dateLong(x.last):'لا يوجد نشاط مسجل')+'</td></tr>').join(''):'<tr><td colspan="7" class="tml-empty">'+(r.eligible.length?'لا يوجد طلاب مطابقون لشرط الحصر.':'لا توجد أيام قابلة للحصر من السجلات المتاحة.')+'</td></tr>')+'</tbody></table></div>'+
+ '<div class="tml-wrap"><table><thead><tr><th>م</th><th>الطالب</th><th>الفصل</th><th>عدد الأيام دون دخول مسجل</th><th>أطول انقطاع متتالٍ</th><th>التواريخ بالتفصيل</th><th>أيام النشاط المسجلة</th><th>آخر نشاط متاح</th></tr></thead><tbody>'+
+ (r.rows.length?r.rows.map((x,i)=>'<tr><td>'+num(i+1)+'</td><td><b>'+ESC(x.student.full_name)+'</b></td><td>'+ESC(x.student.class_name||'—')+'</td><td><span class="tml-count">'+num(x.total)+'</span></td><td>'+num(x.longest)+'</td><td class="tml-date-list">'+x.missing.map(d=>'<span style="white-space:nowrap">'+ESC(dateLong(d))+'</span>').join('، ')+'</td><td>'+num(x.visits.length)+'</td><td>'+ESC(x.last?dateLong(x.last):'لا يوجد نشاط مسجل')+'</td></tr>').join(''):'<tr><td colspan="8" class="tml-empty">'+(r.eligible.length?'لا يوجد طلاب مطابقون لشرط الحصر.':'لا توجد أيام قابلة للحصر من السجلات المتاحة.')+'</td></tr>')+'</tbody></table></div>'+
  '<p class="tml-sub">هذا كشف رصد دخول إلكتروني؛ لا يُستخدم وحده لإثبات الغياب أو التقصير. لا تُحسب الجمعة والسبت عند اختيار أيام الدراسة، ولا تُحتسب الأيام الأقدم من السجلات المتاحة.</p></section>';
  ST.host.innerHTML=h;
  const setup=(id,prop,format)=>{const el=ST.host.querySelector('#'+id);if(el)el.onchange=e=>{ST[prop]=format?format(e.target.value):e.target.value;render()}};
- setup('tml-from','from',v=>isoDate(v));setup('tml-to','to',v=>isoDate(v));setup('tml-class','klass');
- setup('tml-daymode','dayMode');setup('tml-min','minDays',Number);setup('tml-search','name');
+ setup('tml-from','from',v=>isoDate(v));setup('tml-to','to',v=>isoDate(v));setup('tml-start','trackingStart',v=>isoDate(v));setup('tml-excluded','excluded');setup('tml-class','klass');
+ setup('tml-daymode','dayMode');setup('tml-min','minDays',Number);setup('tml-streak','minStreak',Number);setup('tml-search','name');
  ST.host.querySelector('#tml-csv').onclick=exportCSV;
  ST.host.querySelector('#tml-print').onclick=printReport;
 }
-function getRows(){const calc=attendance(ST.data);if(ST.minDays===10000)return{...calc,rows:calc.allRows.filter(x=>x.allDays>0&&x.total===x.allDays)};return calc}
+function getRows(){const calc=attendance(ST.data);if(ST.minDays===10000)return{...calc,rows:calc.allRows.filter(x=>x.allDays>0&&x.total===x.allDays&&x.longest>=ST.minStreak)};return calc}
 function csvCell(v){let s=txt(v);if(/^[\s]*[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function exportCSV(){
  const a=getRows();if(a.errors.length||!a.eligible.length){alert('اختر فترة تتوافر فيها سجلات دخول قابلة للحصر.');return}
- const headers=['م','الطالب','الفصل','عدد الأيام دون دخول مسجل','تواريخ الأيام دون دخول','عدد أيام النشاط المسجل','آخر نشاط','بداية الفترة','نهاية الفترة','نوع الأيام'];
- const values=[headers,...a.rows.map((x,i)=>[i+1,x.student.full_name,x.student.class_name||'',x.total,x.missing.join('، '),x.visits.length,x.last||'',ST.from,ST.to,ST.dayMode==='school'?'الأحد–الخميس':'جميع الأيام'])];
+ const headers=['م','الطالب','الفصل','عدد الأيام دون دخول مسجل','أطول انقطاع متتالٍ','تواريخ الأيام دون دخول','عدد أيام النشاط المسجل','آخر نشاط','بداية الفترة','نهاية الفترة','نوع الأيام'];
+ const values=[headers,...a.rows.map((x,i)=>[i+1,x.student.full_name,x.student.class_name||'',x.total,x.longest,x.missing.join('، '),x.visits.length,x.last||'',ST.from,ST.to,ST.dayMode==='school'?'الأحد–الخميس':'جميع الأيام'])];
  const csv='\ufeff'+values.map(row=>row.map(csvCell).join(',')).join('\r\n');
  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),el=document.createElement('a');
  el.href=url;el.download='tamakkun-missing-logins-'+ST.from+'-'+ST.to+'.csv';el.click();
@@ -110,8 +125,8 @@ function printReport(){
  const a=getRows();if(a.errors.length||!a.eligible.length){alert('اختر فترة تتوافر فيها سجلات دخول قابلة للحصر.');return}
  const w=window.open('','_blank','width=950,height=840');if(!w){alert('اسمح بفتح نافذة طباعة الكشف.');return}
  try{w.opener=null}catch(_){}
- const out=a.rows.map((x,i)=>'<tr><td>'+num(i+1)+'</td><td>'+ESC(x.student.full_name)+'</td><td>'+ESC(x.student.class_name||'—')+'</td><td>'+num(x.total)+'</td><td style="line-height:1.8">'+x.missing.map(date=>ESC(dateLong(date))).join('، ')+'</td><td>'+num(x.visits.length)+'</td></tr>').join('');
- const body='<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف حصر عدم الدخول</title><style>@page{size:A4 landscape;margin:11mm}body{font:10.5pt Tahoma,Arial;color:#163b2d;line-height:1.7}h1{text-align:center;font-size:17pt}table{border-collapse:collapse;width:100%;table-layout:fixed}th,td{border:1px solid #9cae9f;padding:7px;text-align:right;vertical-align:top;overflow-wrap:anywhere}th{background:#e8f2e9}th:nth-child(5){width:37%}.disclaimer{font-size:8.5pt;color:#46594e;border:1px solid #c8d6cc;padding:9px;margin:12px 0}.meta{display:flex;justify-content:space-between}.actions{padding:9px}@media print{.actions{display:none}}tr{break-inside:avoid}</style></head><body><b>المملكة العربية السعودية – وزارة التعليم – إدارة التعليم بنجران – مدرسة ابن سينا المتوسطة</b><h1>كشف حصر الطلاب الذين لم يدخلوا منصة تمكّن</h1><div class="meta"><b>من: '+ESC(dateLong(ST.from))+'　 إلى: '+ESC(dateLong(ST.to))+'</b><b>الفصل: '+ESC(ST.klass==='all'?'كل الفصول':ST.klass)+'</b><b>نوع الأيام: '+(ST.dayMode==='school'?'أيام الدراسة':'جميع الأيام')+'</b></div><p>عدد الطلاب في الكشف: '+num(a.rows.length)+' | عدد الأيام المشمولة بالحساب: '+num(a.eligible.length)+'</p><table><thead><tr><th style="width:5%">م</th><th style="width:25%">الطالب</th><th style="width:12%">الفصل</th><th style="width:10%">عدد الأيام</th><th>التواريخ التي لم يُسجَّل فيها دخول</th><th style="width:11%">أيام النشاط</th></tr></thead><tbody>'+out+'</tbody></table><div class="disclaimer">'+a.warnings.map(ESC).join(' • ')+' لا يُثبت هذا الكشف الغياب المدرسي.</div><button class="actions" onclick="print()">طباعة / حفظ PDF</button></body></html>';
+ const out=a.rows.map((x,i)=>'<tr><td>'+num(i+1)+'</td><td>'+ESC(x.student.full_name)+'</td><td>'+ESC(x.student.class_name||'—')+'</td><td>'+num(x.total)+'</td><td>'+num(x.longest)+'</td><td style="line-height:1.8">'+x.missing.map(date=>ESC(dateLong(date))).join('، ')+'</td><td>'+num(x.visits.length)+'</td></tr>').join('');
+ const body='<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف حصر عدم الدخول</title><style>@page{size:A4 landscape;margin:11mm}body{font:10.5pt Tahoma,Arial;color:#163b2d;line-height:1.7}h1{text-align:center;font-size:17pt}table{border-collapse:collapse;width:100%;table-layout:fixed}th,td{border:1px solid #9cae9f;padding:7px;text-align:right;vertical-align:top;overflow-wrap:anywhere}th{background:#e8f2e9}th:nth-child(5){width:37%}.disclaimer{font-size:8.5pt;color:#46594e;border:1px solid #c8d6cc;padding:9px;margin:12px 0}.meta{display:flex;justify-content:space-between}.actions{padding:9px}@media print{.actions{display:none}}tr{break-inside:avoid}</style></head><body><b>المملكة العربية السعودية – وزارة التعليم – إدارة التعليم بنجران – مدرسة ابن سينا المتوسطة</b><h1>كشف حصر الطلاب الذين لم يدخلوا منصة تمكّن</h1><div class="meta"><b>من: '+ESC(dateLong(ST.from))+'　 إلى: '+ESC(dateLong(ST.to))+'</b><b>الفصل: '+ESC(ST.klass==='all'?'كل الفصول':ST.klass)+'</b><b>نوع الأيام: '+(ST.dayMode==='school'?'أيام الدراسة':'جميع الأيام')+'</b></div><p>عدد الطلاب في الكشف: '+num(a.rows.length)+' | عدد الأيام المشمولة بالحساب: '+num(a.eligible.length)+' | التواريخ المستبعدة: '+a.excluded.map(ESC).join('، ')+'</p><table><thead><tr><th style="width:5%">م</th><th style="width:25%">الطالب</th><th style="width:12%">الفصل</th><th style="width:10%">عدد الأيام</th><th>أطول انقطاع</th><th>التواريخ التي لم يُسجَّل فيها دخول</th><th style="width:11%">أيام النشاط</th></tr></thead><tbody>'+out+'</tbody></table><div class="disclaimer">'+a.warnings.map(ESC).join(' • ')+' لا يُثبت هذا الكشف الغياب المدرسي.</div><button class="actions" onclick="print()">طباعة / حفظ PDF</button></body></html>';
  w.document.write(body);w.document.close();w.focus();
 }
 window.TamakkunMissingLoginReport={
@@ -121,6 +136,6 @@ window.TamakkunMissingLoginReport={
   if(ST.data!==data){ST.data=data;const d=initialDates();if(!ST.from)ST.from=d.from;if(!ST.to)ST.to=d.to}
   ST.host=host;render();
  },
- unmount(){ST.host=null;ST.data=null;ST.from='';ST.to='';ST.klass='all';ST.dayMode='school';ST.minDays=1;ST.name=''}
+ unmount(){ST.host=null;ST.data=null;ST.from='';ST.to='';ST.klass='all';ST.dayMode='school';ST.minDays=1;ST.minStreak=0;ST.trackingStart='';ST.excluded='';ST.name=''}
 };
 })();
