@@ -42,9 +42,53 @@ async function trackPresence(req:Request,ac:any){
  }
  return send(req,{ok:true,tracked:true});
 }
+
+/*
+ * Read-only attendance history. The private daily ledger is written only by
+ * authenticated student session database triggers, never by teacher/student input.
+ * If the staged SQL has not been deployed, this action will fail safely; the
+ * client falls back to its limited legacy session evidence with clear warnings.
+ */
+async function attendanceHistory(req:Request,body:any,ac:any){
+ if(ac.role!=="teacher")throw err("سجل دخول الطلاب التفصيلي متاح للمعلم فقط.",403);
+ const from=str(body?.from),to=str(body?.to);
+ const valid=(v:string)=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+"T12:00:00Z"))&&new Date(v+"T12:00:00Z").toISOString().slice(0,10)===v;
+ if(!valid(from)||!valid(to)||from>to)throw err("اختر بداية ونهاية صحيحين للفترة.",400);
+ const duration=(Date.parse(to+"T12:00:00Z")-Date.parse(from+"T12:00:00Z"))/86400000;
+ if(duration>365)throw err("الحد الأقصى لقراءة السجل اليومي 366 يومًا.",400);
+ const today=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+ if(to>today)throw err("الفترة لا يمكن أن تشمل المستقبل.",400);
+
+ const {data:configuration,error:ce}=await db.from("tamakkun_activity_tracking_config")
+   .select("recording_started_at,complete_from_day").eq("singleton",true).maybeSingle();
+ if(ce)throw err("السجل اليومي الدائم غير مُفعّل على الخادم بعد.",503);
+ if(!configuration)throw err("لم يبدأ التسجيل اليومي الدائم بعد.",503);
+
+ const roster=await collect("nafes_students","id,created_at",q=>q.eq("is_active",true).eq("is_demo",false),3500);
+ const allowed=new Set(roster.map(s=>String(s.id)));
+ if(!allowed.size)return send(req,{ok:true,mode:"durable",complete_from_day:configuration.complete_from_day,activity_days:[]});
+ const ids=[...allowed];
+ const history:any[]=[];const batch=450;const ceiling=60000;
+ for(let offset=0;offset<ceiling;offset+=batch){
+  const {data,error}=await db.from("tamakkun_student_activity_days")
+    .select("student_id,activity_day,login_events,heartbeat_events")
+    .in("student_id",ids).gte("activity_day",from).lte("activity_day",to)
+    .order("student_id",{ascending:true}).order("activity_day",{ascending:true})
+    .range(offset,offset+batch-1);
+  if(error)throw err("تعذّر قراءة سجل الدخول اليومي؛ لم يُعرض كشف ناقص.",503);
+  const rows=(data||[]).filter(x=>allowed.has(String(x.student_id)));
+  history.push(...rows);
+  if(rows.length<batch){
+   return send(req,{ok:true,mode:"durable",complete_from_day:configuration.complete_from_day,
+      history_start:configuration.recording_started_at,activity_days:history});
+  }
+ }
+ throw err("بيانات الدخول كثيرة جدًا لهذه المدة؛ اختصر الفترة حتى لا يصدر كشف ناقص.",409);
+}
+
 async function snapshot(req:Request,ac:any){
  if(ac.role!=="teacher")throw err("التقرير متاح للمعلم فقط.",403);
- const roster=await collect("nafes_students","id,full_name,grade,class_name,is_active,is_demo",q=>q.eq("is_active",true).eq("is_demo",false),3500);
+ const roster=await collect("nafes_students","id,full_name,grade,class_name,created_at,is_active,is_demo",q=>q.eq("is_active",true).eq("is_demo",false),3500);
  const ids=roster.map(s=>String(s.id));
  const [sessions,tasks,evidence,posttests]=await Promise.all([
   collect("lugati_sessions","id,student_id,created_at,last_seen_at,expires_at",q=>q.eq("role","student").in("student_id",ids),10000),
@@ -175,6 +219,7 @@ Deno.serve(async(req:Request)=>{
   const body=await req.json().catch(()=>({}));
   if(body?.action==="student_ping")return await trackPresence(req,access);
   if(body?.action==="snapshot")return await snapshot(req,access);
+  if(body?.action==="attendance_history")return await attendanceHistory(req,body,access);
   if(body?.action==="assign_posttest")return await assignPosttest(req,body,access);
   if(body?.action==="posttest_list")return await studentPosttestList(req,access);
   if(body?.action==="posttest_open")return await studentOpenPosttest(req,body,access);
