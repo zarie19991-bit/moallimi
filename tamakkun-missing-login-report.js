@@ -2,7 +2,7 @@
 'use strict';
 /* Teacher-only, read-only: per-student missing-login days and dates from existing authorized snapshot.
    No claim that missing historical session = verified absence; roster is current active roster. */
-const ST={host:null,data:null,from:'',to:'',klass:'all',dayMode:'school',minDays:1,minStreak:0,trackingStart:'',excluded:'',name:'',error:'',limit:366};
+const ST={host:null,data:null,from:'',to:'',klass:'all',dayMode:'school',minDays:1,minStreak:0,trackingStart:'',excluded:'',name:'',error:'',limit:366,token:null,history:null,historyKey:'',historyStatus:'idle',historyError:'',historyVersion:0};
 const ESC=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const txt=s=>String(s??'').trim();
 const pad=n=>String(n).padStart(2,'0');
@@ -24,9 +24,39 @@ function style(){
 function initialDates(){
  const d=today();return{to:addDays(d,-1),from:addDays(d,-14)};
 }
+
+const HISTORY_API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-student-monitor';
+function resetHistory(){
+ ST.historyVersion++;ST.history=null;ST.historyStatus='idle';ST.historyError='';ST.historyKey='';
+}
+async function fetchHistory(){
+ if(!ST.host||!ST.token)return;
+ const from=isoDate(ST.from),to=isoDate(ST.to);
+ if(!from||!to||from>to||to>today()||parse(to)-parse(from)>365*86400000)return;
+ const key=from+'|'+to+'|'+ST.token;
+ if(ST.historyKey===key&&ST.historyStatus!=='idle')return;
+ ST.historyKey=key;ST.history=null;ST.historyStatus='loading';ST.historyError='';
+ const version=++ST.historyVersion,token=ST.token;
+ render();
+ try{
+  const res=await fetch(HISTORY_API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+   body:JSON.stringify({action:'attendance_history',from,to}),cache:'no-store'});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data.ok!==true||data.mode!=='durable'||!Array.isArray(data.activity_days)||!isoDate(data.complete_from_day))
+   throw Error(data.error||'السجل اليومي الدائم غير متاح حاليًا.');
+  if(version!==ST.historyVersion||token!==ST.token||!ST.host)return;
+  ST.history={complete_from_day:data.complete_from_day,activity_days:data.activity_days};
+  ST.historyStatus='ready';
+ }catch(e){
+  if(version!==ST.historyVersion||token!==ST.token||!ST.host)return;
+  ST.history=null;ST.historyStatus='legacy';
+  ST.historyError='السجل اليومي الدائم لم يُفعّل أو لم يتوفر؛ يعتمد هذا الكشف مؤقتًا على جلسات الدخول المحفوظة وقد تنقصه الأيام القديمة.';
+ }finally{if(version===ST.historyVersion&&ST.host)render()}
+}
+
 function attendance(data){
  const allSessions=Array.isArray(data?.sessions)?data.sessions:[];
- const dates=allSessions.flatMap(s=>[daySaudi(s.created_at),daySaudi(s.last_seen_at)]).filter(Boolean).sort();
+ const dates=[...allSessions.flatMap(s=>[daySaudi(s.created_at),daySaudi(s.last_seen_at)]),ST.history?.complete_from_day].filter(Boolean).sort();
  const oldest=dates[0]||'',newest=dates[dates.length-1]||'';
  const from=isoDate(ST.from),to=isoDate(ST.to),errors=[];
  const excludedTokens=txt(ST.excluded).split(/[\s,،؛;]+/).filter(Boolean);
@@ -47,6 +77,9 @@ function attendance(data){
   }
  }
  const warnings=[];
+ if(ST.historyStatus==='loading')warnings.push('جارٍ تحميل سجل الدخول اليومي من الخادم؛ الأعداد مؤقتة حتى اكتمال القراءة.');
+ if(ST.historyStatus==='legacy')warnings.push(ST.historyError);
+ if(ST.historyStatus==='ready')warnings.push('السجل اليومي الدائم مفعل ابتداءً من '+dateLong(ST.history.complete_from_day)+'؛ أما الأيام الأقدم فتعتمد على الجلسات التاريخية المتاحة وقد تكون غير مكتملة.');
  if(!oldest)warnings.push('لا توجد جلسات طلاب محفوظة في المصدر؛ لا يمكن استخراج كشف تاريخي موثوق.');
  if(oldest&&from<oldest)warnings.push('المدة المطلوبة تبدأ قبل أقدم سجل متاح ('+dateLong(oldest)+')؛ استُبعدت الأيام الأقدم بدل احتسابها غيابًا.');
  if(trackFrom&&from<trackFrom)warnings.push('استُبعد ما قبل تاريخ بداية الاستهداف ('+dateLong(trackFrom)+').');
@@ -64,6 +97,12 @@ function attendance(data){
   let set=access.get(id);if(!set){set=new Set();access.set(id,set)}
   const a=daySaudi(s.created_at),b=daySaudi(s.last_seen_at);
   if(a)set.add(a);if(b)set.add(b);
+ }
+ if(ST.historyStatus==='ready')for(const row of ST.history.activity_days){
+  const id=txt(row.student_id),day=isoDate(row.activity_day);
+  if(!id||!day||!Number.isFinite(Number(row.login_events)+Number(row.heartbeat_events)))continue;
+  let set=access.get(id);if(!set){set=new Set();access.set(id,set)}
+  if(Number(row.login_events)+Number(row.heartbeat_events)>0)set.add(day);
  }
  const roster=(Array.isArray(data?.students)?data.students:[]).filter(s=>ST.klass==='all'||txt(s.class_name)===ST.klass)
  .filter(s=>!ST.name||txt(s.full_name).toLocaleLowerCase('ar').includes(ST.name.toLocaleLowerCase('ar')));
@@ -83,7 +122,7 @@ function options(rows,current){return rows.map(([v,l])=>'<option value="'+ESC(v)
 function render(){
  if(!ST.host||!ST.data)return;style();const r=getRows(),classNames=[...new Set(ST.data.students.map(x=>txt(x.class_name)).filter(Boolean))].sort();
  const never=r.allRows.filter(x=>x.allDays>0&&x.total===x.allDays).length,missingCount=r.allRows.filter(x=>x.total>0).length;
- let h='<section class="tml" id="tml-register"><div class="tml-row"><div><small class="tml-sub">منصة تمكّن • كشف مستقل للطباعة والمتابعة</small><h2>حصر الطلاب الذين لم يدخلوا خلال فترة</h2><p>اختر الفترة والفصل، ثم راجع عدد الأيام دون دخول مسجل وتواريخها لكل طالب.</p></div><div class="tml-actions"><button class="tml-btn light" id="tml-csv">تصدير كشف CSV</button><button class="tml-btn" id="tml-print">طباعة الكشف A4</button></div></div>'+
+ let h='<section class="tml" id="tml-register"><div class="tml-row"><div><small class="tml-sub">منصة تمكّن • كشف مستقل للطباعة والمتابعة</small><h2>حصر الطلاب الذين لم يدخلوا خلال فترة</h2><p>اختر الفترة والفصل، ثم راجع عدد الأيام دون دخول مسجل وتواريخها لكل طالب.</p></div><div class="tml-actions"><button class="tml-btn light" id="tml-csv"'+(ST.historyStatus==='loading'?' disabled':'')+'>تصدير كشف CSV</button><button class="tml-btn" id="tml-print"'+(ST.historyStatus==='loading'?' disabled':'')+'>طباعة الكشف A4</button></div></div>'+
  '<div class="tml-controls">'+
  '<label>من تاريخ<input type="date" id="tml-from" value="'+ESC(ST.from)+'"></label>'+
  '<label>إلى تاريخ<input type="date" id="tml-to" value="'+ESC(ST.to)+'"></label>'+
@@ -94,6 +133,7 @@ function render(){
  '<label>أقل عدد أيام دون دخول<select id="tml-min">'+options([[1,'يوم فأكثر'],[2,'يومان فأكثر'],[3,'3 أيام فأكثر'],[5,'5 أيام فأكثر'],[10,'10 أيام فأكثر'],[10000,'لم يسجل دخول طوال الفترة']],ST.minDays)+'</select></label>'+
  '<label>أطول انقطاع متتالٍ<select id="tml-streak">'+options([[0,'أي عدد'],[2,'يومان دراسيان متتاليان فأكثر'],[3,'ثلاثة أيام متتالية فأكثر'],[5,'خمسة أيام متتالية فأكثر']],ST.minStreak)+'</select></label>'+ 
  '<label>اسم الطالب<input type="search" id="tml-search" placeholder="البحث في كشف الحصر" value="'+ESC(ST.name)+'"></label></div>';
+ h+='<div class="tml-guide"><b>مصدر البيانات:</b> '+(ST.historyStatus==='ready'?'سجل الدخول اليومي الدائم والجلسات التاريخية':'الجلسات التاريخية المحفوظة فقط')+'</div>';
  if(r.errors.length)h+='<div class="tml-error">'+r.errors.map(ESC).join(' • ')+'</div>';
  h+='<div class="tml-guide">'+r.warnings.map(ESC).join('<div style="margin-top:4px">')+'</div></div>';
  h+='<div class="tml-cards">'+
@@ -104,7 +144,7 @@ function render(){
  (r.rows.length?r.rows.map((x,i)=>'<tr><td>'+num(i+1)+'</td><td><b>'+ESC(x.student.full_name)+'</b></td><td>'+ESC(x.student.class_name||'—')+'</td><td><span class="tml-count">'+num(x.total)+'</span></td><td>'+num(x.longest)+'</td><td class="tml-date-list">'+x.missing.map(d=>'<span style="white-space:nowrap">'+ESC(dateLong(d))+'</span>').join('، ')+'</td><td>'+num(x.visits.length)+'</td><td>'+ESC(x.last?dateLong(x.last):'لا يوجد نشاط مسجل')+'</td></tr>').join(''):'<tr><td colspan="8" class="tml-empty">'+(r.eligible.length?'لا يوجد طلاب مطابقون لشرط الحصر.':'لا توجد أيام قابلة للحصر من السجلات المتاحة.')+'</td></tr>')+'</tbody></table></div>'+
  '<p class="tml-sub">هذا كشف رصد دخول إلكتروني؛ لا يُستخدم وحده لإثبات الغياب أو التقصير. لا تُحسب الجمعة والسبت عند اختيار أيام الدراسة، ولا تُحتسب الأيام الأقدم من السجلات المتاحة.</p></section>';
  ST.host.innerHTML=h;
- const setup=(id,prop,format)=>{const el=ST.host.querySelector('#'+id);if(el)el.onchange=e=>{ST[prop]=format?format(e.target.value):e.target.value;render()}};
+ const setup=(id,prop,format)=>{const el=ST.host.querySelector('#'+id);if(el)el.onchange=e=>{const prior=ST[prop];ST[prop]=format?format(e.target.value):e.target.value;if(prior!==ST[prop]&&(prop==='from'||prop==='to'))resetHistory();render();if(prop==='from'||prop==='to')fetchHistory()}};
  setup('tml-from','from',v=>isoDate(v));setup('tml-to','to',v=>isoDate(v));setup('tml-start','trackingStart',v=>isoDate(v));setup('tml-excluded','excluded');setup('tml-class','klass');
  setup('tml-daymode','dayMode');setup('tml-min','minDays',Number);setup('tml-streak','minStreak',Number);setup('tml-search','name');
  ST.host.querySelector('#tml-csv').onclick=exportCSV;
@@ -113,7 +153,7 @@ function render(){
 function getRows(){const calc=attendance(ST.data);if(ST.minDays===10000)return{...calc,rows:calc.allRows.filter(x=>x.allDays>0&&x.total===x.allDays&&x.longest>=ST.minStreak)};return calc}
 function csvCell(v){let s=txt(v);if(/^[\s]*[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function exportCSV(){
- const a=getRows();if(a.errors.length||!a.eligible.length){alert('اختر فترة تتوافر فيها سجلات دخول قابلة للحصر.');return}
+ const a=getRows();if(ST.historyStatus==='loading'||a.errors.length||!a.eligible.length){alert('اختر فترة صالحة وانتظر اكتمال قراءة سجلات الدخول.');return}
  const headers=['م','الطالب','الفصل','عدد الأيام دون دخول مسجل','أطول انقطاع متتالٍ','تواريخ الأيام دون دخول','عدد أيام النشاط المسجل','آخر نشاط','بداية الفترة','نهاية الفترة','نوع الأيام','بداية الاستهداف','تواريخ الإجازات المستبعدة','فلتر أطول انقطاع'];
  const values=[headers,...a.rows.map((x,i)=>[i+1,x.student.full_name,x.student.class_name||'',x.total,x.longest,x.missing.join('، '),x.visits.length,x.last||'',ST.from,ST.to,ST.dayMode==='school'?'الأحد–الخميس':'جميع الأيام',ST.trackingStart,a.excluded.join('، '),ST.minStreak])];
  const csv='\ufeff'+values.map(row=>row.map(csvCell).join(',')).join('\r\n');
@@ -122,7 +162,7 @@ function exportCSV(){
  setTimeout(()=>URL.revokeObjectURL(url),2500);
 }
 function printReport(){
- const a=getRows();if(a.errors.length||!a.eligible.length){alert('اختر فترة تتوافر فيها سجلات دخول قابلة للحصر.');return}
+ const a=getRows();if(ST.historyStatus==='loading'||a.errors.length||!a.eligible.length){alert('اختر فترة صالحة وانتظر اكتمال قراءة سجلات الدخول.');return}
  const w=window.open('','_blank','width=950,height=840');if(!w){alert('اسمح بفتح نافذة طباعة الكشف.');return}
  try{w.opener=null}catch(_){}
  const out=a.rows.map((x,i)=>'<tr><td>'+num(i+1)+'</td><td>'+ESC(x.student.full_name)+'</td><td>'+ESC(x.student.class_name||'—')+'</td><td>'+num(x.total)+'</td><td>'+num(x.longest)+'</td><td style="line-height:1.8">'+x.missing.map(date=>ESC(dateLong(date))).join('، ')+'</td><td>'+num(x.visits.length)+'</td></tr>').join('');
@@ -130,12 +170,13 @@ function printReport(){
  w.document.write(body);w.document.close();w.focus();
 }
 window.TamakkunMissingLoginReport={
- mount({role,data}={}){
+ mount({role,data,token}={}){
   if(role!=='teacher'||!data||!Array.isArray(data.students)||!Array.isArray(data.sessions))return;
   const host=document.getElementById('tamakkunMissingLoginMount');if(!host)return;
-  if(ST.data!==data){ST.data=data;const d=initialDates();if(!ST.from)ST.from=d.from;if(!ST.to)ST.to=d.to}
-  ST.host=host;render();
+  if(ST.token!==token){resetHistory();ST.token=token||null}
+  if(ST.data!==data){ST.data=data;resetHistory();const d=initialDates();if(!ST.from)ST.from=d.from;if(!ST.to)ST.to=d.to}
+  ST.host=host;render();fetchHistory();
  },
- unmount(){ST.host=null;ST.data=null;ST.from='';ST.to='';ST.klass='all';ST.dayMode='school';ST.minDays=1;ST.minStreak=0;ST.trackingStart='';ST.excluded='';ST.name=''}
+ unmount(){resetHistory();ST.host=null;ST.token=null;ST.data=null;ST.from='';ST.to='';ST.klass='all';ST.dayMode='school';ST.minDays=1;ST.minStreak=0;ST.trackingStart='';ST.excluded='';ST.name=''}
 };
 })();
