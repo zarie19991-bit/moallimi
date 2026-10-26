@@ -79,6 +79,7 @@ function attendance(data){
  const warnings=[];
  if(ST.historyStatus==='loading')warnings.push('جارٍ تحميل سجل الدخول اليومي من الخادم؛ الأعداد مؤقتة حتى اكتمال القراءة.');
  if(ST.historyStatus==='legacy')warnings.push(ST.historyError);
+ if(ST.historyStatus==='ready'&&ST.from<ST.history.complete_from_day)warnings.push('الأيام التي تسبق بدء التسجيل اليومي الدائم تعتمد على جلسات تاريخية غير مكتملة؛ تُراجع قبل أي إجراء رسمي.');
  if(ST.historyStatus==='ready')warnings.push('السجل اليومي الدائم مفعل ابتداءً من '+dateLong(ST.history.complete_from_day)+'؛ أما الأيام الأقدم فتعتمد على الجلسات التاريخية المتاحة وقد تكون غير مكتملة.');
  if(!oldest)warnings.push('لا توجد جلسات طلاب محفوظة في المصدر؛ لا يمكن استخراج كشف تاريخي موثوق.');
  if(oldest&&from<oldest)warnings.push('المدة المطلوبة تبدأ قبل أقدم سجل متاح ('+dateLong(oldest)+')؛ استُبعدت الأيام الأقدم بدل احتسابها غيابًا.');
