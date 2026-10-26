@@ -154,7 +154,7 @@ function render(){
  (pageRows.length?pageRows.map(line).join(""):'<tr><td colspan="9">لا توجد بيانات مطابقة لهذه التصفية.</td></tr>')+'</tbody></table></div>'+
  '<div class="tmo-nav"><button id="tmo-prev" class="tmo-button secondary" '+(M.page===1?"disabled":"")+'>السابق</button><span>صفحة '+N(M.page)+' / '+N(pages)+'</span><button id="tmo-next" class="tmo-button secondary" '+(M.page===pages?"disabled":"")+'>التالي</button></div></section></div>';
  bind(pages);
- window.TamakkunMissingLoginReport?.mount({role:'teacher',data:d});
+ window.TamakkunMissingLoginReport?.mount({role:'teacher',data:d,token:M.token});
  for(const b of M.host.querySelectorAll('[data-tmo-assign]'))b.onclick=()=>assignPosttest(b);
 }
 function change(name,value){M[name]=value;M.page=1;render()}
