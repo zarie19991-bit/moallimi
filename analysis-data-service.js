@@ -89,7 +89,7 @@ let dataEpoch=0;
 T.loadAnalysis=async function(force=false){
  const key='__NAFES_ANALYSIS_DATA_CACHE__',cached=window[key];
  if(cached?.promise)return cached.promise;
- if(!force&&cached?.data&&Date.now()-cached.at<30000)return cached.data;
+ if(!force&&cached?.data&&Date.now()-cached.at<300000)return cached.data;
  const epoch=dataEpoch;
  const promise=(async()=>{
   let cursor=0,all=[],tests=[],indicators=[],pages=0;const seen=new Set();

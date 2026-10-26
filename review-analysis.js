@@ -127,7 +127,7 @@ async function load(initial=false){
 }
 $('reviewSelect').addEventListener('change',()=>{$('classSelect').value='';load(true)});
 $('classSelect').addEventListener('change',()=>load(false));
-$('refreshBtn').onclick=()=>load(false);
+$('refreshBtn').onclick=()=>{R.clearCache();load(false)};
 $('printAnalysisBtn').onclick=()=>{if(!reportHtml)return;const root=$('printRoot');root.innerHTML=reportHtml;root.setAttribute('aria-hidden','false');window.print()};
 window.addEventListener('afterprint',()=>{const root=$('printRoot');if(root){root.innerHTML='';root.setAttribute('aria-hidden','true')}});
 addEventListener('nafes:auth-changed',e=>{if(e.detail.authenticated)load(true)});

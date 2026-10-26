@@ -2,6 +2,20 @@
 'use strict';
 if(window.NafesPaperResults)return;
 const T=window.NafesTeacher;
+// Keep only complete results in memory for this authenticated page session.
+const reads=new Map();let epoch=0;
+function clearCache(){epoch++;reads.clear();T?.clearReadCache?.();}
+function cached(key,read){
+ const old=reads.get(key);if(old&&(old.pending||Date.now()-old.at<300000))return old.promise;
+ const generation=epoch,entry={pending:true,at:0};
+ entry.promise=Promise.resolve().then(read).then(data=>{
+  if(generation!==epoch)throw new Error('تغيرت بيانات الجلسة؛ أعد تحميل التحليل.');
+  entry.pending=false;entry.at=Date.now();return data;
+ }).catch(error=>{if(reads.get(key)===entry)reads.delete(key);throw error});
+ reads.set(key,entry);return entry.promise;
+}
+if(typeof addEventListener==='function')addEventListener('nafes:auth-changed',clearCache);
+
 const clean=v=>String(v??'').normalize('NFKC').trim().replace(/\s+/g,' ');
 const normName=v=>clean(v).replace(/[إأآٱ]/g,'ا').replace(/ة/g,'ه').replace(/[ىي]/g,'ي').replace(/[\u064B-\u0652\u0670\u0640]/g,'').toLowerCase();
 const subjectNames={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
@@ -26,7 +40,7 @@ function pearson(xs,ys){
 }
 
 function paperEvent(a,rid){return (a?.events||[]).find(e=>e?.type==='paper_scan'&&String(e.review_id||'')===String(rid||''));}
-async function allAttempts(){
+async function fetchAllAttempts(){
  let cursor=0,out=[];const seen=new Set();
  for(let page=0;page<200;page++){
    if(seen.has(cursor))throw new Error('تكرر مؤشر النتائج؛ أُوقف إنشاء التقرير لتجنب بيانات ناقصة. أعد التحميل.');
@@ -41,9 +55,10 @@ async function allAttempts(){
  }
  throw new Error('لم يكتمل تحميل جميع النتائج؛ أعد المحاولة قبل إنشاء التقرير.');
 }
-async function listReviews(){const d=await T.api('teacher_paper_review_list',{});return d.reviews||[];}
-async function roster(){const d=await T.api('teacher_students_list',{include_archived:false});if(!Array.isArray(d.students))throw new Error('تعذر تحميل كشف الطلاب لحساب غير المختبرين.');return d.students;}
-async function getReview(reviewId){const d=await T.api('teacher_paper_review_get',reviewId?{review_id:reviewId}:{});return d.review||null;}
+function allAttempts(){return cached('attempts',fetchAllAttempts)}
+function listReviews(){return cached('reviews',async()=>{const d=await T.api('teacher_paper_review_list',{});return d.reviews||[]})}
+function roster(){return cached('roster',async()=>{const d=await T.api('teacher_students_list',{include_archived:false});if(!Array.isArray(d.students))throw new Error('تعذر تحميل كشف الطلاب لحساب غير المختبرين.');return d.students})}
+function getReview(reviewId){return cached('review:'+String(reviewId||''),async()=>{const d=await T.api('teacher_paper_review_get',reviewId?{review_id:reviewId}:{});return d.review||null})}
 function latestByStudent(rows){
  const map=new Map();
  for(const a of rows){
@@ -240,11 +255,11 @@ function recommendations(bundle){
  return out;
 }
 async function load(reviewId,className=''){
- const [reviews,attempts,rosterRows]=await Promise.all([listReviews(),allAttempts(),roster()]);
+ const [reviews,attempts,rosterRows,requestedReview]=await Promise.all([listReviews(),allAttempts(),roster(),reviewId?getReview(reviewId):null]);
  let chosen=reviewId?reviews.find(r=>String(r.review_id)===String(reviewId)):reviews[0];
  if(!chosen&&reviewId)chosen={review_id:reviewId};
  if(!chosen)return{reviews,review:null,payload:null,attempts:[],students:[],indicators:[],questions:[],cognitive:[],cognitiveBySubject:{},psychometrics:{minimum_item_sample:10,minimum_distractor_sample:20,items:[],reliability:[]},absent:[],summary:summary([],0),recommendations:[]};
- const review=await getReview(chosen.review_id);
+ const review=requestedReview||await getReview(chosen.review_id);
  const payload=review?.payload||{};
  const scoped=scopedAttempts(attempts,chosen.review_id,className);
  const subjects=(Array.isArray(payload.subjects)&&payload.subjects.length?payload.subjects:(Array.isArray(review?.subjects)&&review.subjects.length?review.subjects:[review?.subject])).filter(Boolean);
@@ -254,5 +269,5 @@ async function load(reviewId,className=''){
  bundle.recommendations=recommendations(bundle);
  return bundle;
 }
-window.NafesPaperResults={load,listReviews,getReview,subjectNames,ar,pct,level,clean,normName};
+window.NafesPaperResults={clearCache,load,listReviews,getReview,subjectNames,ar,pct,level,clean,normName};
 })();
