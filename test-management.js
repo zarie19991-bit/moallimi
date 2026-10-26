@@ -2,7 +2,7 @@
 'use strict';
 if(window.NafesTestManagement)return;
 const T=window.NafesTeacher;
-let tests=new Map(),loading=false;
+let tests=new Map(),loading=false,requestedEditOpened=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 const fmt=iso=>iso?new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(iso)):'—';
 function toLocalInput(iso){if(!iso)return'';const d=new Date(iso);if(!Number.isFinite(d.getTime()))return'';const p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
@@ -20,7 +20,16 @@ function enforceAllClassesScope(){
  if(label&&!step?.querySelector('.all-classes-scope-note')){const note=document.createElement('div');note.className='all-classes-scope-note';note.textContent='النطاق الافتراضي: جميع الفصول الأربعة. اختيار الطالب لفصله عند الدخول للتحقق من الهوية فقط، وليس لتقييد رابط الاختبار.';label.parentElement?.appendChild(note);}
 }
 async function api(action,body={}){if(!T?.getKey?.())throw new Error('يلزم دخول المعلم.');return T.api(action,body);}
-async function refresh(){if(loading||!T?.getKey?.())return;loading=true;try{const d=await api('teacher_catalog');tests=new Map((d.tests||[]).map(t=>[String(t.id),t]));decorate();syncAnalysisRetakes();}catch(e){console.error('test management',e);const notice=document.getElementById('teacherRetakeNotice');if(notice)notice.textContent='تعذر تحميل الاختبارات: '+e.message+' — اضغط «تحديث القائمة». ';}finally{loading=false;}}
+async function refresh(){if(loading||!T?.getKey?.())return;loading=true;try{const d=await api('teacher_catalog');tests=new Map((d.tests||[]).map(t=>[String(t.id),t]));decorate();syncAnalysisRetakes();openRequestedEdit();}catch(e){console.error('test management',e);const notice=document.getElementById('teacherRetakeNotice');if(notice)notice.textContent='تعذر تحميل الاختبارات: '+e.message+' — اضغط «تحديث القائمة». ';}finally{loading=false;}}
+
+function openRequestedEdit(){
+ if(requestedEditOpened)return;
+ const id=new URLSearchParams(location.search).get('edit');
+ if(!id)return;
+ const test=tests.get(id);
+ if(!test||test.can_manage===false)return;
+ requestedEditOpened=true;openEdit(id);
+}
 
 function syncAnalysisRetakes(){
  const root=document.getElementById('teacherRetakeToolbar');if(!root)return;
