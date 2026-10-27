@@ -42,7 +42,7 @@ function render(){
  (execution?'<p class="ttr-sm">آخر توثيق تنفيذ: '+E(pretty(execution.execution_date))+' • '+E(execution.notes)+'</p>':'<p class="ttr-sm">لم يُسجل توثيق تنفيذ حضوري حتى الآن.</p>')+'</div>'+
  '<div class="ttr-panel"><h3>٢. مراجعة القياس البعدي واعتماد المعلم</h3>'+
  '<div class="ttr-info">التنفيذ: '+E(wasExecuted?"موثّق بالتكليف أو المعلم":"غير موثّق")+'<p>القياس البعدي المرتبط: '+(posttestComplete()?E(Z(S.posttest.score)+' من '+Z(S.posttest.total)+' ('+Z(p)+'٪)'):'لم يُسلّم قياس بعدي صالح من خمسة أسئلة على الأقل')+'</p>'+
- '<p>القبلي: '+(Number.isFinite(Number(S.baseline))?E(Z(S.baseline)+'٪'):'غير متاح')+' • تغير النسبة: '+(p!==null&&Number.isFinite(Number(S.baseline))?E(Z(Math.round((p-Number(S.baseline))*10)/10)+' نقطة مئوية'):'لا يمكن حسابه')+'</p></div>'+
+ '<p>القبلي: '+(S.baseline != null && S.baseline !== '' && Number.isFinite(Number(S.baseline))?E(Z(S.baseline)+'٪'):'غير متاح')+' • تغير النسبة: '+(p!==null&&S.baseline != null && S.baseline !== '' && Number.isFinite(Number(S.baseline))?E(Z(Math.round((p-Number(S.baseline))*10)/10)+' نقطة مئوية'):'لا يمكن حسابه')+'</p></div>'+
  '<label>قرار المعلم<select id="ttr-decision"><option value="needs_retraining">يحتاج استمرار العلاج</option><option value="mastered"'+(p!==null&&p<80?' disabled':'')+'>أتقن المهارة (٨٠٪ فأكثر)</option></select></label>'+
  '<label>سبب القرار وخطة المتابعة<textarea id="ttr-decision-note" maxlength="1200" placeholder="مثال: أظهر القياس البعدي انتقالًا من ٤٠٪ إلى ٨٠٪..."></textarea></label>'+
  '<button class="ttr-btn" id="ttr-save-decision"'+(S.busy||!allowDecision||!posttestComplete()?" disabled":"")+'>حفظ قرار المعلم</button>'+
@@ -92,7 +92,7 @@ function print(){
  const execution=latest("execution"),decision=latest("decision"),p=pct();
  const info=[["الطالب",S.student?.full_name],["الفصل",S.student?.class_name],["المؤشر",S.indicator],["التكليف",S.task.title],
   ["تاريخ التنفيذ",execution?pretty(execution.execution_date):"لم يوثّق حضوريًا"],["ملاحظات المعلم",execution?.notes||"لا توجد"],
-  ["النسبة القبلية",Number.isFinite(Number(S.baseline))?Z(S.baseline)+"٪":"غير متاحة"],["النسبة البعدية",p!==null?Z(p)+"٪":"لم يُقَس"],
+  ["النسبة القبلية",S.baseline != null && S.baseline !== '' && Number.isFinite(Number(S.baseline))?Z(S.baseline)+"٪":"غير متاحة"],["النسبة البعدية",p!==null?Z(p)+"٪":"لم يُقَس"],
   ["قرار المعلم",decision?status(decision.decision):"لم يعتمد"],["مبرر القرار",decision?.notes||"لا يوجد"]];
  const rows=info.map(([k,v])=>"<tr><th>"+E(k)+"</th><td>"+E(v)+"</td></tr>").join("");
  w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير تنفيذ العلاج</title><style>@page{size:A4;margin:14mm}body{font:12pt Tahoma,Arial;line-height:1.9;color:#173d30}h1{text-align:center;font-size:19pt}table{width:100%;border-collapse:collapse}th,td{border:1px solid #b3cabc;text-align:right;padding:8px;overflow-wrap:anywhere}th{width:27%;background:#eef5f0}.note{font-size:10pt;margin:18px 0}@media print{button{display:none}}</style></head><body><b>المملكة العربية السعودية – وزارة التعليم – إدارة التعليم بنجران – مدرسة ابن سينا المتوسطة</b><h1>تقرير تنفيذ العلاج وقياس أثره</h1><table>'+rows+'</table><p class="note">التوثيق يعتمد على سجلات المعلم والاختبار البعدي المرتبط بالتكليف. لا يثبت حضور الطالب المدرسي، ولا يُعلن الإتقان دون قرار المعلم المحفوظ.</p><button onclick="print()">طباعة</button></body></html>');
