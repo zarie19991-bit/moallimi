@@ -100,10 +100,10 @@ async function snapshot(req:Request,ac:any){
  const allowed=new Set(ids);
  const safeTasks=tasks.filter(t=>allowed.has(String(t.student_id))&&(ac.scope==="all"||t.subject_key===ac.scope))
    .map(t=>{const answerCount=t.response?.answers&&typeof t.response.answers==="object"&&!Array.isArray(t.response.answers)?Object.keys(t.response.answers).length:0;
-     return {id:t.id,student_id:t.student_id,subject_key:t.subject_key,outcome_code:t.outcome_code,indicator_index:t.indicator_index,indicator_text:t.indicator_text,title:t.title,tier:t.tier,status:t.status,assigned_at:t.assigned_at,started_at:t.started_at,completed_at:t.completed_at,score:t.score,total:t.total,percent:t.percent,source_attempt_id:t.source_attempt_id,source_percent:t.source_percent,source_submitted_at:t.source_submitted_at,
+     return {id:t.id,teacher_access_id:t.teacher_access_id,student_id:t.student_id,subject_key:t.subject_key,outcome_code:t.outcome_code,indicator_index:t.indicator_index,indicator_text:t.indicator_text,title:t.title,tier:t.tier,status:t.status,assigned_at:t.assigned_at,started_at:t.started_at,completed_at:t.completed_at,score:t.score,total:t.total,percent:t.percent,source_attempt_id:t.source_attempt_id,source_percent:t.source_percent,source_submitted_at:t.source_submitted_at,
        solved:t.status==="completed"&&!!t.completed_at&&t.total>0&&t.score!=null&&answerCount>0,answer_count:answerCount}
    });
- const taskIds=new Set(safeTasks.map(t=>String(t.id)));
+ const taskIds=new Set(safeTasks.filter(t=>String(t.teacher_access_id)===String(ac.teacher_id)).map(t=>String(t.id)));
  const validReviews=reviews.filter(r=>allowed.has(String(r.student_id))&&taskIds.has(String(r.task_id)));
  const validEvidence=evidence.filter(e=>allowed.has(String(e.student_id))&&e.total>0&&e.score!=null);
  const catalog=new Map<string,any>();
@@ -112,7 +112,7 @@ async function snapshot(req:Request,ac:any){
   if(!catalog.has(key))catalog.set(key,{key,subject_key:e.subject_key,outcome_code:e.outcome_code,indicator_index:e.indicator_index,indicator_text:e.indicator_text||"المؤشر "+e.indicator_index});
  }
  for(const t of safeTasks){const key=[t.subject_key,t.outcome_code,t.indicator_index].join("|");if(!catalog.has(key))catalog.set(key,{key,subject_key:t.subject_key,outcome_code:t.outcome_code,indicator_index:t.indicator_index,indicator_text:t.indicator_text||"المؤشر "+t.indicator_index})}
- return send(req,{ok:true,generated_at:new Date().toISOString(),scope:ac.scope,
+ return send(req,{ok:true,generated_at:new Date().toISOString(),scope:ac.scope,teacher_id:ac.teacher_id,
     students:roster,sessions:sessions.filter(s=>allowed.has(String(s.student_id))),tasks:safeTasks,
     evidence:validEvidence,posttests:posttests.filter(p=>allowed.has(String(p.student_id))),reviews:validReviews,indicators:[...catalog.values()],criteria:{mastery_percent:80,min_reliable_questions:5,online_within_minutes:5}});
 }
