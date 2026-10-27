@@ -13,7 +13,8 @@ const key=(id,k)=>String(id)+"|"+k;
 function addCss(){if(document.getElementById("tmo-css"))return;const c=document.createElement("style");c.id="tmo-css";c.textContent='.tmo{font-family:Tahoma,Arial,sans-serif;direction:rtl;text-align:right;color:#16402c;font-size:12px}.tmo *{box-sizing:border-box}.tmo-hero{background:linear-gradient(110deg,#063929,#08725a);color:#fff;padding:25px;border-radius:20px}.tmo-hero h1{font-size:25px;font-weight:900;margin:4px 0}.tmo-hero p{color:#cbe7d5;font-size:13px}.tmo-box{background:white;border:1px solid #d5e7da;border-radius:16px;margin-top:15px;padding:17px}.tmo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:15px 0}.tmo-stat{background:#fff;border:1px solid #d2e3d8;padding:14px;border-radius:14px}.tmo-stat small{color:#63816e;font-weight:700}.tmo-stat b{display:block;font-size:23px;color:#086042}.tmo-button{background:#09674f;color:#fff;border:none;border-radius:10px;padding:9px 13px;font-size:12px;font-weight:bold;cursor:pointer}.tmo-button.secondary{background:#e6f4e8;color:#08634c}.tmo-button:disabled{opacity:.45}.tmo-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}.tmo-filters label{font-size:11px;font-weight:800;display:block;margin-bottom:5px}.tmo-filters input,.tmo-filters select{width:100%;border:1px solid #ccdcd0;background:#fbfefa;border-radius:9px;padding:10px;font-size:12px}.tmo-wrap{overflow:auto;max-height:60vh;border:1px solid #d6e5db;border-radius:10px}.tmo-table{border-collapse:separate;border-spacing:0;min-width:1440px;width:100%;font-size:11px}.tmo-table th{background:#e7f4e9;position:sticky;top:0;z-index:1;text-align:right;padding:11px;white-space:nowrap}.tmo-table td{padding:10px;border-top:1px solid #e4ece6;vertical-align:top}.tmo-table tr:nth-child(even){background:#fafcfb}.tmo-pill{display:inline-block;padding:4px 7px;border-radius:8px;font-weight:bold;background:#eef4ef;white-space:nowrap}.tmo-pill.green{background:#dff4e7;color:#095b37}.tmo-pill.yellow{background:#fff2d5;color:#925c17}.tmo-pill.red{background:#ffe8e9;color:#a33144}.tmo-sub{display:block;color:#647e6a;font-size:10px}.tmo-note{background:#f3f9f4;border:1px solid #d7e8da;border-radius:12px;padding:12px;margin:12px 0}.tmo-nav{display:flex;justify-content:center;align-items:center;gap:12px;margin-top:12px}@media print{@page{size:A4 landscape;margin:8mm}.tmo-filters,.tmo-actions,.tmo-nav{display:none!important}.tmo-hero{background:#fff;color:#16402c}.tmo-wrap{overflow:visible;max-height:none}.tmo-table{min-width:0;font-size:8pt}.tmo-table th{position:static}}';document.head.appendChild(c)}
 async function request(action,payload={}){const r=await fetch(URL_API,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+M.token},body:JSON.stringify({action,...payload})});let x;try{x=await r.json()}catch{throw Error("تعذر قراءة نتيجة خدمة المتابعة.")}if(!r.ok||x.ok!==true)throw Error(x.error||"فشل تحميل المتابعة.");return x}
 function compile(d){
- const roster=new Map(d.students.map(s=>[String(s.id),s])),sessions=new Map(),plans=new Map(),evidence=new Map();
+ const roster=new Map(d.students.map(s=>[String(s.id),s])),sessions=new Map(),plans=new Map(),evidence=new Map(),posttestsByTask=new Map();
+ for(const p of d.posttests||[])if(p.source_task_id)posttestsByTask.set(String(p.source_task_id),p);
  for(const s of d.sessions||[]){const id=String(s.student_id);let p=sessions.get(id)||{login:null,seen:null,expires:null};if(!p.login||s.created_at>p.login)p.login=s.created_at;if(!p.seen||s.last_seen_at>p.seen){p.seen=s.last_seen_at;p.expires=s.expires_at}sessions.set(id,p)}
  for(const t of d.tasks||[]){const k=key(t.student_id,[t.subject_key,t.outcome_code,t.indicator_index].join("|"));if(!plans.has(k))plans.set(k,[]);plans.get(k).push(t)}
  for(const e of d.evidence||[]){const k=key(e.student_id,[e.subject_key,e.outcome_code,e.indicator_index].join("|"));if(!evidence.has(k))evidence.set(k,[]);evidence.get(k).push(e)}
@@ -29,7 +30,10 @@ function compile(d){
    let before=null,after=null,change=null,impact="لا يوجد تدخل مكتمل";
    if(completed){
     before=scores.find(e=>String(e.attempt_id)===String(completed.source_attempt_id))||null;
-    after=scores.filter(e=>e.submitted_at>completed.completed_at&&String(e.attempt_id)!==String(completed.source_attempt_id)).slice(-1)[0]||null;
+    const direct=posttestsByTask.get(String(completed.id));
+    // Count only the separately assigned and submitted posttest for this exact task.
+    // Do not relabel an unrelated later assessment as a post-intervention test.
+    after=direct&&direct.status==='completed'&&direct.submitted_at&&direct.submitted_at>=completed.completed_at&&Number.isFinite(Number(direct.score))&&Number(direct.total)>=5?direct:null;
     if(!before)impact="القياس القبلي غير موثق";
     else if(!after)impact="بانتظار اختبار بعدي";
     else if(after.total<5)impact="قياس بعدي محدود";
@@ -38,7 +42,7 @@ function compile(d){
    }
    const p=P(latest),level=p==null?"unmeasured":p<50?"remedial":p<80?"reinforcement":"enrichment";
    const status=last?.solved?"completed":last?.started_at?"in_progress":last?"assigned":"missing";
-   all.push({student,session,online,ind,scores,tasks,latest,last,before,after,change,impact,level,status,p,solved:tasks.filter(t=>t.solved).length});
+   all.push({student,session,online,ind,scores,tasks,latest,last,completedTask:completed,before,after,change,impact,level,status,p,solved:tasks.filter(t=>t.solved).length});
   }
  }
  M.rows=all;
@@ -53,7 +57,7 @@ function filtered(){const q=M.q.trim().toLowerCase();return M.rows.filter(r=>
 function select(id,current,vals){return '<select id="'+id+'">'+vals.map(x=>'<option value="'+E(x[0])+'" '+(current===x[0]?'selected':'')+'>'+E(x[1])+'</option>').join("")+'</select>'}
 function line(r){
  let a=r.latest;
- const completed=r.last?.solved?r.last:null;
+ const completed=r.completedTask||null;
  const posttest=completed?(M.data?.posttests||[]).find(p=>String(p.source_task_id)===String(completed.id)):null;
  const action=completed?(posttest?'<span class="tmo-sub">القياس البعدي: '+E(posttest.status==="completed"?"مكتمل":posttest.status==="in_progress"?"بدأ ولم يسلّم":"ينتظر الطالب")+'</span>':'<button class="tmo-button secondary" data-tmo-assign="'+E(completed.id)+'" style="padding:5px 8px;margin-top:5px">إسناد قياس بعدي</button>'):'';
  const quality=!a?"لم يقس":a.total<5?"قياس محدود":r.p>=80?"نتيجة مرتفعة":"يحتاج دعمًا";
