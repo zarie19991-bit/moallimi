@@ -90,11 +90,12 @@ async function snapshot(req:Request,ac:any){
  if(ac.role!=="teacher")throw err("التقرير متاح للمعلم فقط.",403);
  const roster=await collect("nafes_students","id,full_name,grade,class_name,created_at,is_active,is_demo",q=>q.eq("is_active",true).eq("is_demo",false),3500);
  const ids=roster.map(s=>String(s.id));
- const [sessions,tasks,evidence,posttests]=await Promise.all([
+ const [sessions,tasks,evidence,posttests,reviews]=await Promise.all([
   collect("lugati_sessions","id,student_id,created_at,last_seen_at,expires_at",q=>q.eq("role","student").in("student_id",ids),10000),
   collect("lugati_teacher_tasks","id,student_id,subject_key,outcome_code,indicator_index,indicator_text,title,tier,status,assigned_at,started_at,completed_at,score,total,percent,source_attempt_id,source_percent,source_submitted_at,response,teacher_access_id",q=>q.in("student_id",ids).neq("status","revoked").order("id",{ascending:true}),15000),
   collect("tamakkun_indicator_evidence","id,attempt_id,student_id,subject_key,outcome_code,indicator_index,indicator_text,score,total,answered,knowledge_score,knowledge_total,application_score,application_total,reasoning_score,reasoning_total,submitted_at",q=>ac.scope==="all"?q:q.eq("subject_key",ac.scope),20000),
-  collect("tamakkun_indicator_posttests","id,student_id,source_task_id,subject_key,outcome_code,indicator_index,status,assigned_at,started_at,submitted_at,score,total,percent",q=>ac.scope==="all"?q:q.eq("subject_key",ac.scope),10000)
+  collect("tamakkun_indicator_posttests","id,student_id,source_task_id,subject_key,outcome_code,indicator_index,status,assigned_at,started_at,submitted_at,score,total,percent",q=>ac.scope==="all"?q:q.eq("subject_key",ac.scope),10000),
+  collect("tamakkun_remedial_teacher_reviews","id,task_id,teacher_access_id,student_id,event_type,execution_date,execution_mode,evidence_type,decision,posttest_id,notes,created_at",q=>q.eq("teacher_access_id",ac.teacher_id),15000)
  ]);
  const allowed=new Set(ids);
  const safeTasks=tasks.filter(t=>allowed.has(String(t.student_id))&&(ac.scope==="all"||t.subject_key===ac.scope))
@@ -111,7 +112,81 @@ async function snapshot(req:Request,ac:any){
  for(const t of safeTasks){const key=[t.subject_key,t.outcome_code,t.indicator_index].join("|");if(!catalog.has(key))catalog.set(key,{key,subject_key:t.subject_key,outcome_code:t.outcome_code,indicator_index:t.indicator_index,indicator_text:t.indicator_text||"المؤشر "+t.indicator_index})}
  return send(req,{ok:true,generated_at:new Date().toISOString(),scope:ac.scope,
     students:roster,sessions:sessions.filter(s=>allowed.has(String(s.student_id))),tasks:safeTasks,
-    evidence:validEvidence,posttests:posttests.filter(p=>allowed.has(String(p.student_id))),indicators:[...catalog.values()],criteria:{mastery_percent:80,min_reliable_questions:5,online_within_minutes:5}});
+    evidence:validEvidence,posttests:posttests.filter(p=>allowed.has(String(p.student_id))),reviews:reviews.filter(r=>allowed.has(String(r.student_id))&&safeTasks.some(t=>String(t.id)===String(r.task_id))),indicators:[...catalog.values()],criteria:{mastery_percent:80,min_reliable_questions:5,online_within_minutes:5}});
+}
+
+
+const reviewUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const riyadhDay=()=>new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+const validReviewDay=(d:string)=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&!Number.isNaN(Date.parse(d+"T12:00:00Z"))&&new Date(d+"T12:00:00Z").toISOString().slice(0,10)===d;
+async function reviewedTask(taskId:string,ac:any){
+ if(ac.role!=="teacher")throw err("متاح للمعلم فقط.",403);
+ if(!reviewUuid.test(taskId))throw err("معرّف التكليف غير صحيح.",400);
+ const {data,error}=await db.from("lugati_teacher_tasks")
+ .select("id,teacher_access_id,student_id,subject_key,outcome_code,indicator_index,status,assigned_at,completed_at,total,score,response")
+ .eq("id",taskId).eq("teacher_access_id",ac.teacher_id).neq("status","revoked").maybeSingle();
+ if(error)throw error;
+ if(!data)throw err("التكليف غير موجود ضمن صلاحيات حساب المعلم.",404);
+ if(ac.scope!=="all"&&data.subject_key!==ac.scope)throw err("هذه المادة خارج صلاحيات المعلم.",403);
+ return data;
+}
+async function latestTeacherReviews(taskId:string,teacherId:string){
+ const {data,error}=await db.from("tamakkun_remedial_teacher_reviews")
+ .select("id,task_id,student_id,event_type,execution_date,execution_mode,evidence_type,decision,posttest_id,notes,created_at")
+ .eq("task_id",taskId).eq("teacher_access_id",teacherId)
+ .order("created_at",{ascending:false}).order("id",{ascending:false}).limit(50);
+ if(error)throw err("سجل مراجعة المعلم غير متاح؛ لم تُسجّل موافقة.",503);
+ return data||[];
+}
+async function teacherReviewExecution(req:Request,body:any,ac:any){
+ const task=await reviewedTask(str(body?.task_id),ac);
+ const day=str(body?.execution_date),mode=str(body?.execution_mode),evidence=str(body?.evidence_type),notes=str(body?.notes);
+ if(!validReviewDay(day)||day>riyadhDay()||day<str(task.assigned_at).slice(0,10))
+  throw err("اختر تاريخًا صحيحًا بعد إسناد التكليف، ولا يكون في المستقبل.",400);
+ if(!["in_class","home","online","other"].includes(mode)||!["teacher_observation","student_work","online_submission","other"].includes(evidence))
+  throw err("طريقة التنفيذ أو نوع الشاهد غير صحيح.",400);
+ if(notes.length<3||notes.length>1200)throw err("الملاحظات مطلوبة (3–1200 حرف).",400);
+ // Teacher attestation; it does not rewrite the student's digital submission.
+ const {data,error}=await db.from("tamakkun_remedial_teacher_reviews").insert({
+  task_id:task.id,teacher_access_id:ac.teacher_id,student_id:task.student_id,
+  event_type:"execution",execution_date:day,execution_mode:mode,evidence_type:evidence,notes
+ }).select("id,task_id,event_type,execution_date,execution_mode,evidence_type,notes,created_at").single();
+ if(error)throw error;
+ return send(req,{ok:true,review:data,message:"حُفظ توثيق تنفيذ العلاج، ولا يعني ذلك اعتماد الإتقان."},201);
+}
+async function teacherReviewDecision(req:Request,body:any,ac:any){
+ const task=await reviewedTask(str(body?.task_id),ac);
+ const decision=str(body?.decision),notes=str(body?.notes);
+ if(!["mastered","needs_retraining"].includes(decision)||notes.length<3||notes.length>1200)
+  throw err("حدد القرار وأدخل ملاحظة تشرح اعتماد المعلم.",400);
+ const execution=await latestTeacherReviews(task.id,ac.teacher_id);
+ const lastExecution=execution.find((r:any)=>r.event_type==="execution");
+ const onlineDone=task.status==="completed"&&!!task.completed_at&&Number(task.total)>=1&&
+   task.response?.answers&&typeof task.response.answers==="object"&&Object.keys(task.response.answers).length>0;
+ if(!lastExecution&&!onlineDone)throw err("لا يوجد تنفيذ علاجي موثّق أو تسليم إلكتروني مكتمل.",409);
+ const {data:posttest,error:pe}=await db.from("tamakkun_indicator_posttests")
+ .select("id,student_id,teacher_access_id,source_task_id,subject_key,outcome_code,indicator_index,status,score,total,percent,submitted_at")
+ .eq("source_task_id",task.id).eq("student_id",task.student_id).eq("teacher_access_id",ac.teacher_id).maybeSingle();
+ if(pe)throw pe;
+ if(!posttest||posttest.status!=="completed"||!posttest.submitted_at||!Number.isFinite(Number(posttest.score))||
+    !Number.isInteger(Number(posttest.total))||Number(posttest.total)<5||Number(posttest.score)<0||
+    Number(posttest.score)>Number(posttest.total)||
+    posttest.subject_key!==task.subject_key||posttest.outcome_code!==task.outcome_code||
+    Number(posttest.indicator_index)!==Number(task.indicator_index))
+  throw err("يجب اكتمال قياس بعدي سليم لا يقل عن خمسة أسئلة ومرتبط بالتكليف نفسه.",409);
+ const after=Number(posttest.score)*100/Number(posttest.total);
+ if(decision==="mastered"&&after<80)throw err("لم يبلغ الطالب حد الإتقان ٨٠٪ في القياس البعدي المرتبط بالخطة.",409);
+ const completedAt=onlineDone?Date.parse(task.completed_at):0;
+ const reviewedAt=lastExecution?Date.parse(lastExecution.created_at):0;
+ const referenceTime=Math.max(completedAt||0,reviewedAt||0);
+ if(Date.parse(posttest.submitted_at)<referenceTime)throw err("نتيجة القياس البعدي سبقت توثيق تنفيذ العلاج؛ أعد القياس قبل الاعتماد.",409);
+ const {data,error}=await db.from("tamakkun_remedial_teacher_reviews").insert({
+  task_id:task.id,teacher_access_id:ac.teacher_id,student_id:task.student_id,
+  event_type:"decision",decision,posttest_id:posttest.id,notes
+ }).select("id,task_id,event_type,decision,posttest_id,notes,created_at").single();
+ if(error)throw error;
+ return send(req,{ok:true,review:data,posttest_percent:Math.round(after*10)/10,message:decision==="mastered"?
+   "حُفظ اعتماد المعلم للإتقان بعد التحقق من القياس البعدي.":"حُفظ قرار استمرار العلاج."},201);
 }
 
 function fingerprint(value:any){return str(value).normalize("NFKC").replace(/[\u0640\u064B-\u065F\u0670]/g,"").replace(/[إأآ]/g,"ا").replace(/ى/g,"ي").replace(/[^\p{L}\p{N}]/gu,"")}
@@ -220,6 +295,8 @@ Deno.serve(async(req:Request)=>{
   if(body?.action==="student_ping")return await trackPresence(req,access);
   if(body?.action==="snapshot")return await snapshot(req,access);
   if(body?.action==="attendance_history")return await attendanceHistory(req,body,access);
+  if(body?.action==="teacher_review_execution")return await teacherReviewExecution(req,body,access);
+  if(body?.action==="teacher_review_decision")return await teacherReviewDecision(req,body,access);
   if(body?.action==="assign_posttest")return await assignPosttest(req,body,access);
   if(body?.action==="posttest_list")return await studentPosttestList(req,access);
   if(body?.action==="posttest_open")return await studentOpenPosttest(req,body,access);
