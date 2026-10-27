@@ -330,7 +330,7 @@ export function allocateSectionLevelTargets(indicators:Row[],pool:Row[],subject:
     const plan={knowledge:0,application:0,reasoning:0};
     if(need>=3){
       for(const level of levels){
-        if(available[level]<1)fail(`المؤشر ${key} يحتاج سؤالًا صالحًا على الأقل في مستوى ${level} لإكمال المعرفة والتطبيق والاستدلال؛ لا يوجد ما يكفي في البنك المعتمد.`,409);
+        if(available[level]<1)fail(`المؤشر ${key} لا يحتوي سؤالًا صالحًا في مستوى ${{knowledge:'المعرفة',application:'التطبيق',reasoning:'الاستدلال'}[level]} ضمن الإعدادات المحددة. ${fixedModel?'ألغِ تثبيت النموذج لاستخدام الأسئلة المعتمدة من بقية النماذج.':'اختر مؤشرًا آخر؛ يحتاج بنك هذا المؤشر إلى استكمال المستوى الناقص.'}`,409);
         plan[level]=1;
         remaining[level]--;
       }
@@ -359,81 +359,62 @@ export function allocateSectionLevelTargets(indicators:Row[],pool:Row[],subject:
   }
   return plans;
 }
-function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>,explicitTargets?:Record<string,number>):Row[]{
-  const mixed=rankQuestionCandidates(candidates.filter(q=>curatedQuestionEligible(q,subject)),seed+'|curated-quality');
-  const unique:Row[]=[];
-  const localStems=new Set<string>();
-  const crossIndicatorStemReuse=new Set<string>();
-  for(const q of mixed){
-    const ck=questionKey(q),sk=selectionStemKey(q,subject);
-    if(!sk||usedContent.has(ck)||localStems.has(sk))continue;
-    localStems.add(sk);
-    if(usedStems.has(sk))crossIndicatorStemReuse.add(String(q.id));
-    unique.push(q);
+export function selectCuratedIndicatorQuestions(candidates:Row[],count:number,subject:string,seed:string,usedContent:Set<string>,usedStems:Set<string>,explicitTargets?:Record<string,number>,requiredLevels?:string[]):Row[]{
+  const levels=['knowledge','application','reasoning'];
+  const ranked=rankQuestionCandidates(candidates.filter(q=>curatedQuestionEligible(q,subject)),seed+'|curated-quality');
+  // A stem is one capacity slot, even when bank copies carry different levels.
+  // Assign slots to levels with augmenting paths so choosing one representative
+  // cannot accidentally discard the only remaining question of another level.
+  const groups=new Map<string,Map<string,Row>>();
+  for(const q of ranked){
+    const key=selectionStemKey(q,subject),level=String(q.cognitive_level||'');
+    if(!key||!levels.includes(level)||usedContent.has(questionKey(q))||usedStems.has(key))continue;
+    const group=groups.get(key)||new Map<string,Row>();
+    if(!group.has(level))group.set(level,q);
+    groups.set(key,group);
   }
-  if(unique.length<count)fail(`لا توجد أسئلة محكَّمة ومتنوعة كافية لهذا المؤشر: المطلوب ${count} والمتاح بعد استبعاد الصياغات الضعيفة والمتكررة ${unique.length} فقط.`);
-
-  const targets=explicitTargets||levelTargets(subject,count),picked:Row[]=[];
-  const pickedIds=new Set<string>();
-  const familyCounts=new Map<string,number>();
-  const add=(q:Row)=>{
-    picked.push(q);
-    pickedIds.add(String(q.id));
-    const family=stemFamilyKey(q);
-    familyCounts.set(family,(familyCounts.get(family)||0)+1);
+  const indicator=String(candidates[0]?.indicator_key||'');
+  if(groups.size<count)fail(`لا يكفي عدد الأسئلة المستقلة للمؤشر ${indicator}: المطلوب ${count} والمتاح ${groups.size} بعد فحص الجودة وإزالة التكرار. خفّض عدد الأسئلة أو اختر مؤشرًا إضافيًا.`,409);
+  type Edge={to:string;cap:number;reverse:number};
+  const graph=new Map<string,Edge[]>(),links:{key:string;level:string;edge:Edge}[]=[];
+  const addEdge=(from:string,to:string,cap:number)=>{
+    if(!graph.has(from))graph.set(from,[]);if(!graph.has(to))graph.set(to,[]);
+    const edge={to,cap,reverse:graph.get(to)!.length};
+    graph.get(from)!.push(edge);graph.get(to)!.push({to:from,cap:0,reverse:graph.get(from)!.length-1});return edge;
   };
-  const takeLevel=(level:string,desired:number)=>{
-    if(!desired)return 0;
-    const basePool=unique.filter(q=>q.cognitive_level===level&&!pickedIds.has(String(q.id)));
-    let taken=0;
-    // Prefer stems not used by earlier indicators. Only if that strict pass cannot
-    // satisfy the cognitive target do we admit a stem seen under another indicator.
-    for(const reuseCrossIndicatorStem of [false,true]){
-      for(const tier of [0,1,2,3,4,5]){
-        const stage=basePool.filter(q=>reuseCrossIndicatorStem||!crossIndicatorStemReuse.has(String(q.id)));
-        const pool=rankQuestionCandidates(stage.filter(q=>qualityAuditTier(q)===tier),seed+'|'+level+'|reuse'+Number(reuseCrossIndicatorStem)+'|tier'+tier);
-        for(const cap of [1,2,3,99]){
-          for(const q of pool){
-            if(taken>=desired)break;
-            if(pickedIds.has(String(q.id)))continue;
-            const family=stemFamilyKey(q);
-            if((familyCounts.get(family)||0)>=cap)continue;
-            add(q);taken++;
-          }
-          if(taken>=desired)break;
-        }
-        if(taken>=desired)break;
-      }
-      if(taken>=desired)break;
+  const families=new Set<string>();
+  for(const [key,group] of groups){
+    const node='stem:'+key,family='family:'+stemFamilyKey(group.values().next().value!);
+    for(const level of levels)if(group.has(level))links.push({key,level,edge:addEdge(level,node,1)});
+    addEdge(node,family,1);
+    if(!families.has(family)){families.add(family);addEdge(family,'sink',subject==='reading'?count:2);}
+  }
+  const place=(level:string):boolean=>{
+    const queue=[level],parents=new Map<string,{from:string;edge:Edge}>(),seen=new Set([level]);
+    for(let i=0;i<queue.length&&!seen.has('sink');i++)for(const edge of graph.get(queue[i])||[]){
+      if(edge.cap<=0||seen.has(edge.to))continue;
+      seen.add(edge.to);parents.set(edge.to,{from:queue[i],edge});queue.push(edge.to);
     }
-    return taken;
+    if(!seen.has('sink'))return false;
+    for(let node='sink';node!==level;){const {from,edge}=parents.get(node)!;edge.cap--;graph.get(node)![edge.reverse].cap++;node=from;}
+    return true;
   };
-
-  for(const level of ['knowledge','application','reasoning']){
-    const desired=Number(targets[level]||0),taken=takeLevel(level,desired);
-    if(taken<desired){
-      const key=String(candidates[0]?.indicator_key||'');
-      fail(`لا توجد أسئلة سليمة كافية في مستوى ${level} لهذا المؤشر${key?' ('+key+')':''}: المطلوب ${desired} والمتاح ${taken}. لن يكتمل النموذج على حساب التوازن المعرفي.`);
+  const wanted=explicitTargets||levelTargets(subject,count),actual={knowledge:0,application:0,reasoning:0} as Record<string,number>;
+  for(const level of requiredLevels??(count>=3?levels:[])){
+    if(!place(level)){
+      const name=({knowledge:'المعرفة',application:'التطبيق',reasoning:'الاستدلال'} as Record<string,string>)[level];
+      fail(`المؤشر ${indicator} لا يملك أسئلة مستقلة كافية لتغطية ${name} مع بقية المستويات. اختر نموذجًا آخر أو ألغِ تثبيت النموذج؛ يلزم استكمال البنك إذا استمر النقص.`,409);
     }
+    actual[level]++;
   }
-  if(picked.length<count){
-    const strictRest=rankQuestionCandidates(unique.filter(q=>!pickedIds.has(String(q.id))&&!crossIndicatorStemReuse.has(String(q.id))),seed+'|fallback-quality-strict');
-    const reusedRest=rankQuestionCandidates(unique.filter(q=>!pickedIds.has(String(q.id))&&crossIndicatorStemReuse.has(String(q.id))),seed+'|fallback-quality-reuse');
-    const rest=[...strictRest,...reusedRest];
-    for(const cap of [1,2,3,99]){
-      for(const q of rest){
-        if(picked.length>=count)break;
-        if(pickedIds.has(String(q.id)))continue;
-        const family=stemFamilyKey(q);
-        if((familyCounts.get(family)||0)>=cap)continue;
-        add(q);
-      }
-      if(picked.length>=count)break;
-    }
+  while(Object.values(actual).reduce((a,b)=>a+b,0)<count){
+    const order=[...levels].sort((a,b)=>(Number(wanted[b]||0)-actual[b])-(Number(wanted[a]||0)-actual[a]));
+    let added=false;
+    for(const level of order)if(place(level)){actual[level]++;added=true;break;}
+    if(!added)fail(`المؤشر ${indicator}: المطلوب ${count} سؤالًا، والمتاح ${Object.values(actual).reduce((a,b)=>a+b,0)} مع الحفاظ على تنوع الصياغات والمستويات الثلاثة. خفّض العدد أو وزّع الأسئلة على مؤشر إضافي.`,409);
   }
-  if(picked.length!==count)fail(`تعذر تكوين نموذج متوازن ومتنوّع لهذا المؤشر: المطلوب ${count} والمتاح بعد التحكيم ${picked.length}.`);
-  const arranged=arrangeObjectiveQuestions(picked,seed+'|arrange');
-  const balanced=rebalanceQuestionOptions(arranged,seed);
+  const picked=links.filter(x=>x.edge.cap===0).map(({key,level})=>groups.get(key)!.get(level)!);
+  const balanced=rebalanceQuestionOptions(arrangeObjectiveQuestions(picked,seed+'|arrange'),seed);
   for(const q of balanced){usedContent.add(questionKey(q));usedStems.add(selectionStemKey(q,subject));}
   return balanced;
 }
@@ -533,7 +514,7 @@ export function planReadingPassageAllocation(capacities:number[],count:number,pr
   return remaining===0?allocation:[];
 }
 
-function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
+export function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string,usedContent:Set<string>,usedStems:Set<string>):Row[]{
   const groups=new Map<string,Row[]>();
   for(const q of candidates){
     const context=String(q.context||'').trim();
@@ -546,15 +527,15 @@ function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string
     const local=new Set<string>(),available:Row[]=[];
     for(const q of rankQuestionCandidates(rows,seed+'|passage-items|'+context.slice(0,80))){
       const ck=questionKey(q),sk=selectionStemKey(q,'reading');
-      if(!sk||usedContent.has(ck)||usedStems.has(sk)||local.has(sk))continue;
+      if(!sk||usedContent.has(ck)||usedStems.has(sk)||!curatedQuestionEligible(q,'reading'))continue;
       local.add(sk);available.push(q);
     }
     const quality=available.length?available.reduce((s,q)=>s+structuralQuestionStrength(q),0)/available.length:0;
-    return{context,available,quality,tie:randomFrom(seed+'|passage|'+context.slice(0,80))()};
-  }).filter(g=>g.available.length>=5)
+    return{context,available,capacity:local.size,quality,tie:randomFrom(seed+'|passage|'+context.slice(0,80))()};
+  }).filter(g=>g.capacity>=5)
     .sort((a,b)=>b.quality-a.quality||b.tie-a.tie);
 
-  const totalAvailable=prepared.reduce((s,g)=>s+g.available.length,0);
+  const totalAvailable=prepared.reduce((s,g)=>s+g.capacity,0);
   if(totalAvailable<count){
     fail(`موارد القراءة لهذا المؤشر غير كافية بعد استبعاد التكرار: المطلوب ${count} سؤالًا، والمتاح ${totalAvailable} سؤالًا صالحًا موزعًا على ${prepared.length} نصوص. أضف أسئلة/نصوص محكّمة أو خفّض عدد أسئلة المؤشر.`);
   }
@@ -562,20 +543,41 @@ function selectReadingPassageQuestions(candidates:Row[],count:number,seed:string
   // One passage must contribute exactly five questions. Never split five across passages.
   const blocksNeeded=count/5;
   if(!Number.isInteger(blocksNeeded)||prepared.length<blocksNeeded)fail(`لا توجد نصوص قراءة مكتملة كافية: المطلوب ${blocksNeeded} نصوص × ٥ أسئلة، والمتاح ${prepared.length} نصوص مؤهلة للمؤشر.`);
-  const allocation=prepared.map((g,i)=>i<blocksNeeded?5:0);
-  if(!allocation.length){
-    fail(`تعذر توزيع ${count} سؤالًا على النصوص المتاحة توزيعًا صالحًا، رغم وجود ${totalAvailable} سؤالًا. راجع سلامة ارتباط الأسئلة بالنصوص.`);
-  }
-
-  const picked:Row[]=[];
-  for(let i=0;i<prepared.length;i++){
-    const take=allocation[i]||0;if(!take)continue;
-    const group=prepared[i];
-    const batch=selectIndicatorQuestions(group.available,take,'reading',seed+'|passage|'+i,usedContent,usedStems);
-    picked.push(...batch);
-  }
-  if(picked.length!==count)fail(`تعذر إكمال توزيع أسئلة القراءة: المطلوب ${count} وتم اختيار ${picked.length} فقط.`);
-  return picked;
+  const levels=['knowledge','application','reasoning'];
+  let picked:Row[]|null=null;
+  const tryGroups=(chosen:typeof prepared)=>{
+    if(picked)return;
+    if(!levels.every(level=>chosen.some(g=>g.available.some(q=>q.cognitive_level===level))))return;
+    const required=chosen.map(()=>[] as string[]);
+    // A level may need a different passage when two levels share the same
+    // stem in the first one. Try all assignments of the three required levels.
+    const assign=(at:number)=>{
+      if(picked)return;
+      if(at<levels.length){
+        const level=levels[at];
+        for(let i=0;i<chosen.length;i++)if(chosen[i].available.some(q=>q.cognitive_level===level)){
+          required[i].push(level);assign(at+1);required[i].pop();
+          if(picked)return;
+        }
+        return;
+      }
+      const content=new Set(usedContent),stems=new Set(usedStems),result:Row[]=[];
+      try{for(let i=0;i<chosen.length;i++)result.push(...selectCuratedIndicatorQuestions(chosen[i].available,5,'reading',seed+'|passage|'+i,content,stems,undefined,required[i]));}
+      catch{return;}
+      picked=result;
+    };
+    assign(0);
+  };
+  const choose=(start:number,chosen:typeof prepared)=>{
+    if(picked)return;
+    if(chosen.length===blocksNeeded){tryGroups(chosen);return;}
+    for(let i=start;i<=prepared.length-(blocksNeeded-chosen.length);i++)choose(i+1,[...chosen,prepared[i]]);
+  };
+  choose(0,[]);
+  if(!picked)fail(`نصوص القراءة المكتملة للمؤشر ${candidates[0]?.indicator_key||''} لا تغطي المستويات الثلاثة بهذا العدد. جرّب نموذجًا آخر أو مؤشرًا إضافيًا؛ يلزم استكمال أسئلة النصوص إذا استمر النقص.`,409);
+  for(const q of picked!){usedContent.add(questionKey(q));usedStems.add(selectionStemKey(q,'reading'));}
+  if(picked!.length!==count)fail(`تعذر إكمال توزيع أسئلة القراءة: المطلوب ${count} وتم اختيار ${picked!.length} فقط.`);
+  return picked!;
 }
 
 const SIM_BANK_COLUMNS='id,grade_key,subject_key,outcome_code,indicator_index,indicator_key,indicator_text,context_text,question_text,normalized_content_text,options,correct_index,explanation,difficulty,cognitive_level,review_status,content_sha256,semantic_similarity_cleared,semantic_review_evidence,is_active';
@@ -1352,7 +1354,7 @@ async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:un
         if(poolCache)poolCache.set(cacheKey,pool);
       }
       if(excludedIds.size)pool=pool.filter(q=>!excludedIds.has(String(q.id)));
-      const levelPlan=(s.subject==='math'||s.subject==='science')
+      const levelPlan=(s.subject==='math'||s.subject==='science'||s.subject==='reading')
         ?allocateSectionLevelTargets(s.indicators||[],pool,s.subject,s.question_count,c.cognitive_targets||null,s.fixed_model||null)
         :null;
       for(const i of s.indicators){
@@ -1368,9 +1370,7 @@ async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:un
               token(8),
               used,
               usedStems,
-              s.subject==='reading'
-                ?levelTargets('reading',i.count,c.cognitive_targets||null)
-                :levelPlan?.get(String(i.key))
+              levelPlan?.get(String(i.key))
             )
             :selectIndicatorQuestions(candidates,i.count,s.subject,token(8),used,usedStems));
         qs.push(...picked);
