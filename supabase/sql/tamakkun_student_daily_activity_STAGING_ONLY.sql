@@ -58,6 +58,11 @@ begin
     return new;
   end if;
 
+  -- Legacy sessions may reference students removed from the current roster.
+  -- Never interrupt a login/session update or violate the ledger FK for those rows.
+  perform 1 from public.nafes_students where id = new.student_id;
+  if not found then return new; end if;
+
   if tg_op = 'INSERT' then
     observed_at := coalesce(new.created_at, clock_timestamp());
     observed_day := (observed_at at time zone 'Asia/Riyadh')::date;
