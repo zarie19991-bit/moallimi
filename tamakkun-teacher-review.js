@@ -2,7 +2,7 @@
 "use strict";
 /* This is a teacher-only UI; the Edge Function validates each write again. */
 const API="https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-student-monitor";
-const S={host:null,token:null,task:null,student:null,posttest:null,reviews:[],baseline:null,indicator:"",onSaved:null,busy:false,error:"",key:0};
+const S={host:null,token:null,task:null,student:null,posttest:null,reviews:[],baseline:null,indicator:"",onSaved:null,onClose:null,busy:false,error:"",key:0};
 const E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const T=v=>String(v??"").trim();
 const Z=n=>Number(n||0).toLocaleString("ar-SA",{maximumFractionDigits:1});
@@ -52,7 +52,7 @@ function render(){
  '<div class="ttr-panel"><h3>تاريخ مراجعات المعلم</h3><div class="ttr-history">'+(entries.length?entries.map(r=>'<div class="ttr-event"><b>'+E(r.event_type==="execution"?"توثيق التنفيذ":status(r.decision))+'</b> • '+E(r.event_type==="execution"?pretty(r.execution_date):new Date(r.created_at).toLocaleDateString("ar-SA"))+'<p>'+E(r.notes)+'</p></div>').join(''):'لا توجد مراجعات محفوظة بعد.')+'</div></div></section>';
  S.host.innerHTML=h;
  const at=id=>S.host?.querySelector("#"+id);
- at("ttr-close").onclick=()=>{S.onSaved=null;unmount()};
+ at("ttr-close").onclick=()=>{const cb=S.onClose;unmount();if(cb)cb()};
  at("ttr-save-exec").onclick=()=>submitExecution();
  at("ttr-save-decision").onclick=()=>submitDecision();
  at("ttr-print").onclick=print;
@@ -98,14 +98,14 @@ function print(){
  w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير تنفيذ العلاج</title><style>@page{size:A4;margin:14mm}body{font:12pt Tahoma,Arial;line-height:1.9;color:#173d30}h1{text-align:center;font-size:19pt}table{width:100%;border-collapse:collapse}th,td{border:1px solid #b3cabc;text-align:right;padding:8px;overflow-wrap:anywhere}th{width:27%;background:#eef5f0}.note{font-size:10pt;margin:18px 0}@media print{button{display:none}}</style></head><body><b>المملكة العربية السعودية – وزارة التعليم – إدارة التعليم بنجران – مدرسة ابن سينا المتوسطة</b><h1>تقرير تنفيذ العلاج وقياس أثره</h1><table>'+rows+'</table><p class="note">التوثيق يعتمد على سجلات المعلم والاختبار البعدي المرتبط بالتكليف. لا يثبت حضور الطالب المدرسي، ولا يُعلن الإتقان دون قرار المعلم المحفوظ.</p><button onclick="print()">طباعة</button></body></html>');
  w.document.close();w.focus();
 }
-function unmount(){S.key++;S.host=null;S.token=null;S.task=null;S.student=null;S.posttest=null;S.reviews=[];S.busy=false;S.error="";S.onSaved=null}
+function unmount(){S.key++;S.host=null;S.token=null;S.task=null;S.student=null;S.posttest=null;S.reviews=[];S.busy=false;S.error="";S.onSaved=null;S.onClose=null}
 window.TamakkunTeacherReview={
- mount({role,token,task,student,posttest,reviews,baseline,indicator,onSaved}={}){
+ mount({role,token,task,student,posttest,reviews,baseline,indicator,onSaved,onClose}={}){
   if(role!=="teacher"||!token||!task?.id)return;
   const host=document.getElementById("tamakkunTeacherReviewMount");if(!host)return;
   const identity=String(token)+"|"+String(task.id);
   if(S._identity!==identity){S.key++;S._identity=identity;S.error="";S.busy=false}
-  S.host=host;S.token=token;S.task=task;S.student=student;S.posttest=posttest;S.reviews=Array.isArray(reviews)?reviews:[];S.baseline=baseline;S.indicator=indicator;S.onSaved=onSaved;
+  S.host=host;S.token=token;S.task=task;S.student=student;S.posttest=posttest;S.reviews=Array.isArray(reviews)?reviews:[];S.baseline=baseline;S.indicator=indicator;S.onSaved=onSaved;S.onClose=onClose;
   render();
  },
  unmount
