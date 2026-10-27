@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {normalizeConfig,permuteQuestion,randomFrom,gradeQuestions,publicQuestions,buildForms,cleanAnswers,questionKey,selectUnique} from '../../supabase/functions/nafes-exam/assessment-engine.ts';
-import {planReadingPassageAllocation,sequenceLearningQuestions,rebalanceQuestionOptions,matchesBankSnapshot,allocateSectionLevelTargets,handleAssessments} from '../../supabase/functions/nafes-exam/assessments.ts';
+import {selectCuratedIndicatorQuestions,selectReadingPassageQuestions,planReadingPassageAllocation,sequenceLearningQuestions,rebalanceQuestionOptions,matchesBankSnapshot,allocateSectionLevelTargets,handleAssessments} from '../../supabase/functions/nafes-exam/assessments.ts';
 import analytics from '../../analysis-core.js';
 const q={id:'q1',subject:'math',indicator_key:'math:x:i1',indicator_text:'مهارة',question:'مسألة',context:'سياق',options:['نعم','لا','أحيانًا','لا يمكن'],correctIndex:0};
 test('shuffling retains exactly the correct answer and never produces -1',()=>{for(let n=0;n<80;n++){const mixed=permuteQuestion(q,randomFrom(String(n)));assert.equal(mixed.options[mixed.correctIndex],'نعم');assert.equal(gradeQuestions([mixed],{q1:mixed.correctIndex}).score,1);}});
@@ -168,7 +168,7 @@ test('allocation fails early when a measured indicator has no knowledge question
   question:'موقف علمي مستقل '+level+j+'؛ ما التفسير الصحيح؟',
   options:['ألف','باء','جيم','دال'],correctIndex:0
  })));
- assert.throws(()=>allocateSectionLevelTargets([ind],pool,'science',5),/مستوى knowledge/);
+ assert.throws(()=>allocateSectionLevelTargets([ind],pool,'science',5),/مستوى المعرفة/);
 });
 
 test('publication re-fetches approved reviewed-bank fallback questions by exact IDs',()=>{
@@ -186,4 +186,39 @@ test('a saved draft reopens through an owner-scoped endpoint and retains a resum
  assert.match(ui,/teacher_draft_get/);
  assert.match(ui,/params.set\('draft',d.draft_id\)/);
  assert.match(ui,/params.delete\('draft'\)/);
+});
+
+const selectionItem=(id,question,cognitive_level,extra={})=>({id,question,cognitive_level,subject:'math',indicator_key:'math:x:i1',options:['صحيح','بديل أول','بديل ثان','بديل ثالث'],correctIndex:0,...extra});
+test('selection retains scarce levels when higher-ranked duplicate stems have another level',()=>{
+ const pool=[selectionItem('ak','المهمة المشتركة الأولى','knowledge'),selectionItem('aa','المهمة المشتركة الأولى','application',{quality_version:'preferred'}),selectionItem('ba','مهمة تطبيق مستقلة','application'),selectionItem('rr','مهمة استدلال مستقلة','reasoning')];
+ const before=JSON.stringify(pool);
+ for(let seed=0;seed<30;seed++){
+  const result=selectCuratedIndicatorQuestions(pool,3,'math',String(seed),new Set(),new Set());
+  assert.deepEqual(result.map(q=>q.cognitive_level).sort(),['application','knowledge','reasoning']);
+  assert.equal(new Set(result.map(q=>q.question)).size,3);
+  for(const q of result)assert(matchesBankSnapshot(pool.find(p=>p.id===q.id),q));
+ }
+ assert.equal(JSON.stringify(pool),before);
+});
+test('unreachable level quotas redistribute without losing mandatory coverage or admitting duplicate stems',()=>{
+ const pool=[selectionItem('ak','المهمة الأولى','knowledge'),selectionItem('aa','المهمة الأولى','application'),selectionItem('bk','المهمة الثانية','knowledge'),selectionItem('ba','المهمة الثانية','application'),selectionItem('r1','استنتاج مستقل','reasoning'),selectionItem('r2','برهان مستقل','reasoning')];
+ const result=selectCuratedIndicatorQuestions(pool,4,'math','redistribute',new Set(),new Set(),{knowledge:2,application:1,reasoning:1});
+ assert.equal(result.length,4);assert.equal(new Set(result.map(q=>q.cognitive_level)).size,3);
+ assert.equal(result.filter(q=>q.cognitive_level==='reasoning').length,2);
+});
+test('selection satisfies publication family limits and leaves exclusion sets unchanged on failure',()=>{
+ const pool=[selectionItem('k','تعريف مستقل','knowledge'),selectionItem('a','تطبيق مستقل','application'),...Array.from({length:6},(_,i)=>selectionItem('r'+i,'نمط متكرر رقم '+i,'reasoning')),selectionItem('x','استنتاج بديل','reasoning')];
+ const result=selectCuratedIndicatorQuestions(pool,5,'math','families',new Set(),new Set());
+ assert.ok(result.filter(q=>q.question.startsWith('نمط')).length<=2);
+ const content=new Set(['prior']),stems=new Set(['prior']);
+ assert.throws(()=>selectCuratedIndicatorQuestions(pool,6,'math','failure',content,stems),/المتاح 5/);
+ assert.deepEqual([...content],['prior']);assert.deepEqual([...stems],['prior']);
+});
+test('reading assigns required levels across complete passages without orphaning questions',()=>{
+ const reading=(id,text,level,context)=>selectionItem(id,text,level,{subject:'reading',indicator_key:'reading:x:i1',context});
+ const pool=[reading('pk','مشترك','knowledge','النص الأول'),reading('pa','مشترك','application','النص الأول'),...Array.from({length:4},(_,i)=>reading('pr'+i,'استدلال '+i,'reasoning','النص الأول')),...Array.from({length:5},(_,i)=>reading('qa'+i,'تطبيق '+i,'application','النص الثاني'))];
+ const result=selectReadingPassageQuestions(pool,10,'reading',new Set(),new Set());
+ assert.equal(new Set(result.map(q=>q.cognitive_level)).size,3);
+ for(const ctx of ['النص الأول','النص الثاني'])assert.equal(result.filter(q=>q.context===ctx).length,5);
+ assert.throws(()=>selectReadingPassageQuestions(pool,15,'scarce',new Set(),new Set()));
 });
