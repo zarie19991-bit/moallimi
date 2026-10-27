@@ -26,7 +26,7 @@ function eligible(q){
  if(!q||!q.id||!T(q.question_text))return false;
  const opts=Array.isArray(q.options)?q.options:[];
  const ix=Number(q.correct_index);
- if(opts.length<2||!opts.every(x=>T(printableOption(x))))return false;
+ if(opts.length!==4||!opts.every(x=>T(printableOption(x)))||q.alignment_verified===false)return false;
  if(!Number.isInteger(ix)||ix<0||ix>=opts.length)return false;
  if(S.sourceIds.has(String(q.id))||S.sourceTexts.has(norm(q.question_text)))return false;
  // Image fields are not returned by the existing bank API.
@@ -68,6 +68,7 @@ function render(){
  if(!S.host)return;css();
  const wrong=S.wrong,items=choices(),checked=items.filter(x=>S.chosen.has(String(x.id)));
  const allChosen=S.candidate.filter(x=>S.chosen.has(String(x.id)));
+ const mismatched=allChosen.some(x=>T(x.measurement_focus)&&norm(x.measurement_focus)!==norm(S.focus));
  let markup='<section class="trs"><div class="trs-row"><div><small>تمكّن • مسودة علاج فردية • المعلم صاحب القرار</small><h2>إنشاء تدريب علاجي من الأخطاء</h2><p>'+E(S.student?.name||'')+' • '+E(subj(S.subject))+' • '+E(S.indicator)+'</p></div><span class="trs-status">الأسئلة البديلة من البنك المعتمد</span></div>'+
  '<div class="trs-note">يعرض النظام <b>أسئلة جديدة للمؤشر نفسه</b>، ويحاول مطابقة المستوى المعرفي للسؤال الخاطئ. لا يضمن ذلك تطابق المهارة الدقيقة؛ يجب أن يحددها المعلم ويتحقق من ملاءمة كل تدريب قبل اعتماده. لا يجري هذا القسم أي تعديل في درجات الطالب أو بياناته.</div>'+
  '<div class="trs-grid"><label>المهارة الدقيقة المستهدفة (يكتبها المعلم)<input type="text" maxlength="160" id="trs-focus" placeholder="مثال: استنتاج معنى المفردة من السياق" value="'+E(S.focus)+'"></label>'+
@@ -86,12 +87,13 @@ function render(){
  }).join('')+'</div>':'<div class="trs-empty">لا توجد أسئلة بديلة مناسبة لهذا الاختيار. غيّر المستوى المعرفي أو راجع بنك الأسئلة.</div>';
  if(items.length>S.page*PAGE_SIZE)markup+='<button id="trs-more">عرض المزيد من التدريبات ('+(items.length-S.page*PAGE_SIZE)+')</button>';
  }
+ if(mismatched)markup+='<div class="trs-error">اختير سؤال يرتبط بمهارة موثقة مختلفة. راجع الاختيار قبل الإرسال.</div>';
  if(S.approved)markup+='<div class="trs-note" style="border-color:#57b887">راجع المعلم الأسئلة المحددة ووافق على ملاءمتها للمهارة المذكورة. هذه الموافقة تخص هذه المسودة فقط ولا تسندها للطالب.</div>';
- markup+='<div class="trs-actions"><button id="trs-reload">تحديث المقترحات</button><button class="primary" id="trs-approve"'+(!S.focus.trim()||S.focus.trim().length<7||!allChosen.length||S.busy?' disabled':'')+'>'+(S.approved?'تمت مراجعة التدريبات ✓':'تأكيد مراجعة المعلم')+'</button>'+
- '<button id="trs-assign" class="primary"'+(!S.approved||S.sending||S.savedTask||allChosen.length<3||!S.sourceAttemptId?' disabled':'')+'>'+(S.sending?'جارٍ إرسال التدريب…':S.savedTask?'أُسند للطالب ✓':'إسناد التدريبات المختارة للطالب')+'</button>'+ 
+ markup+='<div class="trs-actions"><button id="trs-reload">تحديث المقترحات</button><button class="primary" id="trs-approve"'+(!S.focus.trim()||S.focus.trim().length<7||!allChosen.length||mismatched||S.busy?' disabled':'')+'>'+(S.approved?'تمت مراجعة التدريبات ✓':'تأكيد مراجعة المعلم')+'</button>'+
+ '<button id="trs-assign" class="primary"'+(!S.approved||S.sending||S.savedTask||allChosen.length<3||!S.sourceAttemptId||mismatched?' disabled':'')+'>'+(S.sending?'جارٍ إرسال التدريب…':S.savedTask?'أُسند للطالب ✓':'إسناد التدريبات المختارة للطالب')+'</button>'+ 
  '<button id="trs-print-student"'+(!S.approved?' disabled':'')+'>طباعة تدريب الطالب A4</button><button id="trs-print-teacher"'+(!S.approved?' disabled':'')+'>طباعة نموذج المعلم</button></div>'+
  (S.sendError?'<div class="trs-error">'+E(S.sendError)+'</div>':'')+ (S.savedTask?'<div class="trs-note"><strong>حُفظ التدريب في حساب الطالب.</strong> '+E(S.savedTask.title||'')+' • '+E(S.savedTask.question_count)+' أسئلة. ينتظر تنفيذ الطالب ثم اختبارًا بعديًا منفصلًا.</div>':'')+
- '<p style="color:#748579">الملفان منفصلان حتى لا تظهر الإجابات الصحيحة في ورقة التدريب. لم تُعتمد المهارة بوصفها متقنة، ولا يُنشأ أي تكليف في قاعدة البيانات.</p></section>';
+ '<p style="color:#748579">الملفان منفصلان حتى لا تظهر الإجابات الصحيحة في ورقة التدريب. لم تُعتمد المهارة بوصفها متقنة. يُنشأ تكليف محفوظ فقط بعد الإسناد الناجح.</p></section>';
  S.host.innerHTML=markup;
  const at=id=>S.host?.querySelector('#'+id);
  if(at('trs-focus'))at('trs-focus').onchange=e=>{S.focus=T(e.target.value);S.approved=false;S.savedTask=null;S.sendError='';render()};
@@ -99,12 +101,12 @@ function render(){
  if(at('trs-more'))at('trs-more').onclick=()=>{S.page++;render()};
  for(const el of S.host.querySelectorAll('[data-trs-item]'))el.onchange=e=>{
  const id=String(e.target.dataset.trsItem);
- if(e.target.checked){if(S.chosen.size>=ID_MAX){alert('الحد الأقصى عشرة تدريبات في الورقة الواحدة.');e.target.checked=false;return}S.chosen.add(id)}else S.chosen.delete(id);
+ if(e.target.checked){if(S.chosen.size>=ID_MAX){alert('الحد الأقصى عشرة تدريبات في الورقة الواحدة.');e.target.checked=false;return}S.chosen.add(id);const q=S.candidate.find(x=>String(x.id)===id);if(!S.focus&&T(q?.measurement_focus))S.focus=T(q.measurement_focus)}else S.chosen.delete(id);
  S.approved=false;S.savedTask=null;S.sendError='';render();
  };
  if(at('trs-reload'))at('trs-reload').onclick=loadBank;
  if(at('trs-assign'))at('trs-assign').onclick=assignSelected;
- if(at('trs-approve'))at('trs-approve').onclick=()=>{if(S.focus.trim().length<7||!S.chosen.size)return;S.approved=true;render()};
+ if(at('trs-approve'))at('trs-approve').onclick=()=>{if(S.focus.trim().length<7||!S.chosen.size||S.candidate.some(x=>S.chosen.has(String(x.id))&&T(x.measurement_focus)&&norm(x.measurement_focus)!==norm(S.focus)))return;S.approved=true;render()};
  if(at('trs-print-student'))at('trs-print-student').onclick=()=>print('student');
  if(at('trs-print-teacher'))at('trs-print-teacher').onclick=()=>print('teacher');
 }
