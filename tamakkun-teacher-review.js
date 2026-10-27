@@ -91,7 +91,7 @@ function print(){
  try{w.opener=null}catch(_){}
  const execution=latest("execution"),decision=latest("decision"),p=pct();
  const info=[["الطالب",S.student?.full_name],["الفصل",S.student?.class_name],["المؤشر",S.indicator],["التكليف",S.task.title],
-  ["تاريخ التنفيذ",execution?pretty(execution.execution_date):"لم يوثّق حضوريًا"],["ملاحظات المعلم",execution?.notes||"لا توجد"],
+  ["تاريخ التنفيذ",execution?pretty(execution.execution_date):"لم يوثّق حضوريًا"],["طريقة التنفيذ",({in_class:"داخل الفصل",home:"منزلي",online:"إلكتروني",other:"أخرى"})[execution?.execution_mode]||"لم تحدد"],["الشاهد",({teacher_observation:"ملاحظة المعلم",student_work:"ورقة عمل الطالب",online_submission:"تسليم إلكتروني",other:"شاهد آخر"})[execution?.evidence_type]||"لم يوثق"],["ملاحظات المعلم",execution?.notes||"لا توجد"],
   ["النسبة القبلية",S.baseline != null && S.baseline !== '' && Number.isFinite(Number(S.baseline))?Z(S.baseline)+"٪":"غير متاحة"],["النسبة البعدية",p!==null?Z(p)+"٪":"لم يُقَس"],
   ["قرار المعلم",decision?status(decision.decision):"لم يعتمد"],["مبرر القرار",decision?.notes||"لا يوجد"]];
  const rows=info.map(([k,v])=>"<tr><th>"+E(k)+"</th><td>"+E(v)+"</td></tr>").join("");
