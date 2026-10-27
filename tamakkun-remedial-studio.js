@@ -6,7 +6,7 @@
  * Does not assign or store interventions, change grades, or claim certified mastery.
  */
 const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-question-bank-read';
-const S={host:null,token:null,subject:'',outcome:'',index:0,indicator:'',student:null,wrong:[],sourceIds:new Set(),candidate:[],chosen:new Set(),focus:'',level:'match',approved:false,busy:false,error:'',generation:0,page:1,sourceTexts:new Set()};
+const S={host:null,token:null,subject:'',outcome:'',index:0,indicator:'',student:null,wrong:[],sourceIds:new Set(),candidate:[],chosen:new Set(),focus:'',level:'match',approved:false,busy:false,error:'',generation:0,page:1,sourceTexts:new Set(),sourceAttemptId:'',sending:false,sendError:'',savedTask:null};
 const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const T=v=>String(v??'').trim();
 const subj=s=>({reading:'القراءة',math:'الرياضيات',science:'العلوم'})[s]||'';
@@ -43,6 +43,27 @@ function choices(){
  if(S.level==='match'&&levels.size)items=items.filter(x=>levels.has(T(x.cognitive_level)));
  return items;
 }
+
+const ASSIGN_API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-adaptive-plan';
+async function assignSelected(){
+ if(!S.host||!S.token||!S.approved||S.sending||S.savedTask||S.chosen.size<3||!S.sourceAttemptId)return;
+ const picked=S.candidate.filter(q=>S.chosen.has(String(q.id))).map(q=>String(q.id));
+ if(picked.length<3||picked.length>10)return;
+ const generation=S.generation,token=S.token;
+ S.sending=true;S.sendError='';render();
+ try{
+  const response=await fetch(ASSIGN_API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+   body:JSON.stringify({action:'teacher_assign_reviewed_task',student_id:S.student.id,subject_key:S.subject,
+    outcome_code:S.outcome,indicator_index:S.index,indicator_text:S.indicator,
+    source_attempt_id:S.sourceAttemptId,measurement_focus:S.focus,question_ids:picked}),cache:'no-store'});
+  const d=await response.json().catch(()=>({}));
+  if(!response.ok||d.ok!==true||!d.task?.id)throw Error(d.error||'تعذر إسناد التدريبات إلى الطالب.');
+  if(generation!==S.generation||token!==S.token)return;
+  S.savedTask=d.task;S.sendError='';
+ }catch(e){if(generation===S.generation){S.sendError=e.message||'تعذر حفظ التدريب.'}}
+ finally{if(generation===S.generation){S.sending=false;render()}}
+}
+
 function render(){
  if(!S.host)return;css();
  const wrong=S.wrong,items=choices(),checked=items.filter(x=>S.chosen.has(String(x.id)));
@@ -67,19 +88,22 @@ function render(){
  }
  if(S.approved)markup+='<div class="trs-note" style="border-color:#57b887">راجع المعلم الأسئلة المحددة ووافق على ملاءمتها للمهارة المذكورة. هذه الموافقة تخص هذه المسودة فقط ولا تسندها للطالب.</div>';
  markup+='<div class="trs-actions"><button id="trs-reload">تحديث المقترحات</button><button class="primary" id="trs-approve"'+(!S.focus.trim()||S.focus.trim().length<7||!allChosen.length||S.busy?' disabled':'')+'>'+(S.approved?'تمت مراجعة التدريبات ✓':'تأكيد مراجعة المعلم')+'</button>'+
+ '<button id="trs-assign" class="primary"'+(!S.approved||S.sending||S.savedTask||allChosen.length<3||!S.sourceAttemptId?' disabled':'')+'>'+(S.sending?'جارٍ إرسال التدريب…':S.savedTask?'أُسند للطالب ✓':'إسناد التدريبات المختارة للطالب')+'</button>'+ 
  '<button id="trs-print-student"'+(!S.approved?' disabled':'')+'>طباعة تدريب الطالب A4</button><button id="trs-print-teacher"'+(!S.approved?' disabled':'')+'>طباعة نموذج المعلم</button></div>'+
+ (S.sendError?'<div class="trs-error">'+E(S.sendError)+'</div>':'')+ (S.savedTask?'<div class="trs-note"><strong>حُفظ التدريب في حساب الطالب.</strong> '+E(S.savedTask.title||'')+' • '+E(S.savedTask.question_count)+' أسئلة. ينتظر تنفيذ الطالب ثم اختبارًا بعديًا منفصلًا.</div>':'')+
  '<p style="color:#748579">الملفان منفصلان حتى لا تظهر الإجابات الصحيحة في ورقة التدريب. لم تُعتمد المهارة بوصفها متقنة، ولا يُنشأ أي تكليف في قاعدة البيانات.</p></section>';
  S.host.innerHTML=markup;
  const at=id=>S.host?.querySelector('#'+id);
- if(at('trs-focus'))at('trs-focus').onchange=e=>{S.focus=T(e.target.value);S.approved=false;render()};
- if(at('trs-level'))at('trs-level').onchange=e=>{S.level=e.target.value;S.chosen.clear();S.approved=false;S.page=1;render()};
+ if(at('trs-focus'))at('trs-focus').onchange=e=>{S.focus=T(e.target.value);S.approved=false;S.savedTask=null;S.sendError='';render()};
+ if(at('trs-level'))at('trs-level').onchange=e=>{S.level=e.target.value;S.chosen.clear();S.approved=false;S.page=1;S.savedTask=null;S.sendError='';render()};
  if(at('trs-more'))at('trs-more').onclick=()=>{S.page++;render()};
  for(const el of S.host.querySelectorAll('[data-trs-item]'))el.onchange=e=>{
  const id=String(e.target.dataset.trsItem);
  if(e.target.checked){if(S.chosen.size>=ID_MAX){alert('الحد الأقصى عشرة تدريبات في الورقة الواحدة.');e.target.checked=false;return}S.chosen.add(id)}else S.chosen.delete(id);
- S.approved=false;render();
+ S.approved=false;S.savedTask=null;S.sendError='';render();
  };
  if(at('trs-reload'))at('trs-reload').onclick=loadBank;
+ if(at('trs-assign'))at('trs-assign').onclick=assignSelected;
  if(at('trs-approve'))at('trs-approve').onclick=()=>{if(S.focus.trim().length<7||!S.chosen.size)return;S.approved=true;render()};
  if(at('trs-print-student'))at('trs-print-student').onclick=()=>print('student');
  if(at('trs-print-teacher'))at('trs-print-teacher').onclick=()=>print('teacher');
@@ -87,7 +111,7 @@ function render(){
 async function loadBank(){
  if(!S.host||!S.token||S.busy)return;
  const gen=S.generation,token=S.token;
- S.busy=true;S.error='';S.candidate=[];S.chosen.clear();S.approved=false;render();
+ S.busy=true;S.error='';S.candidate=[];S.chosen.clear();S.approved=false;S.savedTask=null;S.sendError='';render();
  try{
  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'list',subject_key:S.subject,outcome_code:S.outcome,indicator_index:S.index,limit:120,training_mode:false}),cache:'no-store'});
  const body=await r.json().catch(()=>({}));if(!r.ok||!body.ok||!Array.isArray(body.rows))throw Error(body.error||'تعذر قراءة بنك الأسئلة.');
@@ -130,10 +154,10 @@ window.TamakkunRemedialStudio={
    S.generation++;S.host=host;S.token=token;S.subject=String(indicator.subject_key);S.outcome=T(indicator.outcome_code);S.index=Number(indicator.indicator_index);S.indicator=T(indicator.indicator_text);S.student={id:String(student.id),name:T(student.name),className:T(student.className)};S.wrong=wrong;
    S.sourceIds=new Set((opts.attemptQuestionIds||wrong.map(q=>q.id)).filter(Boolean).map(String));
    S.sourceTexts=new Set(wrong.map(q=>norm(q.body)).filter(Boolean));
-   S.focus='';S.level='match';S.page=1;S.approved=false;S.busy=false;S.error='';S.candidate=[];S.chosen.clear();
+   S.focus='';S.level='match';S.page=1;S.approved=false;S.busy=false;S.error='';S.sending=false;S.sendError='';S.savedTask=null;S.sourceAttemptId=T(opts.sourceAttemptId);S.candidate=[];S.chosen.clear();
    if(!S.outcome||!Number.isInteger(S.index)||S.index<=0){S.error='لم يثبت تعريف المؤشر لهذا التدريب.';render();return}
    loadBank();
  },
- unmount(){S.generation++;S.host=null;S.token=null;S.student=null;S.candidate=[];S.chosen.clear();S.approved=false;S.wrong=[]}
+ unmount(){S.generation++;S.host=null;S.token=null;S.student=null;S.candidate=[];S.chosen.clear();S.approved=false;S.wrong=[];S.sending=false;S.savedTask=null;S.sourceAttemptId=''}
 };
 })();
