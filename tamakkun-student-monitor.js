@@ -34,7 +34,9 @@ function compile(d){
     const direct=posttestsByTask.get(String(completed.id));
     // Count only the separately assigned and submitted posttest for this exact task.
     // Do not relabel an unrelated later assessment as a post-intervention test.
-    after=direct&&direct.status==='completed'&&direct.submitted_at&&direct.submitted_at>=completed.completed_at&&Number.isFinite(Number(direct.score))&&Number(direct.total)>=5?direct:null;
+    const executionDate=reviewsByTask.get(String(completed.id))?.execution?.execution_date||null;
+    const chronological=!!direct?.submitted_at&&(completed.completed_at?Date.parse(direct.submitted_at)>=Date.parse(completed.completed_at):executionDate?String(direct.submitted_at).slice(0,10)>=executionDate:false);
+    after=direct&&String(direct.student_id)===String(student.id)&&direct.status==='completed'&&chronological&&Number.isFinite(Number(direct.score))&&Number(direct.total)>=5?direct:null;
     if(!before)impact="القياس القبلي غير موثق";
     else if(!after)impact="بانتظار اختبار بعدي";
     else if(after.total<5)impact="قياس بعدي محدود";
@@ -44,7 +46,7 @@ function compile(d){
    const p=P(latest),level=p==null?"unmeasured":p<50?"remedial":p<80?"reinforcement":"enrichment";
    const lastReviewed=last?reviewsByTask.get(String(last.id)):null;
    const reviewDecision=completed?reviewsByTask.get(String(completed.id))?.decision:null;
-   if(reviewDecision?.decision==="mastered"&&after&&P(after)>=80)impact="إتقان معتمد من المعلم";
+   if(reviewDecision?.decision==="mastered"&&after&&String(reviewDecision.posttest_id)===String(after.id)&&P(after)>=80)impact="إتقان معتمد من المعلم";
    if(reviewDecision?.decision==="needs_retraining")impact="استمرار العلاج بقرار المعلم";
    const status=last?.solved?"completed":lastReviewed?.execution?"executed_in_class":last?.started_at?"in_progress":last?"assigned":"missing";
    all.push({student,session,online,ind,scores,tasks,latest,last,completedTask:completed,reviewExecuted:lastReviewed?.execution||null,reviewDecision,before,after,change,impact,level,status,p,solved:tasks.filter(t=>t.solved).length});
