@@ -66,8 +66,10 @@ function line(r){
  let a=r.latest;
  const completed=r.completedTask||null;
  const posttest=completed?(M.data?.posttests||[]).find(p=>String(p.source_task_id)===String(completed.id)):null;
- const reviewButton=r.last?'<button class="tmo-button secondary" data-tmo-review="'+E(r.last.id)+'" style="padding:5px 8px;margin-top:5px">توثيق العلاج وقرار المعلم</button>':'';
- const action=completed?(posttest?'<span class="tmo-sub">القياس البعدي: '+E(posttest.status==="completed"?"مكتمل":posttest.status==="in_progress"?"بدأ ولم يسلّم":"ينتظر الطالب")+'</span>':'<button class="tmo-button secondary" data-tmo-assign="'+E(completed.id)+'" style="padding:5px 8px;margin-top:5px">إسناد قياس بعدي</button>'):'';
+ const ownLatest=!!r.last&&String(r.last.teacher_access_id)===String(M.data?.teacher_id);
+ const ownCompleted=!!completed&&String(completed.teacher_access_id)===String(M.data?.teacher_id);
+ const reviewButton=ownLatest?'<button class="tmo-button secondary" data-tmo-review="'+E(r.last.id)+'" style="padding:5px 8px;margin-top:5px">توثيق العلاج وقرار المعلم</button>':'';
+ const action=ownCompleted?(posttest?'<span class="tmo-sub">القياس البعدي: '+E(posttest.status==="completed"?"مكتمل":posttest.status==="in_progress"?"بدأ ولم يسلّم":"ينتظر الطالب")+'</span>':'<button class="tmo-button secondary" data-tmo-assign="'+E(completed.id)+'" style="padding:5px 8px;margin-top:5px">إسناد قياس بعدي</button>'):'';
  const quality=!a?"لم يقس":a.total<5?"قياس محدود":r.p>=80?"نتيجة مرتفعة":"يحتاج دعمًا";
  return '<tr><td><b>'+E(r.student.full_name)+'</b><span class="tmo-sub">'+E(r.student.class_name)+'</span></td>'+
  '<td>'+pill(r.online?"نشط الآن":r.session.login?"سبق دخوله":"لم يدخل",r.online?"green":r.session.login?"":"red")+'<span class="tmo-sub">آخر دخول '+D(r.session.login)+'</span><span class="tmo-sub">آخر نشاط '+D(r.session.seen)+'</span></td>'+
@@ -144,7 +146,7 @@ function reviewPicker(){
  if(!M.reviewTaskId)return "";
  const row=M.rows.find(r=>r.tasks.some(t=>String(t.id)===M.reviewTaskId));if(!row)return "";
  return '<section class="tmo-box"><label for="tmo-review-task-select">التكليف الذي تريد توثيقه لهذا الطالب</label><select id="tmo-review-task-select" style="padding:9px;max-width:100%;border-radius:9px;border:1px solid #afd1b5;margin:7px">'+
- row.tasks.map(t=>'<option value="'+E(t.id)+'"'+(String(t.id)===M.reviewTaskId?' selected':'')+'>'+E(t.title||t.indicator_text||'التكليف')+' • '+D(t.assigned_at)+'</option>').join("")+
+ row.tasks.filter(t=>String(t.teacher_access_id)===String(M.data?.teacher_id)).map(t=>'<option value="'+E(t.id)+'"'+(String(t.id)===M.reviewTaskId?' selected':'')+'>'+E(t.title||t.indicator_text||'التكليف')+' • '+D(t.assigned_at)+'</option>').join("")+
  '</select></section>';
 }
 
@@ -180,7 +182,7 @@ function render(){
  for(const b of M.host.querySelectorAll('[data-tmo-review]'))b.onclick=()=>{M.reviewTaskId=String(b.dataset.tmoReview);render();const el=M.host?.querySelector("#tamakkunTeacherReviewMount");el?.scrollIntoView?.({behavior:"smooth",block:"start"})};
  const selector=M.host.querySelector('#tmo-review-task-select');if(selector)selector.onchange=()=>{M.reviewTaskId=String(selector.value);render()};
  const reviewedRow=M.rows.find(r=>r.tasks.some(t=>String(t.id)===M.reviewTaskId));
- const chosenTask=reviewedRow?.tasks.find(t=>String(t.id)===M.reviewTaskId);
+ const chosenTask=reviewedRow?.tasks.find(t=>String(t.id)===M.reviewTaskId&&String(t.teacher_access_id)===String(d.teacher_id));
  if(chosenTask)window.TamakkunTeacherReview?.mount({role:"teacher",token:M.token,task:chosenTask,student:reviewedRow.student,indicator:reviewedRow.ind.indicator_text,baseline:chosenTask.source_percent,posttest:(d.posttests||[]).find(p=>String(p.source_task_id)===String(chosenTask.id)&&String(p.student_id)===String(chosenTask.student_id)),reviews:(d.reviews||[]).filter(v=>String(v.task_id)===String(chosenTask.id)),onSaved:()=>load(true),onClose:()=>{M.reviewTaskId=null;render()}});
 }
 function change(name,value){M[name]=value;M.page=1;render()}
