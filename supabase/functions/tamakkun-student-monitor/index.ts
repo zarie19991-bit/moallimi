@@ -143,7 +143,8 @@ async function latestTeacherReviews(taskId:string,teacherId:string){
 async function teacherReviewExecution(req:Request,body:any,ac:any){
  const task=await reviewedTask(str(body?.task_id),ac);
  const day=str(body?.execution_date),mode=str(body?.execution_mode),evidence=str(body?.evidence_type),notes=str(body?.notes);
- if(!validReviewDay(day)||day>riyadhDay()||day<str(task.assigned_at).slice(0,10))
+ const assignedDay=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(task.assigned_at));
+ if(!validReviewDay(day)||day>riyadhDay()||day<assignedDay)
   throw err("اختر تاريخًا صحيحًا بعد إسناد التكليف، ولا يكون في المستقبل.",400);
  if(!["in_class","home","online","other"].includes(mode)||!["teacher_observation","student_work","online_submission","other"].includes(evidence))
   throw err("طريقة التنفيذ أو نوع الشاهد غير صحيح.",400);
