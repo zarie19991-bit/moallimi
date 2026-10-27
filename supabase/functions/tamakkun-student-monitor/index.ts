@@ -181,7 +181,8 @@ async function teacherReviewDecision(req:Request,body:any,ac:any){
  const completedAt=onlineDone?Date.parse(task.completed_at):0;
  const reviewedAt=lastExecution?Date.parse(lastExecution.created_at):0;
  const executionDay=lastExecution?str(lastExecution.execution_date):'';
- const beforeClassEvidence=executionDay&&posttest.submitted_at.slice(0,10)<executionDay;
+ const posttestDay=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(posttest.submitted_at));
+ const beforeClassEvidence=!!executionDay&&posttestDay<executionDay;
  if(beforeClassEvidence||Date.parse(posttest.submitted_at)<(completedAt||0))throw err("نتيجة القياس البعدي سبقت توثيق تنفيذ العلاج؛ أعد القياس قبل الاعتماد.",409);
  const {data,error}=await db.from("tamakkun_remedial_teacher_reviews").insert({
   task_id:task.id,teacher_access_id:ac.teacher_id,student_id:task.student_id,
