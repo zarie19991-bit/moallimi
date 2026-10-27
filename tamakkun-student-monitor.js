@@ -139,6 +139,15 @@ function printAttendance(){
  w.document.close();w.focus();
 }
 
+
+function reviewPicker(){
+ if(!M.reviewTaskId)return "";
+ const row=M.rows.find(r=>r.tasks.some(t=>String(t.id)===M.reviewTaskId));if(!row)return "";
+ return '<section class="tmo-box"><label for="tmo-review-task-select">التكليف الذي تريد توثيقه لهذا الطالب</label><select id="tmo-review-task-select" style="padding:9px;max-width:100%;border-radius:9px;border:1px solid #afd1b5;margin:7px">'+
+ row.tasks.map(t=>'<option value="'+E(t.id)+'"'+(String(t.id)===M.reviewTaskId?' selected':'')+'>'+E(t.title||t.indicator_text||'التكليف')+' • '+D(t.assigned_at)+'</option>').join("")+
+ '</select></section>';
+}
+
 function render(){
  if(!M.host)return;addCss();
  const d=M.data;
@@ -159,7 +168,7 @@ function render(){
  '<div><label>حالة الخطة</label>'+select("tmo-status",M.state,[["all","كل الحالات"],["missing","بلا خطة"],["assigned","لم يبدأ"],["in_progress","بدأ ولم يسلّم"],["completed","سلّم الحل"],["executed_in_class","علاج حضوري موثق"],["waiting","بانتظار قياس بعدي"],["mastered","إتقان معتمد"]])+'</div>'+
  '<div><label>دخول الطالب</label>'+select("tmo-login",M.presence,[["all","جميع الطلاب"],["online","نشط الآن"],["visited","دخل من قبل"],["never","لم يدخل"]])+'</div></section>'+
  attendanceWidget(d)+
- '<div id="tamakkunMissingLoginMount"></div><div id="tamakkunTeacherReviewMount"></div>'+
+ '<div id="tamakkunMissingLoginMount"></div>'+reviewPicker()+'<div id="tamakkunTeacherReviewMount"></div>'+
  '<div class="tmo-note">الإتقان البعدي لا يُثبت إلا بنتيجة اختبار جديد للمؤشر نفسه بعد تسليم الخطة، وبعدد ٥ أسئلة على الأقل في القياسين. تُعرض القياسات الأقل «محدودة». آخر دخول للمنصة لا يعني حضور الطالب للمدرسة.</div>'+
  '<section class="tmo-box"><div style="display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap"><b>سجل المتابعة الحقيقي</b><span>'+N(pageRows.length)+' من '+N(rows.length)+' سجل • آخر قراءة '+D(d.generated_at)+'</span></div>'+
  '<div class="tmo-wrap"><table class="tmo-table"><thead><tr><th>الطالب والفصل</th><th>آخر دخول ونشاط</th><th>المؤشر</th><th>القياس الحقيقي</th><th>المستوى</th><th>الخطط وحلّها</th><th>القبلي</th><th>البعدي</th><th>التحسن والإتقان</th></tr></thead><tbody>'+
@@ -169,6 +178,7 @@ function render(){
  window.TamakkunMissingLoginReport?.mount({role:'teacher',data:d,token:M.token});
  for(const b of M.host.querySelectorAll('[data-tmo-assign]'))b.onclick=()=>assignPosttest(b);
  for(const b of M.host.querySelectorAll('[data-tmo-review]'))b.onclick=()=>{M.reviewTaskId=String(b.dataset.tmoReview);render();const el=M.host?.querySelector("#tamakkunTeacherReviewMount");el?.scrollIntoView?.({behavior:"smooth",block:"start"})};
+ const selector=M.host.querySelector('#tmo-review-task-select');if(selector)selector.onchange=()=>{M.reviewTaskId=String(selector.value);render()};
  const reviewedRow=M.rows.find(r=>r.tasks.some(t=>String(t.id)===M.reviewTaskId));
  const chosenTask=reviewedRow?.tasks.find(t=>String(t.id)===M.reviewTaskId);
  if(chosenTask)window.TamakkunTeacherReview?.mount({role:"teacher",token:M.token,task:chosenTask,student:reviewedRow.student,indicator:reviewedRow.ind.indicator_text,baseline:chosenTask.source_percent,posttest:(d.posttests||[]).find(p=>String(p.source_task_id)===String(chosenTask.id)&&String(p.student_id)===String(chosenTask.student_id)),reviews:(d.reviews||[]).filter(v=>String(v.task_id)===String(chosenTask.id)),onSaved:()=>load(true),onClose:()=>{M.reviewTaskId=null;render()}});
