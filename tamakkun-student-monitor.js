@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 const URL_API="https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-student-monitor";
-const M={host:null,token:null,data:null,rows:[],loading:false,q:"",subject:"all",indicator:"all",cls:"all",tier:"all",state:"all",presence:"all",page:1,attendanceDate:"",attendanceClass:"all",attendanceStatus:"all",generation:0,attendanceCache:null,reviewTaskId:null};
+const M={host:null,token:null,data:null,rows:[],loading:false,q:"",subject:"all",indicator:"all",cls:"all",tier:"all",state:"all",presence:"all",page:1,attendanceDate:"",attendanceClass:"all",attendanceStatus:"all",generation:0,attendanceCache:null,reviewTaskId:null,executionTaskIds:new Set()};
 const E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const N=n=>Number(n??0).toLocaleString("ar-SA",{maximumFractionDigits:1});
 const D=x=>x?new Date(x).toLocaleString("ar-SA",{timeZone:"Asia/Riyadh",dateStyle:"short",timeStyle:"short"}):"—";
@@ -52,24 +52,34 @@ function compile(d){
    all.push({student,session,online,ind,scores,tasks,latest,last,completedTask:completed,reviewExecuted:lastReviewed?.execution||null,reviewDecision,before,after,change,impact,level,status,p,solved:tasks.filter(t=>t.solved).length});
   }
  }
+ M.executionTaskIds=new Set((d.reviews||[]).filter(x=>x.event_type==='execution'&&String(x.teacher_access_id)===String(d.teacher_id)).map(x=>String(x.task_id)));
  M.rows=all;
 }
 const pill=(s,c)=>'<span class="tmo-pill '+(c||"")+'">'+E(s)+'</span>';
+function ownTasks(r){return (r.tasks||[]).filter(t=>String(t.teacher_access_id)===String(M.data?.teacher_id))}
+function ownCompletedTask(r){
+ const ts=ownTasks(r);
+ for(let i=ts.length-1;i>=0;i--)if(ts[i].solved||M.executionTaskIds.has(String(ts[i].id)))return ts[i];
+ return null;
+}
+function ownPosttest(r){const task=ownCompletedTask(r);return task?(M.data?.posttests||[]).find(p=>String(p.source_task_id)===String(task.id)&&String(p.student_id)===String(r.student.id))||null:null}
+function needsPosttest(r){const task=ownCompletedTask(r);return !!task&&ownPosttest(r)?.status!=="completed"}
+function needsAssignment(r){return !!ownCompletedTask(r)&&!ownPosttest(r)}
+function pendingStudentPosttest(r){const p=ownPosttest(r);return !!p&&p.status!=="completed"}
 function filtered(){const q=M.q.trim().toLowerCase();return M.rows.filter(r=>
  (M.subject==="all"||r.ind.subject_key===M.subject)&&(M.indicator==="all"||r.ind.key===M.indicator)&&
  (M.cls==="all"||r.student.class_name===M.cls)&&(M.tier==="all"||r.level===M.tier)&&
- (M.state==="all"||r.status===M.state||M.state==="waiting"&&r.impact==="بانتظار اختبار بعدي"||M.state==="mastered"&&r.impact==="إتقان معتمد من المعلم")&&
+ (M.state==="all"||r.status===M.state||M.state==="waiting"&&needsPosttest(r)||M.state==="ready"&&needsAssignment(r)||M.state==="posttest_assigned"&&pendingStudentPosttest(r)||M.state==="mastered"&&r.impact==="إتقان معتمد من المعلم")&&
  (M.presence==="all"||M.presence==="online"&&r.online||M.presence==="never"&&!r.session.login||M.presence==="visited"&&!!r.session.login)&&
  (!q||String(r.student.full_name).toLowerCase().includes(q)||String(r.student.class_name).includes(q)||String(r.ind.indicator_text).toLowerCase().includes(q)))}
 function select(id,current,vals){return '<select id="'+id+'">'+vals.map(x=>'<option value="'+E(x[0])+'" '+(current===x[0]?'selected':'')+'>'+E(x[1])+'</option>').join("")+'</select>'}
 function line(r){
  let a=r.latest;
- const completed=r.completedTask||null;
- const posttest=completed?(M.data?.posttests||[]).find(p=>String(p.source_task_id)===String(completed.id)):null;
- const ownLatest=!!r.last&&String(r.last.teacher_access_id)===String(M.data?.teacher_id);
- const ownCompleted=!!completed&&String(completed.teacher_access_id)===String(M.data?.teacher_id);
- const reviewButton=ownLatest?'<button class="tmo-button secondary" data-tmo-review="'+E(r.last.id)+'" style="padding:5px 8px;margin-top:5px">توثيق العلاج وقرار المعلم</button>':'';
- const action=ownCompleted?(posttest?'<span class="tmo-sub">القياس البعدي: '+E(posttest.status==="completed"?"مكتمل":posttest.status==="in_progress"?"بدأ ولم يسلّم":"ينتظر الطالب")+'</span>':'<button class="tmo-button secondary" data-tmo-assign="'+E(completed.id)+'" style="padding:5px 8px;margin-top:5px">إسناد قياس بعدي</button>'):'';
+ const completed=ownCompletedTask(r);
+ const posttest=ownPosttest(r);
+ const lastOwned=ownTasks(r).at(-1)||null;
+ const reviewButton=lastOwned?'<button class="tmo-button secondary" data-tmo-review="'+E(lastOwned.id)+'" style="padding:5px 8px;margin-top:5px">توثيق العلاج وقرار المعلم</button>':'';
+ const action=completed?(posttest?'<span class="tmo-sub">القياس البعدي: '+E(posttest.status==="completed"?"مكتمل":posttest.status==="in_progress"?"بدأ ولم يسلّم":"ينتظر الطالب")+'</span>':'<button class="tmo-button secondary" data-tmo-assign="'+E(completed.id)+'" style="padding:5px 8px;margin-top:5px">إسناد قياس بعدي</button>'):'';
  const quality=!a?"لم يقس":a.total<5?"قياس محدود":r.p>=80?"نتيجة مرتفعة":"يحتاج دعمًا";
  return '<tr><td><b>'+E(r.student.full_name)+'</b><span class="tmo-sub">'+E(r.student.class_name)+'</span></td>'+
  '<td>'+pill(r.online?"نشط الآن":r.session.login?"سبق دخوله":"لم يدخل",r.online?"green":r.session.login?"":"red")+'<span class="tmo-sub">آخر دخول '+D(r.session.login)+'</span><span class="tmo-sub">آخر نشاط '+D(r.session.seen)+'</span></td>'+
@@ -157,7 +167,7 @@ function render(){
  const rows=filtered(),pages=Math.max(1,Math.ceil(rows.length/100));M.page=Math.min(M.page,pages);
  const pageRows=rows.slice((M.page-1)*100,M.page*100);
  const visited=new Set(d.sessions.map(s=>String(s.student_id))).size,active=new Set(M.rows.filter(r=>r.online).map(r=>r.student.id)).size;
- const stats=[["طلاب مستهدفون",d.students.length],["دخلوا المنصة سابقًا",visited],["نشطون الآن",active],["مؤشرات قِيست",rows.filter(r=>r.latest).length],["إتقان معتمد من المعلم",rows.filter(r=>r.impact==="إتقان معتمد من المعلم").length],["بانتظار بعدي",rows.filter(r=>r.impact==="بانتظار اختبار بعدي").length]];
+ const stats=[["طلاب مستهدفون",d.students.length],["دخلوا المنصة سابقًا",visited],["نشطون الآن",active],["مؤشرات قِيست",rows.filter(r=>r.latest).length],["إتقان معتمد من المعلم",rows.filter(r=>r.impact==="إتقان معتمد من المعلم").length],["بانتظار القياس البعدي",rows.filter(needsPosttest).length]];
  const indicators=[["all","كل المؤشرات"],...d.indicators.filter(x=>M.subject==="all"||x.subject_key===M.subject).map(x=>[x.key,subj(x.subject_key)+" • "+x.indicator_text])];
  const classes=[["all","جميع الفصول"],...Array.from(new Set(d.students.map(s=>s.class_name).filter(Boolean))).sort().map(x=>[x,x])];
  M.host.innerHTML='<div class="tmo"><section class="tmo-hero"><div style="display:flex;align-items:start;justify-content:space-between;gap:15px;flex-wrap:wrap"><div><small>منصة تمكّن • بيانات فعلية</small><h1>متابعة دخول الطلاب وإتقان كل مؤشر</h1><p>الدخول ← إسناد الخطة ← بدء الحل ← التسليم ← قياس قبلي وبعدي مستقل</p></div><div class="tmo-actions" style="display:flex;gap:8px"><button id="tmo-refresh" class="tmo-button secondary">تحديث</button><button id="tmo-export" class="tmo-button secondary">تصدير CSV</button><button id="tmo-print" class="tmo-button secondary">طباعة</button></div></div></section>'+
@@ -167,11 +177,11 @@ function render(){
  '<div><label>المؤشر</label>'+select("tmo-ind",M.indicator,indicators)+'</div>'+
  '<div><label>الفصل</label>'+select("tmo-class",M.cls,classes)+'</div>'+
  '<div><label>المستوى</label>'+select("tmo-tier",M.tier,[["all","كل المستويات"],["remedial","علاجي"],["reinforcement","تعزيز"],["enrichment","إثراء"],["unmeasured","لم يقس"]])+'</div>'+
- '<div><label>حالة الخطة</label>'+select("tmo-status",M.state,[["all","كل الحالات"],["missing","بلا خطة"],["assigned","لم يبدأ"],["in_progress","بدأ ولم يسلّم"],["completed","سلّم الحل"],["executed_in_class","علاج حضوري موثق"],["waiting","بانتظار قياس بعدي"],["mastered","إتقان معتمد"]])+'</div>'+
+ '<div><label>حالة الخطة</label>'+select("tmo-status",M.state,[["all","كل الحالات"],["missing","بلا خطة"],["assigned","لم يبدأ"],["in_progress","بدأ ولم يسلّم"],["completed","سلّم الحل"],["executed_in_class","علاج حضوري موثق"],["waiting","بانتظار قياس بعدي"],["ready","جاهز لإسناد القياس"],["posttest_assigned","مسند وينتظر الحل"],["mastered","إتقان معتمد"]])+'</div>'+
  '<div><label>دخول الطالب</label>'+select("tmo-login",M.presence,[["all","جميع الطلاب"],["online","نشط الآن"],["visited","دخل من قبل"],["never","لم يدخل"]])+'</div></section>'+
  attendanceWidget(d)+
  '<div id="tamakkunMissingLoginMount"></div>'+reviewPicker()+'<div id="tamakkunTeacherReviewMount"></div>'+
- '<div class="tmo-note">الإتقان البعدي لا يُثبت إلا بنتيجة اختبار جديد للمؤشر نفسه بعد تسليم الخطة، وبعدد ٥ أسئلة على الأقل في القياسين. تُعرض القياسات الأقل «محدودة». آخر دخول للمنصة لا يعني حضور الطالب للمدرسة.</div>'+
+ '<div class="tmo-note">الإتقان لا يُعتمد إلا باختبار بعدي جديد مرتبط بتكليف اكتمل إلكترونيًا أو بوثيقة تنفيذ داخل الفصل، ثم قرار معلم محفوظ. القياس البعدي لا يقل عن ٥ أسئلة، وتُعرض القياسات القبلية المحدودة بوضوح. آخر دخول للمنصة لا يعني حضور الطالب للمدرسة.</div>'+
  '<section class="tmo-box"><div style="display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap"><b>سجل المتابعة الحقيقي</b><span>'+N(pageRows.length)+' من '+N(rows.length)+' سجل • آخر قراءة '+D(d.generated_at)+'</span></div>'+
  '<div class="tmo-wrap"><table class="tmo-table"><thead><tr><th>الطالب والفصل</th><th>آخر دخول ونشاط</th><th>المؤشر</th><th>القياس الحقيقي</th><th>المستوى</th><th>الخطط وحلّها</th><th>القبلي</th><th>البعدي</th><th>التحسن والإتقان</th></tr></thead><tbody>'+
  (pageRows.length?pageRows.map(line).join(""):'<tr><td colspan="9">لا توجد بيانات مطابقة لهذه التصفية.</td></tr>')+'</tbody></table></div>'+
@@ -187,9 +197,10 @@ function render(){
 }
 function change(name,value){M[name]=value;M.page=1;render()}
 function csv(){
- const headers=["اسم الطالب","الفصل","آخر دخول","آخر نشاط","المادة","المؤشر","صحيح","إجمالي","النسبة","المستوى","إسنادات","محلول","حالة الخطة","قبلي","بعدي","تحسن","قياس الأثر"];
- const rows=filtered().map(r=>[r.student.full_name,r.student.class_name,D(r.session.login),D(r.session.seen),subj(r.ind.subject_key),r.ind.indicator_text,r.latest?.score,r.latest?.total,r.p,tier(r.level),r.tasks.length,r.solved,plan(r.status),P(r.before),P(r.after),r.change,r.impact]);
- const content="\ufeff"+[headers,...rows].map(row=>row.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");
+ const headers=["اسم الطالب","الفصل","آخر دخول","آخر نشاط","المادة","المؤشر","صحيح","إجمالي","النسبة","المستوى","إسنادات","محلول","حالة الخطة","حالة القياس البعدي","قبلي","بعدي","تحسن","قياس الأثر"];
+ const rows=filtered().map(r=>[r.student.full_name,r.student.class_name,D(r.session.login),D(r.session.seen),subj(r.ind.subject_key),r.ind.indicator_text,r.latest?.score,r.latest?.total,r.p,tier(r.level),r.tasks.length,r.solved,plan(r.status),needsAssignment(r)?'جاهز للإسناد':pendingStudentPosttest(r)?'مسند وينتظر الطالب':ownPosttest(r)?.status==='completed'?'مكتمل':'لا يوجد تنفيذ مستهدف',P(r.before),P(r.after),r.change,r.impact]);
+ const csvCell=v=>{const t=String(v??"");const safe=/^[\s\uFEFF]*[=+@-]/.test(t)?"'"+t:t;return '"'+safe.replace(/"/g,'""')+'"'};
+ const content="\ufeff"+[headers,...rows].map(row=>row.map(csvCell).join(",")).join("\r\n");
  const object=URL.createObjectURL(new Blob([content],{type:"text/csv;charset=utf-8"}));const link=document.createElement("a");link.href=object;link.download="tamakkun-progress.csv";link.click();setTimeout(()=>URL.revokeObjectURL(object),1200);
 }
 async function assignPosttest(btn){
@@ -225,5 +236,5 @@ async function load(force=false){
  catch(e){if(version===M.generation&&M.host){M.host.innerHTML='<div class="tmo"><div class="tmo-hero"><h1>تعذر تحميل المتابعة</h1><p>'+E(e.message)+'</p><button id="tmo-retry" class="tmo-button secondary">إعادة المحاولة</button></div></div>';M.host.querySelector("#tmo-retry").onclick=()=>load(true)}}
  finally{if(version===M.generation)M.loading=false}
 }
-window.TamakkunStudentMonitor={mount({token,role}={}){if(role!=="teacher")return;const el=document.getElementById("tamakkunStudentMonitorMount");if(!el)return;if(M.token!==token){window.TamakkunTeacherReview?.unmount();M.reviewTaskId=null;window.TamakkunMissingLoginReport?.unmount();M.data=null;M.rows=[];M.loading=false;M.attendanceCache=null}M.generation++;M.host=el;M.token=token;if(M.data)render();else load()},unmount(){M.generation++;M.reviewTaskId=null;window.TamakkunTeacherReview?.unmount();window.TamakkunMissingLoginReport?.unmount();M.host=null;M.token=null;M.data=null;M.rows=[];M.loading=false;M.attendanceCache=null},refresh(){return load(true)}};
+window.TamakkunStudentMonitor={mount({token,role}={}){if(role!=="teacher")return;const el=document.getElementById("tamakkunStudentMonitorMount");if(!el)return;if(M.token!==token){window.TamakkunTeacherReview?.unmount();M.reviewTaskId=null;window.TamakkunMissingLoginReport?.unmount();M.data=null;M.rows=[];M.loading=false;M.attendanceCache=null}M.generation++;M.host=el;M.token=token;if(M.data)render();else load()},unmount(){M.generation++;M.reviewTaskId=null;M.executionTaskIds=new Set();window.TamakkunTeacherReview?.unmount();window.TamakkunMissingLoginReport?.unmount();M.host=null;M.token=null;M.data=null;M.rows=[];M.loading=false;M.attendanceCache=null},refresh(){return load(true)}};
 })();
