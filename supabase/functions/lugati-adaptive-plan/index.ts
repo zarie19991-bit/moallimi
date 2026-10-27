@@ -678,6 +678,87 @@ async function teacherSendIndicator(req:Request,body:any,access:Access){
   return json(req,{ok:true,sent:rows.length,skipped,total_targets:targets.length,no_result_targets:0,sent_without_result:sentMissing,
     message:rows.length?("تم الإرسال إلى "+rows.length+" طالبًا ممن اختبروا في معلّمي وحققوا شروط المسار."):"سبق إرسال المسار للطلاب المؤهلين."});
 }
+
+/** Phase 2: save teacher-selected practice into the already existing student task flow.
+ *  Prevents a mismatch between the printable paper and the actual digital task.
+ *  Reviewed skill is a teacher assertion, NEVER an inferred clinical/educational diagnosis.
+ */
+async function teacherAssignReviewedTask(req:Request,body:any,access:Access){
+ if(access.role!=="teacher")return json(req,{error:"هذا الإجراء مخصص للمعلم فقط."},403);
+ const studentId=tidy(body?.student_id),subject=tidy(body?.subject_key),outcome=tidy(body?.outcome_code);
+ const indicator=Number(body?.indicator_index),focus=tidy(body?.measurement_focus),sourceId=tidy(body?.source_attempt_id);
+ const requested=body?.question_ids;
+ const ids=Array.isArray(requested)?requested.map((x:any)=>tidy(x)):[];
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ if(!uuid.test(studentId)||!["reading","math","science"].includes(subject)||!outcome||outcome.length>90||!Number.isInteger(indicator)||indicator<1||indicator>100)
+   return json(req,{error:"بيانات الطالب أو المؤشر غير صحيحة."},400);
+ if(!teacherAllows(access,subject))return json(req,{error:"هذه المادة خارج صلاحيات حساب المعلم."},403);
+ if(focus.length<7||focus.length>160)return json(req,{error:"اكتب المهارة الدقيقة التي راجعها المعلم (7–160 حرفًا)."},400);
+ if(!uuid.test(sourceId))return json(req,{error:"يجب تحديد محاولة اختبار حقيقية مسلّمة للمؤشر."},400);
+ if(ids.length<3||ids.length>10||new Set(ids).size!==ids.length||ids.some((x:string)=>!uuid.test(x)))
+   return json(req,{error:"اختر 3–10 أسئلة فريدة ومعتمدة لهذا التدريب."},400);
+ const {data:student,error:se}=await db.from("nafes_students").select("id,is_active,is_demo").eq("id",studentId).eq("is_active",true).maybeSingle();
+ if(se)throw se;if(!student||student.is_demo)return json(req,{error:"حساب الطالب غير موجود أو تجريبي."},404);
+
+ // Reuse the established submitted-attempt verification; do not turn a wrong
+ // answer or an unsubmitted preview into an assigned diagnosis.
+ const perf=(await latestPerformances([studentId])).find((p:any)=>matchesAssessedIndicator(p,subject,outcome,indicator));
+ if(!perf||String(perf.source_attempt_id)!==sourceId||!Array.isArray(perf.seen)||!perf.seen.length)
+   return json(req,{error:"آخر اختبار مسلّم لا يطابق المصدر المحدد؛ افتح ملف الطالب وحدّث التشخيص."},409);
+ const attempted=new Set(perf.seen.map(String));
+ if(ids.some((x:string)=>attempted.has(x)))return json(req,{error:"لا يجوز إعادة استخدام سؤال من اختبار التشخيص الأصلي في التدريب الجديد."},409);
+
+ const {data:bank,error:qe}=await db.from("nafes_question_bank")
+   .select("id,subject_key,outcome_code,indicator_index,is_active,review_status,alignment_verified,options,correct_index,question_text,context_text,image,measurement_focus")
+   .in("id",ids);
+ if(qe)throw qe;if((bank||[]).length!==ids.length)return json(req,{error:"بعض الأسئلة لم تعد موجودة في بنك الأسئلة."},409);
+ const byId=new Map((bank||[]).map((x:any)=>[String(x.id),x]));
+ const seenStems=new Set<string>();
+ const clean=(v:unknown)=>tidy(v).normalize("NFKC").replace(/[\u064b-\u065f\u0670\u0640]/g,"").replace(/[^\p{L}\p{N}]/gu,"");
+ for(const id of ids){
+  const q:any=byId.get(id);
+  const opts=q?.options;
+  const stem=clean(q?.question_text);
+  if(!q||q.subject_key!==subject||String(q.outcome_code)!==outcome||Number(q.indicator_index)!==indicator||
+    q.is_active!==true||q.review_status!=="approved"||q.alignment_verified!==true||
+    !Array.isArray(opts)||opts.length!==4||opts.some((o:any)=>typeof o!=="string"||!tidy(o))||
+    new Set(opts.map((o:string)=>clean(o))).size!==4||!Number.isInteger(q.correct_index)||q.correct_index<0||q.correct_index>3||
+    (q.image!==null&&q.image!==undefined)||!stem||seenStems.has(stem))
+    return json(req,{error:"الأسئلة المختارة ليست كلها سليمة ومعتمدة ومتنوعة لهذا المؤشر. راجع البنك."},409);
+  // The focus is teacher-reviewed; metadata can be absent on old approved rows.
+  // If a focus is specifically recorded for a question it must agree with the
+  // teacher's chosen focus, rather than silently mixing incompatible subskills.
+  if(tidy(q.measurement_focus)&&clean(q.measurement_focus)!==clean(focus))
+    return json(req,{error:"بعض الأسئلة تتبع مهارة دقيقة أخرى؛ عدّل الاختيار أو اسم المهارة."},409);
+  seenStems.add(stem);
+ }
+ const {data:pending,error:pe}=await db.from("lugati_teacher_tasks")
+  .select("id,status,source_attempt_id,question_ids")
+  .eq("student_id",studentId).eq("teacher_access_id",access.teacher_access_id!)
+  .eq("subject_key",subject).eq("outcome_code",outcome).eq("indicator_index",indicator)
+  .in("status",["assigned","in_progress"]).limit(50);
+ if(pe)throw pe;
+ if((pending||[]).some((x:any)=>String(x.source_attempt_id)===sourceId)){
+  return json(req,{error:"هناك بالفعل تدريب نشط لهذا الطالب والمؤشر والمحاولة؛ أكمل التدريب أو اسحبه قبل إرسال آخر."},409);
+ }
+ const now=new Date().toISOString(),title="تدريب علاجي مخصص: "+focus.slice(0,90);
+ const payload={
+   teacher_access_id:access.teacher_access_id,student_id:studentId,
+   subject_key:subject,outcome_code:outcome,indicator_index:indicator,
+   indicator_text:tidy(body?.indicator_text).slice(0,180)||("المؤشر "+indicator),
+   title,instructions:"المهارة الدقيقة التي اعتمدها المعلم: "+focus+
+     "\nاقرأ شرح السؤال السابق، ثم أجب عن الأسئلة الجديدة. يحكم المعلم على الإتقان بعد القياس البعدي.",
+   tier:"remedial",question_count:ids.length,question_ids:ids,
+   status:"assigned",source_percent:Number(perf.latest_percent??perf.percent),
+   source_attempt_id:sourceId,source_submitted_at:perf.source_submitted_at,
+   assigned_at:now,updated_at:now
+ };
+ const {data:task,error:ie}=await db.from("lugati_teacher_tasks").insert(payload)
+  .select("id,student_id,subject_key,outcome_code,indicator_index,title,instructions,question_count,status,assigned_at,source_percent").single();
+ if(ie)throw ie;
+ return json(req,{ok:true,task,message:"حُفظ التدريب المعتمد في حساب الطالب، ويمكن متابعته من تكليفات المعلم."},201);
+}
+
 async function teacherSendTask(req:Request,body:any,access:Access){
   if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);
   const studentId=tidy(body?.student_id),subject=tidy(body?.subject_key),outcome=tidy(body?.outcome_code),indicator=Number(body?.indicator_index||0);
@@ -1139,4 +1220,4 @@ async function teacherTrainingArchiveDetail(req:Request,body:any,access:Access){
   return json(req,{ok:true,attempt:{source,attempt_id:x.id,student_name:s?.full_name||"طالب",class_name:s?.class_name||"",grade:s?.grade||"",subject_key:b.subject_key,outcome_code:b.outcome_code,indicator_index:b.indicator_index,indicator_text:b.indicator_text,title:(c.title?c.title+" • ":"")+phaseArabic(x.phase),training_type:x.phase==="enrichment"?"enrichment":"mastery",phase:x.phase,score:x.score,total:x.total,percent:x.percent,submitted_at:x.completed_at,hints_used:x.hints_used||0},questions:qs.map((q:any)=>{const e=em.get(String(q.id));return{...q,selected_index:e?.selected_index??null,correct:e?.correct??null,hints_used:e?.hints_used??0,elapsed_seconds:e?.elapsed_seconds??null}})});
 }
 
-Deno.serve(async(req:Request)=>{if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});if(req.method!=="POST")return json(req,{error:"method_not_allowed"},405);try{const access=await requireAccess(req),body=await req.json().catch(()=>({})),action=tidy(body?.action||"my_plan");if(action==="my_plan"){if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);return await myPlan(req,access)}if(action==="teacher_overview"){if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);return await teacherOverview(req,access)}if(action==="student_unified_plan")return await studentUnifiedPlan(req,access);if(action==="teacher_unified_overview")return await teacherUnifiedOverview(req,access);if(action==="teacher_unified_sources")return await teacherUnifiedSources(req,body,access);if(action==="teacher_unified_plan")return await teacherUnifiedPlan(req,body,access);if(action==="sync_all"){if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);return json(req,{ok:true,...await syncStudents(undefined,teacherScope(access))})}if(action==="start_training"){if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);return await startTraining(req,body,access)}if(action==="submit_training")return await submitTraining(req,body,access);if(action==="teacher_send_task")return await teacherSendTask(req,body,access);if(action==="teacher_send_indicator")return await teacherSendIndicator(req,body,access);if(action==="teacher_revoke_catalog")return await teacherRevokeCatalog(req,access);if(action==="teacher_revoke_selected")return await teacherRevokeSelected(req,body,access);if(action==="teacher_revoke_all")return await teacherRevokeAll(req,access);if(action==="teacher_print_catalog")return await teacherPrintCatalog(req,body,access);if(action==="teacher_print_sheet")return await teacherPrintSheet(req,body,access);if(action==="my_teacher_tasks")return await myTeacherTasks(req,access);if(action==="teacher_tasks")return await teacherTasks(req,access);if(action==="teacher_response_tracking")return await teacherResponseTracking(req,access);if(action==="teacher_training_archive")return await teacherTrainingArchive(req,access);if(action==="teacher_training_archive_detail")return await teacherTrainingArchiveDetail(req,body,access);if(action==="teacher_management_overview")return await teacherManagementOverview(req,access);if(action==="teacher_management_report")return await teacherManagementReport(req,body,access);if(action==="ux_event")return await uxEvent(req,body,access);if(action==="preview_indicator")return await previewIndicator(req,body,access);if(action==="start_teacher_task")return await startTeacherTask(req,body,access);if(action==="submit_teacher_task")return await submitTeacherTask(req,body,access);return json(req,{error:"action_not_supported"},400)}catch(error){console.error("lugati-adaptive-plan",error);const status=error&&typeof error==="object"&&"status" in error?Number((error as any).status):500;return json(req,{error:status===500?"تعذر مزامنة الخطة التكيفية الآن.":String((error as Error).message)},status)}});
+Deno.serve(async(req:Request)=>{if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});if(req.method!=="POST")return json(req,{error:"method_not_allowed"},405);try{const access=await requireAccess(req),body=await req.json().catch(()=>({})),action=tidy(body?.action||"my_plan");if(action==="my_plan"){if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);return await myPlan(req,access)}if(action==="teacher_overview"){if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);return await teacherOverview(req,access)}if(action==="student_unified_plan")return await studentUnifiedPlan(req,access);if(action==="teacher_unified_overview")return await teacherUnifiedOverview(req,access);if(action==="teacher_unified_sources")return await teacherUnifiedSources(req,body,access);if(action==="teacher_unified_plan")return await teacherUnifiedPlan(req,body,access);if(action==="sync_all"){if(access.role!=="teacher")return json(req,{error:"متاح للمعلم فقط."},403);return json(req,{ok:true,...await syncStudents(undefined,teacherScope(access))})}if(action==="start_training"){if(access.role!=="student")return json(req,{error:"متاح للطالب فقط."},403);return await startTraining(req,body,access)}if(action==="submit_training")return await submitTraining(req,body,access);if(action==="teacher_assign_reviewed_task")return await teacherAssignReviewedTask(req,body,access);if(action==="teacher_send_task")return await teacherSendTask(req,body,access);if(action==="teacher_send_indicator")return await teacherSendIndicator(req,body,access);if(action==="teacher_revoke_catalog")return await teacherRevokeCatalog(req,access);if(action==="teacher_revoke_selected")return await teacherRevokeSelected(req,body,access);if(action==="teacher_revoke_all")return await teacherRevokeAll(req,access);if(action==="teacher_print_catalog")return await teacherPrintCatalog(req,body,access);if(action==="teacher_print_sheet")return await teacherPrintSheet(req,body,access);if(action==="my_teacher_tasks")return await myTeacherTasks(req,access);if(action==="teacher_tasks")return await teacherTasks(req,access);if(action==="teacher_response_tracking")return await teacherResponseTracking(req,access);if(action==="teacher_training_archive")return await teacherTrainingArchive(req,access);if(action==="teacher_training_archive_detail")return await teacherTrainingArchiveDetail(req,body,access);if(action==="teacher_management_overview")return await teacherManagementOverview(req,access);if(action==="teacher_management_report")return await teacherManagementReport(req,body,access);if(action==="ux_event")return await uxEvent(req,body,access);if(action==="preview_indicator")return await previewIndicator(req,body,access);if(action==="start_teacher_task")return await startTeacherTask(req,body,access);if(action==="submit_teacher_task")return await submitTeacherTask(req,body,access);return json(req,{error:"action_not_supported"},400)}catch(error){console.error("lugati-adaptive-plan",error);const status=error&&typeof error==="object"&&"status" in error?Number((error as any).status):500;return json(req,{error:status===500?"تعذر مزامنة الخطة التكيفية الآن.":String((error as Error).message)},status)}});
