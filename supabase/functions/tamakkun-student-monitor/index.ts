@@ -103,6 +103,8 @@ async function snapshot(req:Request,ac:any){
      return {id:t.id,student_id:t.student_id,subject_key:t.subject_key,outcome_code:t.outcome_code,indicator_index:t.indicator_index,indicator_text:t.indicator_text,title:t.title,tier:t.tier,status:t.status,assigned_at:t.assigned_at,started_at:t.started_at,completed_at:t.completed_at,score:t.score,total:t.total,percent:t.percent,source_attempt_id:t.source_attempt_id,source_percent:t.source_percent,source_submitted_at:t.source_submitted_at,
        solved:t.status==="completed"&&!!t.completed_at&&t.total>0&&t.score!=null&&answerCount>0,answer_count:answerCount}
    });
+ const taskIds=new Set(safeTasks.map(t=>String(t.id)));
+ const validReviews=reviews.filter(r=>allowed.has(String(r.student_id))&&taskIds.has(String(r.task_id)));
  const validEvidence=evidence.filter(e=>allowed.has(String(e.student_id))&&e.total>0&&e.score!=null);
  const catalog=new Map<string,any>();
  for(const e of validEvidence){
@@ -112,7 +114,7 @@ async function snapshot(req:Request,ac:any){
  for(const t of safeTasks){const key=[t.subject_key,t.outcome_code,t.indicator_index].join("|");if(!catalog.has(key))catalog.set(key,{key,subject_key:t.subject_key,outcome_code:t.outcome_code,indicator_index:t.indicator_index,indicator_text:t.indicator_text||"المؤشر "+t.indicator_index})}
  return send(req,{ok:true,generated_at:new Date().toISOString(),scope:ac.scope,
     students:roster,sessions:sessions.filter(s=>allowed.has(String(s.student_id))),tasks:safeTasks,
-    evidence:validEvidence,posttests:posttests.filter(p=>allowed.has(String(p.student_id))),reviews:reviews.filter(r=>allowed.has(String(r.student_id))&&safeTasks.some(t=>String(t.id)===String(r.task_id))),indicators:[...catalog.values()],criteria:{mastery_percent:80,min_reliable_questions:5,online_within_minutes:5}});
+    evidence:validEvidence,posttests:posttests.filter(p=>allowed.has(String(p.student_id))),reviews:validReviews,indicators:[...catalog.values()],criteria:{mastery_percent:80,min_reliable_questions:5,online_within_minutes:5}});
 }
 
 
@@ -178,8 +180,9 @@ async function teacherReviewDecision(req:Request,body:any,ac:any){
  if(decision==="mastered"&&after<80)throw err("لم يبلغ الطالب حد الإتقان ٨٠٪ في القياس البعدي المرتبط بالخطة.",409);
  const completedAt=onlineDone?Date.parse(task.completed_at):0;
  const reviewedAt=lastExecution?Date.parse(lastExecution.created_at):0;
- const referenceTime=Math.max(completedAt||0,reviewedAt||0);
- if(Date.parse(posttest.submitted_at)<referenceTime)throw err("نتيجة القياس البعدي سبقت توثيق تنفيذ العلاج؛ أعد القياس قبل الاعتماد.",409);
+ const executionDay=lastExecution?str(lastExecution.execution_date):'';
+ const beforeClassEvidence=executionDay&&posttest.submitted_at.slice(0,10)<executionDay;
+ if(beforeClassEvidence||Date.parse(posttest.submitted_at)<(completedAt||0))throw err("نتيجة القياس البعدي سبقت توثيق تنفيذ العلاج؛ أعد القياس قبل الاعتماد.",409);
  const {data,error}=await db.from("tamakkun_remedial_teacher_reviews").insert({
   task_id:task.id,teacher_access_id:ac.teacher_id,student_id:task.student_id,
   event_type:"decision",decision,posttest_id:posttest.id,notes
@@ -199,8 +202,11 @@ async function assignPosttest(req:Request,body:any,ac:any){
   .eq("id",taskId).eq("teacher_access_id",ac.teacher_id).maybeSingle();
  if(error)throw error;if(!task)throw err("الخطة غير موجودة ضمن صلاحيات المعلم.",404);
  if(ac.scope!=="all"&&task.subject_key!==ac.scope)throw err("المادة خارج صلاحيتك.",403);
- if(task.status!=="completed"||!task.completed_at||Number(task.total||0)<=0||!Object.keys(task.response?.answers||{}).length)
-  throw err("لا يمكن إسناد قياس بعدي قبل أن يكمل الطالب حل الخطة ويسلّمها.",409);
+ const onlineCompleted=task.status==="completed"&&!!task.completed_at&&Number(task.total||0)>0&&Object.keys(task.response?.answers||{}).length>0;
+ if(!onlineCompleted){
+  const reviews=await latestTeacherReviews(task.id,ac.teacher_id);
+  if(!reviews.some((r:any)=>r.event_type==="execution"))throw err("لا يمكن إسناد قياس بعدي قبل إكمال التدريب الإلكتروني أو توثيق تنفيذه في الفصل.",409);
+ }
  const {data:existing,error:ee}=await db.from("tamakkun_indicator_posttests").select("id,status,assigned_at").eq("source_task_id",task.id).maybeSingle();
  if(ee)throw ee;if(existing)return send(req,{ok:true,already_assigned:true,posttest:existing,message:"الاختبار البعدي مسند مسبقًا لهذه الخطة."});
  const {data:bank,error:qe}=await db.from("nafes_question_bank")
