@@ -291,7 +291,7 @@ async function studentSubmitPosttest(req:Request,body:any,ac:any){
   .update({answers,score,total:ids.length,percent,status:"completed",submitted_at:new Date().toISOString()})
   .eq("id",id).eq("student_id",ac.student_id).eq("status","in_progress").select("id,status,score,total,percent").maybeSingle();
  if(se)throw se;if(!saved)throw err("أصبح الاختبار مسلّمًا في جلسة أخرى؛ حدّث الصفحة.",409);
- return send(req,{ok:true,...saved,mastered:percent>=80});
+ return send(req,{ok:true,...saved,threshold_met:percent>=80,mastery_status:"pending_teacher_review"});
 }
 
 Deno.serve(async(req:Request)=>{
