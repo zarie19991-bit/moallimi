@@ -44,7 +44,7 @@ function questions(){
  S.host.querySelector("#post-submit").onclick=submit;
 }
 function result(data){
- frame('<section class="bg-white border rounded-2xl p-8 text-center"><small class="font-bold text-emerald-700">تم تسليم القياس البعدي وحفظ النتيجة</small><h2 class="text-4xl text-emerald-800 font-black my-5">'+esc(data.score)+' / '+esc(data.total)+'</h2><p class="text-lg font-bold">'+esc(data.percent)+'%</p><p class="text-sm text-slate-500 my-3">'+(Number(data.percent)>=80?"بلغت حد الإتقان 80% في هذا القياس.":"هذه النتيجة تشير إلى استمرار الحاجة للتدريب والمتابعة.")+'</p><button id="post-home" class="bg-emerald-700 text-white rounded-xl py-3 px-6 font-black mt-3">العودة إلى الاختبارات</button></section>');
+ frame('<section class="bg-white border rounded-2xl p-8 text-center"><small class="font-bold text-emerald-700">تم تسليم القياس البعدي وحفظ النتيجة</small><h2 class="text-4xl text-emerald-800 font-black my-5">'+esc(data.score)+' / '+esc(data.total)+'</h2><p class="text-lg font-bold">'+esc(data.percent)+'%</p><p class="text-sm text-slate-500 my-3">'+(Number(data.percent)>=80?"بلغت ٨٠٪ في القياس البعدي. اعتماد إتقان المهارة النهائي يصدر من المعلم بعد مراجعة التنفيذ والنتيجة.":"هذه النتيجة تشير إلى استمرار الحاجة للتدريب والمتابعة.")+'</p><button id="post-home" class="bg-emerald-700 text-white rounded-xl py-3 px-6 font-black mt-3">العودة إلى الاختبارات</button></section>');
  S.host.querySelector("#post-home").onclick=()=>{S.active=null;load()};
 }
 async function load(){
