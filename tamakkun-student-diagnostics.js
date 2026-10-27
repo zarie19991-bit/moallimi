@@ -78,7 +78,7 @@ async function showErrors(index){
   }
  }
  if(version!==S.mountVersion||String(S.student)!==id||S.token!==token)return;
- if(items.length)S.question={items,indicator:r.ind,sourceIds:allQuestionIds};else S.qError='لا توجد أسئلة لهذا المؤشر في المحاولة المحفوظة.';
+ if(items.length)S.question={items,indicator:r.ind,sourceIds:allQuestionIds,sourceAttemptId:r.recent.attempt_id};else S.qError='لا توجد أسئلة لهذا المؤشر في المحاولة المحفوظة.';
  }catch(e){if(version===S.mountVersion&&String(S.student)===id)S.qError=e.message}
  finally{if(version===S.mountVersion&&String(S.student)===id){S.qLoading=false;render()}}
 }
@@ -117,7 +117,7 @@ function render(){
  on('tsd-student','change',e=>{window.TamakkunRemedialStudio?.unmount();S.student=e.target.value;S.question=null;S.qError='';S.qLoading=false;render()});
  on('tsd-print','click',printDraft);
  on('tsd-close-q','click',()=>{window.TamakkunRemedialStudio?.unmount();S.question=null;S.qError='';render()});
- on('tsd-build-remedy','click',()=>{const st=student(),q=S.question;if(!st||!q?.indicator||!q.items.some(x=>!x.right))return;window.TamakkunRemedialStudio?.mount({role:stateRole(),token:S.token,student:{id:st.id,name:st.full_name,className:st.class_name},indicator:q.indicator,wrong:q.items.filter(x=>!x.right),attemptQuestionIds:q.sourceIds});});
+ on('tsd-build-remedy','click',()=>{const st=student(),q=S.question;if(!st||!q?.indicator||!q.items.some(x=>!x.right))return;window.TamakkunRemedialStudio?.mount({role:stateRole(),token:S.token,student:{id:st.id,name:st.full_name,className:st.class_name},indicator:q.indicator,wrong:q.items.filter(x=>!x.right),attemptQuestionIds:q.sourceIds,sourceAttemptId:q.sourceAttemptId});});
  S.host.querySelectorAll('[data-tsd-errors]').forEach(b=>b.onclick=()=>showErrors(Number(b.dataset.tsdErrors)));
 }
 function printDraft(){
