@@ -709,7 +709,7 @@ async function teacherAssignReviewedTask(req:Request,body:any,access:Access){
  if(ids.some((x:string)=>attempted.has(x)))return json(req,{error:"لا يجوز إعادة استخدام سؤال من اختبار التشخيص الأصلي في التدريب الجديد."},409);
 
  const {data:bank,error:qe}=await db.from("nafes_question_bank")
-   .select("id,subject_key,outcome_code,indicator_index,is_active,review_status,alignment_verified,options,correct_index,question_text,context_text,image,measurement_focus")
+   .select("id,grade_key,subject_key,outcome_code,indicator_index,is_active,review_status,alignment_verified,options,correct_index,question_text,context_text,image,measurement_focus")
    .in("id",ids);
  if(qe)throw qe;if((bank||[]).length!==ids.length)return json(req,{error:"بعض الأسئلة لم تعد موجودة في بنك الأسئلة."},409);
  const byId=new Map((bank||[]).map((x:any)=>[String(x.id),x]));
@@ -719,7 +719,7 @@ async function teacherAssignReviewedTask(req:Request,body:any,access:Access){
   const q:any=byId.get(id);
   const opts=q?.options;
   const stem=clean(q?.question_text);
-  if(!q||q.subject_key!==subject||String(q.outcome_code)!==outcome||Number(q.indicator_index)!==indicator||
+  if(!q||q.grade_key!=="middle_3"||q.subject_key!==subject||String(q.outcome_code)!==outcome||Number(q.indicator_index)!==indicator||
     q.is_active!==true||q.review_status!=="approved"||q.alignment_verified!==true||
     !Array.isArray(opts)||opts.length!==4||opts.some((o:any)=>typeof o!=="string"||!tidy(o))||
     new Set(opts.map((o:string)=>clean(o))).size!==4||!Number.isInteger(q.correct_index)||q.correct_index<0||q.correct_index>3||
