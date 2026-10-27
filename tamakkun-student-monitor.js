@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 const URL_API="https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-student-monitor";
-const M={host:null,token:null,data:null,rows:[],loading:false,q:"",subject:"all",indicator:"all",cls:"all",tier:"all",state:"all",presence:"all",page:1};
+const M={host:null,token:null,data:null,rows:[],loading:false,q:"",subject:"all",indicator:"all",cls:"all",tier:"all",state:"all",presence:"all",page:1,attendanceDate:"",attendanceClass:"all",attendanceStatus:"all",generation:0,attendanceCache:null};
 const E=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const N=n=>Number(n??0).toLocaleString("ar-SA",{maximumFractionDigits:1});
 const D=x=>x?new Date(x).toLocaleString("ar-SA",{timeZone:"Asia/Riyadh",dateStyle:"short",timeStyle:"short"}):"—";
@@ -67,6 +67,66 @@ function line(r){
  '<td>'+(r.after?N(r.after.score)+'/'+N(r.after.total)+' ('+N(P(r.after))+'%)':'—')+'</td>'+
  '<td>'+(r.change==null?"—":(r.change>0?"+":"")+N(r.change)+" نقطة")+'<div>'+pill(r.impact,r.impact.startsWith("إتقان بعدي موثق")?"green":r.impact==="بانتظار اختبار بعدي"?"yellow":"")+'</div></td></tr>';
 }
+
+const loginDay=x=>{if(!x)return "";const t=new Date(x);return Number.isFinite(t.getTime())?new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).format(t):""};
+const todayRiyadh=()=>loginDay(new Date().toISOString());
+function attendanceRows(data,applyStatus=true){
+ const date=M.attendanceDate||todayRiyadh();
+ if(!M.attendanceCache||M.attendanceCache.data!==data||M.attendanceCache.date!==date){
+  const map=new Map();
+  for(const row of data.sessions||[]){
+   const id=String(row.student_id||"");
+   if(!id)continue;
+   let entry=map.get(id);
+   if(!entry){entry={first:null,active:null};map.set(id,entry)}
+   if(loginDay(row.created_at)===date&&(!entry.first||String(row.created_at)>String(entry.first.created_at)))entry.first=row;
+   if(loginDay(row.last_seen_at)===date&&(!entry.active||String(row.last_seen_at)>String(entry.active.last_seen_at)))entry.active=row;
+  }
+  M.attendanceCache={data,date,map};
+ }
+ const map=M.attendanceCache.map;
+ return (data.students||[]).filter(st=>M.attendanceClass==="all"||st.class_name===M.attendanceClass).map(st=>{
+  const found=map.get(String(st.id))||{first:null,active:null},first=found.first,active=found.active;
+  return{student:st,first,active,status:first?"entered":active?"previous":"none"};
+ }).filter(x=>!applyStatus||M.attendanceStatus==="all"||x.status===M.attendanceStatus)
+ .sort((a,b)=>String(a.student.class_name||"").localeCompare(String(b.student.class_name||""),"ar")||String(a.student.full_name||"").localeCompare(String(b.student.full_name||""),"ar"));
+}
+function attendanceWidget(data){
+ const rows=attendanceRows(data),allClassRows=attendanceRows(data,false),days=(data.sessions||[]).map(x=>loginDay(x.created_at)).filter(Boolean).sort();
+ const date=M.attendanceDate||todayRiyadh();
+ const baseDate=Date.parse(todayRiyadh()+"T12:00:00Z");
+ const recentDates=Array.from({length:30},(_,i)=>{const value=loginDay(new Date(baseDate-i*86400000).toISOString());return[value,new Date(value+"T12:00:00Z").toLocaleDateString("ar-SA",{dateStyle:"medium",timeZone:"Asia/Riyadh"})]});
+ if(!recentDates.some(x=>x[0]===date))recentDates.unshift([date,date]);
+ const classes=[...new Set((data.students||[]).map(x=>x.class_name).filter(Boolean))].sort();
+ const count=status=>allClassRows.filter(x=>x.status===status).length;
+ return '<section class="tmo-box" id="tmo-day-register">'+
+ '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><strong style="font-size:18px">سجل دخول الطلاب حسب التاريخ</strong><span class="tmo-sub">توقيت السعودية • دخول إلكتروني وليس حضورًا مدرسيًا</span></div><div class="tmo-actions"><button id="tmo-day-csv" class="tmo-button secondary">تصدير CSV</button> <button id="tmo-day-print" class="tmo-button secondary">طباعة الكشف</button></div></div>'+
+ '<div class="tmo-filters" style="margin:14px 0"><div><label>التاريخ من القائمة</label>'+select("tmo-day-preset",date,recentDates)+'</div><div><label>تاريخ آخر</label><input type="date" id="tmo-day-date" value="'+E(date)+'"></div>'+
+ '<div><label>الفصل</label>'+select("tmo-day-class",M.attendanceClass,[["all","جميع الفصول"],...classes.map(c=>[c,c])])+'</div>'+
+ '<div><label>الحالة</label>'+select("tmo-day-status",M.attendanceStatus,[["all","جميع الطلاب"],["entered","دخول مسجل – أخضر"],["previous","نشاط بجلسة سابقة – أصفر"],["none","لا دخول مسجل – أحمر"]])+'</div></div>'+
+ '<div class="tmo-grid">'+[["دخلوا في هذا التاريخ",count("entered")],["نشاط بجلسة سابقة",count("previous")],["لا دخول مسجل",count("none")],["إجمالي المعروض",rows.length]].map(p=>'<div class="tmo-stat"><small>'+E(p[0])+'</small><b>'+N(p[1])+'</b></div>').join("")+'</div>'+
+ (days.length&&date<days[0]?'<div class="tmo-note">التاريخ المختار أقدم من أقدم جلسة محفوظة؛ هذا الكشف غير كافٍ لإثبات عدم دخول الطلاب.</div>':'')+
+ '<div class="tmo-note">الأخضر: أنشأ جلسة دخول في هذا التاريخ. الأصفر: نشاط مسجل بجلسة بدأت سابقًا. الأحمر: لم يظهر دخول أو نشاط في السجلات المتاحة فقط. قد تكون جلسات قديمة حُذفت أو انتهى الاحتفاظ بها. لا تخلط بين الدخول وإكمال التدريب.</div>'+
+ '<div class="tmo-wrap" style="max-height:390px"><table class="tmo-table" style="min-width:550px"><thead><tr><th>الطالب</th><th>الفصل</th><th>الحالة</th><th>وقت الدخول</th><th>آخر نشاط</th></tr></thead><tbody>'+
+ (rows.length?rows.map(x=>'<tr><td>'+E(x.student.full_name)+'</td><td>'+E(x.student.class_name||"—")+'</td><td>'+pill(x.status==="entered"?"● دخل":x.status==="previous"?"● جلسة سابقة":"● لا دخول مسجل",x.status==="entered"?"green":x.status==="previous"?"yellow":"red")+'</td><td>'+D(x.first?.created_at)+'</td><td>'+D(x.active?.last_seen_at)+'</td></tr>').join(""):'<tr><td colspan="5">لا يوجد طلاب مطابقون للتصفية.</td></tr>')+
+ '</tbody></table></div></section>';
+}
+function exportAttendance(){
+ const rows=attendanceRows(M.data);
+ const grid=[["الطالب","الفصل","الحالة","وقت الدخول","آخر نشاط"],...rows.map(x=>[x.student.full_name,x.student.class_name,x.status==="entered"?"دخل":x.status==="previous"?"نشط بجلسة سابقة":"لا دخول مسجل",D(x.first?.created_at),D(x.active?.last_seen_at)])];
+ const cell=v=>{let str=String(v??"");if(/^[\s]*[=+@-]/.test(str))str="'"+str;return '"'+str.replace(/"/g,'""')+'"';};
+ const csv="\ufeff"+grid.map(row=>row.map(cell).join(",")).join("\r\n");
+ const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="tamakkun-attendance-"+(M.attendanceDate||todayRiyadh())+".csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),2500);
+}
+function printAttendance(){
+ const rows=attendanceRows(M.data),date=M.attendanceDate||todayRiyadh();
+ const w=window.open("","_blank","width=900,height=810");if(!w){alert("اسمح بفتح نافذة الطباعة");return}
+ try{w.opener=null}catch(_){}
+ const trs=rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+E(r.student.full_name)+'</td><td>'+E(r.student.class_name||"—")+'</td><td>'+E(r.status==="entered"?"دخل":r.status==="previous"?"نشط بجلسة سابقة":"لا دخول مسجل")+'</td><td>'+D(r.first?.created_at)+'</td></tr>').join("");
+ w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف الدخول</title><style>@page{size:A4;margin:13mm}body{font:12px Tahoma,Arial;color:#183d2e;line-height:1.7}table{width:100%;border-collapse:collapse}th,td{border:1px solid #a2b6a8;padding:7px;text-align:right}th{background:#edf5ef}@media print{button{display:none}}</style></head><body><strong>المملكة العربية السعودية – وزارة التعليم – إدارة التعليم بنجران – مدرسة ابن سينا المتوسطة</strong><h2>سجل دخول الطلاب • تمكّن</h2><p>التاريخ: '+E(date)+' | الفصل: '+E(M.attendanceClass==="all"?"كل الفصول":M.attendanceClass)+'</p><p>الحالة وفق سجلات المنصة المتاحة فقط؛ وليست إثباتًا للحضور المدرسي، وقد تكون سجلات أقدم غير متاحة.</p><table><thead><tr><th>م</th><th>الطالب</th><th>الفصل</th><th>الحالة</th><th>الدخول</th></tr></thead><tbody>'+trs+'</tbody></table><button onclick="print()">طباعة</button></body></html>');
+ w.document.close();w.focus();
+}
+
 function render(){
  if(!M.host)return;addCss();
  const d=M.data;
@@ -86,12 +146,15 @@ function render(){
  '<div><label>المستوى</label>'+select("tmo-tier",M.tier,[["all","كل المستويات"],["remedial","علاجي"],["reinforcement","تعزيز"],["enrichment","إثراء"],["unmeasured","لم يقس"]])+'</div>'+
  '<div><label>حالة الخطة</label>'+select("tmo-status",M.state,[["all","كل الحالات"],["missing","بلا خطة"],["assigned","لم يبدأ"],["in_progress","بدأ ولم يسلّم"],["completed","سلّم الحل"],["waiting","بانتظار قياس بعدي"],["mastered","إتقان بعدي"]])+'</div>'+
  '<div><label>دخول الطالب</label>'+select("tmo-login",M.presence,[["all","جميع الطلاب"],["online","نشط الآن"],["visited","دخل من قبل"],["never","لم يدخل"]])+'</div></section>'+
+ attendanceWidget(d)+
+ '<div id="tamakkunMissingLoginMount"></div>'+
  '<div class="tmo-note">الإتقان البعدي لا يُثبت إلا بنتيجة اختبار جديد للمؤشر نفسه بعد تسليم الخطة، وبعدد ٥ أسئلة على الأقل في القياسين. تُعرض القياسات الأقل «محدودة». آخر دخول للمنصة لا يعني حضور الطالب للمدرسة.</div>'+
  '<section class="tmo-box"><div style="display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap"><b>سجل المتابعة الحقيقي</b><span>'+N(pageRows.length)+' من '+N(rows.length)+' سجل • آخر قراءة '+D(d.generated_at)+'</span></div>'+
  '<div class="tmo-wrap"><table class="tmo-table"><thead><tr><th>الطالب والفصل</th><th>آخر دخول ونشاط</th><th>المؤشر</th><th>القياس الحقيقي</th><th>المستوى</th><th>الخطط وحلّها</th><th>القبلي</th><th>البعدي</th><th>التحسن والإتقان</th></tr></thead><tbody>'+
  (pageRows.length?pageRows.map(line).join(""):'<tr><td colspan="9">لا توجد بيانات مطابقة لهذه التصفية.</td></tr>')+'</tbody></table></div>'+
  '<div class="tmo-nav"><button id="tmo-prev" class="tmo-button secondary" '+(M.page===1?"disabled":"")+'>السابق</button><span>صفحة '+N(M.page)+' / '+N(pages)+'</span><button id="tmo-next" class="tmo-button secondary" '+(M.page===pages?"disabled":"")+'>التالي</button></div></section></div>';
  bind(pages);
+ window.TamakkunMissingLoginReport?.mount({role:'teacher',data:d,token:M.token});
  for(const b of M.host.querySelectorAll('[data-tmo-assign]'))b.onclick=()=>assignPosttest(b);
 }
 function change(name,value){M[name]=value;M.page=1;render()}
@@ -116,6 +179,11 @@ function bind(pages){
  for(const [id,property] of [["tmo-search","q"],["tmo-subject","subject"],["tmo-ind","indicator"],["tmo-class","cls"],["tmo-tier","tier"],["tmo-status","state"],["tmo-login","presence"]]){
   const el=M.host.querySelector("#"+id);if(el)el.onchange=()=>{if(property==="subject")M.indicator="all";change(property,el.value)};
  }
+ for(const [id,prop] of [["tmo-day-date","attendanceDate"],["tmo-day-preset","attendanceDate"],["tmo-day-class","attendanceClass"],["tmo-day-status","attendanceStatus"]]){
+  const el=M.host.querySelector("#"+id);if(el)el.onchange=()=>{M[prop]=el.value;render()};
+ }
+ M.host.querySelector("#tmo-day-csv").onclick=exportAttendance;
+ M.host.querySelector("#tmo-day-print").onclick=printAttendance;
  M.host.querySelector("#tmo-refresh").onclick=()=>load(true);
  M.host.querySelector("#tmo-export").onclick=csv;
  M.host.querySelector("#tmo-print").onclick=()=>window.print();
@@ -123,11 +191,11 @@ function bind(pages){
  M.host.querySelector("#tmo-next").onclick=()=>{M.page=Math.min(pages,M.page+1);render()};
 }
 async function load(force=false){
- if(M.loading||!M.token)return;M.loading=true;
+ if(M.loading||!M.token)return;const version=M.generation;M.loading=true;
  if(!M.data)render();
- try{const data=await request("snapshot");M.data=data;M.page=1;compile(data);render()}
- catch(e){if(M.host){M.host.innerHTML='<div class="tmo"><div class="tmo-hero"><h1>تعذر تحميل المتابعة</h1><p>'+E(e.message)+'</p><button id="tmo-retry" class="tmo-button secondary">إعادة المحاولة</button></div></div>';M.host.querySelector("#tmo-retry").onclick=()=>load(true)}}
- finally{M.loading=false}
+ try{const data=await request("snapshot");if(version!==M.generation)return;M.data=data;M.page=1;compile(data);render()}
+ catch(e){if(version===M.generation&&M.host){M.host.innerHTML='<div class="tmo"><div class="tmo-hero"><h1>تعذر تحميل المتابعة</h1><p>'+E(e.message)+'</p><button id="tmo-retry" class="tmo-button secondary">إعادة المحاولة</button></div></div>';M.host.querySelector("#tmo-retry").onclick=()=>load(true)}}
+ finally{if(version===M.generation)M.loading=false}
 }
-window.TamakkunStudentMonitor={mount({token,role}={}){if(role!=="teacher")return;const el=document.getElementById("tamakkunStudentMonitorMount");if(!el)return;M.host=el;M.token=token;if(M.data)render();else load()},unmount(){M.host=null;M.token=null;M.data=null;M.rows=[]},refresh(){return load(true)}};
+window.TamakkunStudentMonitor={mount({token,role}={}){if(role!=="teacher")return;const el=document.getElementById("tamakkunStudentMonitorMount");if(!el)return;if(M.token!==token){window.TamakkunMissingLoginReport?.unmount();M.data=null;M.rows=[];M.loading=false;M.attendanceCache=null}M.generation++;M.host=el;M.token=token;if(M.data)render();else load()},unmount(){M.generation++;window.TamakkunMissingLoginReport?.unmount();M.host=null;M.token=null;M.data=null;M.rows=[];M.loading=false;M.attendanceCache=null},refresh(){return load(true)}};
 })();
