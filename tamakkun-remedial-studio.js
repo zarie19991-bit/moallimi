@@ -82,7 +82,7 @@ function render(){
  const isSelected=S.chosen.has(String(q.id));
  return '<article class="trs-item"><div class="trs-row"><label style="display:flex;align-items:center;gap:9px"><input type="checkbox" data-trs-item="'+E(q.id)+'"'+(isSelected?' checked':'')+'><b>اختيار التدريب</b></label><small>'+E(cognitive(q.cognitive_level))+'</small></div>'+
  (q.context_text?'<p class="trs-context">'+E(q.context_text)+'</p>':'')+
- '<p><b>'+E(q.question_text)+'</b></p><div style="font-size:11px;color:#456253">'+q.options.map((v,i)=>'<div>'+'أبجد'[i%4]+' ـ '+E(printableOption(v))+'</div>').join('')+'</div>'+
+ '<p><b>'+E(q.question_text)+'</b></p>'+(q.measurement_focus?'<p style="color:#096648;font-size:11px"><b>المهارة الدقيقة الموثقة:</b> '+E(q.measurement_focus)+'</p>':'<p style="font-size:11px;color:#786a42">المهارة الدقيقة غير موثقة في البنك؛ تحقق منها قبل الاعتماد.</p>')+'<div style="font-size:11px;color:#456253">'+q.options.map((v,i)=>'<div>'+'أبجد'[i%4]+' ـ '+E(printableOption(v))+'</div>').join('')+'</div>'+
  '<details style="font-size:11px;margin-top:8px"><summary>مفتاح السؤال وتفسيره للمعلم</summary><p>الإجابة: '+E(printableOption(q.options[q.correct_index]))+'</p><p>'+E(q.explanation||'يحتاج تفسير المعلم.')+'</p></details></article>';
  }).join('')+'</div>':'<div class="trs-empty">لا توجد أسئلة بديلة مناسبة لهذا الاختيار. غيّر المستوى المعرفي أو راجع بنك الأسئلة.</div>';
  if(items.length>S.page*PAGE_SIZE)markup+='<button id="trs-more">عرض المزيد من التدريبات ('+(items.length-S.page*PAGE_SIZE)+')</button>';
