@@ -164,13 +164,15 @@ async function sendSelectedActivity(){
  if(S.activityType==='game'&&count>12){alert('اللعبة الواحدة تدعم حتى 12 مؤشرًا.');return}
  const title=(S.bundleTitle||((S.activityType==='game'?'لعبة تَمَكُّن ':'رحلة إتقان ')+meta.name+' — '+count+' مؤشرات')).trim();
  const preview=selected.slice(0,8).map(t=>'المؤشر '+(t.global_indicator||t.indicator_index)).join('، ')+(count>8?'، +'+(count-8):'');
- const target=S.demoOnly?'الطالب التجريبي فقط':'جميع الطلاب الحقيقيين';
+ let payload;try{payload=recipientPayload()}catch(e){alert(e.message);return}
+ if(S.activityType==='game'&&!S.demoOnly&&S.recipientMode!=='all'){alert('للإرسال حسب الفصل أو الأسماء استخدم رحلة إتقان؛ اللعبة الجماعية لا تدعم استهداف أسماء محددة بعد.');return}
+ const target=recipientDescription();
  if(!confirm((S.demoOnly?'🧪 وضع اختبار آمن\n\n':'⚠️ إرسال فعلي\n\n')+title+'\n'+preview+'\n\nالوجهة: '+target))return;
  S.sendingBundle=true;render();
  try{
    let d;
    if(S.activityType==='journey'){
-     d=await post('send_bundle',{template_ids:selected.map(t=>t.id),bundle_title:title,demo_only:S.demoOnly});
+     d=await post('send_bundle',{template_ids:selected.map(t=>t.id),bundle_title:title,...payload});
      alert(S.demoOnly?'تم إنشاء الرحلة للطالب التجريبي فقط ✓':'تم إرسال الرحلة إلى '+d.students+' طالبًا ✓');
    }else{
      const arena=S.subject==='reading'?readingArenaFor(selected):S.subject;
@@ -224,16 +226,18 @@ function activityBuilderHtml(){
    <div class="activity-type-row"><button class="activity-type ${S.activityType==='journey'?'active':''}" data-activity-type="journey">🧭 رحلة إتقان</button><button class="activity-type ${S.activityType==='game'?'active':''}" data-activity-type="game">🎮 لعبة</button></div>
    <div class="activity-search"><input id="activitySearch" placeholder="ابحث برقم المؤشر أو اسمه…" value="${esc(S.search)}"><button id="selectVisibleBtn" type="button">تحديد نتائج البحث (${visible.length})</button></div>
    <div class="activity-mode"><label><input id="demoOnlyToggle" type="checkbox" ${S.demoOnly?'checked':''}> اختبار على الطالب التجريبي فقط</label><span style="font-size:9px;color:#d1fae5">عند إلغائه يصبح الإرسال فعليًا للطلاب.</span></div>
+   ${recipientHtml()}
    <div class="activity-action"><input id="bundleTitleInput" maxlength="140" placeholder="${esc(defaultTitle)}" value="${esc(S.bundleTitle)}"><button id="previewActivityBtn" class="secondary" ${!count||S.activityType!=='journey'?'disabled':''}>👁 معاينة الرحلة</button><button id="sendActivityBtn" class="primary" ${!count||S.sendingBundle||(S.activityType==='journey'&&count<2)?'disabled':''}>${S.sendingBundle?'جارٍ الإنشاء…':S.demoOnly?'إنشاء تجربة آمنة':'إرسال النشاط'}</button><button id="clearBundleBtn" class="secondary" ${!count?'disabled':''}>مسح</button></div>
    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:9px;font-size:9px;color:#d1fae5"><span>${count} محدد من حد أقصى ${max}</span><span>${visible.length} ظاهر في البحث</span></div>
    ${count?`<div class="activity-preview">${rows.slice(0,14).map((t,i)=>`<span class="activity-chip">${i+1}. مؤشر ${t.global_indicator||t.indicator_index}</span>`).join('')}${count>14?`<span class="activity-chip">+${count-14} أخرى</span>`:''}</div>`:''}
  </section>`;
 }
 function wireActivityBuilder(box){
+ wireRecipients(box);
  box.querySelectorAll('[data-activity-type]').forEach(b=>b.onclick=()=>{S.activityType=b.dataset.activityType;const max=S.activityType==='game'?12:50;if(S.selected.size>max){const keep=selectedTemplates().slice(0,max);S.selected=new Set(keep.map(x=>String(x.id)));}render()});
  const input=box.querySelector('#bundleTitleInput');if(input)input.oninput=()=>{S.bundleTitle=input.value};
  const search=box.querySelector('#activitySearch');if(search)search.oninput=()=>{S.search=search.value;render()};
- box.querySelector('#demoOnlyToggle')?.addEventListener('change',e=>{S.demoOnly=e.target.checked;render()});
+ box.querySelector('#demoOnlyToggle')?.addEventListener('change',e=>{S.demoOnly=e.target.checked;render();if(!S.demoOnly&&!S.recipientStudents.length)loadRecipients()});
  box.querySelector('#previewActivityBtn')?.addEventListener('click',()=>openJourneyPreview(selectedTemplates().map(t=>t.id)));
  box.querySelector('#sendActivityBtn')?.addEventListener('click',sendSelectedActivity);
  box.querySelector('#clearBundleBtn')?.addEventListener('click',()=>{S.selected.clear();S.bundleTitle='';render()});
@@ -264,9 +268,10 @@ function render(){
  box.querySelectorAll('[data-preview-pretest]').forEach(b=>b.onclick=()=>openJourneyPreview(b.dataset.previewPretest));
  box.querySelectorAll('[data-send-pretest]').forEach(b=>b.onclick=async()=>{
    const t=S.templates.find(x=>x.id===b.dataset.sendPretest);if(!t)return;
-   if(!confirm(`${S.demoOnly?'🧪 اختبار على الطالب التجريبي فقط':'⚠️ إرسال فعلي لجميع الطلاب'}\n\nرحلة ${meta.name} — المؤشر ${t.global_indicator}\n${t.indicator_text}`))return;
+   let recipients;try{recipients=recipientPayload()}catch(e){alert(e.message);return}
+   if(!confirm(`${S.demoOnly?'🧪 اختبار على الطالب التجريبي فقط':'⚠️ إرسال فعلي إلى المستهدفين'}\n\nالوجهة: ${recipientDescription()}\nرحلة ${meta.name} — المؤشر ${t.global_indicator}\n${t.indicator_text}`))return;
    const old=b.textContent;b.disabled=true;b.textContent='جارٍ الإرسال…';
-   try{const d=await post('send_all',{template_id:t.id,demo_only:S.demoOnly});b.textContent=S.demoOnly?'تم للطالب التجريبي ✓':`تم الإرسال إلى ${d.students} طالبًا ✓`;S.cache[S.subject]=null;await load(true)}
+   try{const d=await post('send_all',{template_id:t.id,...recipients});b.textContent=S.demoOnly?'تم للطالب التجريبي ✓':`تم الإرسال إلى ${d.students} طالبًا ✓`;S.cache[S.subject]=null;await load(true)}
    catch(e){b.disabled=false;b.textContent=old;alert(e.message)}
  });
 }
