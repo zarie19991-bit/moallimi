@@ -8,11 +8,11 @@ const SUBJECTS={
  math:{name:'الرياضيات',icon:'➗',count:95},
  science:{name:'العلوم',icon:'🔬',count:159}
 };
-const S={token:'',scope:'all',subject:'reading',templates:[],cache:{reading:null,math:null,science:null},selected:new Set(),bundleTitle:'',activityType:'journey',demoOnly:true,search:'',sendingBundle:false,loading:false,error:''};
+const S={token:'',scope:'all',subject:'reading',templates:[],cache:{reading:null,math:null,science:null},selected:new Set(),bundleTitle:'',activityType:'journey',demoOnly:true,search:'',sendingBundle:false,loading:false,error:'',recipientMode:'selected',targetClass:'',recipientSearch:'',recipientStudents:[],recipientSelected:new Set(),recipientLoading:false,recipientError:''};
 const allowedSubjectEntries=()=>Object.entries(SUBJECTS).filter(([k])=>S.scope==='all'||k===S.scope);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function ses(){for(const st of[sessionStorage,localStorage]){try{const x=JSON.parse(st.getItem(EXACT)||'null');if(x?.token&&x?.role==='teacher')return x}catch{}}for(const st of[sessionStorage,localStorage]){try{const token=st.getItem(LEGACY),role=st.getItem(LEGACY_ROLE);if(token&&role!=='student')return{token,role:'teacher',profile:JSON.parse(st.getItem(LEGACY_PROFILE)||'{}')}}catch{}}return null}
-function syncSession(){const s=ses();if(!s?.token||s.role!=='teacher'){S.token='';return null}S.token=s.token;const nextScope=['reading','math','science'].includes(s?.profile?.subject_scope)?s.profile.subject_scope:'all';const changed=S.scope!==nextScope;S.scope=nextScope;if(S.scope!=='all')S.subject=S.scope;else if(changed&&!SUBJECTS[S.subject])S.subject='reading';return s}
+function syncSession(){const s=ses();if(!s?.token||s.role!=='teacher'){S.token='';return null}if(S.token!==s.token){S.recipientStudents=[];S.recipientSelected.clear();S.targetClass='';S.recipientMode='selected'}S.token=s.token;const nextScope=['reading','math','science'].includes(s?.profile?.subject_scope)?s.profile.subject_scope:'all';const changed=S.scope!==nextScope;S.scope=nextScope;if(S.scope!=='all')S.subject=S.scope;else if(changed&&!SUBJECTS[S.subject])S.subject='reading';return s}
 async function post(action,extra={}){const s=syncSession();if(!s)throw new Error('تسجيل الدخول مطلوب.');const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${S.token}`},body:JSON.stringify({action,...extra}),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);return d}
 async function postGame(action,extra={}){const s=syncSession();if(!s)throw new Error('تسجيل الدخول مطلوب.');const r=await fetch(GAME_API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${S.token}`},body:JSON.stringify({action,...extra}),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);return d}
 function fmtDate(v){if(!v)return'';try{return new Date(v).toLocaleString('ar-SA',{dateStyle:'short',timeStyle:'short'})}catch{return''}}
@@ -69,8 +69,68 @@ function injectReadingTab(){const texts=[...document.querySelectorAll('button,a,
 function ensureButton(){const s=syncSession();if(!s)return;styles();injectReadingTab();const nav=document.querySelector('aside nav');if(!nav||document.getElementById('pretestWorksheetBtn'))return;const b=document.createElement('button');b.id='pretestWorksheetBtn';b.type='button';b.className='w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-right text-slate-600 hover:bg-sky-50 hover:text-sky-800 transition-all';const scopeMeta=S.scope==='all'?'القراءة • الرياضيات • العلوم':SUBJECTS[S.scope].name;b.innerHTML='<div class="flex items-center gap-3"><span class="w-5 h-5 text-sky-600">🧭</span><div class="flex flex-col"><span class="font-bold">رحلة قبل الاختبار</span><span class="text-[11px] text-slate-400">'+scopeMeta+'</span></div></div><span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">'+(S.scope==='all'?'3':'1')+'</span>';b.onclick=open;nav.appendChild(b)}
 async function load(force=false){if(S.loading)return;if(!force&&S.cache[S.subject]){S.templates=S.cache[S.subject];render();return}S.loading=true;S.error='';render();try{const d=await post('list_templates',{subject_key:S.subject});S.templates=d.templates||[];S.cache[S.subject]=S.templates}catch(e){S.error=e.message}finally{S.loading=false;render()}}
 function tabsHtml(){return `<div class="pretest-tabs" style="grid-template-columns:repeat(${allowedSubjectEntries().length},1fr)">${allowedSubjectEntries().map(([k,v])=>`<button class="pretest-tab ${S.subject===k?'active':''}" data-pretest-subject="${k}">${v.icon} ${v.name}<small>${v.count} مؤشرًا</small></button>`).join('')}</div>`}
-function open(){const s=syncSession();if(!s){alert('تسجيل الدخول مطلوب.');return}styles();if(document.getElementById('pretestModal'))return;const w=document.createElement('div');w.id='pretestModal';w.className='pretest-modal';w.innerHTML=`<div class="pretest-card"><header class="pretest-head"><div class="pretest-head-row"><div><small>منشئ الأنشطة</small><h1>المؤشرات والأنشطة</h1><p>ابحث عن المؤشرات وحددها مرة واحدة، ثم أنشئ رحلة إتقان أو لعبة. ابدأ بالطالب التجريبي، وبعد المراجعة يمكنك التحويل إلى إرسال فعلي.</p></div><button id="closePretestModal" class="pretest-close">×</button></div></header><div id="pretestTabs"></div><div id="pretestBody" class="pretest-body"></div></div>`;document.body.appendChild(w);document.getElementById('closePretestModal').onclick=()=>w.remove();w.addEventListener('click',e=>{if(e.target===w)w.remove()});renderTabs();load()}
+function open(){const s=syncSession();if(!s){alert('تسجيل الدخول مطلوب.');return}styles();if(document.getElementById('pretestModal'))return;const w=document.createElement('div');w.id='pretestModal';w.className='pretest-modal';w.innerHTML=`<div class="pretest-card"><header class="pretest-head"><div class="pretest-head-row"><div><small>منشئ الأنشطة</small><h1>المؤشرات والأنشطة</h1><p>ابحث عن المؤشرات وحددها مرة واحدة، ثم أنشئ رحلة إتقان أو لعبة. ابدأ بالطالب التجريبي، وبعد المراجعة يمكنك التحويل إلى إرسال فعلي.</p></div><button id="closePretestModal" class="pretest-close">×</button></div></header><div id="pretestTabs"></div><div id="pretestBody" class="pretest-body"></div></div>`;document.body.appendChild(w);document.getElementById('closePretestModal').onclick=()=>w.remove();w.addEventListener('click',e=>{if(e.target===w)w.remove()});renderTabs();load();loadRecipients()}
 function renderTabs(){const x=document.getElementById('pretestTabs');if(!x)return;x.innerHTML=tabsHtml();x.querySelectorAll('[data-pretest-subject]').forEach(b=>b.onclick=()=>{S.subject=b.dataset.pretestSubject;S.templates=S.cache[S.subject]||[];S.selected.clear();S.bundleTitle='';S.search='';renderTabs();load()})}
+
+
+async function loadRecipients(){
+ if(S.recipientLoading)return;
+ S.recipientLoading=true;S.recipientError='';render();
+ try{
+  const d=await post('list_recipients');
+  if(!Array.isArray(d.students))throw Error('تعذر قراءة كشف الطلاب.');
+  S.recipientStudents=d.students.filter(x=>x.id&&x.full_name);
+  const valid=new Set(S.recipientStudents.map(x=>String(x.id)));
+  for(const id of S.recipientSelected)if(!valid.has(id))S.recipientSelected.delete(id);
+ }catch(e){S.recipientError=e.message||'تعذر تحميل الطلاب';S.recipientStudents=[];S.recipientSelected.clear()}
+ finally{S.recipientLoading=false;render()}
+}
+function targetedStudents(){
+ if(S.demoOnly)return [];
+ if(S.recipientMode==='all')return S.recipientStudents;
+ if(S.recipientMode==='class')return S.recipientStudents.filter(x=>String(x.class_name||'').trim()===S.targetClass);
+ return S.recipientStudents.filter(x=>S.recipientSelected.has(String(x.id)));
+}
+function recipientPayload(){
+ if(S.demoOnly)return {demo_only:true};
+ if(S.recipientLoading||S.recipientError||!S.recipientStudents.length)throw Error('حمّل كشف الطلاب أولًا.');
+ const rows=targetedStudents();
+ if(!rows.length)throw Error('اختر فصلًا أو أسماء طلاب؛ لن يُرسل للجميع تلقائيًا.');
+ const base={demo_only:false,recipient_scope:S.recipientMode,expected_recipients:rows.length};
+ if(S.recipientMode==='all')return {...base,confirm_all:true};
+ if(S.recipientMode==='class')return {...base,target_class:S.targetClass};
+ return {...base,student_ids:rows.map(x=>x.id)};
+}
+function recipientDescription(){
+ if(S.demoOnly)return 'الطالب التجريبي فقط';
+ const n=targetedStudents().length.toLocaleString('ar-SA');
+ if(S.recipientMode==='all')return 'جميع الطلاب النشطين ('+n+' طالبًا)';
+ if(S.recipientMode==='class')return 'الفصل '+S.targetClass+' ('+n+' طالبًا)';
+ return 'الأسماء المحددة ('+n+' طالبًا)';
+}
+function recipientHtml(){
+ if(S.demoOnly)return '<div class="pretest-note">وضع تجريبي: لا يُرسل إلى الطلاب الحقيقيين.</div>';
+ const choices=[['selected','طلاب محددون'],['class','فصل محدد'],['all','جميع الطلاب — يتطلب تأكيدًا']];
+ const opts=choices.map(([value,label])=>'<option value="'+value+'"'+(S.recipientMode===value?' selected':'')+'>'+label+'</option>').join('');
+ const classes=[...new Set(S.recipientStudents.map(x=>String(x.class_name||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+ const cls=classes.map(x=>'<option value="'+esc(x)+'"'+(S.targetClass===x?' selected':'')+'>'+esc(x)+'</option>').join('');
+ const q=S.recipientSearch.toLocaleLowerCase('ar').trim();
+ const visible=S.recipientStudents.filter(x=>!q||[x.full_name,x.class_name].some(v=>String(v||'').toLocaleLowerCase('ar').includes(q))).slice(0,300);
+ const selector=S.recipientMode==='class'?'<label style="display:block">الفصل: <select id="recipientClass" style="padding:8px;border-radius:7px;background:white;color:#124b33"><option value="">اختر الفصل</option>'+cls+'</select></label>':'';
+ const list=S.recipientMode==='selected'?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:7px 0"><input id="recipientSearch" placeholder="ابحث بالاسم أو الفصل" value="'+esc(S.recipientSearch)+'" style="flex:1;min-width:140px;padding:9px;border-radius:8px;background:white;color:#124b33"><button type="button" class="secondary" id="selectRecipientVisible">تحديد الظاهر ('+visible.length+')</button><button type="button" class="secondary" id="clearRecipientSelection">مسح الأسماء</button></div><div style="max-height:190px;overflow:auto;background:#fff;color:#143f31;border-radius:9px;padding:6px">'+visible.map(x=>'<label style="display:flex;align-items:center;gap:9px;padding:6px;border-bottom:1px solid #eef2ef"><input type="checkbox" data-recipient-id="'+esc(x.id)+'" '+(S.recipientSelected.has(String(x.id))?'checked':'')+'>'+esc(x.full_name)+' <small style="color:#64748b">('+esc(x.class_name||'بلا فصل')+')</small></label>').join('')+'</div>':'';
+ return '<div class="pretest-note" style="background:#ecfdf5;color:#14532d;border:1px solid #86efac"><b>الطلاب المستهدفون:</b> <select id="recipientMode" style="padding:9px;border-radius:8px;background:white;color:#124b33">'+opts+'</select>'+
+ (S.recipientLoading?'<p>جارٍ تحميل الطلاب…</p>':'')+(S.recipientError?'<p>'+esc(S.recipientError)+' <button id="retryRecipients">إعادة المحاولة</button></p>':'')+
+ selector+list+'<p><strong>عدد المستهدفين: '+targetedStudents().length.toLocaleString('ar-SA')+' طالبًا.</strong> لن يُرسل لمن هم خارج اختيارك.</p></div>';
+}
+function wireRecipients(box){
+ box.querySelector('#recipientMode')?.addEventListener('change',e=>{S.recipientMode=e.target.value;render()});
+ box.querySelector('#recipientClass')?.addEventListener('change',e=>{S.targetClass=e.target.value;render()});
+ box.querySelector('#recipientSearch')?.addEventListener('input',e=>{S.recipientSearch=e.target.value;render();const input=document.getElementById('recipientSearch');input?.focus();input?.setSelectionRange?.(S.recipientSearch.length,S.recipientSearch.length)});
+ box.querySelector('#selectRecipientVisible')?.addEventListener('click',()=>{const q=S.recipientSearch.toLocaleLowerCase('ar').trim();for(const x of S.recipientStudents)if(!q||[x.full_name,x.class_name].some(v=>String(v||'').toLocaleLowerCase('ar').includes(q)))S.recipientSelected.add(String(x.id));render()});
+ box.querySelector('#clearRecipientSelection')?.addEventListener('click',()=>{S.recipientSelected.clear();render()});
+ box.querySelectorAll('[data-recipient-id]').forEach(x=>x.addEventListener('change',()=>{if(x.checked)S.recipientSelected.add(x.dataset.recipientId);else S.recipientSelected.delete(x.dataset.recipientId);render()}));
+ box.querySelector('#retryRecipients')?.addEventListener('click',loadRecipients);
+}
 
 function selectedTemplates(){
  return S.templates.filter(t=>S.selected.has(String(t.id))).sort((a,b)=>Number(a.global_indicator||a.indicator_index)-Number(b.global_indicator||b.indicator_index));
