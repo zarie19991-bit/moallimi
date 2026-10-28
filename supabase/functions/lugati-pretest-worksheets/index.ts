@@ -164,6 +164,62 @@ async function previewTemplate(req:Request,b:any,a:Access){
  return json(req,{ok:true,preview:true,template:{id:t.id,subject_key:t.subject_key,outcome_code:t.outcome_code,indicator_index:t.indicator_index,global_indicator:Number(t.display_index||globalNo(t.outcome_code,Number(t.indicator_index))),indicator_text:t.indicator_text,student_title:t.student_title,golden_rule:t.golden_rule,common_trap:t.common_trap,recognition_cues:t.recognition_cues||[],solution_steps:t.solution_steps||[],question_patterns:t.question_patterns||[],transfer_rule:t.transfer_rule||"",challenge_minutes:t.challenge_minutes,ready_percent:t.ready_percent},guided,challenge,exit});
 }
 
+
+/** Teacher-only recipient roster and verified recipient targeting.
+ * No dispatch with implicit "all". Legacy real-send callers must refresh.
+ */
+async function eligibleRealStudents(){
+ const collected:any[]=[];const page=500;
+ for(let offset=0;offset<5000;offset+=page){
+  const {data,error}=await db.from("nafes_students").select("id,full_name,class_name")
+    .eq("is_active",true).eq("is_demo",false).is("archived_at",null)
+    .order("id").range(offset,offset+page-1);
+  if(error)throw error;
+  collected.push(...(data||[]));
+  if((data||[]).length<page)return collected;
+ }
+ throw Object.assign(new Error("عدد الطلاب كبير جدًا لإرسال آمن؛ تواصل مع إدارة المنصة."),{status:409});
+}
+async function listRecipients(req:Request,a:Access){
+ if(a.role!=="teacher")return json(req,{error:"الكشف متاح للمعلم فقط."},403);
+ const students=await eligibleRealStudents();
+ const classes=[...new Set(students.map((x:any)=>tidy(x.class_name)).filter(Boolean))].sort((x,y)=>x.localeCompare(y,"ar"));
+ return json(req,{ok:true,students,classes,total:students.length});
+}
+async function selectRecipients(b:any){
+ const demoOnly=b?.demo_only===true;
+ if(demoOnly){
+  const {data,error}=await db.from("nafes_students").select("id").eq("is_active",true).eq("is_demo",true).range(0,999);
+  if(error)throw error;if(!(data||[]).length)throw Object.assign(new Error("الحساب التجريبي غير متاح."),{status:409});
+  return{scope:"demo",className:null,real:[],demo:data||[]};
+ }
+ const scope=tidy(b?.recipient_scope);
+ if(!["all","class","selected"].includes(scope))throw Object.assign(new Error("اختر الطلاب المستهدفين وحدّث صفحة ما قبل الاختبار قبل الإرسال."),{status:400});
+ const students=await eligibleRealStudents();
+ let target:any[]=[];
+ const className=scope==="class"?tidy(b?.target_class):null;
+ if(scope==="all"){
+  if(b?.confirm_all!==true)throw Object.assign(new Error("إرسال جميع الطلاب يحتاج موافقة صريحة."),{status:400});
+  target=students;
+ }else if(scope==="class"){
+  if(!className)throw Object.assign(new Error("اختر فصلًا واحدًا قبل الإرسال."),{status:400});
+  target=students.filter((x:any)=>tidy(x.class_name)===className);
+ }else{
+  const ids=b?.student_ids;
+  if(!Array.isArray(ids)||!ids.length||ids.length>1000)throw Object.assign(new Error("اختر اسم طالب واحد على الأقل، والحد الأقصى 1000."),{status:400});
+  const selected=ids.map((x:any)=>tidy(x)),unique=new Set(selected);
+  if(unique.size!==selected.length||selected.some((x:string)=>!/^[0-9a-f-]{36}$/i.test(x)))
+   throw Object.assign(new Error("قائمة الطلاب بها معرّفات مكررة أو غير صحيحة."),{status:400});
+  target=students.filter((x:any)=>unique.has(String(x.id)));
+  if(target.length!==unique.size)throw Object.assign(new Error("بعض الطلاب المحددين غير نشطين أو خارج كشف المستهدفين؛ حدّث القائمة."),{status:409});
+ }
+ if(!target.length)throw Object.assign(new Error("لا يوجد طلاب نشطون ضمن هذا الاختيار."),{status:409});
+ // Count is checked against the roster the teacher reviewed before committing.
+ if(!Number.isInteger(Number(b?.expected_recipients))||Number(b.expected_recipients)!==target.length)
+  throw Object.assign(new Error("تغيّر عدد الطلاب المستهدفين؛ راجع الكشف قبل إعادة الإرسال."),{status:409});
+ return{scope,className,real:target,demo:[]};
+}
+
 async function sendAll(req:Request,b:any,a:Access){
  if(a.role!=="teacher")return json(req,{error:"هذه العملية للمعلم فقط."},403);
  const tid=tidy(b?.template_id);if(!tid)return json(req,{error:"حدد المؤشر أولًا."},400);
@@ -172,13 +228,11 @@ async function sendAll(req:Request,b:any,a:Access){
  const {data:t,error}=await db.from("lugati_pretest_templates").select("id,indicator_text,subject_key,quality_passed").eq("id",tid).eq("is_active",true).maybeSingle();
  if(error)throw error;if(!t)return json(req,{error:"المؤشر غير موجود."},404);if(!teacherAllows(a,t.subject_key))return json(req,{error:"هذا المؤشر خارج مادة حسابك."},403);
  if(!t.quality_passed)return json(req,{error:"هذا المؤشر لم يجتز بوابة الجودة، ولا يمكن إرساله للطلاب."},409);
- const demoOnly=b?.demo_only===true;
- const {data:students,error:se}=await db.from("nafes_students").select("id").eq("is_active",true).eq("is_demo",false).is("archived_at",null);if(se)throw se;if(!demoOnly&&!(students||[]).length)return json(req,{error:"لا يوجد طلاب نشطون."},409);
- const {data:demoRows,error:demoErr}=await db.from("nafes_students").select("id").eq("is_active",true).eq("is_demo",true);if(demoErr)throw demoErr;
- if(demoOnly&&!(demoRows||[]).length)return json(req,{error:"لا يوجد حساب طالب تجريبي نشط."},409);
- const {data:d,error:de}=await db.from("lugati_pretest_dispatches").insert({template_id:tid,teacher_access_id:a.teacher_access_id,target_scope:demoOnly?"demo":"all"}).select("id,sent_at").single();if(de)throw de;
- const rows=(demoOnly?[]:(students||[])).map((s:any)=>({dispatch_id:d.id,student_id:s.id,status:"new",journey_status:"sent",current_stage:"secret",response_json:{}}));
- const previewRows=(demoRows||[]).map((s:any)=>({dispatch_id:d.id,student_id:s.id,status:"new",journey_status:"sent",current_stage:"secret",response_json:{demo_preview:true,demo_only:demoOnly}}));
+ const recipients=await selectRecipients(b);
+ const demoOnly=recipients.scope==="demo";
+ const {data:d,error:de}=await db.from("lugati_pretest_dispatches").insert({template_id:tid,teacher_access_id:a.teacher_access_id,target_scope:recipients.scope,target_class:recipients.className}).select("id,sent_at").single();if(de)throw de;
+ const rows=recipients.real.map((s:any)=>({dispatch_id:d.id,student_id:s.id,status:"new",journey_status:"sent",current_stage:"secret",response_json:{}}));
+ const previewRows=recipients.demo.map((s:any)=>({dispatch_id:d.id,student_id:s.id,status:"new",journey_status:"sent",current_stage:"secret",response_json:{demo_preview:true,demo_only:demoOnly}}));
  const allRows=[...rows,...previewRows];
  for(let i=0;i<allRows.length;i+=500){const {error:e}=await db.from("lugati_pretest_student_assignments").insert(allRows.slice(i,i+500));if(e)throw e}
  return json(req,{ok:true,dispatch_id:d.id,sent_at:d.sent_at,students:rows.length,demo_students:previewRows.length,demo_only:demoOnly,indicator_text:t.indicator_text,subject_key:t.subject_key,demo_preview:previewRows.length>0});
@@ -208,20 +262,17 @@ async function sendBundle(req:Request,b:any,a:Access){
  const ordered=[...(templates||[])].sort((x:any,y:any)=>Number(x.display_index||x.indicator_index)-Number(y.display_index||y.indicator_index));
  const defaultTitle=(subject==="math"?"رحلة إتقان الرياضيات":subject==="science"?"رحلة إتقان العلوم":"رحلة إتقان القراءة")+" — "+ordered.length+" مؤشرات";
  const title=cleanText(b?.bundle_title||defaultTitle).slice(0,140)||defaultTitle;
- const demoOnly=b?.demo_only===true;
- const {data:students,error:se}=await db.from("nafes_students").select("id").eq("is_active",true).eq("is_demo",false).is("archived_at",null);
- if(se)throw se;if(!demoOnly&&!(students||[]).length)return json(req,{error:"لا يوجد طلاب نشطون."},409);
- const {data:demos,error:de}=await db.from("nafes_students").select("id").eq("is_active",true).eq("is_demo",true);if(de)throw de;
- if(demoOnly&&!(demos||[]).length)return json(req,{error:"لا يوجد حساب طالب تجريبي نشط."},409);
+ const recipients=await selectRecipients(b);
+ const demoOnly=recipients.scope==="demo";
  const bundleId=crypto.randomUUID(),now=new Date().toISOString();
  const dispatchRows=ordered.map((t:any,i:number)=>({
-   template_id:t.id,teacher_access_id:a.teacher_access_id,target_scope:demoOnly?"demo":"all",
+   template_id:t.id,teacher_access_id:a.teacher_access_id,target_scope:recipients.scope,target_class:recipients.className,
    bundle_id:bundleId,bundle_title:title,bundle_order:i+1,bundle_size:ordered.length,sent_at:now
  }));
  const {data:dispatches,error:di}=await db.from("lugati_pretest_dispatches").insert(dispatchRows)
    .select("id,template_id,bundle_order,sent_at");
  if(di)throw di;
- const realStudents=demoOnly?[]:(students||[]),demoStudents=demos||[],rows:any[]=[];
+ const realStudents=recipients.real,demoStudents=recipients.demo,rows:any[]=[];
  for(const d of dispatches||[]){
    for(const s of realStudents)rows.push({dispatch_id:d.id,student_id:s.id,status:"new",journey_status:"sent",current_stage:"secret",response_json:{bundle_id:bundleId}});
    for(const s of demoStudents)rows.push({dispatch_id:d.id,student_id:s.id,status:"new",journey_status:"sent",current_stage:"secret",response_json:{bundle_id:bundleId,demo_preview:true,demo_only:demoOnly}});
@@ -617,6 +668,7 @@ Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(req)});
  if(req.method!=="POST")return json(req,{error:"method_not_allowed"},405);
  try{const a=await access(req),b=await req.json().catch(()=>({})),act=tidy(b?.action);
+  if(act==="list_recipients")return await listRecipients(req,a);
   if(act==="list_templates")return await listTemplates(req,b,a);
   if(act==="preview_template")return await previewTemplate(req,b,a);
   if(act==="send_all")return await sendAll(req,b,a);
