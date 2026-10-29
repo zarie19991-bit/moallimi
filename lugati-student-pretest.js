@@ -3,7 +3,7 @@
 const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/lugati-pretest-worksheets';
 const EXACT='lugati_exact_session_v2',LEGACY='lugati_session_v1',LEGACY_ROLE='lugati_role_v1';
 const SUBJECTS={reading:{name:'القراءة',icon:'📖',curriculumTotal:16},math:{name:'الرياضيات',icon:'➗',curriculumTotal:null},science:{name:'العلوم',icon:'🔬',curriculumTotal:null}};
-const S={token:'',map:[],maps:{reading:[],math:[],science:[]},assessmentJourneys:{reading:null,math:null,science:null},teacherBundles:{reading:[],math:[],science:[]},activeCombinedJourney:null,activeSubject:'reading',current:null,activeLock:null,journey:null,stage:'map',reviewStep:null,reviewIndex:0,reviewResume:null,guidedIndex:0,activity:null,objective:null,feedback:null,challenge:null,exit:null,support:null,rescueAnswer:null,enrich:null,retention:null,timer:null,loading:false,error:''};
+const S={token:'',map:[],maps:{reading:[],math:[],science:[]},assessmentJourneys:{reading:null,math:null,science:null},teacherBundles:{reading:[],math:[],science:[]},assignmentHistory:{reading:[],math:[],science:[]},readOnlyMode:false,viewGeneration:0,activeCombinedJourney:null,activeSubject:'reading',current:null,activeLock:null,journey:null,stage:'map',reviewStep:null,reviewIndex:0,reviewResume:null,guidedIndex:0,activity:null,objective:null,feedback:null,challenge:null,exit:null,support:null,rescueAnswer:null,enrich:null,retention:null,timer:null,loading:false,error:''};
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function session(){try{const x=JSON.parse(sessionStorage.getItem(EXACT)||localStorage.getItem(EXACT)||'null');if(x?.token&&x?.role==='student')return x}catch{}for(const st of [sessionStorage,localStorage]){try{const token=st.getItem(LEGACY),role=st.getItem(LEGACY_ROLE);if(token&&role==='student')return{token,role:'student'}}catch{}}return null}
 async function post(action,extra={}){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${S.token}`},body:JSON.stringify({action,...extra}),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||`تعذر الاتصال (${r.status})`);return d}
@@ -15,7 +15,7 @@ function styles(){if(document.getElementById('journeyStyles'))return;const s=doc
 .journey-head{padding:22px;background:linear-gradient(135deg,#064e3b,#0f766e,#0369a1);color:#fff}.journey-head-row{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.journey-head h1{margin:5px 0;font-size:25px}.journey-head p{margin:0;color:#d1fae5;font-size:12px}.journey-close{border:0;background:rgba(255,255,255,.14);color:white;width:40px;height:40px;border-radius:12px;font-size:24px;cursor:pointer}.journey-body{padding:18px}.journey-subject-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}.journey-subject-tab{border:1px solid #e2e8f0;background:#fff;border-radius:13px;padding:9px;font-size:11px;font-weight:900;color:#64748b;cursor:pointer}.journey-subject-tab.active{background:#0f766e;color:white;border-color:#0f766e}
 .journey-current{background:#fff;border:1px solid #bae6fd;border-radius:20px;padding:16px;margin-bottom:16px;display:flex;gap:14px;align-items:center;justify-content:space-between}.journey-current h3{margin:4px 0;font-size:14px}.journey-current p{margin:0;color:#64748b;font-size:11px}.journey-primary{border:0;border-radius:13px;padding:11px 15px;background:#0369a1;color:white;font-weight:900;cursor:pointer}.journey-secondary{border:1px solid #cbd5e1;border-radius:13px;padding:10px 14px;background:white;color:#334155;font-weight:800;cursor:pointer}
 .combined-journey{background:linear-gradient(135deg,#0f172a,#0f766e);color:#fff;border-radius:24px;padding:18px;margin-bottom:16px;box-shadow:0 18px 45px rgba(15,23,42,.16)}.combined-journey-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.combined-journey-kicker{font-size:10px;font-weight:900;color:#99f6e4}.combined-journey h2{font-size:20px;line-height:1.6;margin:5px 0}.combined-journey p{font-size:11px;color:#d1fae5;line-height:1.8;margin:0}.combined-progress{height:9px;background:rgba(255,255,255,.14);border-radius:999px;overflow:hidden;margin-top:13px}.combined-progress>span{display:block;height:100%;background:#34d399;border-radius:999px}.combined-details{margin-top:12px;border-top:1px solid rgba(255,255,255,.12);padding-top:10px}.combined-details summary{cursor:pointer;font-size:10px;font-weight:900;color:#d1fae5;list-style:none}.combined-details summary::-webkit-details-marker{display:none}.combined-list{display:grid;gap:8px;margin-top:10px;max-height:320px;overflow:auto;padding-left:3px;scrollbar-width:thin}.combined-item{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px}.combined-item-num{width:30px;height:30px;display:grid;place-items:center;border-radius:10px;background:rgba(255,255,255,.12);font-size:11px;font-weight:900;flex:0 0 auto}.combined-item-main{min-width:0;flex:1}.combined-item-title{display:block;font-size:11px;line-height:1.6;font-weight:900}.combined-item-meta{display:block;font-size:9px;color:#cbd5e1;margin-top:2px}.combined-state{font-size:9px;font-weight:900;border-radius:999px;padding:5px 8px;white-space:nowrap}.combined-state.ready{background:#d1fae5;color:#047857}.combined-state.work{background:#fef3c7;color:#92400e}.combined-state.wait{background:#e2e8f0;color:#475569}.combined-action{border:0;border-radius:13px;padding:11px 16px;background:#fff;color:#0f766e;font-weight:900;cursor:pointer;white-space:nowrap}.combined-summary{max-width:820px;margin:0 auto;background:#fff;border:1px solid #a7f3d0;border-radius:24px;padding:24px;text-align:center}.combined-summary h2{font-size:24px;margin:8px 0}.combined-summary-grid{display:grid;gap:9px;margin-top:16px;text-align:right}@media(max-width:640px){.combined-journey{padding:14px;border-radius:20px}.combined-action{width:100%}.combined-item{align-items:flex-start}.combined-state{white-space:normal;text-align:center}}
-.journey-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:12px}.journey-node{border:1px solid #e2e8f0;background:white;border-radius:18px;min-height:138px;padding:14px;text-align:right;cursor:pointer}.journey-node-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.journey-node .num{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:900;flex:0 0 auto}.journey-node .indicator-name{display:block;font-size:13px;line-height:1.85;font-weight:900;color:#0f172a;margin-top:10px}.journey-node small{display:block;font-size:10px;line-height:1.65;font-weight:800}.journey-node.locked{color:#94a3b8;cursor:default}.journey-node.locked .num{background:#f1f5f9}.journey-node.sent .num{background:#e0f2fe;color:#0369a1}.journey-node.in_progress .num{background:#fef3c7;color:#b45309}.journey-node.support .num{background:#ffe4e6;color:#be123c}.journey-node.blocked{opacity:.58;cursor:not-allowed;background:#f8fafc}.journey-node.blocked .num{background:#e2e8f0;color:#64748b}.journey-node.ready .num{background:#d1fae5;color:#047857}.journey-node.ready{border-color:#a7f3d0}.journey-node.support{border-color:#fecdd3}.exit-box{border:2px solid #0f766e;background:#ecfdf5;border-radius:18px;padding:16px;margin:14px 0}.mastery-lock{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:15px;padding:12px;font-size:12px;line-height:1.8;margin-bottom:14px}
+.journey-review-card{display:flex;flex-direction:column;gap:6px;min-width:0}.journey-review-card .journey-node{width:100%;flex:1}.journey-readonly-btn{border:1px solid #93c5fd;background:#eff6ff;color:#1e40af;border-radius:11px;padding:10px 12px;font-weight:900;cursor:pointer;font-size:12px}.journey-readonly-status{background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;padding:11px 14px;border-radius:13px;margin:0 0 12px;font-size:13px;line-height:1.8}.journey-history{margin:12px 0 16px;padding:13px;background:#fff;border:1px solid #dbeafe;border-radius:15px}.journey-history summary{font-weight:900;color:#1e40af;cursor:pointer}.journey-history-entry{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:9px 3px;border-bottom:1px solid #e2e8f0}.journey-history-entry strong{font-size:12px;color:#1e293b}.journey-history-entry small{color:#64748b;display:block;font-size:10px}.journey-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:12px}.journey-node{border:1px solid #e2e8f0;background:white;border-radius:18px;min-height:138px;padding:14px;text-align:right;cursor:pointer}.journey-node-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.journey-node .num{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:900;flex:0 0 auto}.journey-node .indicator-name{display:block;font-size:13px;line-height:1.85;font-weight:900;color:#0f172a;margin-top:10px}.journey-node small{display:block;font-size:10px;line-height:1.65;font-weight:800}.journey-node.locked{color:#94a3b8;cursor:default}.journey-node.locked .num{background:#f1f5f9}.journey-node.sent .num{background:#e0f2fe;color:#0369a1}.journey-node.in_progress .num{background:#fef3c7;color:#b45309}.journey-node.support .num{background:#ffe4e6;color:#be123c}.journey-node.blocked{opacity:.58;cursor:not-allowed;background:#f8fafc}.journey-node.blocked .num{background:#e2e8f0;color:#64748b}.journey-node.ready .num{background:#d1fae5;color:#047857}.journey-node.ready{border-color:#a7f3d0}.journey-node.support{border-color:#fecdd3}.exit-box{border:2px solid #0f766e;background:#ecfdf5;border-radius:18px;padding:16px;margin:14px 0}.mastery-lock{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:15px;padding:12px;font-size:12px;line-height:1.8;margin-bottom:14px}
 .journey-progress{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}.journey-step{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:10px;text-align:center;font-size:10px;font-weight:900;color:#64748b}.journey-step.active{border-color:#0ea5e9;background:#e0f2fe;color:#075985}.journey-step.done{border-color:#6ee7b7;background:#ecfdf5;color:#047857}
 .journey-panel{max-width:820px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:24px;padding:24px;font-size:15px}.secret-icon{width:58px;height:58px;border-radius:20px;background:#fef3c7;color:#b45309;display:grid;place-items:center;font-size:28px}.journey-panel h2{margin:10px 0 5px;font-size:23px;line-height:1.7;color:#0f172a}.journey-panel .sub{font-size:14px;color:#475569;line-height:1.95}.gold-card,.trap-card{border-radius:17px;padding:15px;margin-top:13px;line-height:1.8;font-size:13px}.gold-card{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}.trap-card{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}.journey-action{margin-top:18px;width:100%;border:0;border-radius:14px;padding:13px;background:#047857;color:#fff;font-weight:900;cursor:pointer}
 .activity-stimulus{background:#f0f9ff;border-right:4px solid #0284c7;border-radius:14px;padding:16px;font-size:15px;line-height:2;margin:13px 0}.activity-diagram{background:#fff;border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin:13px 0;white-space:pre-wrap;direction:ltr;text-align:center;font-family:Consolas,monospace;font-size:15px;line-height:1.8;color:#0f172a}.activity-title{font-size:11px;color:#0284c7;font-weight:900}.activity-prompt{font-size:17px;font-weight:900;line-height:2;color:#0f172a;margin:10px 0 14px}.choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.choice-btn{border:2px solid #e2e8f0;background:white;border-radius:13px;padding:14px;text-align:right;font-size:14px;line-height:1.8;font-weight:800;cursor:pointer}.choice-btn.selected{border-color:#0284c7;background:#f0f9ff}.obj-box{border-top:1px solid #e2e8f0;margin-top:18px;padding-top:16px}.obj-box b{font-size:12px;color:#047857}.objective-choice span{display:block}.objective-choice small{display:block;margin-top:4px;font-size:9px;color:#94a3b8;font-weight:800}.objective-full{margin-top:9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:9px 11px}.objective-full summary{cursor:pointer;font-size:10px;font-weight:900;color:#64748b}.objective-full ol{margin:8px 0 0;padding-right:18px}.objective-full li{font-size:10px;color:#64748b;line-height:1.8}.feedback{margin-top:14px;border-radius:13px;padding:12px;font-size:12px;line-height:1.8;font-weight:700}.feedback.ok{background:#ecfdf5;color:#065f46;border-right:4px solid #10b981}.feedback.bad{background:#fff1f2;color:#9f1239;border-right:4px solid #f43f5e}
@@ -120,7 +120,7 @@ async function loadMap(){
  if(S.loading)return;S.loading=true;
  try{
    const rows=await Promise.all(Object.keys(SUBJECTS).map(subject=>post('journey_map',{subject_key:subject})));
-   rows.forEach(d=>{S.maps[d.subject_key]=d.indicators||[];S.assessmentJourneys[d.subject_key]=d.assessment_journey||null;S.teacherBundles[d.subject_key]=d.teacher_bundles||[]});
+   rows.forEach(d=>{S.maps[d.subject_key]=d.indicators||[];S.assessmentJourneys[d.subject_key]=d.assessment_journey||null;S.teacherBundles[d.subject_key]=d.teacher_bundles||[];S.assignmentHistory[d.subject_key]=d.assignment_history||[]});
    S.activeLock=rows.map(d=>d.active_lock_assignment_id).find(Boolean)||null;
    S.map=S.maps[S.activeSubject]||[];
    const all=allItems(),pending=all.filter(x=>x.assignment&&x.state!=='ready'&&!x.locked_by_active);
@@ -193,7 +193,7 @@ function openCurrentJourney(){
  openMap(cur.subject_key||'reading');
  openJourney(cur.assignment.id);
 }
-function closeOverlay(){clearInterval(S.timer);S.timer=null;document.getElementById('journeyOverlay')?.remove();S.stage='map';S.journey=null;S.challenge=null;S.exit=null;S.support=null;loadMap()}
+function closeOverlay(){S.viewGeneration++;S.readOnlyMode=false;S.reviewStep=null;clearInterval(S.timer);S.timer=null;document.getElementById('journeyOverlay')?.remove();S.stage='map';S.journey=null;S.challenge=null;S.exit=null;S.support=null;loadMap()}
 function renderMap(){
  const b=document.getElementById('journeyBody');if(!b)return;
  S.map=S.maps[S.activeSubject]||[];
@@ -218,11 +218,34 @@ function renderMap(){
  b.querySelectorAll('[data-open-combined]').forEach(x=>x.onclick=()=>openCombinedJourney(x.dataset.openCombined));
  b.querySelectorAll('[data-open-assignment],[data-map-assignment]').forEach(x=>x.onclick=()=>openJourney(x.dataset.openAssignment||x.dataset.mapAssignment));
 }
+
+async function openReadOnly(id){
+ // Review is deliberately detached from the active training workflow:
+ // no challenge timer, no answer submission, no assignment-state update.
+ const requestId=++S.viewGeneration;
+ S.readOnlyMode=true;S.reviewStep=0;S.reviewIndex=0;S.reviewResume=null;
+ S.activity=null;S.objective=null;S.feedback=null;S.challenge=null;S.exit=null;
+ clearInterval(S.timer);S.timer=null;
+ const b=document.getElementById('journeyBody');
+ if(b)b.innerHTML='<div class="journey-panel" style="text-align:center">جارٍ فتح صفحات المؤشر للقراءة فقط…</div>';
+ try{
+  const d=await post('get_journey',{assignment_id:id,read_only:true});
+  if(requestId!==S.viewGeneration||!document.getElementById('journeyOverlay'))return;
+  if(!d.read_only||String(d.assignment?.id)!==String(id))throw Error('تعذر تأكيد وضع الاستعراض الآمن.');
+  S.journey=d;S.stage='review';S.support=null;renderReview();
+ }catch(e){
+  if(requestId!==S.viewGeneration)return;
+  S.readOnlyMode=false;S.reviewStep=null;S.stage='map';
+  if(b){b.innerHTML='<div class="journey-panel"><p class="feedback bad">'+esc(e.message)+'</p><button type="button" class="journey-secondary" data-journey-map>العودة للخريطة</button></div>'}
+ }
+}
+
 async function openJourney(id){
- S.reviewStep=null;S.reviewResume=null;S.activity=null;S.challenge=null;S.exit=null;
+ const requestId=++S.viewGeneration;
+ S.readOnlyMode=false;S.reviewStep=null;S.reviewResume=null;S.activity=null;S.challenge=null;S.exit=null;
  const b=document.getElementById('journeyBody');if(b)b.innerHTML='<div style="padding:70px;text-align:center;color:#64748b">جارٍ تجهيز رحلة المؤشر…</div>';
  try{
-   const d=await post('get_journey',{assignment_id:id});S.journey=d;S.feedback=null;S.support={reviews:d.support_review||[],rescue:Array.isArray(d.rescue)?d.rescue:(d.rescue?[d.rescue]:[])};
+   const d=await post('get_journey',{assignment_id:id});if(requestId!==S.viewGeneration||!document.getElementById('journeyOverlay'))return;S.journey=d;S.feedback=null;S.support={reviews:d.support_review||[],rescue:Array.isArray(d.rescue)?d.rescue:(d.rescue?[d.rescue]:[])};
    const st=d.assignment.journey_status,stage=d.assignment.current_stage;
    if(st==='ready'){S.stage='ready';renderReady()}
    else if(st==='support'){S.stage='support';renderSupport()}
@@ -234,16 +257,19 @@ async function openJourney(id){
 function hasSubmittedJourney(){const a=S.journey?.assignment||{};return !!(a.challenge_submitted_at||a.exit_submitted_at||a.journey_status==='ready'||a.journey_status==='support'||a.current_stage==='exit')}
 function progress(step){
  const names=['أفهم المطلوب','أتدرب على الصياغات','أحل وحدي','أثبت الإتقان','النتيجة'];
- const nav=hasSubmittedJourney()?`<nav class="journey-progress" aria-label="صفحات رحلة المؤشر">${names.map((n,i)=>`<button type="button" class="journey-step ${i===(S.reviewStep??step)?'active':''}" data-review-stage="${i}">${n}</button>`).join('')}</nav>`:originalProgress(step);
+ const nav=(S.readOnlyMode||hasSubmittedJourney())?`<nav class="journey-progress" aria-label="صفحات رحلة المؤشر">${names.map((n,i)=>`<button type="button" class="journey-step ${i===(S.reviewStep??step)?'active':''}" data-review-stage="${i}">${n}</button>`).join('')}</nav>`:originalProgress(step);
  return `<button type="button" class="journey-secondary" data-journey-map style="margin-bottom:12px">خريطة المؤشرات</button>${nav}`;
 }
 async function openReview(step){
+ if(S.readOnlyMode){
+  if(!S.journey)return;S.reviewStep=Math.max(0,Math.min(4,Number(step)||0));S.reviewIndex=0;S.stage='review';renderReview();return;
+ }
  if(!hasSubmittedJourney())return;
  const id=S.journey.assignment.id;
  if(S.reviewStep===null)S.reviewResume=S.stage==='exit'&&S.exit?{id,exit:S.exit}:null;
  clearInterval(S.timer);S.timer=null;
  try{
-  const d=await post('get_journey',{assignment_id:id});
+  const d=await post('get_journey',{assignment_id:id,read_only:true});
   if(!document.getElementById('journeyOverlay')||S.journey?.assignment.id!==id)return;
   S.journey=d;S.reviewStep=step;S.reviewIndex=0;S.stage='review';renderReview();
  }catch(e){alert(e.message)}
@@ -253,12 +279,12 @@ function renderReview(){
  const step=S.reviewStep;
  if(step===0){S.stage='secret';renderJourney();S.stage='review';const go=document.getElementById('goGuided');if(go){go.textContent='مراجعة صفحات التدريب';go.onclick=()=>{S.reviewStep=1;S.reviewIndex=0;renderReview()}}return}
  const a=S.journey.assignment;
- const footer=`<button class="journey-secondary" data-resume-journey style="margin-top:16px;width:100%">${a.journey_status==='ready'?'العودة إلى الإتقان والإثراء':'متابعة التدريب من موضع التوقف'}</button>`;
- const banner='<div class="feedback ok" style="margin-bottom:14px">مراجعة بعد التسليم — نتيجتك وإتقانك محفوظان.</div>';
+ const footer=S.readOnlyMode?'<button type="button" class="journey-secondary" data-journey-map style="margin-top:16px;width:100%">العودة إلى خريطة المؤشرات</button>':`<button class="journey-secondary" data-resume-journey style="margin-top:16px;width:100%">${a.journey_status==='ready'?'العودة إلى الإتقان والإثراء':'متابعة التدريب من موضع التوقف'}</button>`;
+ const banner=S.readOnlyMode?'<div class="journey-readonly-status">👁 وضع الاستعراض فقط: يمكنك التنقل بين جميع أقسام المؤشر والصفحات التي أُتيحت لك، دون تعديل إجابة أو بدء اختبار أو تغيير نتيجتك. أسئلة الاختبار غير المسلّمة لا تُعرض قبل تسليمها.</div>':'<div class="feedback ok" style="margin-bottom:14px">مراجعة بعد التسليم — نتيجتك وإتقانك محفوظان.</div>';
  if(step===4){b.innerHTML=`${progress(4)}<div class="journey-panel">${banner}<h2>${a.journey_status==='ready'?'أتقنت هذا المؤشر':'نتيجتك الحالية'}</h2><p class="sub">التحدي: ${a.challenge_percent==null?'لم يُسلّم':esc(a.challenge_percent)+'٪'}</p><p class="sub">اختبار الخروج: ${a.exit_percent==null?'لم يُسلّم':esc(a.exit_percent)+'٪'}</p>${footer}</div>`;return}
  const items=step===1?(S.journey.guided||[]):(S.journey.review?.[step===2?'challenge':'exit']||[]);
  const q=items[S.reviewIndex];
- if(!q){b.innerHTML=`${progress(step)}<div class="journey-panel">${banner}<p class="sub">لا توجد صفحات مسلّمة في هذه المرحلة حتى الآن.</p>${footer}</div>`;return}
+ if(!q){b.innerHTML=`${progress(step)}<div class="journey-panel">${banner}<p class="sub">لا توجد صفحات اختبار مسلّمة لعرضها في هذه المرحلة. يمكنك مراجعة المحتوى التعليمي والصفحات التي أجبت عنها؛ أما أسئلة التقييم فتظهر بعد التسليم فقط.</p>${footer}</div>`;return}
  const r=step===1?S.journey.responses?.[q.id]:q.response;
  S.activity=r?.activity_answer||null;S.objective=null;
  const savedObjective=r?.objective_correct?S.journey.template.indicator_text:null;
@@ -267,9 +293,9 @@ function renderReview(){
 function wireJourneyNavigation(w){
  w.addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
-  if(t.hasAttribute('data-journey-map')){clearInterval(S.timer);S.timer=null;S.reviewStep=null;S.activeCombinedJourney=null;S.stage='map';S.journey=null;S.challenge=null;S.exit=null;renderMap();return}
+  if(t.hasAttribute('data-journey-map')){S.viewGeneration++;S.readOnlyMode=false;clearInterval(S.timer);S.timer=null;S.reviewStep=null;S.activeCombinedJourney=null;S.stage='map';S.journey=null;S.challenge=null;S.exit=null;renderMap();return}
   if(t.hasAttribute('data-review-stage')){openReview(Number(t.dataset.reviewStage));return}
-  if(t.hasAttribute('data-resume-journey')){S.reviewStep=null;S.activity=null;const saved=S.reviewResume;S.reviewResume=null;if(saved?.id===S.journey.assignment.id){S.exit=saved.exit;S.stage='exit';renderExit()}else openJourney(S.journey.assignment.id);return}
+  if(t.hasAttribute('data-resume-journey')){if(S.readOnlyMode)return;S.reviewStep=null;S.activity=null;const saved=S.reviewResume;S.reviewResume=null;if(saved?.id===S.journey.assignment.id){S.exit=saved.exit;S.stage='exit';renderExit()}else openJourney(S.journey.assignment.id);return}
   if(t.hasAttribute('data-review-prev')||t.hasAttribute('data-review-next')){S.reviewIndex+=t.hasAttribute('data-review-next')?1:-1;renderReview()}
  });
 }
