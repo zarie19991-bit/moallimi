@@ -711,20 +711,19 @@ function prepareExactPrint(){
 
  localStorage.setItem('nafes_question_paper_last_print_metrics',JSON.stringify(metrics));
  const softWarnings=metrics.details.filter(x=>x.unresolved||x.avoidable_large_gap);
- if(hardErrors.length){
-   document.documentElement.classList.remove('print-preparing');
-   const detail=hardErrors.slice(0,12).map(x=>'ص'+ar(x.page)+' (رأسي '+Math.round(x.overflow_y_px)+'px، أفقي '+Math.round(x.overflow_x_px)+'px، مخفي '+x.hidden_text_nodes+')').join('، ');
-   $('screenMeta').textContent='تعذر فتح الطباعة: '+ar(hardErrors.length)+' صفحة لا تزال تتجاوز المساحة الآمنة بعد إعادة توزيعها. '+detail+'؛ تم إيقاف التصدير دون حذف أي سؤال.';
-   return false;
- }
  const structuralGaps=metrics.details.filter(x=>x.large_gap&&!x.avoidable_large_gap).length;
- if(softWarnings.length||structuralGaps){
+ if(hardErrors.length){
+   const detail=hardErrors.slice(0,6).map(x=>'ص'+ar(x.page)+' ('+Math.round(Math.max(x.overflow_y_px,x.overflow_x_px))+'px)').join('، ');
+   $('screenMeta').textContent='تنبيه قبل الطباعة: توجد '+ar(hardErrors.length)+' صفحة تحتاج مساحة إضافية '+detail+'؛ ستفتح نافذة الطباعة ولن تُحجب بسبب هذا التنبيه.';
+ }else if(softWarnings.length||structuralGaps){
    $('screenMeta').textContent='تم تجهيز الطباعة'+
      (softWarnings.length?' مع '+ar(softWarnings.length)+' تنبيه تخطيط غير مانع':'')+
      (structuralGaps?' و'+ar(structuralGaps)+' مساحة بيضاء مبررة':'')+
-     '. لا يوجد قص فعلي يمنع التصدير.';
+     '.';
  }
- return true;
+ // لا تمنع نافذة الطباعة بسبب فحص التخطيط. الإصلاح التلقائي يتم أولًا،
+ // ثم يظل القرار للمستخدم/المتصفح بدل زر لا يفعل شيئًا.
+ return document.querySelectorAll('.paper-page').length>0;
 }
 function releasePrintState(){
  printInProgress=false;
