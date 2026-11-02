@@ -179,7 +179,7 @@ async function startDemoDirect(){
 }
 // One request in flight; keep only the latest waiting autosave and prioritize delivery.
 const saveQueue=[];
-let saveRunning=false,deliveryJob=null,navigating=false;
+let saveRunning=false,deliveryJob=null;
 function setDeliveryBusy(busy){
  const button=$('finish');
  button.disabled=busy;
@@ -404,7 +404,20 @@ $('identity').onsubmit=e=>{
 };
 $('studentNo')?.addEventListener('input',e=>{e.target.value=normalizeDigits(e.target.value).replace(/\D/g,'').slice(0,3);});
 $('questions').onchange=e=>{if(deliveryJob||transitionPending)return;if(!e.target.matches('input[type=radio]'))return;const id=e.target.closest('[data-question]').dataset.question;answers[id]=Number(e.target.value);writeDraft();e.target.closest('.choices').querySelectorAll('.choice').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked));clearTimeout(saveDelay);saveDelay=setTimeout(()=>save().catch(()=>{}),350);$('progress').querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('answered',answers[state.sections[currentSection].questions[Number(b.dataset.go)].id]!==undefined));};
-async function navigate(n){if(!active||navigating||deliveryJob||transitionPending)return;const section=Number(state.current_section||0),count=state.sections[section].questions.length;if(!Number.isInteger(n)||n<0||n>=count)return;navigating=true;clearTimeout(saveDelay);const prior=cursor;cursor=n;try{await save();if(active&&!deliveryJob&&Number(state.current_section||0)===section){render();$('questions').scrollIntoView({behavior:'smooth',block:'start'});}}catch(_){if(Number(state.current_section||0)===section)cursor=prior;}finally{navigating=false;}}
+function navigate(n){
+ if(!active||deliveryJob||transitionPending)return;
+ const section=Number(state.current_section||0),count=state.sections[section].questions.length;
+ if(!Number.isInteger(n)||n<0||n>=count)return;
+ if(!state.settings.allow_back&&n!==cursor+1)return;
+ clearTimeout(saveDelay);
+ cursor=n;
+ // Navigation is local. A slow or failed autosave must never block answering
+ // or roll the student back to an earlier question.
+ writeDraft();
+ render();
+ $('questions').scrollIntoView({behavior:'smooth',block:'start'});
+ save().catch(()=>{});
+}
 $('next').onclick=()=>navigate(cursor+1);$('prev').onclick=()=>navigate(cursor-1);$('progress').onclick=e=>{const b=e.target.closest('[data-go]');if(b&&state.settings.allow_back)navigate(Number(b.dataset.go));};
 $('review').onclick=()=>{if(deliveryJob||transitionPending)return;const s=state.sections[currentSection];const unanswered=s.questions.map((q,i)=>answers[q.id]===undefined?i:null).filter(i=>i!==null);if(unanswered.length){if(confirm(`لم تجب عن ${ar(unanswered.length)} سؤالًا. الانتقال إلى أول سؤال دون إجابة؟`))navigate(unanswered[0]);}else alert('أجبت عن جميع أسئلة القسم. يمكنك تسليمه.');};
 
