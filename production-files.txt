@@ -216,3 +216,8 @@ workspace-analysis-print-scale-95.css
 my-tests.html
 my-tests.js
 my-tests.css
+tamakkun-missing-login-report.js
+tamakkun-teacher-review.js
+tamakkun-lughati-catalog.js
+tamakkun-remedial-studio.js
+tamakkun-student-diagnostics.js
