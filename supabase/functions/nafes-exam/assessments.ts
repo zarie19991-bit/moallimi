@@ -1385,7 +1385,7 @@ async function draftSections(db:any,c:Row,regenerate=false,excludeQuestionIds:un
   return sections;
 }
 async function codeFor(db:any) {for(let n=0;n<6;n++){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=[...crypto.getRandomValues(new Uint8Array(8))].map(x=>chars[x%chars.length]).join('');const r=must(await db.from('nafes_assessments').select('id').eq('short_code',code).maybeSingle());if(!r)return code;}fail('تعذر إنشاء رمز الاختبار؛ أعد المحاولة.');}
-async function assessment(db:any,code:unknown) {if(!/^[A-Z2-9]{8}$/.test(String(code||'')))fail('رمز الاختبار غير صالح.',404);const t=must(await db.from('nafes_assessments').select('*').eq('short_code',code).eq('status','published').maybeSingle());if(!t)fail('رابط الاختبار غير موجود.',404);return t;}
+async function assessment(db:any,code:unknown,infoOnly=false) {if(!/^[A-Z2-9]{8}$/.test(String(code||'')))fail('رمز الاختبار غير صالح.',404);const t=must(await db.from('nafes_assessments').select(infoOnly?'id,short_code,title,kind,config,legacy_target':'*').eq('short_code',code).eq('status','published').maybeSingle());if(!t)fail('رابط الاختبار غير موجود.',404);return t;}
 function studentInfo(t:Row) {const c=t.config;return{id:t.id,code:t.short_code,title:t.title,kind:t.kind,class_name:c.class_name,term:c.term||c.academic_term||'',academic_term:c.academic_term||c.term||'',school_name:c.school_name,teacher_name:c.teacher_name,grade_key:'middle_3',identity_mode:c.identity_mode,settings:c.settings,sections:(c.sections||[]).map((s:Row)=>({subject:s.subject,question_count:s.question_count,duration_minutes:s.duration_minutes,calculator:s.calculator})),ready:true,...(t.kind==='legacy'?{legacy_url:new URL(`exam.html?s=${t.legacy_target.subject}&o=${t.legacy_target.outcome}&i=${t.legacy_target.indicator}&m=${t.legacy_target.model}`,BASE).href}:{})};}
 const snapshotKey=(q:Row)=>JSON.stringify([q.id,q.context||null,q.question,q.options,q.correctIndex,q.explanation||null,q.indicator_key,q.indicator_text,q.cognitive_level,q.difficulty,q.model_no,q.question_no,q.image?.url||null,q.image?.alt||null]);
 export function matchesBankSnapshot(bank:Row,draft:Row):boolean {
@@ -1552,7 +1552,7 @@ async function studentAction(db:any,body:Row) {
    });
    return {ok:true,demo:true,student:{full_name:student.full_name,class_name:student.class_name,national_id_last3:student.national_id_last3},tests};
  }
- if(body.action==='assessment_info'){const t=await assessment(db,body.code);if(t.config?.settings?.manual_closed===true)fail('هذا الاختبار موقوف مؤقتًا من المعلم.',403);return studentInfo(t);}
+ if(body.action==='assessment_info'){const t=await assessment(db,body.code,true);if(t.config?.settings?.manual_closed===true)fail('هذا الاختبار موقوف مؤقتًا من المعلم.',403);return studentInfo(t);}
  if(body.action==='assessment_training'){
    const t=await assessment(db,body.code);
    if(t.kind==='legacy')fail('التدريب المخصص متاح للاختبارات المنشورة من النظام الجديد فقط.',409);

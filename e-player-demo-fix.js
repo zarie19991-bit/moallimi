@@ -10,7 +10,7 @@ let info,state,access='',answers={},cursor=0,timer,saveDelay,active=false,lockRe
 const identityKey='nafes_student_identity_session', demoIdentityKey='nafes_demo_student_identity_v1', legacyIdentityKey='nafes_student_identity', resumeKey='nafes_attempt_'+code, resumeMarkerKey='nafes_attempt_marker_'+code, draftKey='nafes_draft_v2_'+code, deliveryQueueKey='nafes_delivery_queue_v1_'+code, RESUME_MARKER_MAX_AGE=12*60*60*1000;
 try{localStorage.removeItem(legacyIdentityKey);}catch(_){}
 const activity=window.NafesActivity?.create({url:EDGE,now:()=>examNow(),isActive:()=>active&&!state?.submitted&&examNow()>=Date.parse(state?.section_started_at)&&examNow()<Date.parse(state?.expires_at),payload:()=>state?.attempt_id&&access?{action:'assessment_timing',code,session_id:session,attempt_id:state.attempt_id,access_token:access}:null});
-async function api(action,body={}){const ctrl=new AbortController(),timeoutMs=action==='assessment_finish'||action==='assessment_advance'?60000:action==='assessment_save'?45000:30000,timeout=setTimeout(()=>ctrl.abort(),timeoutMs);try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code,session_id:session,...body}),signal:ctrl.signal});const d=await r.json();if(!r.ok||d.error){activity?.failure(r.status);throw new Error(d.error||'تعذر إتمام الطلب.');}if(d.server_now&&Number.isFinite(Date.parse(d.server_now)))serverAnchor={time:Date.parse(d.server_now),tick:performance.now()};return d;}catch(e){activity?.failure();throw new Error(e.name==='AbortError'?'تأخر الاتصال. إجاباتك محفوظة على الجهاز وسيعاد إرسالها تلقائيًا عند استقرار الاتصال.':e.message);}finally{clearTimeout(timeout);}}
+async function api(action,body={}){const ctrl=new AbortController(),timeoutMs=action==='assessment_finish'||action==='assessment_advance'?60000:action==='assessment_save'?45000:30000,timeout=setTimeout(()=>ctrl.abort(),timeoutMs);try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code,session_id:session,...body}),signal:ctrl.signal});const d=await r.json();if(!r.ok||d.error){activity?.failure(r.status);throw new Error(d.error||'تعذر إتمام الطلب.');}if(d.server_now&&Number.isFinite(Date.parse(d.server_now)))serverAnchor={time:Date.parse(d.server_now),tick:performance.now()};return d;}catch(e){activity?.failure();throw new Error(e.name==='AbortError'?(action==='assessment_info'?'تأخر تحميل بيانات الاختبار. اضغط إعادة المحاولة؛ لم يبدأ الاختبار بعد.':'تأخر الاتصال. إجاباتك محفوظة على الجهاز وسيعاد إرسالها تلقائيًا عند استقرار الاتصال.'):e.message);}finally{clearTimeout(timeout);}}
 function authBody(){return {attempt_id:state?.attempt_id,access_token:access,answers:{...answers},cursor,expected_section:Number(state?.current_section||0)};}
 async function claim(){const settings=info?.settings||{};if(settings.lock_session!==true||locked)return true;if(navigator.locks){let resolve;const p=new Promise(r=>resolve=r);navigator.locks.request('nafes:'+code+':'+session,{ifAvailable:true},async lock=>{if(!lock){resolve(false);return;}locked=true;resolve(true);await new Promise(r=>lockRelease=r);});if(!await p)throw new Error('هذا الاختبار مفتوح في تبويب آخر على الجهاز. أكمله هناك.');}return true;}
 function readDraft(){
@@ -393,6 +393,7 @@ function showResult(d){
 }
 $('identity').onsubmit=e=>{
  e.preventDefault();if(starting)return;
+ if(!info||infoLoading){$('message').textContent='انتظر اكتمال تحميل بيانات الاختبار أو اضغط إعادة المحاولة.';return;}
  const name=$('studentName').value.trim();
  const no=normalizeDigits($('studentNo').value.trim()).replace(/\D/g,'').slice(0,3);
  const cls=($('className')?.value||'').trim();
@@ -460,7 +461,14 @@ addEventListener('online',()=>{if(active){queueDeliveryEvent('online',{action_na
 addEventListener('nafes:edge-retry',event=>{if(!active)return;const d=event.detail||{};if(d.phase==='retry')queueDeliveryEvent('retry',d);else if(d.phase==='recovered')queueDeliveryEvent('recovered',d);else if(d.phase==='failed')queueDeliveryEvent('request_failed',d);});
 setInterval(()=>{if(active)save().catch(()=>{});},15000);setInterval(()=>{if(active&&readDraft()?.finish_requested)retryPendingFinish();},10000);setInterval(watermark,10000);
 $('calcButton').onclick=()=>$('calculator').showModal();$('calcClose').onclick=()=>$('calculator').close();$('calcGo').onclick=()=>{const a=Number($('calcA').value),b=Number($('calcB').value),op=$('calcOp').value;const v=op==='+'?a+b:op==='−'?a-b:op==='×'?a*b:b===0?NaN:a/b;$('calcResult').textContent=Number.isFinite(v)?ar(v):'لا يمكن القسمة على صفر';};
-(async()=>{try{
+let infoLoading=false;
+async function loadExamInfo(){
+ if(infoLoading||active)return;
+ infoLoading=true;
+ const typedIdentity=['studentName','studentNo','className'].map(id=>[id,$(id).value]);
+ $('startBtn').disabled=true;$('retryLoad').hidden=true;
+ $('title').textContent='جارٍ تحميل الاختبار…';$('message').textContent='';
+ try{
  info=await api('assessment_info');
  if(info.legacy_url){const u=new URL(info.legacy_url,location.href);if(/^\d{6}$/.test(demoAccessCode))u.searchParams.set('demo_code',demoAccessCode);location.replace(u.href);return;}
  $('code').textContent=code;
@@ -472,6 +480,7 @@ $('calcButton').onclick=()=>$('calculator').showModal();$('calcClose').onclick=(
  $('className').value=configuredSection||'';
  $('className').readOnly=!!configuredSection;
  const demoMode=restoreIdentity();
+ if(!demoMode)for(const [id,value] of typedIdentity)if(value)$(id).value=value;
  if(demoMode)clearResume();
  const resumeMarker=demoMode?null:readResumeMarker();
  if(!demoMode&&info.identity_mode==='email'){
@@ -485,5 +494,10 @@ $('calcButton').onclick=()=>$('calculator').showModal();$('calcClose').onclick=(
  if(resumeMarker?.attempt_id&&!demoMode)$('message').textContent='توجد محاولة سابقة سارية على هذا الجهاز. أدخل بياناتك نفسها للتحقق واستئنافها.';
  $('identity').hidden=false;
  if(demoMode){$('message').textContent='جارٍ فتح الاختبار بالحساب التجريبي…';queueMicrotask(()=>$('identity').requestSubmit());}
-}catch(e){$('title').textContent='تعذر فتح الاختبار';$('message').textContent=e.message;}})();
+}catch(e){$('title').textContent='تعذر فتح الاختبار';$('message').textContent=e.message;$('retryLoad').hidden=false;}
+ finally{infoLoading=false;$('startBtn').disabled=!info;}
+}
+$('retryLoad').onclick=()=>loadExamInfo();
+addEventListener('online',()=>{if(!info&&!active)loadExamInfo();});
+loadExamInfo();
 })();
