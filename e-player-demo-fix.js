@@ -9,27 +9,43 @@ function examNow(){return serverAnchor?serverAnchor.time+(performance.now()-serv
 let info,state,access='',answers={},cursor=0,timer,saveDelay,active=false,lockRelease,locked=false,starting=false,lastEvent=0,telemetryFlushing=false,finalRetrying=false,pendingStart=null,lastIdentity={name:'',class:''};
 const identityKey='nafes_student_identity_session', demoIdentityKey='nafes_demo_student_identity_v1', legacyIdentityKey='nafes_student_identity', resumeKey='nafes_attempt_'+code, resumeMarkerKey='nafes_attempt_marker_'+code, draftKey='nafes_draft_v2_'+code, deliveryQueueKey='nafes_delivery_queue_v1_'+code, RESUME_MARKER_MAX_AGE=12*60*60*1000;
 try{localStorage.removeItem(legacyIdentityKey);}catch(_){}
+// Drafts (answers + finish intent) are stored per attempt. `draftKey` is the old single slot per test code; it is only read
+// when it belongs to the same attempt, so one student's or attempt's draft can never be applied to another.
+const legacyDraftKey=draftKey;
+function draftKeyFor(id){return legacyDraftKey+'_'+String(id||'');}
 const activity=window.NafesActivity?.create({url:EDGE,now:()=>examNow(),isActive:()=>active&&!state?.submitted&&examNow()>=Date.parse(state?.section_started_at)&&examNow()<Date.parse(state?.expires_at),payload:()=>state?.attempt_id&&access?{action:'assessment_timing',code,session_id:session,attempt_id:state.attempt_id,access_token:access}:null});
-async function api(action,body={}){const ctrl=new AbortController(),timeoutMs=action==='assessment_finish'||action==='assessment_advance'?60000:action==='assessment_save'?45000:30000,timeout=setTimeout(()=>ctrl.abort(),timeoutMs);try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code,session_id:session,...body}),signal:ctrl.signal});const d=await r.json();if(!r.ok||d.error){activity?.failure(r.status);throw new Error(d.error||'تعذر إتمام الطلب.');}if(d.server_now&&Number.isFinite(Date.parse(d.server_now)))serverAnchor={time:Date.parse(d.server_now),tick:performance.now()};return d;}catch(e){activity?.failure();throw new Error(e.name==='AbortError'?(action==='assessment_info'?'تأخر تحميل بيانات الاختبار. اضغط إعادة المحاولة؛ لم يبدأ الاختبار بعد.':'تأخر الاتصال. إجاباتك محفوظة على الجهاز وسيعاد إرسالها تلقائيًا عند استقرار الاتصال.'):e.message);}finally{clearTimeout(timeout);}}
+async function api(action,body={}){const ctrl=new AbortController(),timeoutMs=action==='assessment_finish'||action==='assessment_advance'?60000:action==='assessment_save'?45000:action==='assessment_info'?15000:30000,timeout=setTimeout(()=>ctrl.abort(),timeoutMs);try{const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code,session_id:session,...body}),signal:ctrl.signal});const d=await r.json();if(!r.ok||d.error){activity?.failure(r.status);const err=new Error(d.error||'تعذر إتمام الطلب.');err.status=r.status;throw err;}if(d.server_now&&Number.isFinite(Date.parse(d.server_now)))serverAnchor={time:Date.parse(d.server_now),tick:performance.now()};return d;}catch(e){activity?.failure();const wrapped=new Error(e.name==='AbortError'?(action==='assessment_info'?'تأخر تحميل بيانات الاختبار. اضغط إعادة المحاولة؛ لم يبدأ الاختبار بعد.':'تأخر الاتصال. إجاباتك محفوظة على الجهاز وسيعاد إرسالها تلقائيًا عند استقرار الاتصال.'):e.message);if(e.status)wrapped.status=e.status;throw wrapped;}finally{clearTimeout(timeout);}}
 function authBody(){return {attempt_id:state?.attempt_id,access_token:access,answers:{...answers},cursor,expected_section:Number(state?.current_section||0)};}
 async function claim(){const settings=info?.settings||{};if(settings.lock_session!==true||locked)return true;if(navigator.locks){let resolve;const p=new Promise(r=>resolve=r);navigator.locks.request('nafes:'+code+':'+session,{ifAvailable:true},async lock=>{if(!lock){resolve(false);return;}locked=true;resolve(true);await new Promise(r=>lockRelease=r);});if(!await p)throw new Error('هذا الاختبار مفتوح في تبويب آخر على الجهاز. أكمله هناك.');}return true;}
-function readDraft(){
+function parseDraft(raw){try{return JSON.parse(raw||'null');}catch(_){return null;}}
+function draftUsable(d,attemptId){
+ if(!d?.attempt_id||String(d.attempt_id)!==String(attemptId||''))return false;
+ const stale=Date.now()-Number(d.saved_at||0)>RESUME_MARKER_MAX_AGE;
+ const expired=d.expires_at&&Date.now()>new Date(d.expires_at).getTime()+5*60*1000;
+ return !(stale||expired);
+}
+function readDraft(attemptId=state?.attempt_id){
+ if(!attemptId)return null;
  try{
-  const d=JSON.parse(localStorage.getItem(draftKey)||'null');
-  if(!d?.attempt_id)return null;
-  const stale=Date.now()-Number(d.saved_at||0)>RESUME_MARKER_MAX_AGE;
-  const expired=d.expires_at&&Date.now()>new Date(d.expires_at).getTime()+5*60*1000;
-  if(stale||expired){localStorage.removeItem(draftKey);return null;}
-  return d;
- }catch(_){return null;}
+  const key=draftKeyFor(attemptId),own=parseDraft(localStorage.getItem(key));
+  if(own){if(draftUsable(own,attemptId))return own;localStorage.removeItem(key);}
+  const legacy=parseDraft(localStorage.getItem(legacyDraftKey));
+  if(legacy&&String(legacy.attempt_id)===String(attemptId)){
+   if(draftUsable(legacy,attemptId))return legacy;
+   localStorage.removeItem(legacyDraftKey);
+  }
+ }catch(_){}
+ return null;
 }
 function writeDraft(extra={}){
+ if(!state?.attempt_id)return;
+ const attemptId=state.attempt_id,key=draftKeyFor(attemptId);
+ let record;
  try{
-  if(!state?.attempt_id)return;
-  const old=readDraft()||{};
-  const record={
+  const old=readDraft(attemptId)||{};
+  record={
     ...old,
-    attempt_id:state.attempt_id,
+    attempt_id:attemptId,
     answers:{...answers},
     cursor,
     current_section:state.current_section||0,
@@ -38,26 +54,51 @@ function writeDraft(extra={}){
     saved_at:Date.now(),
     ...extra
   };
-  localStorage.setItem(draftKey,JSON.stringify(record));
-  window.NafesDurableStore?.put(draftKey,record).catch(()=>{});
+ }catch(_){return;}
+ try{
+  localStorage.setItem(key,JSON.stringify(record));
+  if(String(parseDraft(localStorage.getItem(legacyDraftKey))?.attempt_id)===String(attemptId))localStorage.removeItem(legacyDraftKey);
+ }catch(_){}
+ // The durable copy is written even when localStorage is full or unavailable.
+ try{window.NafesDurableStore?.put(key,record)?.catch?.(()=>{});}catch(_){}
+}
+function clearDraft(attemptId=state?.attempt_id){
+ if(!attemptId)return;
+ const key=draftKeyFor(attemptId);
+ try{
+  localStorage.removeItem(key);
+  if(String(parseDraft(localStorage.getItem(legacyDraftKey))?.attempt_id)===String(attemptId))localStorage.removeItem(legacyDraftKey);
+ }catch(_){}
+ const store=window.NafesDurableStore;
+ if(!store)return;
+ store.remove(key).catch(()=>{});
+ store.get(legacyDraftKey).then(d=>{if(d&&String(d.attempt_id)===String(attemptId))store.remove(legacyDraftKey);}).catch(()=>{});
+}
+function pruneDrafts(){
+ try{
+  const prefix=legacyDraftKey+'_',keys=[];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k===legacyDraftKey||(k&&k.startsWith(prefix)))keys.push(k);}
+  for(const k of keys){const d=parseDraft(localStorage.getItem(k));if(!d?.attempt_id||!draftUsable(d,d.attempt_id))localStorage.removeItem(k);}
  }catch(_){}
 }
-function clearDraft(){try{localStorage.removeItem(draftKey);}catch(_){}window.NafesDurableStore?.remove(draftKey).catch(()=>{});}
-async function readDurableDraft(){
- const local=readDraft();
+async function readDurableDraft(attemptId=state?.attempt_id){
+ const local=readDraft(attemptId);
  if(local)return local;
- try{
-  const d=await window.NafesDurableStore?.get(draftKey);
-  if(!d?.attempt_id)return null;
-  const stale=Date.now()-Number(d.saved_at||0)>RESUME_MARKER_MAX_AGE;
-  const expired=d.expires_at&&Date.now()>new Date(d.expires_at).getTime()+5*60*1000;
-  if(stale||expired){window.NafesDurableStore?.remove(draftKey).catch(()=>{});return null;}
-  try{localStorage.setItem(draftKey,JSON.stringify(d));}catch(_){}
-  return d;
- }catch(_){return null;}
+ const store=window.NafesDurableStore;
+ if(!attemptId||!store)return null;
+ for(const key of [draftKeyFor(attemptId),legacyDraftKey]){
+  try{
+   const d=await store.get(key);
+   if(!d)continue;
+   if(!draftUsable(d,attemptId)){if(String(d.attempt_id)===String(attemptId))store.remove(key).catch(()=>{});continue;}
+   try{localStorage.setItem(draftKeyFor(attemptId),JSON.stringify(d));}catch(_){}
+   return d;
+  }catch(_){}
+ }
+ return null;
 }
 async function restoreDraft(){
- const d=await readDurableDraft();
+ const d=await readDurableDraft(state?.attempt_id);
  if(!d||!state?.attempt_id||d.attempt_id!==state.attempt_id)return null;
  const localAnswers=d.answers&&typeof d.answers==='object'?d.answers:{};
  const before=JSON.stringify(answers);
@@ -153,7 +194,16 @@ function restoreIdentity(){try{
  }
  return !!demo;
 }catch(_){return false;} }
-async function resumeAttempt(){const saved=readResume();if(!saved)return false;try{await claim();access=saved.access_token;state={attempt_id:saved.attempt_id};const d=await api('assessment_resume',{attempt_id:saved.attempt_id,access_token:saved.access_token});state={...state,...d};access=d.access_token||access;answers=d.answers||{};cursor=d.cursor||0;const recoveredDraft=await restoreDraft();saveLocal();if(state.submitted){showResult(state);}else{render();clearInterval(timer);timer=setInterval(tick,1000);if(recoveredDraft?.finish_requested)queueMicrotask(retryPendingFinish);}$('message').textContent='';return true;}catch(e){clearResume();lockRelease?.();locked=false;$('message').textContent='تعذر استعادة المحاولة السابقة تلقائيًا. تحقق من بياناتك ثم ادخل الاختبار مرة واحدة.';return false;}}
+async function resumeAttempt(){const saved=readResume();if(!saved)return false;try{await claim();access=saved.access_token;state={attempt_id:saved.attempt_id};const d=await api('assessment_resume',{attempt_id:saved.attempt_id,access_token:saved.access_token});state={...state,...d};access=d.access_token||access;answers=d.answers||{};cursor=d.cursor||0;const recoveredDraft=await restoreDraft();saveLocal();if(state.submitted){showResult(state);}else{render();clearInterval(timer);timer=setInterval(tick,1000);if(recoveredDraft?.finish_requested)queueMicrotask(retryPendingFinish);}$('message').textContent='';return true;}catch(e){
+  // Only a definitive server refusal invalidates the saved resume record. A timeout / network / 5xx failure keeps it, so the next
+  // reload can resume the same attempt, and no half-initialised attempt or token is left behind in memory.
+  const status=Number(e?.status)||0,definitive=status>=400&&status<500&&![408,425,429].includes(status);
+  if(definitive)clearResume();
+  state=undefined;access='';answers={};cursor=0;
+  lockRelease?.();locked=false;
+  $('message').textContent=definitive?'تعذر استعادة المحاولة السابقة تلقائيًا. تحقق من بياناتك ثم ادخل الاختبار مرة واحدة.':'تعذر الاتصال لاستعادة محاولتك الآن. محاولتك وإجاباتك محفوظة؛ أعد تحميل الصفحة أو أدخل بياناتك لمتابعة المحاولة نفسها.';
+  return false;
+ }}
 async function startDemoDirect(){
  if(!/^\d{6}$/.test(demoAccessCode))return false;
  clearResume();
@@ -355,7 +405,7 @@ async function beginAssessment(payload,mood){
   await claim();
   state=await api('assessment_start',{student_name:payload.name,student_no:payload.no,national_id_last3:payload.no,class_name:payload.cls});
   access=state.access_token||'';answers=state.answers||{};cursor=state.cursor||0;
-  if(state.recovery_resumed)clearDraft();
+  if(state.recovery_resumed)clearDraft(state.attempt_id);
   const recoveredDraft=await restoreDraft();
   try{sessionStorage.setItem(identityKey,JSON.stringify({name:payload.name,class:payload.cls}));}catch(_){}
   saveLocal();
@@ -381,7 +431,7 @@ function buildGrowthFeedback(d){
 }
 function showResult(d){
  const growthFeedback=buildGrowthFeedback(d);saveGrowthProfile(d);
- activity?.stop();active=false;clearInterval(timer);clearResume();clearIdentity();clearDraft();document.body.classList.remove('exam-active','no-copy','watermarked','print-blocked');
+ activity?.stop();active=false;clearInterval(timer);clearResume();clearIdentity();clearDraft(d?.attempt_id||state?.attempt_id);document.body.classList.remove('exam-active','no-copy','watermarked','print-blocked');
  lockRelease?.();locked=false;$('intro').hidden=true;$('player').hidden=true;$('breakPanel').hidden=true;$('result').hidden=false;
  const percent=d.result_hidden?'':`<div class="result-score-box"><div class="score">${ar(d.percent)}٪</div><p class="score-sub">الدرجة الكلية: ${ar(d.score)} من ${ar(d.total)}</p></div>`;
  const secList=Array.isArray(d.section_scores)?d.section_scores:(d.sections?.map(s=>({subject:s.subject,score:s.score,total:s.total,percent:s.percent}))||[]);
@@ -462,6 +512,19 @@ addEventListener('nafes:edge-retry',event=>{if(!active)return;const d=event.deta
 setInterval(()=>{if(active)save().catch(()=>{});},15000);setInterval(()=>{if(active&&readDraft()?.finish_requested)retryPendingFinish();},10000);setInterval(watermark,10000);
 $('calcButton').onclick=()=>$('calculator').showModal();$('calcClose').onclick=()=>$('calculator').close();$('calcGo').onclick=()=>{const a=Number($('calcA').value),b=Number($('calcB').value),op=$('calcOp').value;const v=op==='+'?a+b:op==='−'?a-b:op==='×'?a*b:b===0?NaN:a/b;$('calcResult').textContent=Number.isFinite(v)?ar(v):'لا يمكن القسمة على صفر';};
 let infoLoading=false;
+// assessment_info is a read: retry transient failures by itself so a slow school network does not need a manual retry.
+async function fetchInfo(){
+ const delays=[1500,4000];
+ for(let i=0;;i++){
+  try{return await api('assessment_info');}
+  catch(e){
+   const status=Number(e?.status)||0,transient=!status||status>=500||[408,425,429].includes(status);
+   if(!transient||i>=delays.length)throw e;
+   $('message').textContent='تأخر الاتصال بالخادم. تتم إعادة المحاولة تلقائيًا ('+ar(i+2)+' من '+ar(delays.length+1)+')…';
+   await new Promise(r=>setTimeout(r,delays[i]));
+  }
+ }
+}
 async function loadExamInfo(){
  if(infoLoading||active)return;
  infoLoading=true;
@@ -469,7 +532,7 @@ async function loadExamInfo(){
  $('startBtn').disabled=true;$('retryLoad').hidden=true;
  $('title').textContent='جارٍ تحميل الاختبار…';$('message').textContent='';
  try{
- info=await api('assessment_info');
+ info=await fetchInfo();
  if(info.legacy_url){const u=new URL(info.legacy_url,location.href);if(/^\d{6}$/.test(demoAccessCode))u.searchParams.set('demo_code',demoAccessCode);location.replace(u.href);return;}
  $('code').textContent=code;
  $('title').textContent=info.title;
@@ -498,6 +561,7 @@ async function loadExamInfo(){
  finally{infoLoading=false;$('startBtn').disabled=!info;}
 }
 $('retryLoad').onclick=()=>loadExamInfo();
+pruneDrafts();
 addEventListener('online',()=>{if(!info&&!active)loadExamInfo();});
 loadExamInfo();
 })();

@@ -9,6 +9,10 @@ on:
       - 'e.css'
       - 'qa/exam-submit-priority.cjs'
       - 'qa/exam-submit-queue.test.cjs'
+      - 'qa/exam-integrity/**'
+      - 'exam-session-guard.js'
+      - 'exam-durable-store.js'
+      - 'supabase/functions/nafes-exam/assessments.ts'
       - '.github/workflows/qa-exam-submit.yml'
   workflow_dispatch:
 permissions:
@@ -24,7 +28,9 @@ jobs:
           node-version: '24'
       - run: node --check e-player-demo-fix.js
       - run: node --test qa/exam-submit-queue.test.cjs
+      - run: node --test qa/exam-integrity/server-attempts.test.mjs qa/exam-integrity/client-attempts.test.mjs
       - run: node --test question-bank/scripts/test-delivery-reliability-contract.mjs
       - run: npm install --no-save playwright@1.55.0
       - run: npx playwright install --with-deps chromium webkit
       - run: node qa/exam-submit-priority.cjs
+
