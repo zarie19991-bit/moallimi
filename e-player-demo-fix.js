@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam', $=id=>document.getElementById(id), params=new URLSearchParams(location.search), code=params.get('t')||'', demoAccessCode=params.get('demo_code')||'';
+const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam?forceFunctionRegion=ap-south-1', $=id=>document.getElementById(id), params=new URLSearchParams(location.search), code=params.get('t')||'', demoAccessCode=params.get('demo_code')||'';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ar=x=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:2}).format(x),names={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 const sessionKey='nafes_session_'+code;let session;try{session=sessionStorage.getItem(sessionKey)||crypto.randomUUID();sessionStorage.setItem(sessionKey,session);}catch(_){session=crypto.randomUUID();}

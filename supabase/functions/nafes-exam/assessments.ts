@@ -1418,7 +1418,7 @@ export async function saveState(db:any,a:Row,body:Row) {
  let events=a.events||[];if(s.log_visibility&&['hidden','visible','page_leave','copy_blocked','print_blocked'].includes(body.event?.type)&&events.length<2000)events=[...events,{type:body.event.type,at:new Date().toISOString(),section:index}];
  if(body.action==='assessment_finish')return await finish(db,a,answers);
  const update={answers,cursor,section_index:index,section_started_at:sectionStarted,events,lease_until:new Date(now+45000).toISOString(),version:a.version+1};
- const row=must(await db.from('nafes_assessment_attempts').update(update).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select().maybeSingle());if(!row)fail('تغيرت المحاولة أثناء الحفظ؛ أعد المحاولة.',409);return row;
+ const row=must(await db.from('nafes_assessment_attempts').update(update).eq('id',a.id).eq('version',a.version).is('submitted_at',null).select('id,answers,cursor,section_index,section_started_at,events,lease_until,version,submitted_at').maybeSingle());if(!row)fail('تغيرت المحاولة أثناء الحفظ؛ أعد المحاولة.',409);return {...a,...row};
 }
 export function recoveryPatch(a:Row,now=Date.now()):Row {
  const sections=a.rendered_sections||[];
@@ -1646,7 +1646,9 @@ async function studentAction(db:any,body:Row) {
      return{...section,questions:ordered.map((q:Row)=>s.shuffle_options?permuteQuestion(q,rand):q)};
    });
    const duration=c.sections.reduce((n:number,sec:Row)=>n+sec.duration_minutes,0)+s.break_minutes*(sections.length-1);const expires=new Date(Math.min(now+duration*60000,s.closes_at?new Date(s.closes_at).getTime():Infinity)).toISOString();
-   const r=await db.from('nafes_assessment_attempts').insert({assessment_id:t.id,student_id,student_name:name,student_no:no,student_key,class_name:className,attempt_no:previous.length+1,config:retakeGrant?{...c,retake_grant_tag:retakeGrant}:c,rendered_sections:sections,session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),expires_at:expires,is_demo:isDemo}).select().single();if(r.error?.code==='23505')fail('بدأت محاولة لهذا الطالب؛ أعد فتحها من التبويب الأصلي.',409);const created=must(r);return{...attemptResponse(created),access_token:access,resumed:false};
+   // The immutable question snapshot is already in memory; return only database-owned state.
+   const payload={assessment_id:t.id,student_id,student_name:name,student_no:no,student_key,class_name:className,attempt_no:previous.length+1,config:retakeGrant?{...c,retake_grant_tag:retakeGrant}:c,rendered_sections:sections,session_id:session,access_hash:await hash(access),lease_until:new Date(now+45000).toISOString(),expires_at:expires,is_demo:isDemo};
+   const r=await db.from('nafes_assessment_attempts').insert(payload).select('id,started_at,section_started_at,section_index,cursor,version,submitted_at,answers').single();if(r.error?.code==='23505')fail('بدأت محاولة لهذا الطالب؛ أعد فتحها من التبويب الأصلي.',409);const created={...payload,...must(r)};return{...attemptResponse(created),access_token:access,resumed:false};
  }
  if(!isUUID(body.attempt_id)||!body.access_token)fail('تعذر التحقق من المحاولة.',403);let a=must(await db.from('nafes_assessment_attempts').select('*').eq('id',body.attempt_id).eq('access_hash',await hash(String(body.access_token))).maybeSingle());if(!a)fail('تعذر التحقق من المحاولة.',403);
  if(!a.submitted_at&&a.config.settings.lock_session&&a.session_id!==body.session_id)fail('المحاولة قيد الاستخدام في تبويب آخر.',409);
@@ -2160,4 +2162,5 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_build_forms') {if(!SUBJECTS.includes(b.subject))fail('المادة غير صحيحة.');const pool=await fullPool(db,b.subject),expected=FRAMEWORK.filter(i=>i.subject===b.subject).length*30;if(pool.length!==expected)fail(`لم يكتمل البنك المراجع للمادة: ${pool.length} من ${expected}.`,409);const bank_hash=await hash(JSON.stringify(pool));const forms=buildForms(pool,b.subject);for(const f of forms){f.signature=await hash(f.signature);f.bank_hash=bank_hash;}const result=must(await db.rpc('replace_nafes_simulation_forms',{payload:forms}));return{ok:true,subject:b.subject,forms:60,question_slots:1800,unique_questions:new Set(forms.flatMap(f=>f.questions.map((q:Row)=>q.id))).size,result};}
  fail('إجراء غير معروف.');
 }
+
 
