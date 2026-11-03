@@ -57,8 +57,16 @@ window.fetch=async function(input,init={}){
   // offline retry; a five-second native-confirm window alone cannot do that.
   // Lifecycle events without an existing intent still only save answers.
   if(payload?.action==='assessment_finish'){
+    // Drafts are per attempt (nafes_draft_v2_<code>_<attempt>); the old single slot only counts when it is this same attempt.
     let intent=null;
-    try{intent=JSON.parse(localStorage.getItem(`nafes_draft_v2_${code}`)||'null');}catch(_){}
+    const readIntent=key=>{try{return JSON.parse(localStorage.getItem(key)||'null');}catch(_){return null;}};
+    if(payload.attempt_id){
+      intent=readIntent(`nafes_draft_v2_${code}_${payload.attempt_id}`);
+      if(intent?.attempt_id!==payload.attempt_id){
+        const legacy=readIntent(`nafes_draft_v2_${code}`);
+        intent=legacy?.attempt_id===payload.attempt_id?legacy:null;
+      }
+    }
     const confirmedAttempt=!!payload.attempt_id&&intent?.attempt_id===payload.attempt_id&&intent.finish_requested===true;
     const explicit=!unloading&&(confirmedAttempt||Date.now()<=explicitSubmitUntil);
     explicitSubmitUntil=0;
@@ -71,3 +79,4 @@ window.fetch=async function(input,init={}){
   return previousFetch(input,init);
 };
 })();
+

@@ -54,10 +54,10 @@ test('teacher dashboard exposes delivery health monitoring',()=>{
 
 test('live pages publish the resilience assets',()=>{
   const e=read('e.html'),legacy=read('exam.html'),analysis=read('analysis.html'),manifest=read('production-files.txt');
-  assert.match(e,/exam-durable-store\.js\?v=20261007-r1/);
+  assert.match(e,/exam-durable-store\.js\?v=20261103-attempt-scope1/);
   assert.match(e,/edge-retry\.js\?v=20261010-timing1/);
-  assert.match(e,/e-player-demo-fix\.js\?v=20261102-load-recovery1/i);
-  assert.match(legacy,/exam-durable-store\.js\?v=20261007-r1/);
+  assert.match(e,/e-player-demo-fix\.js\?v=20261103-attempt-scope1/i);
+  assert.match(legacy,/exam-durable-store\.js\?v=20261103-attempt-scope1/);
   assert.match(legacy,/exam\.js\?v=20261010-timing1/);
   assert.match(analysis,/delivery-health\.js\?v=20261007-delivery2/);
   assert.match(manifest,/^exam-durable-store\.js$/m);
@@ -76,3 +76,4 @@ test('delivery telemetry actions are handled and server submission receipts are 
   assert.match(backend,/teacherScope\(owner\)/);
   assert.match(backend,/pending_attempts:pending\.length/);
 });
+
