@@ -19,9 +19,10 @@ export function makeDb(seed = {}) {
 
   function builder(name) {
     const rows = rowsOf(name);
-    let op = 'select', payload = null, filters = [], order = null, mode = 'many', returning = false;
+    let op = 'select', payload = null, filters = [], order = null, mode = 'many', returning = false, columns = '*';
+    const project = row => columns === '*' ? structuredClone(row) : Object.fromEntries(columns.split(',').map(k => [k, structuredClone(row[k])]));
     const q = {
-      select() { if (op !== 'select') returning = true; return q; },
+      select(fields = '*') { columns = fields; if (op !== 'select') returning = true; return q; },
       eq(k, v) { filters.push(r => r[k] === v); return q; },
       neq(k, v) { filters.push(r => r[k] !== v); return q; },
       is(k, v) { filters.push(r => (v === null ? r[k] == null : r[k] === v)); return q; },
@@ -48,18 +49,18 @@ export function makeDb(seed = {}) {
         });
         const bad = made.find(m => m.error);
         if (bad) return { data: null, error: bad.error };
-        const out = made.map(x => structuredClone(x));
+        const out = made.map(project);
         return { data: mode === 'many' && !returning ? null : (mode === 'many' ? out : out[0]), error: null };
       }
       let hit = rows.filter(r => filters.every(f => f(r)));
       if (order) hit = [...hit].sort((a, b) => (a[order[0]] > b[order[0]] ? 1 : -1) * (order[1] ? 1 : -1));
       if (op === 'update') {
         for (const r of hit) Object.assign(r, structuredClone(payload));
-        const out = hit.map(x => structuredClone(x));
+        const out = hit.map(project);
         if (!returning) return { data: null, error: null };
         return { data: mode === 'many' ? out : (out[0] ?? null), error: null };
       }
-      const out = hit.map(x => structuredClone(x));
+      const out = hit.map(project);
       return { data: mode === 'many' ? out : (out[0] ?? null), error: null };
     }
     return q;

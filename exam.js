@@ -1,5 +1,5 @@
 (()=>{
-const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam';
+const EDGE='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/nafes-exam?forceFunctionRegion=ap-south-1';
 const MODEL_COUNT=2;
 const LEGACY_IDENTITY_KEY='nafes_legacy_student_identity',DEMO_IDENTITY_KEY='nafes_demo_student_identity_v1';
 const qs=new URLSearchParams(location.search),demoAccessCode=qs.get('demo_code')||'';const P={subject:qs.get('s')||'',outcome:qs.get('o')||'',indicator:Number(qs.get('i')||0),model:Number(qs.get('m')||0)};
@@ -124,3 +124,4 @@ addEventListener('online',()=>{if(attempt){clearTimeout(retryTimer);saveState('Ø
 setInterval(()=>{const d=readDurableDraft();if(attempt&&navigator.onLine&&d?.attempt_id===attempt&&d.finish_requested&&!finishing)finish(true);},10000);
 init();
 })();
+
