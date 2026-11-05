@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#075446">
+  <title>خطة تحسين أداء نافس ١٤٤٧هـ | تمكّن</title>
+  <meta name="description" content="متابعة خطة تحسين أداء نافس ١٤٤٧هـ، للقراءة والرياضيات والعلوم، مستقلة عن خطط الطلاب العلاجية.">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./tamakkun-nafes-school-plan.css?v=20261105-1">
+  <script defer src="./tamakkun-nafes-school-plan.js?v=20261105-1"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="./lugati-complete.html" aria-label="العودة إلى منصة تمكّن">← العودة إلى تمكّن</a>
+    <div><strong>خطة تحسين أداء نافس ١٤٤٧هـ</strong><span>ثالث متوسط · ابن سينا المتوسطة</span></div>
+    <span class="pill">خطة مدرسية مستقلة</span>
+  </header>
+  <main id="schoolPlanRoot" class="page" aria-live="polite">
+    <section class="loading">جارٍ التحقق من دخول المعلم وتحميل متابعة الخطة…</section>
+  </main>
+  <div id="schoolPlanToast" role="status" aria-live="polite"></div>
+  <dialog id="schoolPlanDialog" aria-labelledby="dialogTitle">
+    <form id="schoolPlanForm" method="dialog">
+      <div class="dialog-head"><h2 id="dialogTitle">توثيق الإجراء</h2><button class="close" type="button" data-close aria-label="إغلاق">×</button></div>
+      <p id="dialogAction" class="dialog-action"></p>
+      <p class="hint">توثيق أسبوعي مستقل عن درجة نافس ١٤٤٧هـ، ولا يغيّر درجات الطلاب أو تكليفاتهم.</p>
+      <label>حالة التنفيذ<select name="status" required>
+        <option value="planned">لم يبدأ</option><option value="in_progress">قيد التنفيذ</option><option value="completed">منجز</option>
+      </select></label>
+      <div class="fields">
+        <label>نتيجة القياس القبلي الجديد (%)<input name="pre_measure" type="number" min="0" max="100" step="0.1" placeholder="اختياري"></label>
+        <label>نتيجة القياس البعدي الجديد (%)<input name="post_measure" type="number" min="0" max="100" step="0.1" placeholder="اختياري"></label>
+      </div>
+      <label>وصف الشاهد أو ما نُفِّذ<textarea name="evidence_note" rows="4" maxlength="2000" placeholder="مثال: حصة تطبيقية وأوراق عمل، دون تسجيل أسماء الطلاب"></textarea></label>
+      <label>رابط الشاهد (اختياري)<input name="evidence_url" type="url" maxlength="500" placeholder="https://…"></label>
+      <p class="hint">لا تُسجّل بيانات الطلاب الشخصية. أرفق رابط شاهد لا يتضمن معلومات حساسة أو يستخدم صلاحيات مشاركة مناسبة.</p>
+      <div class="form-actions"><button type="button" data-close>إلغاء</button><button type="submit" id="saveSchoolPlan">حفظ متابعة الأسبوع</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
