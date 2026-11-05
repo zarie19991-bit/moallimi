@@ -64,6 +64,10 @@ lugati-complete.css
 tamakkun-design-system.css
 tamakkun-unified-plan.css
 tamakkun-unified-plan.js
+tamakkun-nafes-school-plan-entry.js
+tamakkun-nafes-school-plan.js
+tamakkun-nafes-school-plan.css
+tamakkun-nafes-school-plan.html
 tamakkun-competition-polish.css
 tamakkun-teacher-workspace.css
 tamakkun-ux-v3.css
