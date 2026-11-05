@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>معاينة منصة لغتي الخالدة — قبل النشر</title>
+  <link rel="stylesheet" href="./preview.css">
+</head>
+<body>
+  <div class="preview-ribbon">معاينة داخلية فقط — غير منشورة للطلاب</div>
+  <header class="hero">
+    <div class="hero-inner">
+      <div>
+        <div class="eyebrow">منصة لغتي الخالدة · ثالث متوسط</div>
+        <h1>رحلة الإتقان قبل التصميم النهائي</h1>
+        <p>هذه المعاينة تعرض هندسة الوحدات والدروس ومنطق الإتقان الذي تم بناؤه، دون نشره في المنصة الحية.</p>
+      </div>
+      <div class="hero-badge">
+        <b>3</b><span>وحدات</span>
+        <b>42</b><span>درسًا تعليميًا</span>
+        <b>85%</b><span>حد الإتقان</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="summary-strip" aria-label="ملخص المقرر">
+      <div><span>المسار</span><strong>هدف الوحدة ← الدرس ← نقاط الإتقان ← علاج ← تحقق ← انتقال</strong></div>
+      <div><span>شرط الدرس</span><strong>85% فأعلى</strong></div>
+      <div><span>كل هدف أساسي</span><strong>80% فأعلى</strong></div>
+      <div><span>الانتقال</span><strong>مقفل حتى الإتقان</strong></div>
+    </section>
+
+    <section class="workspace">
+      <aside class="side">
+        <div class="side-title">الوحدات</div>
+        <div id="unitTabs" class="unit-tabs"></div>
+        <div class="legend">
+          <div><i class="dot mastered"></i> متقن</div>
+          <div><i class="dot current"></i> الدرس الحالي</div>
+          <div><i class="dot locked"></i> مقفل</div>
+        </div>
+      </aside>
+
+      <section class="content">
+        <div id="unitHeader"></div>
+        <div class="view-toggle" role="tablist">
+          <button class="active" data-view="map">خريطة الدروس</button>
+          <button data-view="objectives">أهداف الوحدة</button>
+          <button data-view="student">رحلة الطالب</button>
+        </div>
+        <div id="viewRoot"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="lessonDrawer" class="drawer" hidden>
+    <div class="drawer-card">
+      <button id="closeDrawer" class="close" aria-label="إغلاق">×</button>
+      <div id="lessonDetail"></div>
+    </div>
+  </div>
+
+  <script type="module" src="./preview.js"></script>
+</body>
+</html>
