@@ -26,7 +26,7 @@ async function teacherSession(req){
  const {data:t,error:te}=await db.from("nafes_teacher_access").select("id,active,subject_scope").eq("id",s.teacher_access_id).eq("active",true).maybeSingle();
  if(te)throw te;
  if(!t)throw err("صلاحية المعلم غير متاحة.",403);
- const scope=["reading","math","science"].includes(t.subject_scope)?t.subject_scope:"all";
+ if(!["reading","math","science","all"].includes(t.subject_scope))throw err("صلاحية المادة غير محددة في حساب المعلم.",403); const scope=t.subject_scope;
  return {id:t.id,scope};
 }
 const numeric=v=>{
