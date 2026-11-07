@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#075446">
+<title>ملفات متابعة إتقان الطلاب | تمكّن</title>
+<meta name="description" content="كشف متابعة إتقان فردي يومي وأسبوعي وشهري وخطابات رسمية للمدرسة وولي الأمر.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="./tamakkun-individual-followup.css?v=20261107-1">
+<script defer src="./tamakkun-individual-followup.js?v=20261107-1"></script>
+</head>
+<body>
+<header class="site-head screen-only">
+  <a href="./lugati-complete.html" class="back">← العودة إلى تمكّن</a>
+  <div><strong>ملفات متابعة الإتقان</strong><span>ثالث متوسط · متابعة عملية لكل طالب</span></div>
+  <span class="top-badge">ملف فردي موثّق</span>
+</header>
+<main id="followupApp" class="screen-only page"><p class="loading">جارٍ التحقق من حساب المعلم وتحميل قوائم الطلاب…</p></main>
+<section id="printArea" aria-label="النموذج الرسمي القابل للطباعة" hidden></section>
+<div id="followupToast" role="status" aria-live="polite"></div>
+<dialog id="followupDialog">
+ <form id="followupForm">
+  <div class="dialog-head"><h2>تسجيل متابعة الطالب</h2><button type="button" data-close>×</button></div>
+  <p id="followupDialogStudent" class="muted"></p>
+  <div class="cols2">
+   <label>تاريخ المتابعة<input type="date" name="event_date" required></label>
+   <label>المادة<select name="subject_key" required><option value="">اختر المادة</option><option value="reading">القراءة</option><option value="math">الرياضيات</option><option value="science">العلوم</option></select></label>
+  </div>
+  <label>المؤشر المستهدف<select name="indicator" required><option value="">اختر مؤشرًا من قياسات الطالب</option></select></label>
+  <div class="cols2">
+   <label>الإجراء<select name="action_type" required><option value="training">تدريب علاجي</option><option value="lesson">حصة دعم</option><option value="homework">واجب منزلي</option><option value="retest">إعادة قياس</option><option value="call">تواصل هاتفي</option><option value="meeting">لقاء</option><option value="other">إجراء آخر</option></select></label>
+   <label>حالة التنفيذ<select name="execution_status" required><option value="planned">مجدول</option><option value="completed">منفذ</option><option value="absent">تعذر التنفيذ</option></select></label>
+   <label>حضور الطالب<select name="attendance" required><option value="not_recorded">لم يسجل</option><option value="present">حاضر</option><option value="absent">غائب</option></select></label>
+   <label>موعد المتابعة القادمة<input type="date" name="next_date"></label>
+  </div>
+  <label>ما نُفّذ أو ما يحتاجه الطالب<textarea name="note" rows="3" maxlength="1500" placeholder="ملاحظات تربوية عملية، دون بيانات شخصية حساسة"></textarea></label>
+  <div class="dialog-actions"><button type="button" data-close>إلغاء</button><button type="submit" id="saveFollowup">حفظ المتابعة</button></div>
+ </form>
+</dialog>
+</body>
+</html>
