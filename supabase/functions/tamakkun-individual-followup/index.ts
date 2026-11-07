@@ -37,7 +37,7 @@ async function roster(t){
   db.from("nafes_students").select("id,full_name,class_name,grade").eq("is_active",true).eq("is_demo",false).order("class_name").order("full_name").limit(300),
   db.from("tamakkun_followup_student_subject_summary").select("student_id,subject_key,measured_count,weak_count,scored_80_count").limit(1000),
   db.from(TARGETS).select("student_id").limit(300),
-  db.from("tamakkun_followup_event_summary").select("student_id,event_count,last_event_date").limit(300)
+  db.from("tamakkun_followup_event_summary_by_subject").select("student_id,subject_key,event_count,last_event_date").limit(1000)
  ]);
  for(const r of [students,sums,targets,visits])if(r.error)throw r.error;
  const aggregate=new Map();
@@ -48,7 +48,14 @@ async function roster(t){
   aggregate.set(x.student_id,s);
  }
  const targetSet=new Set((targets.data||[]).map(x=>x.student_id));
- const activity=new Map((visits.data||[]).map(x=>[x.student_id,x]));
+ const activity=new Map();
+ for(const x of visits.data||[]){
+  if(t.scope!=="all"&&x.subject_key!==t.scope)continue;
+  const a=activity.get(x.student_id)||{event_count:0,last_event_date:null};
+  a.event_count+=Number(x.event_count)||0;
+  if(x.last_event_date&&(!a.last_event_date||x.last_event_date>a.last_event_date))a.last_event_date=x.last_event_date;
+  activity.set(x.student_id,a);
+ }
  return {scope:t.scope,teacher_label:t.label,students:(students.data||[]).map(x=>({...x,followup_target:targetSet.has(x.id),...(aggregate.get(x.id)||{measured:0,weak:0,scored80:0}),last_followup:activity.get(x.id)?.last_event_date||null,event_count:activity.get(x.id)?.event_count||0})),mastery_policy:"الدرجة 80% وحدها ليست اعتماد إتقان"};
 }
 async function profile(t,body){
