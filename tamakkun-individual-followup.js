@@ -1,0 +1,122 @@
+(()=>{'use strict';
+const API='https://udznpifopbnrcgxtpzza.supabase.co/functions/v1/tamakkun-individual-followup';
+const SUBJECTS={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
+const ACTIONS={training:'تدريب علاجي',lesson:'حصة دعم',homework:'واجب منزلي',retest:'إعادة قياس',call:'تواصل هاتفي',meeting:'لقاء',other:'إجراء آخر'};
+const RECIPIENTS={parent:'ولي أمر الطالب',vice_principal:'وكيل شؤون الطلاب',counselor:'الموجه الطلابي'};
+const DELIVERY={prepared:'أُعد للطباعة',delivered:'سُلّم بحسب توثيق المعلم',responded:'وُثق الرد'};
+const S={token:'',roster:[],scope:'all',teacher:'',studentId:'',profile:null,period:'week',anchor:'',query:'',classFilter:'all',displayFilter:'all',subjectFilter:'all',busy:false,loading:false};
+const app=document.getElementById('followupApp'),printArea=document.getElementById('printArea'),dialog=document.getElementById('followupDialog'),form=document.getElementById('followupForm');
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const fmt=v=>Number(v||0).toLocaleString('ar-SA',{maximumFractionDigits:1});
+const pct=v=>Number(v).toLocaleString('ar-SA',{maximumFractionDigits:1})+'٪';
+const dateLabel=v=>{if(!v)return '—';try{return new Date(v+'T12:00:00').toLocaleDateString('ar-SA',{day:'numeric',month:'long',year:'numeric'})}catch{return v}};
+const durationLabel={day:'اليومي',week:'الأسبوعي',month:'الشهري'};
+function getSession(){for(const store of [sessionStorage,localStorage]){try{const x=JSON.parse(store.getItem('lugati_exact_session_v2')||'null');if(x?.token&&x.role==='teacher')return x}catch{}}return null}
+function toast(msg){const x=document.getElementById('followupToast');x.textContent=msg;clearTimeout(toast.t);toast.t=setTimeout(()=>x.textContent='',4800)}
+async function api(action,extra={}){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+S.token},body:JSON.stringify({action,...extra}),cache:'no-store'});let d={};try{d=await r.json()}catch{}if(!r.ok||d.error)throw Error(d.error||'تعذر الاتصال بالخدمة ('+r.status+')');return d}
+function selected(){return S.roster.find(x=>x.id===S.studentId)}
+function orderedRoster(){const q=S.query.trim().toLowerCase();return S.roster.filter(x=>(S.classFilter==='all'||x.class_name===S.classFilter)&&(S.displayFilter==='all'||(S.displayFilter==='targets'&&x.followup_target)||(S.displayFilter==='weak'&&x.weak>0)||(S.displayFilter==='unmeasured'&&x.measured===0))&&(!q||String(x.full_name).toLowerCase().includes(q)||String(x.class_name).toLowerCase().includes(q))).sort((a,b)=>(b.followup_target?1:0)-(a.followup_target?1:0)||(b.weak-a.weak)||String(a.full_name).localeCompare(String(b.full_name),'ar'))}
+function sourceLabel(s){return s==='reading'?'القراءة':s==='math'?'الرياضيات':s==='science'?'العلوم':'جميع المواد'}
+function subjectChoices(){return (S.scope==='all'?['reading','math','science']:[S.scope])}
+function statusOf(score){return score<80?'يحتاج دعمًا':'بلغ ٨٠٪ في آخر قياس'}
+function currentWeak(){return(S.profile?.indicators||[]).filter(x=>Number(x.percent)<80&&(!S.subjectFilter||S.subjectFilter==='all'||x.subject_key===S.subjectFilter))}
+function measured(){return(S.profile?.indicators||[]).filter(x=>S.subjectFilter==='all'||x.subject_key===S.subjectFilter)}
+function currentMastered(){return measured().filter(x=>Number(x.percent)>=80)}
+function printHeader(title){return '<div class="formal-header"><span class="ministry">المملكة العربية السعودية</span><strong>وزارة التعليم</strong><strong>الإدارة العامة للتعليم بمنطقة نجران</strong><strong>مدرسة ابن سينا المتوسطة</strong><div style="font-size:15px;margin-top:6px">'+esc(title)+'</div></div>'}
+function studentInfo(){const p=S.profile;return '<div class="formal-meta"><div>اسم الطالب: '+esc(p.student.full_name)+'</div><div>الصف: الثالث المتوسط — الفصل: '+esc(p.student.class_name||'—')+'</div></div>'}
+function printFields(){const p=S.profile;return '<div class="formal-meta"><div>الفترة: '+durationLabel[S.period]+' ('+dateLabel(p.start)+' إلى '+dateLabel(p.end)+')</div><div>تاريخ إعداد الكشف: '+dateLabel(today())+'</div></div>'}
+function evidenceTable(items){if(!items.length)return '<div class="paper-note">لا تتوفر مؤشرات ضعيفة مقاسة ضمن نطاق المعلم حاليًا. يلزم تشخيص فعلي قبل إصدار توصية علاجية.</div>';
+ return '<table class="formal-table"><thead><tr><th style="width:13%">المادة</th><th style="width:56%">المؤشر</th><th style="width:15%">آخر قياس</th><th>المطلوب</th></tr></thead><tbody>'+items.map(x=>'<tr><td>'+sourceLabel(x.subject_key)+'</td><td>'+esc(x.indicator_text||x.outcome_code+' / '+x.indicator_index)+'</td><td>'+pct(x.percent)+'</td><td>دعم + إعادة قياس</td></tr>').join('')+'</tbody></table>'}
+function logTable(rows){const items=rows.filter(x=>x.event_type==='intervention');if(!items.length)return '<div class="paper-note">لا توجد إجراءات متابعة مسجلة لهذه الفترة.</div>';
+ return '<table class="formal-table"><thead><tr><th>التاريخ</th><th>المادة</th><th>الإجراء</th><th>الحالة / الحضور</th><th>الملاحظات والموعد القادم</th></tr></thead><tbody>'+items.map(x=>'<tr><td>'+dateLabel(x.event_date)+'</td><td>'+sourceLabel(x.subject_key)+'</td><td>'+ACTIONS[x.action_type]+'</td><td>'+(x.execution_status==='completed'?'منفذ':x.execution_status==='absent'?'تعذر التنفيذ':'مجدول')+' / '+(x.attendance==='present'?'حاضر':x.attendance==='absent'?'غائب':'غير مسجل')+'</td><td>'+esc(x.note||'—')+(x.next_date?'<div>القادم: '+dateLabel(x.next_date)+'</div>':'')+'</td></tr>').join('')+'</tbody></table>'}
+function sheetHtml(){const p=S.profile,weak=currentWeak();return '<article class="print-page">'+printHeader('كشف متابعة الإتقان '+durationLabel[S.period])+studentInfo()+printFields()+'<div class="paper-note">عدد المؤشرات المقاسة: '+fmt(measured().length)+'، تحتاج دعمًا: '+fmt(weak.length)+'، حصلت على ٨٠٪ فأكثر في آخر قياس: '+fmt(currentMastered().length)+'. الحصول على ٨٠٪ لا يعني اعتماد الإتقان النهائي دون قياس بعدي وتثبيت.</div><h3 class="sheet-section">أولًا: مؤشرات تحتاج إلى معالجة</h3>'+evidenceTable(weak)+'<h3 class="sheet-section">ثانيًا: إجراءات المتابعة المنفذة والمجدولة خلال الفترة</h3>'+logTable(p.events||[])+'<div class="sheet-signs"><div>معلم المادة: '+esc(p.teacher_label||S.teacher)+'<div class="letter-line">التوقيع:</div></div><div>متابعة وكيل شؤون الطلاب / الموجه الطلابي<div class="letter-line">الاسم والتوقيع:</div></div></div><p class="privacy">هذا الكشف للاستخدام المدرسي والمتابعة التربوية فقط. تقارير الاختبارات لا تُعد بديلًا عن التقييم الفعلي.</p></article>'}
+function letterText(to){if(to==='parent')return 'نفيدكم بأن نتائج المتابعة التشخيصية أظهرت حاجة ابنكم إلى دعم إضافي في المهارات الموضحة أدناه. ونرجو منكم متابعة أداء التدريبات المنزلية المخصصة له، وتشجيعه على حضور حصص الدعم، والتواصل مع المدرسة لمعرفة تقدمه.';if(to==='vice_principal')return 'نفيدكم بأن الطالب المذكور يحتاج إلى متابعة دراسية وفق مؤشرات الأداء المقاسة المبينة أدناه. ونأمل التكرم بتوجيه الدعم اللازم لمتابعة انتظامه في حصص المعالجة، وتنسيق التواصل مع الأسرة عند الحاجة، دون افتراض تقصير مسبق.';return 'نحيطكم علمًا بأن الطالب المذكور بحاجة إلى دعم تعليمي موجه بناءً على مؤشرات الأداء الموضحة أدناه. ونأمل متابعة حالته تربويًا، وتنسيق أوجه الدعم مع المعلم والأسرة، بما يسهم في تحسين مستواه وإعادة قياس تعلمه.'}
+function letterHtml(to){const p=S.profile,weak=currentWeak();const shown=weak.slice(0,12),more=weak.length-shown.length;return '<article class="print-page">'+printHeader('خطاب متابعة المستوى الدراسي')+'<div class="formal-meta"><div>الرقم: ........................</div><div>التاريخ: '+dateLabel(today())+'</div></div><div class="letter-title">إلى '+RECIPIENTS[to]+' المحترم</div><div class="letter-body">السلام عليكم ورحمة الله وبركاته، وبعد:<p>الموضوع: متابعة إتقان مهارات الطالب <strong>'+esc(p.student.full_name)+'</strong> — ثالث متوسط / '+esc(p.student.class_name||'—')+'.</p><p>'+letterText(to)+'</p></div><h3 class="sheet-section">المؤشرات ذات الأولوية في المعالجة</h3>'+evidenceTable(shown)+(more>0?'<p>يوجد '+fmt(more)+' مؤشرات إضافية تحتاج دعمًا. يمكن إرفاق كشف المتابعة التفصيلي.</p>':'')+'<p class="letter-body">نأمل التعاون في استكمال الخطة العلاجية، ومتابعة الإجراءات، وإعادة قياس المؤشرات، بما يحقق مصلحة الطالب. شاكرين لكم تعاونكم.</p><div class="formal-foot"><div>مُعِدّ الخطاب: '+esc(S.teacher)+'<div class="letter-line">التوقيع:</div></div><div>اعتماد إدارة المدرسة<div class="letter-line">الاسم والتوقيع والختم:</div></div></div><h3>إفادة الاستلام والمتابعة</h3><div class="letter-line">الإجراء المتخذ: </div><div class="letter-line">اسم المستلم وتوقيعه: </div><div class="formal-meta"><div>تاريخ الاستلام: ...................</div><div>موعد المراجعة: ...................</div></div><p class="privacy">يُحفظ الخطاب وفق إجراءات المدرسة لحماية بيانات الطلاب. هذا نموذج للطباعة، ولا يعني إعداده أنه أُرسل أو سُلّم بالفعل.</p></article>'}
+function preparePrint(html){printArea.innerHTML=html;printArea.hidden=false;window.print()}
+window.addEventListener('afterprint',()=>{printArea.hidden=true;printArea.innerHTML=''});
+async function makeLetter(to){if(!S.profile)return;if(!currentWeak().length){toast('لا يوجد مؤشر ضعف مثبت لإصدار خطاب مؤشرات؛ يمكن طباعة كشف المتابعة.');return}
+ try{const e=await api('save_event',{student_id:S.studentId,event_type:'correspondence',event_date:today(),subject_key:S.scope==='all'?null:S.scope,recipient:to,note:'إعداد خطاب رسمي للمتابعة؛ لم يثبت التسليم بعد.'});S.profile.events.unshift({...e.event,subject_key:S.scope==='all'?null:S.scope,event_type:'correspondence',recipient:to,delivery_status:'prepared',note:'إعداد خطاب للطباعة',event_date:today()});preparePrint(letterHtml(to));renderProfile();toast('أُنشئ نموذج الخطاب للطباعة؛ لم تُسجل حالة التسليم.') }catch(err){toast(err.message)}
+}
+function kpis(){const all=S.roster;return '<div class="kpis"><div class="kpi"><b>'+fmt(all.length)+'</b><span>طلاب فعليون نشطون</span></div><div class="kpi"><b>'+fmt(all.filter(x=>x.followup_target).length)+'</b><span>ضمن المتابعة المستهدفة</span></div><div class="kpi"><b>'+fmt(all.filter(x=>x.weak>0).length)+'</b><span>طلاب لديهم مؤشرات ضعف مقاسة</span></div><div class="kpi"><b>'+fmt(all.filter(x=>x.event_count>0).length)+'</b><span>طلاب لديهم سجل متابعة ميدانية</span></div></div>'}
+function sidebar(){const classes=[...new Set(S.roster.map(x=>x.class_name).filter(Boolean))].sort();const rows=orderedRoster();
+ return '<aside class="panel"><div class="row"><h2>كشف الطلاب</h2><span class="mini-tag">'+fmt(rows.length)+' طالب</span></div><div class="field"><label for="studentSearch">بحث باسم الطالب</label><input id="studentSearch" placeholder="اكتب اسم الطالب..." value="'+esc(S.query)+'"></div><div class="grid2"><div class="field"><label>الفصل</label><select id="classFilter"><option value="all">جميع الفصول</option>'+classes.map(v=>'<option value="'+esc(v)+'" '+(S.classFilter===v?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select></div><div class="field"><label>عرض</label><select id="displayFilter">'+[['all','جميع الطلاب'],['targets','المستهدفون'],['weak','لديهم ضعف مقاس'],['unmeasured','بلا قياسات']].map(a=>'<option value="'+a[0]+'" '+(S.displayFilter===a[0]?'selected':'')+'>'+a[1]+'</option>').join('')+'</select></div></div>'+(S.scope==='all'?'<p class="small">لتنفيذ متابعة ١٢٠ طالبًا، اختر أول ١٢٠ بحسب عدد المؤشرات الضعيفة. لا تُنشأ أي تكليفات طلابية بهذه الخطوة.</p><button class="btn primary" type="button" id="cohort120">إضافة أول ١٢٠ طالبًا لقائمة المتابعة</button>':'<p class="note">يظهر لك أداء الطلاب في مادة صلاحيتك فقط. اختيار قائمة المستهدفين خاص بمنسق المواد.</p>')+'<div class="student-list">'+(rows.length?rows.map(x=>'<button class="student-button '+(x.id===S.studentId?'active':'')+'" data-student="'+esc(x.id)+'"><div class="row"><b>'+esc(x.full_name)+'</b>'+(x.followup_target?'<span class="mini-tag">مستهدف</span>':'')+'</div><small>فصل '+esc(x.class_name||'—')+' · '+fmt(x.measured)+' مؤشر مقاس · <em>'+fmt(x.weak)+' يحتاج دعمًا</em></small><small>آخر متابعة: '+(x.last_followup?dateLabel(x.last_followup):'لا يوجد تسجيل')+'</small></button>').join(''):'<div class="events-empty">لا يوجد طلاب مطابقون للبحث.</div>')+'</div></aside>'}
+function indicatorsHtml(){const p=S.profile;if(!p)return '';
+ const weak=currentWeak();const scored=currentMastered();return '<div class="section-head"><h2>المؤشرات التي تحتاج إلى دعم</h2><span>'+fmt(weak.length)+' مؤشرًا من '+fmt(measured().length)+' مقاسًا</span></div><p class="small">حد العرض: أقل من ٨٠٪ في آخر قياس صالح للمؤشر. لا تُحسب المهارات غير المختبرة متقنة.</p><div class="indicator-list">'+(weak.length?weak.map(x=>'<article class="indicator weak"><div class="row"><span class="mini-tag red">'+sourceLabel(x.subject_key)+'</span><strong>'+pct(x.percent)+' · '+statusOf(Number(x.percent))+'</strong></div><h3>'+esc(x.indicator_text||x.outcome_code+' / '+x.indicator_index)+'</h3><small>النتيجة: '+fmt(x.score)+' من '+fmt(x.total)+' | تاريخ القياس: '+(x.submitted_at?dateLabel(x.submitted_at.slice(0,10)):'غير محدد')+'</small></article>').join(''):'<div class="events-empty">لا توجد مؤشرات أقل من ٨٠٪ ضمن القياسات الحالية. هذا لا يثبت إتقان المهارات غير المقاسة.</div>')+'</div>'+(scored.length?'<details style="margin-top:12px"><summary>المؤشرات التي حصلت على ٨٠٪ فأكثر في آخر قياس ('+fmt(scored.length)+')</summary><div class="indicator-list">'+scored.map(x=>'<article class="indicator"><span class="mini-tag">'+sourceLabel(x.subject_key)+'</span> <b>'+pct(x.percent)+'</b><p>'+esc(x.indicator_text||x.outcome_code+' / '+x.indicator_index)+'</p></article>').join('')+'</div></details>':'')}
+function eventHtml(){const p=S.profile,events=p?.events||[];return '<div class="section-head"><h2>سجل المتابعة خلال الفترة</h2><span>'+fmt(events.length)+(p?.events_truncated?' سجلًا أو أكثر — قد توجد سجلات إضافية':' سجلًا')+'</span></div><div class="actions-list">'+(events.length?events.map(x=>'<article class="event-card"><div class="row"><b>'+dateLabel(x.event_date)+' — '+(x.event_type==='intervention'?ACTIONS[x.action_type]:'خطاب إلى '+RECIPIENTS[x.recipient])+'</b><span class="mini-tag">'+(x.event_type==='correspondence'?DELIVERY[x.delivery_status]||x.delivery_status:(x.execution_status==='completed'?'منفّذ':x.execution_status==='absent'?'تعذر التنفيذ':'مجدول'))+'</span></div><p>'+esc(x.note||'—')+'</p><div class="row"><small class="muted">'+(x.subject_key?sourceLabel(x.subject_key):'تنسيق عام')+(x.next_date?' · التالي: '+dateLabel(x.next_date):'')+'</small>'+(x.event_type==='correspondence'&&x.delivery_status==='prepared'?'<button class="btn subtle" data-delivery="'+x.id+'" data-delivery-status="delivered">توثيق التسليم</button>':x.event_type==='correspondence'&&x.delivery_status==='delivered'?'<button class="btn subtle" data-delivery="'+x.id+'" data-delivery-status="responded">توثيق الرد</button>':'')+'</div></article>').join(''):'<div class="events-empty">لم يُسجل إجراء متابعة في الفترة المختارة. يمكنك تسجيل أول إجراء من الزر أعلى الملف.</div>')+'</div>'}
+function profileHtml(){const p=S.profile,s=p.student;
+ return '<section class="panel"><div class="row"><div><h2>'+esc(s.full_name)+'</h2><p class="small">ثالث متوسط · فصل '+esc(s.class_name||'—')+' · متابعة فردية تُطبع باسم الطالب</p></div><div class="row"><span class="mini-tag">'+(p.target?'ضمن مستهدفي المتابعة':'غير مضاف للمستهدفين')+'</span>'+(S.scope==='all'?'<button class="btn '+(p.target?'danger':'subtle')+'" id="toggleTarget">'+(p.target?'إخراج من قائمة المستهدفين':'إضافة الطالب للمستهدفين')+'</button>':'')+'</div></div><div class="line"></div><div class="toolbar"><div class="field"><label>نوع الكشف</label><select id="period">'+[['day','يومي'],['week','أسبوعي'],['month','شهري']].map(a=>'<option value="'+a[0]+'" '+(S.period===a[0]?'selected':'')+'>'+a[1]+'</option>').join('')+'</select></div><div class="field"><label>اختر التاريخ</label><input type="date" id="anchor" value="'+esc(S.anchor)+'"></div><div class="field"><label>المادة في الكشف</label><select id="subjectFilter">'+[['all','كل المواد'],...subjectChoices().map(x=>[x,SUBJECTS[x]])].filter(x=>S.scope==='all'||x[0]!=='all'||S.scope==='all').map(a=>'<option value="'+a[0]+'" '+(S.subjectFilter===a[0]?'selected':'')+'>'+a[1]+'</option>').join('')+'</select></div><button class="btn primary" id="printSheet">طباعة الكشف '+durationLabel[S.period]+'</button><button class="btn" id="newIntervention">+ تسجيل متابعة</button></div><div class="note">يتضمن الكشف مؤشرات الضعف من آخر قياس، وسجل الإجراءات في الفترة المحددة. لا يغير نتائج الاختبارات ولا يعتمد الإتقان تلقائيًا.</div><div class="section-head"><h2>خطاب رسمي للمتابعة</h2></div><p class="small">يُنشأ الخطاب للطباعة وتُحفظ حالته «أُعد للطباعة». لا يُعد مسلّمًا حتى توثّق الاستلام بنفسك.</p><div class="letters">'+Object.entries(RECIPIENTS).map(([key,title])=>'<button class="btn alert" data-letter="'+key+'">خطاب '+title+'</button>').join('')+'</div>'+indicatorsHtml()+eventHtml()+'</section>'}
+function renderProfile(){if(!S.profile)return;const host=document.getElementById('profileHost');if(!host)return;host.innerHTML=profileHtml();wireProfile()}
+function render(){const list=S.roster,total=list.filter(x=>x.followup_target).length;
+ app.innerHTML='<div class="banner"><div><h1>برنامج المتابعة الميدانية لإتقان المؤشرات</h1><p>ملف فردي رسمي، متابعة ١٢٠ طالبًا فأكثر، وكشوف قابلة للطباعة يوميًا وأسبوعيًا وشهريًا.</p></div><span class="tag">المستهدفون: '+fmt(total)+' / ١٢٠</span></div>'+kpis()+'<div class="layout">'+sidebar()+'<div id="profileHost">'+(S.profile?profileHtml():'<section class="empty"><h2>اختر طالبًا من الكشف</h2><p>ستظهر مؤشرات الضعف الفعلية، وسجل المتابعة، ونسخ الخطابات الرسمية القابلة للطباعة.</p></section>')+'</div></div>';
+ wireSidebar();wireProfile();
+}
+function wireSidebar(){
+ const q=document.getElementById('studentSearch');if(q)q.addEventListener('input',e=>{S.query=e.target.value;refreshSidebar()});
+ const c=document.getElementById('classFilter');if(c)c.onchange=e=>{S.classFilter=e.target.value;refreshSidebar()};
+ const f=document.getElementById('displayFilter');if(f)f.onchange=e=>{S.displayFilter=e.target.value;refreshSidebar()};
+ document.querySelectorAll('[data-student]').forEach(b=>b.onclick=()=>loadProfile(b.dataset.student));
+ const target=document.getElementById('cohort120');if(target)target.onclick=addFirst120;
+}
+function refreshSidebar(){
+ const side=app.querySelector('aside');if(side){const container=document.createElement('div');container.innerHTML=sidebar();side.replaceWith(container.firstChild);wireSidebar();}
+}
+function wireProfile(){
+ const p=document.getElementById('period');if(p)p.onchange=e=>{S.period=e.target.value;loadProfile(S.studentId)};
+ const d=document.getElementById('anchor');if(d)d.onchange=e=>{S.anchor=e.target.value;loadProfile(S.studentId)};
+ const s=document.getElementById('subjectFilter');if(s)s.onchange=e=>{S.subjectFilter=e.target.value;renderProfile()};
+ const newBtn=document.getElementById('newIntervention');if(newBtn)newBtn.onclick=openIntervention;
+ const print=document.getElementById('printSheet');if(print)print.onclick=()=>preparePrint(sheetHtml());
+ const toggle=document.getElementById('toggleTarget');if(toggle)toggle.onclick=toggleTarget;
+ document.querySelectorAll('[data-letter]').forEach(b=>b.onclick=()=>makeLetter(b.dataset.letter));
+ document.querySelectorAll('[data-delivery]').forEach(b=>b.onclick=()=>changeDelivery(b.dataset.delivery,b.dataset.deliveryStatus));
+}
+async function loadRoster(){
+ const d=await api('roster');S.roster=d.students||[];S.scope=d.scope||'all';S.teacher=d.teacher_label||'معلم المادة';S.subjectFilter='all';if(S.studentId&&!S.roster.some(x=>x.id===S.studentId)){S.studentId='';S.profile=null}render();
+}
+async function loadProfile(id){if(!id)return;S.studentId=id;S.profile=null;render();const host=document.getElementById('profileHost');if(host)host.innerHTML='<div class="loading">جارٍ قراءة مؤشرات الطالب وسجله…</div>';
+ try{const d=await api('profile',{student_id:id,period:S.period,anchor_date:S.anchor});if(S.studentId!==id)return;S.profile=d;render()}catch(e){S.profile=null;render();toast(e.message)}}
+async function addFirst120(){
+ if(S.scope!=='all'||S.busy)return;
+ const already=S.roster.filter(x=>x.followup_target).length;
+ const sorted=[...S.roster].sort((a,b)=>b.weak-a.weak||b.measured-a.measured||String(a.full_name).localeCompare(String(b.full_name),'ar'));
+ const desired=sorted.slice(0,Math.min(120,sorted.length));
+ const missing=desired.filter(x=>!x.followup_target);
+ if(!missing.length){toast('الطلاب الأعلى أولوية مضافون بالفعل لقائمة المتابعة.');return}
+ if(!confirm('إضافة '+missing.length+' طالبًا إلى قائمة المتابعة؟ يعتمد الترتيب على عدد مؤشرات الضعف المقاسة، ولن تُرسل أي تكليفات أو خطابات تلقائيًا.'))return;
+ try{S.busy=true;await api('add_targets',{student_ids:missing.map(x=>x.id)});await loadRoster();toast('تمت إضافة المجموعة المستهدفة. العدد الحالي: '+S.roster.filter(x=>x.followup_target).length+'.')}catch(e){toast(e.message)}finally{S.busy=false}
+}
+async function toggleTarget(){
+ if(S.busy)return;const p=S.profile;if(!p)return;
+ if(p.target&&!confirm('إخراج هذا الطالب من قائمة المستهدفين؟ لن تُحذف سجلات المتابعة السابقة.'))return;
+ try{S.busy=true;if(p.target)await api('remove_target',{student_id:S.studentId});else await api('add_targets',{student_ids:[S.studentId]});await loadRoster();await loadProfile(S.studentId);toast('تم تحديث قائمة المستهدفين.')}catch(e){toast(e.message)}finally{S.busy=false}
+}
+function updateIndicatorOptions(){
+ const subj=form.elements.subject_key.value,opts=(S.profile?.indicators||[]).filter(x=>x.subject_key===subj&&Number(x.percent)<80);
+ form.elements.indicator.innerHTML='<option value="general">متابعة عامة للمادة دون ربط بمؤشر مقاس</option>'+opts.map((x,i)=>'<option value="'+esc(x.outcome_code)+'|'+x.indicator_index+'">'+pct(x.percent)+' — '+esc((x.indicator_text||x.outcome_code).slice(0,170))+'</option>').join('');
+}
+function openIntervention(){
+ if(!S.profile)return;form.reset();document.getElementById('followupDialogStudent').textContent='الطالب: '+S.profile.student.full_name;
+ form.elements.event_date.value=today();form.elements.subject_key.value=S.scope==='all'?'reading':S.scope;form.elements.subject_key.disabled=S.scope!=='all';
+ updateIndicatorOptions();dialog.showModal();
+}
+form.elements.subject_key.onchange=updateIndicatorOptions;
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dialog.close());
+form.addEventListener('submit',async e=>{
+ e.preventDefault();if(S.busy||!S.profile)return;
+ const t=form.elements,value=t.indicator.value,parts=value==='general'?[]:value.split('|');
+ if(value!=='general'&&(!value||parts.length!==2)){toast('اختر مؤشرًا صحيحًا أو متابعة عامة.');return}
+ const payload={student_id:S.studentId,event_type:'intervention',event_date:t.event_date.value,subject_key:t.subject_key.value,action_type:t.action_type.value,execution_status:t.execution_status.value,attendance:t.attendance.value,next_date:t.next_date.value||null,note:t.note.value.trim(),outcome_code:parts[0]||null,indicator_index:parts[1]?Number(parts[1]):null};
+ try{S.busy=true;document.getElementById('saveFollowup').disabled=true;await api('save_event',payload);dialog.close();await loadProfile(S.studentId);await loadRoster();await loadProfile(S.studentId);toast('حُفظت متابعة الطالب في قاعدة البيانات.')}catch(err){toast(err.message)}finally{S.busy=false;document.getElementById('saveFollowup').disabled=false}
+});
+async function changeDelivery(id,status){
+ if(!confirm(status==='delivered'?'هل تسلّم المستلم الخطاب بالفعل؟':'هل وصل رد فعلي على الخطاب؟'))return;
+ try{await api('delivery',{event_id:Number(id),delivery_status:status});await loadProfile(S.studentId);toast('تم حفظ حالة المخاطبة الرسمية.')}catch(e){toast(e.message)}
+}
+async function init(){
+ const session=getSession();S.anchor=today();if(!session){app.innerHTML='<div class="empty warning"><h2>خاص بمعلمي تمكّن</h2><p>للاطلاع على بيانات الطلاب وكشوفهم الرسمية، افتح المنصة وسجّل الدخول بحساب معلم.</p><a href="./lugati-complete.html">العودة لتسجيل الدخول</a></div>';return}
+ S.token=session.token;
+ try{await loadRoster()}catch(e){app.innerHTML='<div class="empty warning"><h2>تعذر فتح ملفات المتابعة</h2><p>'+esc(e.message)+'</p><button id="retryFollowup" class="btn primary">إعادة المحاولة</button></div>';document.getElementById('retryFollowup').onclick=init}
+}
+init();
+})();
