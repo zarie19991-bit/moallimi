@@ -1949,6 +1949,10 @@ async function teacherPaperReviewSave(db:any,b:Row,owner:Row){
 export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(String(b.action).startsWith('assessment_'))return await studentAction(db,b);
  const owner=await teacher(db,req);
+ if(String(b.action).startsWith('teacher_followup_')){
+  const { handleFollowup } = await import('./student-followup.ts');
+  return await handleFollowup(db,b,owner,{metadata,canonical,scopedAttempt});
+ }
  if(String(b.action).startsWith('teacher_scan_')){
   const { handlePaperScan } = await import('./paper-scan.ts');
   return await handlePaperScan(db,b,owner);
@@ -2162,5 +2166,6 @@ export async function handleAssessments(db:any,req:Request,b:Row):Promise<Row> {
  if(b.action==='teacher_build_forms') {if(!SUBJECTS.includes(b.subject))fail('المادة غير صحيحة.');const pool=await fullPool(db,b.subject),expected=FRAMEWORK.filter(i=>i.subject===b.subject).length*30;if(pool.length!==expected)fail(`لم يكتمل البنك المراجع للمادة: ${pool.length} من ${expected}.`,409);const bank_hash=await hash(JSON.stringify(pool));const forms=buildForms(pool,b.subject);for(const f of forms){f.signature=await hash(f.signature);f.bank_hash=bank_hash;}const result=must(await db.rpc('replace_nafes_simulation_forms',{payload:forms}));return{ok:true,subject:b.subject,forms:60,question_slots:1800,unique_questions:new Set(forms.flatMap(f=>f.questions.map((q:Row)=>q.id))).size,result};}
  fail('إجراء غير معروف.');
 }
+
 
 

@@ -6,6 +6,7 @@
  const archive=document.createElement('a');archive.className='ml-nav-link';archive.href='my-tests.html';archive.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 4h18v5H3z M5 9v12h14V9 M9 13h6"/></svg><span>اختباراتي السابقة</span>';
  if(location.pathname.endsWith('/my-tests.html')){archive.classList.add('is-current');archive.setAttribute('aria-current','page')}
  side.querySelector('.ml-nav-group')?.appendChild(archive);
+ const followup=document.createElement('a');followup.className='ml-nav-link';followup.href='student-followup.html';followup.textContent='متابعة الطالب وخطة الإتقان';side.querySelector('.ml-nav-group')?.appendChild(followup);
  const mobile=window.matchMedia('(max-width: 1000px)');
  const setOpen=value=>{side.classList.toggle('is-open',value);open.setAttribute('aria-expanded',String(value));backdrop.hidden=!value;document.body.classList.toggle('ml-nav-open',value);if(mobile.matches)side.inert=!value;if(value)close.focus();else open.focus()};
  open.addEventListener('click',()=>setOpen(true));close.addEventListener('click',()=>setOpen(false));backdrop.addEventListener('click',()=>setOpen(false));
@@ -16,3 +17,4 @@
  const showStudents=()=>{if(location.hash==='#students'&&typeof window.openStudentsModal==='function'){document.getElementById('navStudentsBtn')?.click()}};
  window.addEventListener('hashchange',showStudents);document.addEventListener('DOMContentLoaded',showStudents,{once:true});
 })();
+
