@@ -68,6 +68,9 @@ tamakkun-nafes-school-plan-entry.js
 tamakkun-nafes-school-plan.js
 tamakkun-nafes-school-plan.css
 tamakkun-nafes-school-plan.html
+tamakkun-individual-followup.html
+tamakkun-individual-followup.css
+tamakkun-individual-followup.js
 tamakkun-competition-polish.css
 tamakkun-teacher-workspace.css
 tamakkun-ux-v3.css
