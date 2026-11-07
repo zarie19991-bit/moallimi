@@ -228,3 +228,8 @@ tamakkun-teacher-review.js
 tamakkun-lughati-catalog.js
 tamakkun-remedial-studio.js
 tamakkun-student-diagnostics.js
+
+student-followup.html
+student-followup.css
+student-followup.js
+student-followup-core.js

@@ -1,0 +1,26 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {FRAMEWORK} from '../supabase/functions/nafes-exam/framework.ts';
+const require=createRequire(import.meta.url),{JSDOM}=require(process.env.JSDOM_MODULE||'jsdom');
+const html=fs.readFileSync(new URL('../student-followup.html',import.meta.url),'utf8').replace(/<script[\s\S]*?<\/script>/g,'');
+const dom=new JSDOM(html,{url:'https://example.test/student-followup.html',runScripts:'outside-only'}),w=dom.window,$=s=>w.document.querySelector(s),click=s=>$(s).click();
+const students=Array.from({length:120},(_,i)=>({id:`11111111-1111-4111-8111-${String(i+1).padStart(12,'0')}`,full_name:`طالب تجريبي ${i+1}`,class_name:'أ',is_active:true}));
+const saved=new Map(),indicator=FRAMEWORK.find(i=>i.subject==='reading'),now=Date.now(),attempts=[1,2].map(n=>({id:`22222222-2222-4222-8222-${String(n).padStart(12,'0')}`,source:'assessment',title:`اختبار القراءة ${n}`,started_at:new Date(now-n*86400000).toISOString(),submitted_at:new Date(now-n*86400000).toISOString(),score:1,total:3,questions:[0,1,2].map(k=>({id:`q${n}${k}`,question_fingerprint:`fp${n}${k}`,question:'اختر معنى المفردة في السياق.',subject:'reading',indicator_key:indicator.key,indicator_text:indicator.text,answer:0,correct:k===0,scorable:true,cognitive_level:'knowledge'}))}));
+let prints=0;w.print=()=>prints++;w.confirm=()=>true;
+w.NafesTeacher={getKey:()=>true,ensureProfile:async()=>{},getScope:()=> 'all',requireKey(){},async api(action,b){
+ if(action==='teacher_followup_roster')return{students,plans:[...saved.values()],next_cursor:null};
+ if(action==='teacher_followup_student')return structuredClone({student:students.find(s=>s.id===b.student_id),attempts:b.source==='assessment'?attempts:[],plans:[...saved.values()].filter(p=>p.student_id===b.student_id),indicators:FRAMEWORK,next_cursor:null});
+ if(action==='teacher_followup_save'){const plan={student_id:b.student_id,subject:b.subject,payload:b.payload,version:b.version+1};saved.set(b.student_id+':'+b.subject,plan);return structuredClone({plan});}throw Error(action);
+}};
+for(const name of ['student-followup-core.js','student-followup.js'])w.eval(fs.readFileSync(new URL('../'+name,import.meta.url),'utf8'));
+const tick=()=>new Promise(r=>setTimeout(r,10)),input=(s,v)=>{const e=$(s);e.value=v;e.dispatchEvent(new w.Event('input',{bubbles:true}));};
+await tick();assert.equal(w.document.querySelectorAll('[data-open]').length,120);click('[data-open]');await tick();click('[data-tab=history]');for(const e of w.document.querySelectorAll('[data-review]')){e.value='independent';e.dispatchEvent(new w.Event('input',{bubbles:true}));}click('#savePlan');await tick();click('[data-tab=overview]');assert.ok($('#panel').textContent.includes('تحتاج دعمًا'));click('[data-add]');input('[data-field=activity]','قراءة فقرة قصيرة، تحديد القرائن، ثم حل خمسة أسئلة جديدة ومناقشة الأخطاء.');input('[data-field=responsible]','معلم المادة وولي الأمر');input('[data-field=due]','2026-11-12');input('[data-field=retest]','2026-11-19');click('#savePlan');await tick();assert.equal(saved.size,1);assert.equal([...saved.values()][0].payload.tasks.length,1);
+click('[data-tab=notes]');input('#noteDate','2026-11-07');input('#noteRecipient','ولي الأمر');input('#noteText','تم الاتفاق على عشر دقائق يوميًا للتدريب.');click('#addNote');click('#savePlan');await tick();assert.equal([...saved.values()][0].payload.notes.length,1);
+input('#school','مدرسة الاختبار');input('#teacher','معلم المادة');input('#letterDate','2026-11-07');input('#followDate','2026-11-19');click('#printOne');await tick();assert.equal(prints,1);assert.equal(w.document.querySelectorAll('.letter').length,1);assert.ok($('#printArea').textContent.includes('طالب تجريبي 1'));
+fs.writeFileSync('/tmp/followup-letter-qa.html','<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><style>'+fs.readFileSync(new URL('../student-followup.css',import.meta.url),'utf8')+'</style><body><div id="printArea">'+$('#printArea').innerHTML+'</div></body></html>');
+click('#selectAll');click('#printSelected');await tick();assert.equal(prints,2);assert.equal(w.document.querySelectorAll('.letter').length,120);assert.ok(w.document.querySelectorAll('.letter')[119].textContent.includes('طالب تجريبي 120'));
+w.document.querySelectorAll('[data-open]')[1].click();await tick();click('[data-tab=plan]');assert.equal(w.document.querySelectorAll('.task').length,0);
+click('[data-tab=skills]');click('[data-add]');input('[data-field=activity]','<img src=x onerror=alert(1)>');click('#savePlan');await tick();click('#printOne');await tick();assert.equal(w.document.querySelectorAll('#printArea img').length,0);assert.ok($('#printArea').textContent.includes('<img'));
+w.dispatchEvent(new w.CustomEvent('nafes:auth-changed',{detail:{authenticated:false}}));assert.equal($('#printArea').innerHTML,'');assert.equal($('#student').innerHTML,'');assert.equal(w.document.querySelectorAll('[data-open]').length,0);
+console.log('PASS DOM: 120 roster; independent reviews; support diagnosis; task and contact save; individual and 120 separate letters; student isolation; HTML escaping; logout clears private data.');dom.window.close();

@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import core from '../student-followup-core.js';
+import {cleanPlan,handleFollowup} from '../supabase/functions/nafes-exam/student-followup.ts';
+import {FRAMEWORK} from '../supabase/functions/nafes-exam/framework.ts';
+const indicator=FRAMEWORK.find(i=>i.subject==='math'),now=Date.parse('2026-11-07T12:00:00Z');
+function attempt(id,day,corrects=[true,true,true]){return{id,source:'assessment',submitted_at:`2026-11-${day}T10:00:00Z`,questions:corrects.map((correct,i)=>({id:id+i,question_fingerprint:id+i,indicator_key:indicator.key,subject:'math',answer:0,scorable:true,correct,cognitive_level:'knowledge'}))};}
+function run(as,modes={}){return core.diagnose([indicator],as,[{subject:'math',payload:{reviews:Object.fromEntries(as.map(a=>['assessment:'+a.id,{mode:modes[a.id]||'independent'}]))}}],now)[0];}
+test('unmeasured and sparse evidence are not weakness',()=>{assert.equal(run([]).status,'لم تُقَس');assert.equal(run([attempt('a','01',[false])]).status,'أدلة غير كافية');});
+test('practice and unreviewed attempts cannot establish mastery',()=>{assert.equal(run([attempt('a','01'),attempt('b','03')],{a:'practice',b:'unverified'}).count,0);});
+test('blank answers and recovery failures do not count as wrong evidence',()=>{const a=attempt('a','01');a.questions.forEach(q=>q.answer=null);const b=attempt('b','03');b.recovery_pending=true;assert.equal(run([a,b]).count,0);});
+test('repeated items do not inflate mastery even across attempts',()=>{const a=attempt('a','01'),b=attempt('b','03');b.questions=a.questions;const s=run([a,b]);assert.equal(s.count,3);assert.equal(s.status,'أدلة غير كافية');});
+test('first assisted exposure prevents a repeated item being called independent',()=>{const a=attempt('a','01'),b=attempt('b','03');b.questions=a.questions;assert.equal(run([a,b],{a:'practice'}).count,0);});
+test('independent diverse evidence supports mastery and separates stability',()=>{const s=run([attempt('a','01'),attempt('b','03')]);assert.equal(s.status,'متقنة');assert.equal(s.stable,false);assert.equal(s.cognitive.knowledge.total,6);});
+test('support uses sufficient evidence and invalid snapshots excluded',()=>{assert.equal(run([attempt('a','01',[false,false,false]),attempt('b','03',[false,true,false])]).status,'تحتاج دعمًا');const a=attempt('a','01');a.snapshot_warning='invalid';assert.equal(run([a]).count,0);});
+test('old evidence not counted in current mastery',()=>{const a=attempt('a','01');a.submitted_at='2025-11-01T10:00:00Z';assert.equal(run([a]).count,0);});
+const empty={tasks:[],notes:[],reviews:{}};
+test('plan validator rejects foreign subject and invalid dates',()=>{assert.throws(()=>cleanPlan({...empty,tasks:[{indicator_key:indicator.key,status:'planned'}]},'reading'));assert.throws(()=>cleanPlan({...empty,notes:[{date:'2026-99-01'}]},'math'));assert.throws(()=>cleanPlan({...empty,notes:[{date:'2026-02-30'}]},'math'));assert.deepEqual(cleanPlan(empty,'math'),empty);});
+const student='11111111-1111-4111-8111-111111111111';
+function queued(responses){const calls=[];return {calls,from(table){calls.push({table,ops:[]});const call=calls.at(-1),q=new Proxy({}, {get(_,key){if(key==='then')return(resolve,reject)=>Promise.resolve(responses.shift()).then(resolve,reject);return(...args)=>{call.ops.push([key,...args]);return q;};}});return q;}};}
+test('server denies cross-subject writes before database mutation',async()=>{const db=queued([{data:{id:student}}]);await assert.rejects(()=>handleFollowup(db,{action:'teacher_followup_save',student_id:student,subject:'science',version:0,payload:empty},{subject_scope:'math'},{}),e=>e.status===403);assert.equal(db.calls.length,1);});
+test('optimistic update rejects stale version',async()=>{const db=queued([{data:{id:student}},{data:null}]);await assert.rejects(()=>handleFollowup(db,{action:'teacher_followup_save',student_id:student,subject:'math',version:2,payload:empty},{id:student,subject_scope:'all'},{}),e=>e.status===409);assert.ok(db.calls[1].ops.some(a=>a[0]==='eq'&&a[1]==='version'&&a[2]===2));});
+test('attempt reviews cannot reference another student',async()=>{const db=queued([{data:{id:student}},{data:[]}]);await assert.rejects(()=>handleFollowup(db,{action:'teacher_followup_save',student_id:student,subject:'math',version:0,payload:{...empty,reviews:{['assessment:'+student]:{mode:'independent'}}}},{subject_scope:'math'},{}),e=>e.status===403);});
+test('subject roster hides other-subject plans and private notes',async()=>{const db=queued([{data:[{id:student}]},{data:[{subject:'math',payload:{tasks:[],notes:[{text:'private'}],reviews:{}},version:1}]}]);const r=await handleFollowup(db,{action:'teacher_followup_roster'},{subject_scope:'math'},{});assert.deepEqual(r.plans[0].payload,{tasks:[]});assert.ok(db.calls[1].ops.some(a=>a[0]==='eq'&&a[1]==='subject'&&a[2]==='math'));});
