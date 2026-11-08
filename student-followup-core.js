@@ -23,5 +23,24 @@
   }
   return rows;
  }
- return {policy,diagnose};
+ // Automatic training priorities are descriptive results, not a claim of stable mastery.
+ function trainingNeeds(indicators,attempts,plans){
+  const reviews={},byKey=new Map(indicators.map(i=>[i.key,i])),seen=new Set(),latest=new Map();
+  for(const p of plans||[])for(const [id,r] of Object.entries(p.payload?.reviews||{}))reviews[p.subject+'|'+id]=r;
+  for(const a of [...attempts].sort((a,b)=>Date.parse(a.submitted_at)-Date.parse(b.submitted_at))){
+   if(!a.submitted_at||!Number.isFinite(Date.parse(a.submitted_at)))continue;
+   const groups=new Map();
+   for(const q of a.questions||[]){const i=byKey.get(q.indicator_key);if(!i)continue;
+    const fingerprint=i.key+'|'+(q.question_fingerprint||q.question||q.id),repeat=seen.has(fingerprint),review=reviews[q.subject+'|'+a.source+':'+a.id]||{};
+    if(q.answer!==null&&q.answer!==undefined)seen.add(fingerprint);
+    if(repeat||a.snapshot_warning||a.recovery_pending||q.answer===null||q.answer===undefined||q.scorable===false||typeof q.correct!=='boolean'||['practice','excluded'].includes(review.mode))continue;
+    if(!groups.has(i.key))groups.set(i.key,[]);groups.get(i.key).push(q);
+   }
+   for(const [key,qs] of groups){const i=byKey.get(key),correct=qs.filter(q=>q.correct).length;latest.set(key,{...i,count:qs.length,correct,wrong:qs.length-correct,percent:Math.round(correct*100/qs.length),latest:a.submitted_at,title:a.title||'اختبار',source:a.source,attempt_id:a.id,preliminary:qs.length<policy.minQuestions});}
+  }
+  const measured=[...latest.values()],needs=measured.filter(s=>s.wrong>0&&s.percent<policy.mastery).sort((a,b)=>a.percent-b.percent||b.count-a.count);
+  for(const s of needs){s.status=s.preliminary?'تدريب مقترح · أدلة محدودة':'تحتاج تدريبًا حسب آخر اختبار';s.activity=({reading:'قراءة فقرة مناسبة للمؤشر، وتحديد الدليل من النص، ثم حل ٣ أسئلة جديدة مع تفسير الإجابات.',math:'مراجعة مثال محلول للمؤشر، ثم حل ٣ مسائل متدرجة مع كتابة خطوات الحل والتحقق منها.',science:'شرح المفهوم المرتبط بالمؤشر باستخدام رسم أو مثال، ثم حل ٣ أسئلة تطبيق واستدلال مع تفسير الاختيار.'})[s.subject]||'مراجعة مثال للمؤشر ثم حل ٣ أسئلة جديدة مع تفسير الإجابات.';}
+  return {needs,measured:measured.length,unmeasured:indicators.length-measured.length};
+ }
+ return {policy,diagnose,trainingNeeds};
 });
