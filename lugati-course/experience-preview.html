@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لغتي الخالدة — معاينة تجربة التعلم</title>
+<link rel="stylesheet" href="./experience-preview.css">
+</head>
+<body>
+<div class="preview-bar">معاينة داخلية — لا تظهر للطلاب في النسخة المنشورة</div>
+<header class="app-header">
+  <div class="brand"><div class="brand-mark">ل</div><div><b>لغتي الخالدة</b><small>ثالث متوسط · تجربة تعلم بالإتقان</small></div></div>
+  <nav class="role-tabs" aria-label="تبديل الدور">
+    <button class="active" data-role="student">الطالب</button>
+    <button data-role="teacher">المعلم</button>
+    <button data-role="author">منشئ المحتوى</button>
+  </nav>
+</header>
+
+<main id="app"></main>
+
+<template id="studentTemplate">
+<section class="student-shell">
+  <aside class="course-rail">
+    <div class="student-mini"><div class="avatar">ط</div><div><b>طالب تجريبي</b><small>رحلة الإتقان</small></div></div>
+    <div class="rail-progress"><div><span>إتقان الوحدة</span><b id="unitMastery">18%</b></div><div class="meter"><i style="width:18%"></i></div></div>
+    <div id="lessonNav" class="lesson-nav"></div>
+  </aside>
+
+  <section class="learning-stage">
+    <div class="lesson-topline">
+      <div><span class="crumb">الوحدة الأولى · حقوق وواجبات</span><h1>اسم الفاعل</h1></div>
+      <div class="depth-switch"><span>مستوى الشرح</span><button class="active" data-depth="brief">مركز</button><button data-depth="deep">أعمق</button></div>
+    </div>
+
+    <div class="goal-banner">
+      <div class="goal-icon">◎</div>
+      <div><small>هدفك في هذا الدرس</small><b>أن تتعرف اسم الفاعل، وتصوغه من الثلاثي وغير الثلاثي، ثم تستخدمه في سياق جديد.</b></div>
+      <span class="time-chip">≈ 18 دقيقة</span>
+    </div>
+
+    <div id="microStage"></div>
+
+    <div class="lesson-footer">
+      <button id="prevStep" class="ghost-btn">السابق</button>
+      <div class="step-dots" id="stepDots"></div>
+      <button id="nextStep" class="primary-btn">التالي</button>
+    </div>
+  </section>
+</section>
+</template>
+
+<template id="teacherTemplate">
+<section class="dashboard">
+  <div class="dash-head"><div><span class="crumb">لوحة المعلم</span><h1>أين يحتاج الطلاب تدخلك؟</h1><p>التركيز على المهارة والتعثر، لا على عدد الصفحات المفتوحة.</p></div><button class="primary-btn">تصدير تقرير موجز</button></div>
+  <div class="kpi-grid">
+    <article><small>إتقان الدرس</small><b>72%</b><span class="up">+8% هذا الأسبوع</span></article>
+    <article><small>نجاح المحاولة الأولى</small><b>61%</b><span>يحتاج تحسين الأمثلة</span></article>
+    <article><small>معدل العلاج</small><b>29%</b><span>أعلى تعثر: غير الثلاثي</span></article>
+    <article><small>الاستعادة بعد العلاج</small><b>84%</b><span class="up">العلاج فعّال</span></article>
+  </div>
+  <div class="dash-grid">
+    <article class="panel">
+      <div class="panel-head"><div><h2>خريطة إتقان المهارات</h2><p>اسم الفاعل · 28 طالبًا</p></div><span class="chip">مباشر من محاولات الطالب</span></div>
+      <div class="skill-row"><div><b>المفهوم والدلالة</b><small>24 متقن · 4 يحتاجون دعمًا</small></div><div class="skillbar"><i style="width:86%"></i></div><strong>86%</strong></div>
+      <div class="skill-row"><div><b>الثلاثي على وزن فاعل</b><small>22 متقن · 6 يحتاجون دعمًا</small></div><div class="skillbar"><i style="width:79%"></i></div><strong>79%</strong></div>
+      <div class="skill-row danger"><div><b>غير الثلاثي</b><small>17 متقن · 11 يحتاجون دعمًا</small></div><div class="skillbar"><i style="width:61%"></i></div><strong>61%</strong></div>
+      <div class="skill-row"><div><b>التوظيف في السياق</b><small>20 متقن · 8 يحتاجون دعمًا</small></div><div class="skillbar"><i style="width:71%"></i></div><strong>71%</strong></div>
+    </article>
+    <article class="panel">
+      <div class="panel-head"><div><h2>طلاب يحتاجون تدخلاً</h2><p>مرتبون حسب أولوية التدخل</p></div></div>
+      <div class="student-row"><div class="avatar sm">م</div><div><b>محمد علي</b><small>3 محاولات · غير الثلاثي</small></div><span class="risk">عاجل</span></div>
+      <div class="student-row"><div class="avatar sm">س</div><div><b>سالم أحمد</b><small>محاولتان · التوظيف</small></div><span class="warn">متابعة</span></div>
+      <div class="student-row"><div class="avatar sm">ع</div><div><b>عمر حسن</b><small>محاولتان · الثلاثي</small></div><span class="warn">متابعة</span></div>
+      <button class="ghost-btn wide">فتح التفاصيل الفردية</button>
+    </article>
+  </div>
+  <article class="panel misconception">
+    <div><span class="crumb">أكثر تصور خاطئ شيوعًا</span><h2>الخلط بين «مُكرِم» و«مُكرَم»</h2><p>9 طلاب اختاروا اسم المفعول عند سؤال الصياغة من الفعل غير الثلاثي.</p></div>
+    <div class="teacher-action"><b>التدخل المقترح</b><p>اعرض مقارنة «من قام بالفعل؟ / من وقع عليه الفعل؟» ثم أرسل سؤالين جديدين للطلاب التسعة فقط.</p><button class="primary-btn">إنشاء تدخل علاجي</button></div>
+  </article>
+</section>
+</template>
+
+<template id="authorTemplate">
+<section class="dashboard">
+  <div class="dash-head"><div><span class="crumb">منشئ المحتوى</span><h1>بناء درس تفاعلي دون برمجة</h1><p>كل درس يُبنى من نقاط إتقان، وليس من صفحة نصية واحدة.</p></div><button class="primary-btn">حفظ كمسودة</button></div>
+  <div class="author-grid">
+    <aside class="block-palette panel">
+      <h2>لبنات الدرس</h2>
+      <button data-block="explain">شرح مصغر</button>
+      <button data-block="example">مثال / مثال مضاد</button>
+      <button data-block="sort">تصنيف وسحب</button>
+      <button data-block="scenario">سيناريو متفرع</button>
+      <button data-block="check">تحقق سريع</button>
+      <button data-block="remedial">علاج مصغر</button>
+      <button data-block="performance">مهمة تطبيقية</button>
+    </aside>
+    <section class="builder panel">
+      <div class="panel-head"><div><h2>اسم الفاعل</h2><p>نقطة الإتقان: غير الثلاثي</p></div><span class="chip">85% للدرس · 80% للهدف الأساسي</span></div>
+      <div id="builderCanvas">
+        <div class="builder-block"><span>1</span><div><b>شرح مصغر</b><p>نأتي بالمضارع، نستبدل حرف المضارعة ميمًا مضمومة، ونكسر ما قبل الآخر.</p></div><button>⋮</button></div>
+        <div class="builder-block"><span>2</span><div><b>مثال تفاعلي</b><p>يُكرم ← مُكرِم · يستخرج ← مُستخرِج</p></div><button>⋮</button></div>
+        <div class="builder-block"><span>3</span><div><b>تحقق سريع</b><p>3 بدائل لا تتكرر في المحاولة التالية.</p></div><button>⋮</button></div>
+        <div class="builder-block remedial-block"><span>4</span><div><b>علاج عند التعثر</b><p>يفتح تلقائيًا بعد تكرر الخطأ، ثم يعاد القياس بسؤال مختلف.</p></div><button>⋮</button></div>
+      </div>
+      <button id="addBlock" class="ghost-btn wide">+ أضف لبنة تعليمية</button>
+    </section>
+    <aside class="panel readiness">
+      <h2>فحص الجاهزية</h2>
+      <div class="check ok">✓ هدف قابل للقياس</div>
+      <div class="check ok">✓ أمثلة كافية</div>
+      <div class="check ok">✓ 3 أسئلة لكل نقطة</div>
+      <div class="check ok">✓ تغذية راجعة خاصة</div>
+      <div class="check ok">✓ مسار علاجي</div>
+      <div class="check wait">! يحتاج سؤال نقل تعلم</div>
+      <button class="primary-btn wide" disabled>غير جاهز للنشر</button>
+    </aside>
+  </div>
+</section>
+</template>
+
+<script type="module" src="./experience-preview.js"></script>
+</body>
+</html>
